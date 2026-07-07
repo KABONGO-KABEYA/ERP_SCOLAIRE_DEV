@@ -1,0 +1,12 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.ErpCheckField"
+                        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                        xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
+                        x:Name="Root">
+    <CheckBox Content="{Binding Label, ElementName=Root}"
+              FontFamily="{StaticResource ErpFontFamily}"
+              FontSize="14"
+              Foreground="{StaticResource ErpTextPrimaryBrush}"
+              IsChecked="{Binding IsChecked, ElementName=Root, Mode=TwoWay}"
+              ToolTip="{Binding Label, ElementName=Root}" />
+</UserControl>

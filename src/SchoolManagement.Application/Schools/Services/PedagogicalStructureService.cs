@@ -1,0 +1,501 @@
+namespace SchoolManagement.Application.Schools.Services;
+
+using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Schools.Catalog;
+using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Application.Schools.Interfaces;
+using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Enums;
+using SchoolManagement.Domain.Exceptions;
+
+public sealed class PedagogicalStructureService : IPedagogicalStructureService
+{
+    private static readonly SemaphoreSlim SyncLock = new(1, 1);
+
+    private readonly IRepository<PedagogicalClass> _pedagogicalClassRepository;
+    private readonly IRepository<ClassRoom> _classRoomRepository;
+    private readonly IRepository<Section> _sectionRepository;
+    private readonly IRepository<StudyOption> _studyOptionRepository;
+    private readonly IRepository<AcademicYear> _yearRepository;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public PedagogicalStructureService(
+        IRepository<PedagogicalClass> pedagogicalClassRepository,
+        IRepository<ClassRoom> classRoomRepository,
+        IRepository<Section> sectionRepository,
+        IRepository<StudyOption> studyOptionRepository,
+        IRepository<AcademicYear> yearRepository,
+        IUnitOfWork unitOfWork)
+    {
+        _pedagogicalClassRepository = pedagogicalClassRepository;
+        _classRoomRepository = classRoomRepository;
+        _sectionRepository = sectionRepository;
+        _studyOptionRepository = studyOptionRepository;
+        _yearRepository = yearRepository;
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task EnsureInitializedAsync(Guid schoolId, CancellationToken cancellationToken = default)
+    {
+        await SyncLock.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureSectionsAsync(schoolId, cancellationToken);
+
+            var existing = await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
+            var existingByCode = existing
+                .GroupBy(p => p.TemplateCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var template in RdcPedagogicalCatalog.GetAll())
+            {
+                if (existingByCode.ContainsKey(template.TemplateCode))
+                {
+                    continue;
+                }
+
+                await _pedagogicalClassRepository.AddAsync(new PedagogicalClass
+                {
+                    SchoolId = schoolId,
+                    TemplateCode = template.TemplateCode,
+                    Program = template.Program,
+                    LevelOrder = template.LevelOrder,
+                    DisplayName = template.DisplayName,
+                    HumanitiesSection = template.HumanitiesSection,
+                    StudyOption = template.StudyOption,
+                    MinAge = template.MinAge,
+                    MaxAge = template.MaxAge,
+                    IsEnabled = false
+                }, cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            SyncLock.Release();
+        }
+    }
+
+    public async Task<PedagogicalStructureSummaryDto> GetSummaryAsync(
+        Guid schoolId,
+        bool skipEnsure = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (!skipEnsure)
+        {
+            await EnsureInitializedAsync(schoolId, cancellationToken);
+        }
+
+        var classes = await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
+        var validCodes = RdcPedagogicalCatalog.GetAll()
+            .Select(t => t.TemplateCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        classes = classes.Where(c => validCodes.Contains(c.TemplateCode)).ToList();
+        var classIds = classes.Select(c => c.Id).ToList();
+        var locals = classIds.Count == 0
+            ? []
+            : await _classRoomRepository.FindAsync(
+                c => c.SchoolId == schoolId && c.PedagogicalClassId.HasValue && classIds.Contains(c.PedagogicalClassId.Value),
+                cancellationToken);
+
+        return new PedagogicalStructureSummaryDto(
+            classes.Count,
+            classes.Count(c => c.IsEnabled),
+            locals.Count);
+    }
+
+    public async Task<IReadOnlyList<PedagogicalClassDto>> GetClassesAsync(
+        Guid schoolId,
+        string? search = null,
+        SchoolProgram? program = null,
+        bool? enabledOnly = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureInitializedAsync(schoolId, cancellationToken);
+
+        var classes = await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
+        var validCodes = RdcPedagogicalCatalog.GetAll()
+            .Select(t => t.TemplateCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        classes = classes.Where(c => validCodes.Contains(c.TemplateCode)).ToList();
+        var locals = await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId && c.PedagogicalClassId.HasValue,
+            cancellationToken);
+
+        var localCounts = locals
+            .GroupBy(l => l.PedagogicalClassId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        IEnumerable<PedagogicalClass> query = classes;
+
+        if (program.HasValue)
+        {
+            query = query.Where(c => c.Program == program.Value);
+        }
+
+        if (enabledOnly == true)
+        {
+            query = query.Where(c => c.IsEnabled);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(c =>
+                c.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || c.TemplateCode.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (c.HumanitiesSection?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (c.StudyOption?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        return query
+            .OrderBy(c => c.Program)
+            .ThenBy(c => c.HumanitiesSection)
+            .ThenBy(c => c.StudyOption)
+            .ThenBy(c => c.LevelOrder)
+            .Select(c => MapClass(c, localCounts.GetValueOrDefault(c.Id)))
+            .ToList();
+    }
+
+    public async Task<PedagogicalClassDto> UpdateClassAsync(
+        Guid schoolId,
+        Guid classId,
+        UpdatePedagogicalClassRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var pedagogicalClass = await GetClassOrThrowAsync(schoolId, classId, cancellationToken);
+        pedagogicalClass.IsEnabled = request.IsEnabled;
+        pedagogicalClass.MinAge = request.MinAge;
+        pedagogicalClass.MaxAge = request.MaxAge;
+
+        await _pedagogicalClassRepository.UpdateAsync(pedagogicalClass, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var localCount = (await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId && c.PedagogicalClassId == classId,
+            cancellationToken)).Count;
+
+        return MapClass(pedagogicalClass, localCount);
+    }
+
+    public async Task<IReadOnlyList<PedagogicalClassDto>> BulkUpdateClassesAsync(
+        Guid schoolId,
+        BulkUpdatePedagogicalClassesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var classes = await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
+        var validCodes = RdcPedagogicalCatalog.GetAll()
+            .Select(t => t.TemplateCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        classes = classes.Where(c => validCodes.Contains(c.TemplateCode)).ToList();
+        var map = classes.ToDictionary(c => c.Id);
+
+        foreach (var item in request.Classes)
+        {
+            if (!map.TryGetValue(item.Id, out var pedagogicalClass))
+            {
+                continue;
+            }
+
+            pedagogicalClass.IsEnabled = item.IsEnabled;
+            pedagogicalClass.MinAge = item.MinAge;
+            pedagogicalClass.MaxAge = item.MaxAge;
+            await _pedagogicalClassRepository.UpdateAsync(pedagogicalClass, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await GetClassesAsync(schoolId, cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ClassLocalDto>> GetLocalsAsync(
+        Guid schoolId,
+        Guid pedagogicalClassId,
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var pedagogicalClass = await GetClassOrThrowAsync(schoolId, pedagogicalClassId, cancellationToken);
+
+        var locals = await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId && c.PedagogicalClassId == pedagogicalClassId,
+            cancellationToken);
+
+        if (academicYearId.HasValue)
+        {
+            locals = locals.Where(l => l.AcademicYearId == academicYearId.Value).ToList();
+        }
+
+        return locals
+            .OrderBy(l => l.Name)
+            .Select(l => MapLocal(l, pedagogicalClass))
+            .ToList();
+    }
+
+    public async Task<ClassLocalDto> CreateLocalAsync(
+        Guid schoolId,
+        CreateClassLocalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var pedagogicalClass = await GetClassOrThrowAsync(schoolId, request.PedagogicalClassId, cancellationToken);
+        if (!pedagogicalClass.IsEnabled)
+        {
+            throw new DomainException("Activez d'abord cette classe pédagogique avant d'ajouter des locaux.");
+        }
+
+        var year = (await _yearRepository.FindAsync(
+            y => y.Id == request.AcademicYearId && y.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Année scolaire introuvable.");
+
+        var localName = request.LocalName.Trim();
+        if (string.IsNullOrWhiteSpace(localName))
+        {
+            throw new DomainException("Le nom du local est obligatoire.");
+        }
+
+        var existingLocals = await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId
+                && c.PedagogicalClassId == request.PedagogicalClassId
+                && c.AcademicYearId == request.AcademicYearId,
+            cancellationToken);
+
+        if (existingLocals.Any(l => l.Name.Equals(localName, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new DomainException($"Le local '{localName}' existe déjà pour cette classe.");
+        }
+
+        var sectionId = await ResolveSectionIdAsync(schoolId, pedagogicalClass, cancellationToken);
+        var studyOptionId = await ResolveStudyOptionIdAsync(schoolId, pedagogicalClass, cancellationToken);
+        var code = BuildLocalCode(pedagogicalClass, localName, existingLocals.Count);
+
+        var local = new ClassRoom
+        {
+            SchoolId = schoolId,
+            AcademicYearId = year.Id,
+            PedagogicalClassId = pedagogicalClass.Id,
+            SectionId = sectionId,
+            StudyOptionId = studyOptionId,
+            Code = code,
+            Name = localName,
+            Level = pedagogicalClass.LevelOrder,
+            MaxCapacity = request.MaxCapacity,
+            Observations = request.Observations?.Trim(),
+            IsActive = true
+        };
+
+        await _classRoomRepository.AddAsync(local, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapLocal(local, pedagogicalClass);
+    }
+
+    public async Task<ClassLocalDto> UpdateLocalAsync(
+        Guid schoolId,
+        Guid localId,
+        UpdateClassLocalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var local = await GetLocalOrThrowAsync(schoolId, localId, cancellationToken);
+        var pedagogicalClass = await GetClassOrThrowAsync(schoolId, local.PedagogicalClassId!.Value, cancellationToken);
+
+        var localName = request.LocalName.Trim();
+        if (string.IsNullOrWhiteSpace(localName))
+        {
+            throw new DomainException("Le nom du local est obligatoire.");
+        }
+
+        var siblings = await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId
+                && c.PedagogicalClassId == local.PedagogicalClassId
+                && c.AcademicYearId == local.AcademicYearId
+                && c.Id != localId,
+            cancellationToken);
+
+        if (siblings.Any(l => l.Name.Equals(localName, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new DomainException($"Le local '{localName}' existe déjà pour cette classe.");
+        }
+
+        local.Name = localName;
+        local.MaxCapacity = request.MaxCapacity;
+        local.Observations = request.Observations?.Trim();
+        local.IsActive = request.IsActive;
+
+        await _classRoomRepository.UpdateAsync(local, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapLocal(local, pedagogicalClass);
+    }
+
+    public async Task DeleteLocalAsync(Guid schoolId, Guid localId, CancellationToken cancellationToken = default)
+    {
+        var local = await GetLocalOrThrowAsync(schoolId, localId, cancellationToken);
+        await _classRoomRepository.DeleteAsync(local, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<PedagogicalClass> GetClassOrThrowAsync(Guid schoolId, Guid classId, CancellationToken cancellationToken)
+    {
+        return (await _pedagogicalClassRepository.FindAsync(
+            p => p.Id == classId && p.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Classe pédagogique introuvable.");
+    }
+
+    private async Task<ClassRoom> GetLocalOrThrowAsync(Guid schoolId, Guid localId, CancellationToken cancellationToken)
+    {
+        return (await _classRoomRepository.FindAsync(
+            c => c.Id == localId && c.SchoolId == schoolId && c.PedagogicalClassId.HasValue, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Local introuvable.");
+    }
+
+    private static PedagogicalClassDto MapClass(PedagogicalClass c, int localCount) =>
+        new(
+            c.Id,
+            c.TemplateCode,
+            c.Program,
+            GetProgramLabel(c.Program),
+            c.LevelOrder,
+            c.DisplayName,
+            c.HumanitiesSection,
+            c.StudyOption,
+            c.MinAge,
+            c.MaxAge,
+            c.IsEnabled,
+            localCount);
+
+    private static ClassLocalDto MapLocal(ClassRoom local, PedagogicalClass pedagogicalClass) =>
+        new(
+            local.Id,
+            pedagogicalClass.Id,
+            local.AcademicYearId,
+            pedagogicalClass.DisplayName,
+            local.Name,
+            local.Code,
+            $"{pedagogicalClass.DisplayName} {local.Name}",
+            local.MaxCapacity,
+            local.Observations,
+            local.IsActive);
+
+    private static string GetProgramLabel(SchoolProgram program) => program switch
+    {
+        SchoolProgram.Maternelle => "Maternelle",
+        SchoolProgram.Primaire => "Primaire",
+        SchoolProgram.CTEB => "Éducation de base — CTEB",
+        SchoolProgram.Humanites => "Humanités (cycle long)",
+        SchoolProgram.HumanitesProfessionnelles => "Humanités professionnelles",
+        SchoolProgram.FilieresSpecialisees => "Filières spécialisées",
+        _ => program.ToString()
+    };
+
+    private static string BuildLocalCode(PedagogicalClass pedagogicalClass, string localName, int existingCount)
+    {
+        var suffix = new string(localName
+            .ToUpperInvariant()
+            .Where(char.IsLetterOrDigit)
+            .Take(6)
+            .ToArray());
+
+        if (string.IsNullOrEmpty(suffix))
+        {
+            suffix = $"L{existingCount + 1}";
+        }
+
+        return $"{pedagogicalClass.TemplateCode}-{suffix}";
+    }
+
+    private async Task EnsureSectionsAsync(Guid schoolId, CancellationToken cancellationToken)
+    {
+        var sections = await _sectionRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
+        var required = new (string Code, string Name, EducationCycle Cycle)[]
+        {
+            ("MAT", "Maternelle", EducationCycle.Primaire),
+            ("PRI", "Primaire", EducationCycle.Primaire),
+            ("CTEB", "Éducation de base — CTEB", EducationCycle.Secondaire),
+            ("HUM", "Humanités", EducationCycle.Secondaire),
+            ("HPRO", "Humanités professionnelles", EducationCycle.Secondaire),
+            ("FS", "Filières spécialisées", EducationCycle.Secondaire)
+        };
+
+        foreach (var (code, name, cycle) in required)
+        {
+            if (sections.Any(s => s.Code == code))
+            {
+                continue;
+            }
+
+            await _sectionRepository.AddAsync(new Section
+            {
+                SchoolId = schoolId,
+                Code = code,
+                Name = name,
+                Cycle = cycle
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<Guid> ResolveSectionIdAsync(
+        Guid schoolId,
+        PedagogicalClass pedagogicalClass,
+        CancellationToken cancellationToken)
+    {
+        var code = pedagogicalClass.Program switch
+        {
+            SchoolProgram.Maternelle => "MAT",
+            SchoolProgram.Primaire => "PRI",
+            SchoolProgram.CTEB => "CTEB",
+            SchoolProgram.Humanites => "HUM",
+            SchoolProgram.HumanitesProfessionnelles => "HPRO",
+            SchoolProgram.FilieresSpecialisees => "FS",
+            _ => "PRI"
+        };
+
+        var section = (await _sectionRepository.FindAsync(
+            s => s.SchoolId == schoolId && s.Code == code, cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException($"Section '{code}' introuvable. Réinitialisez la structure pédagogique.");
+
+        return section.Id;
+    }
+
+    private async Task<Guid?> ResolveStudyOptionIdAsync(
+        Guid schoolId,
+        PedagogicalClass pedagogicalClass,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(pedagogicalClass.StudyOption)
+            || pedagogicalClass.Program is not (
+                SchoolProgram.Humanites
+                or SchoolProgram.HumanitesProfessionnelles
+                or SchoolProgram.FilieresSpecialisees))
+        {
+            return null;
+        }
+
+        var optionCode = new string(
+            $"{pedagogicalClass.HumanitiesSection}-{pedagogicalClass.StudyOption}"
+                .ToUpperInvariant()
+                .Where(char.IsLetterOrDigit)
+                .Take(20)
+                .ToArray());
+
+        var options = await _studyOptionRepository.FindAsync(o => o.SchoolId == schoolId, cancellationToken);
+        var existing = options.FirstOrDefault(o => o.Code == optionCode);
+        if (existing is not null)
+        {
+            return existing.Id;
+        }
+
+        var option = new StudyOption
+        {
+            SchoolId = schoolId,
+            Code = optionCode,
+            Name = pedagogicalClass.StudyOption,
+            Cycle = EducationCycle.Secondaire,
+            HumanitiesSection = pedagogicalClass.HumanitiesSection
+        };
+
+        await _studyOptionRepository.AddAsync(option, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return option.Id;
+    }
+}

@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+
+    <Style x:Key="ErpFieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="ErpFieldRequiredMark" TargetType="TextBlock">
+        <Setter Property="Text" Value="*" />
+        <Setter Property="Foreground" Value="{StaticResource ErpDangerBrush}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Margin" Value="2,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+
+    <Style x:Key="ErpFieldErrorText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource ErpDangerBrush}" />
+        <Setter Property="Margin" Value="0,6,0,0" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="ErpInputBorder" TargetType="Border">
+        <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
+        <Setter Property="CornerRadius" Value="{StaticResource ErpInputRadius}" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource ErpInputBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Effect" Value="{x:Null}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource ErpInputBorderHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource ErpInputFocusBrush}" />
+                <Setter Property="Effect" Value="{StaticResource ErpInputFocusShadow}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ErpInputTextBoxCore" TargetType="TextBox">
+        <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
+        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="{StaticResource ErpInputPadding}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{StaticResource ErpPrimaryBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource ErpPrimaryLightBrush}" />
+    </Style>
+
+    <Style x:Key="ErpInputComboBoxCore" TargetType="ComboBox">
+        <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
+        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,0,36,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ErpInputDatePickerCore" TargetType="DatePicker">
+        <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
+        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ErpValidationSuccessIcon" TargetType="materialDesign:PackIcon">
+        <Setter Property="Kind" Value="CheckCircle" />
+        <Setter Property="Width" Value="18" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Foreground" Value="{StaticResource ErpSuccessBrush}" />
+    </Style>
+
+    <Style x:Key="ErpValidationErrorIcon" TargetType="materialDesign:PackIcon">
+        <Setter Property="Kind" Value="AlertCircle" />
+        <Setter Property="Width" Value="18" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Foreground" Value="{StaticResource ErpDangerBrush}" />
+    </Style>
+
+    <Style x:Key="ErpFieldIcon" TargetType="materialDesign:PackIcon">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{StaticResource ErpTextSecondaryBrush}" />
+    </Style>
+
+</ResourceDictionary>

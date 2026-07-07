@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SchoolManagement.API/SchoolManagement.API.csproj" />
+    <Project Path="src/SchoolManagement.Application/SchoolManagement.Application.csproj" />
+    <Project Path="src/SchoolManagement.Desktop/SchoolManagement.Desktop.csproj" />
+    <Project Path="src/SchoolManagement.Domain/SchoolManagement.Domain.csproj" />
+    <Project Path="src/SchoolManagement.Infrastructure/SchoolManagement.Infrastructure.csproj" />
+    <Project Path="src/SchoolManagement.Shared/SchoolManagement.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SchoolManagement.IntegrationTests/SchoolManagement.IntegrationTests.csproj" />
+    <Project Path="tests/SchoolManagement.UnitTests/SchoolManagement.UnitTests.csproj" />
+  </Folder>
+</Solution>

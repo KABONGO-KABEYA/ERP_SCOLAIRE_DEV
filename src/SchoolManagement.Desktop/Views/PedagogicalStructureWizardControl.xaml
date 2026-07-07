@@ -1,0 +1,148 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.PedagogicalStructureWizardControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Statistiques -->
+        <UniformGrid x:Name="StatsPanel"
+                     Grid.Row="0"
+                     Margin="0,0,0,16"
+                     Columns="6"
+                     Rows="1" />
+
+        <!-- Recherche et filtres -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox"
+                     materialDesign:HintAssist.Hint="Rechercher une section, une option ou une classe…"
+                     Style="{StaticResource ErpTextBox}"
+                     TextChanged="SearchBox_OnTextChanged" />
+            <StackPanel Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Orientation="Horizontal">
+                <ToggleButton x:Name="FilterAllChip"
+                              Checked="FilterChip_OnChecked"
+                              Content="Toutes"
+                              Style="{StaticResource ErpWizardFilterChip}" />
+                <ToggleButton x:Name="FilterEnabledChip"
+                              Checked="FilterChip_OnChecked"
+                              Content="Activées"
+                              Style="{StaticResource ErpWizardFilterChip}" />
+                <ToggleButton x:Name="FilterDisabledChip"
+                              Checked="FilterChip_OnChecked"
+                              Content="Inactives"
+                              Style="{StaticResource ErpWizardFilterChip}" />
+                <ToggleButton x:Name="FilterNoLocalsChip"
+                              Checked="FilterChip_OnChecked"
+                              Content="Sans locaux"
+                              Style="{StaticResource ErpWizardFilterChip}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 3 colonnes -->
+        <Grid Grid.Row="2" MinHeight="420">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" MinWidth="240" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="320" MinWidth="280" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="#FFFFFF"
+                    BorderBrush="{StaticResource ErpBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Padding="12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Margin="4,4,4,12"
+                               Style="{StaticResource ErpSubtitle}"
+                               Text="Sections" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="SectionsPanel" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border x:Name="MiddlePanelHost"
+                    Grid.Column="2"
+                    Background="#FFFFFF"
+                    BorderBrush="{StaticResource ErpBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Padding="16"
+                    Style="{StaticResource ErpFadeIn}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock x:Name="MiddleTitleText"
+                                   Style="{StaticResource ErpSubtitle}"
+                                   Text="Options et classes" />
+                        <TextBlock x:Name="MiddleSubtitleText"
+                                   Margin="0,4,0,0"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="Sélectionnez une section pour commencer."
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="MiddlePanel" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border x:Name="RightPanelHost"
+                    Grid.Column="4"
+                    Background="#FFFFFF"
+                    BorderBrush="{StaticResource ErpBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Padding="16"
+                    Style="{StaticResource ErpFadeIn}">
+                <DockPanel>
+                    <TextBlock x:Name="RightTitleText"
+                               DockPanel.Dock="Top"
+                               Margin="0,0,0,4"
+                               Style="{StaticResource ErpSubtitle}"
+                               Text="Locaux" />
+                    <TextBlock x:Name="RightSubtitleText"
+                               DockPanel.Dock="Top"
+                               Margin="0,0,0,12"
+                               Foreground="{StaticResource ErpTextSecondaryBrush}"
+                               Text="Sélectionnez une classe pour gérer ses locaux."
+                               TextWrapping="Wrap" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="RightPanel" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- Actions -->
+        <DockPanel Grid.Row="3" Margin="0,16,0,0">
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                       Text="{Binding StatusMessage}" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button Command="{Binding SearchClassesCommand}"
+                        Content="Actualiser"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button Margin="8,0,0,0"
+                        Command="{Binding SaveClassesCommand}"
+                        Content="Enregistrer la configuration"
+                        Style="{StaticResource ErpPrimaryButton}" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</UserControl>

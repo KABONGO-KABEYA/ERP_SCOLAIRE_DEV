@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Thickness x:Key="ErpPagePadding">20</Thickness>
+    <Thickness x:Key="ErpCardPadding">20</Thickness>
+    <Thickness x:Key="ErpSectionSpacing">0,16,0,0</Thickness>
+    <Thickness x:Key="ErpItemSpacing">0,0,20,0</Thickness>
+    <CornerRadius x:Key="ErpCardRadius">16</CornerRadius>
+    <CornerRadius x:Key="ErpButtonRadius">10</CornerRadius>
+    <CornerRadius x:Key="ErpInputRadius">10</CornerRadius>
+    <CornerRadius x:Key="ErpNavItemRadius">10</CornerRadius>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpNavItemHeight">48</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpButtonHeight">42</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpInputHeight">46</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthMatricule">200</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthStandard">260</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthGender">180</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthDate">220</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthCountry">200</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFormColumnGap">20</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFormRowGap">18</sys:Double>
+    <Thickness x:Key="ErpFieldLabelSpacing">0,0,0,6</Thickness>
+    <Thickness x:Key="ErpFormCellMargin">0,0,20,18</Thickness>
+    <Thickness x:Key="ErpFormGroupSpacing">0,32,0,0</Thickness>
+    <Thickness x:Key="ErpInputPadding">14,0,14,0</Thickness>
+
+</ResourceDictionary>

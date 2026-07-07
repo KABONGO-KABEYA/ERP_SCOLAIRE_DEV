@@ -1,0 +1,128 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.GradesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Style="{StaticResource ErpFadeIn}">
+            <TextBlock Style="{StaticResource ErpPageTitle}" Text="Gestion des notes" />
+            <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="Évaluations, saisie des notes et calcul des moyennes" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,16,0,12" Style="{StaticResource ErpCard}">
+            <WrapPanel>
+                <ComboBox Width="200" Margin="0,0,12,0"
+                          DisplayMemberPath="Name"
+                          ItemsSource="{Binding Lookups.ClassRooms}"
+                          SelectedItem="{Binding SelectedClass}"
+                          Style="{StaticResource ErpComboBox}"
+                          materialDesign:HintAssist.Hint="Classe" />
+                <ComboBox Width="180" Margin="0,0,12,0"
+                          DisplayMemberPath="Name"
+                          ItemsSource="{Binding FilteredPeriods}"
+                          SelectedItem="{Binding SelectedPeriod}"
+                          Style="{StaticResource ErpComboBox}"
+                          materialDesign:HintAssist.Hint="Période" />
+                <ComboBox Width="200" Margin="0,0,12,0"
+                          DisplayMemberPath="Name"
+                          ItemsSource="{Binding FilteredCourses}"
+                          SelectedItem="{Binding SelectedCourse}"
+                          Style="{StaticResource ErpComboBox}"
+                          materialDesign:HintAssist.Hint="Cours" />
+                <Button Margin="0,0,8,0" Command="{Binding LoadEvaluationsCommand}" Content="Actualiser" Style="{StaticResource ErpSecondaryButton}" />
+                <Button Command="{Binding CalculateResultsCommand}" Content="Calculer moyennes" Style="{StaticResource ErpPrimaryButton}" />
+            </WrapPanel>
+        </Border>
+
+        <Border Grid.Row="2" Margin="0,0,0,12" Style="{StaticResource ErpCard}" Padding="0">
+            <DataGrid Style="{StaticResource ErpDataGrid}"
+                      BorderThickness="0"
+                      ItemsSource="{Binding Evaluations}"
+                      SelectedItem="{Binding SelectedEvaluation}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding Title}" Header="Évaluation" Width="*" />
+                    <DataGridTextColumn Binding="{Binding CourseName}" Header="Cours" Width="*" />
+                    <DataGridTextColumn Binding="{Binding EvaluationType}" Header="Type" Width="100" />
+                    <DataGridTextColumn Binding="{Binding EvaluationDate}" Header="Date" Width="110" />
+                    <DataGridCheckBoxColumn Binding="{Binding IsOpen}" Header="Ouverte" Width="70" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource ErpCard}">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock VerticalAlignment="Center" Style="{StaticResource ErpSubtitle}" Text="Saisie des notes" />
+                        <Button Margin="16,0,0,0"
+                                Command="{Binding SaveGradesCommand}"
+                                Content="Enregistrer les notes"
+                                Style="{StaticResource ErpPrimaryButton}" />
+                        <Button Margin="8,0,0,0"
+                                Command="{Binding LoadGradeEntriesCommand}"
+                                Content="Recharger"
+                                Style="{StaticResource ErpSecondaryButton}" />
+                    </StackPanel>
+                    <DataGrid Style="{StaticResource ErpDataGrid}"
+                              CanUserAddRows="False"
+                              IsReadOnly="False"
+                              ItemsSource="{Binding GradeEntries}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding Score, UpdateSourceTrigger=PropertyChanged}" Header="Note" Width="80" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsAbsent}" Header="Absent" Width="70" />
+                            <DataGridTextColumn Binding="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" Header="Commentaire" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <StackPanel Grid.Column="2">
+                <Border Style="{StaticResource ErpCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Nouvelle évaluation" />
+                        <TextBox Margin="0,12,0,0"
+                                 materialDesign:HintAssist.Hint="Titre"
+                                 Style="{StaticResource ErpTextBox}"
+                                 Text="{Binding EvaluationTitle}" />
+                        <Button Margin="0,12,0,0"
+                                Command="{Binding CreateEvaluationCommand}"
+                                Content="Créer"
+                                Style="{StaticResource ErpPrimaryButton}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpCard}" Padding="0">
+                    <DataGrid Style="{StaticResource ErpDataGrid}"
+                              BorderThickness="0"
+                              ItemsSource="{Binding PeriodResults}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" />
+                            <DataGridTextColumn Binding="{Binding Average}" Header="Moy." Width="60" />
+                            <DataGridTextColumn Binding="{Binding Rank}" Header="Rang" Width="50" />
+                            <DataGridTextColumn Binding="{Binding Percentage}" Header="%" Width="50" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="4"
+                   Margin="0,12,0,0"
+                   Style="{StaticResource ErpBodySecondary}"
+                   Text="{Binding StatusMessage}"
+                   TextWrapping="Wrap" />
+    </Grid>
+</UserControl>

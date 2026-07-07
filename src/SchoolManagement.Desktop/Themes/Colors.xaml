@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <SolidColorBrush x:Key="ErpPrimaryBrush" Color="#1E5EFF" />
+    <SolidColorBrush x:Key="ErpSidebarBrush" Color="#0F1F3D" />
+    <SolidColorBrush x:Key="ErpSidebarHoverBrush" Color="#1A3A6E" />
+    <SolidColorBrush x:Key="ErpSidebarActiveBrush" Color="#1E5EFF" />
+    <SolidColorBrush x:Key="ErpPageBackgroundBrush" Color="#F5F7FB" />
+    <SolidColorBrush x:Key="ErpCardBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ErpTextPrimaryBrush" Color="#1F2937" />
+    <SolidColorBrush x:Key="ErpTextSecondaryBrush" Color="#6B7280" />
+    <SolidColorBrush x:Key="ErpSuccessBrush" Color="#22C55E" />
+    <SolidColorBrush x:Key="ErpWarningBrush" Color="#F59E0B" />
+    <SolidColorBrush x:Key="ErpDangerBrush" Color="#EF4444" />
+    <SolidColorBrush x:Key="ErpBorderBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="ErpInputBorderBrush" Color="#D9DEE7" />
+    <SolidColorBrush x:Key="ErpInputBorderHoverBrush" Color="#C5CDD8" />
+    <SolidColorBrush x:Key="ErpInputFocusBrush" Color="#1E5EFF" />
+    <SolidColorBrush x:Key="ErpInputErrorBrush" Color="#EF4444" />
+    <SolidColorBrush x:Key="ErpInputReadOnlyBrush" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="ErpInputDisabledBrush" Color="#EEF1F5" />
+    <SolidColorBrush x:Key="ErpBadgeSuccessBgBrush" Color="#DCFCE7" />
+    <SolidColorBrush x:Key="ErpBadgeInfoBgBrush" Color="#E8EFFF" />
+    <SolidColorBrush x:Key="ErpBadgePurpleBgBrush" Color="#F3E8FF" />
+    <SolidColorBrush x:Key="ErpBadgeWarningBgBrush" Color="#FEF3C7" />
+    <SolidColorBrush x:Key="ErpTopBarBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ErpPrimaryLightBrush" Color="#E8EFFF" />
+    <FontFamily x:Key="ErpFontFamily">Segoe UI</FontFamily>
+
+</ResourceDictionary>

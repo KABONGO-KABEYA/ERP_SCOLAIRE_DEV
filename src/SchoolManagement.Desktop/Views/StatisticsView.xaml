@@ -1,0 +1,144 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.StatisticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer Style="{StaticResource ErpPageHost}">
+        <StackPanel Style="{StaticResource ErpFadeIn}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpPageTitle}" Text="Statistiques &amp; rapports" />
+                    <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="Indicateurs clés et rapports de l'établissement" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Command="{Binding LoadCommand}"
+                        Content="Actualiser"
+                        Style="{StaticResource ErpSecondaryButton}" />
+            </Grid>
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}">
+                <StackPanel>
+                    <ComboBox Width="220"
+                              DisplayMemberPath="Label"
+                              ItemsSource="{Binding AcademicYears}"
+                              SelectedItem="{Binding SelectedYear}"
+                              Style="{StaticResource ErpComboBox}"
+                              materialDesign:HintAssist.Hint="Année scolaire" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding StatusMessage}" />
+                </StackPanel>
+            </Border>
+
+            <UniformGrid Margin="{StaticResource ErpSectionSpacing}" Columns="3" Rows="2">
+                <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,8">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#E8EFFF" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="AccountGroup" Width="24" Height="24" Foreground="{StaticResource ErpPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.TotalStudents}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Élèves actifs" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="4,0,4,8">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#ECFDF5" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="AccountPlus" Width="24" Height="24" Foreground="{StaticResource ErpSuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.ActiveEnrollments}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Inscriptions" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="8,0,0,8">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#FFF7ED" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="GoogleClassroom" Width="24" Height="24" Foreground="{StaticResource ErpWarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.TotalClassRooms}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Classes" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#F0F9FF" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="#0284C7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.TotalTeachers}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Enseignants" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="4,0,4,0">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#FEF2F2" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="CashMultiple" Width="24" Height="24" Foreground="{StaticResource ErpDangerBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.TotalPaymentsAmount}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Paiements (CDF)" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="8,0,0,0">
+                    <StackPanel>
+                        <Border Width="44" Height="44" Background="#F5F3FF" CornerRadius="12">
+                            <materialDesign:PackIcon Kind="Receipt" Width="24" Height="24" Foreground="#7C3AED" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.PaymentCount}" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Nb. paiements" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpSubtitle}" Text="Situation financière" />
+                    <WrapPanel Margin="0,12,0,0">
+                        <TextBlock Margin="0,0,24,8" Style="{StaticResource ErpBody}" Text="{Binding FinancialSummary.TotalCollected, StringFormat=Encaissé : {0} CDF}" />
+                        <TextBlock Margin="0,0,24,8" Style="{StaticResource ErpBody}" Text="{Binding FinancialSummary.PaymentCount, StringFormat=Paiements : {0}}" />
+                        <TextBlock Margin="0,0,24,8" Style="{StaticResource ErpBody}" Text="{Binding FinancialSummary.DebtorCount, StringFormat=Débiteurs : {0}}" />
+                        <TextBlock Margin="0,0,24,8" Style="{StaticResource ErpBody}" Text="{Binding FinancialSummary.UpToDateCount, StringFormat=À jour : {0}}" />
+                        <TextBlock Style="{StaticResource ErpBody}" Text="{Binding FinancialSummary.PartialCount, StringFormat=Partiels : {0}}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource ErpCard}" Padding="12,12,12,0">
+                <TabControl Style="{StaticResource ErpTabControl}">
+                    <TabItem Header="Effectifs par classe" Style="{StaticResource ErpTabItem}">
+                        <Border Margin="0,12,0,12" Padding="0" Style="{StaticResource ErpCard}">
+                            <DataGrid Style="{StaticResource ErpDataGrid}"
+                                      BorderThickness="0"
+                                      ItemsSource="{Binding EnrollmentByClass}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Binding="{Binding ClassCode}" Header="Code" Width="80" />
+                                    <DataGridTextColumn Binding="{Binding ClassName}" Header="Classe" Width="*" />
+                                    <DataGridTextColumn Binding="{Binding SectionName}" Header="Section" Width="*" />
+                                    <DataGridTextColumn Binding="{Binding TotalStudents}" Header="Effectif" Width="70" />
+                                    <DataGridTextColumn Binding="{Binding MaleCount}" Header="G" Width="50" />
+                                    <DataGridTextColumn Binding="{Binding FemaleCount}" Header="F" Width="50" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </TabItem>
+                    <TabItem Header="Moyennes par classe" Style="{StaticResource ErpTabItem}">
+                        <Border Margin="0,12,0,12" Padding="0" Style="{StaticResource ErpCard}">
+                            <DataGrid Style="{StaticResource ErpDataGrid}"
+                                      BorderThickness="0"
+                                      ItemsSource="{Binding ClassAverages}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Binding="{Binding ClassName}" Header="Classe" Width="*" />
+                                    <DataGridTextColumn Binding="{Binding PeriodName}" Header="Période" Width="*" />
+                                    <DataGridTextColumn Binding="{Binding ClassAverage}" Header="Moy." Width="60" />
+                                    <DataGridTextColumn Binding="{Binding PassCount}" Header="Réussis" Width="70" />
+                                    <DataGridTextColumn Binding="{Binding FailCount}" Header="Échecs" Width="70" />
+                                    <DataGridTextColumn Binding="{Binding MaxAverage}" Header="Max" Width="50" />
+                                    <DataGridTextColumn Binding="{Binding MinAverage}" Header="Min" Width="50" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

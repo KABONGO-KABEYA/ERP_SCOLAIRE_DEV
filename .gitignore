@@ -1,0 +1,50 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## IDE
+.idea/
+*.swp
+*~
+
+## Secrets
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+.env
+.env.*
+
+## Database
+*.mdf
+*.ldf
+
+## Flutter / Dart
+mobile/**/build/
+mobile/**/.dart_tool/
+mobile/**/.flutter-plugins
+mobile/**/.flutter-plugins-dependencies
+mobile/**/.packages
+mobile/**/pubspec.lock
+mobile/**/ios/Pods/
+mobile/**/android/.gradle/
+mobile/**/android/local.properties
+
+## Logs
+logs/
+*.log
+
+## .NET tools
+.tools/
+
+## OS
+Thumbs.db
+.DS_Store

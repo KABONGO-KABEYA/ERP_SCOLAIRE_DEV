@@ -1,0 +1,49 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.DocumentsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer Style="{StaticResource ErpPageHost}">
+        <StackPanel Style="{StaticResource ErpFadeIn}">
+            <TextBlock Style="{StaticResource ErpPageTitle}" Text="Documents élèves" />
+            <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="Gestion des pièces jointes et documents administratifs" />
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}">
+                <WrapPanel>
+                    <ComboBox Width="260" Margin="0,0,12,0"
+                              DisplayMemberPath="FullName"
+                              ItemsSource="{Binding Students}"
+                              SelectedItem="{Binding SelectedStudent}"
+                              Style="{StaticResource ErpComboBox}"
+                              materialDesign:HintAssist.Hint="Élève" />
+                    <TextBox Width="200" Margin="0,0,12,0"
+                             materialDesign:HintAssist.Hint="Type de document"
+                             Style="{StaticResource ErpTextBox}"
+                             Text="{Binding DocumentType}" />
+                    <Button Margin="0,0,8,0" Command="{Binding UploadCommand}" Content="Ajouter" Style="{StaticResource ErpPrimaryButton}" />
+                    <Button Margin="0,0,8,0" Command="{Binding DownloadSelectedCommand}" Content="Télécharger" Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="0,0,8,0" Command="{Binding DeleteSelectedCommand}" Content="Supprimer" Style="{StaticResource ErpDangerButton}" />
+                    <Button Command="{Binding LoadDocumentsCommand}" Content="Actualiser" Style="{StaticResource ErpSecondaryButton}" />
+                    <TextBlock Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource ErpBodySecondary}"
+                               Text="{Binding StatusMessage}" />
+                </WrapPanel>
+            </Border>
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}" Padding="0">
+                <DataGrid Style="{StaticResource ErpDataGrid}"
+                          BorderThickness="0"
+                          ItemsSource="{Binding Documents}"
+                          SelectedItem="{Binding SelectedDocument}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" />
+                        <DataGridTextColumn Binding="{Binding DocumentType}" Header="Type" Width="140" />
+                        <DataGridTextColumn Binding="{Binding FileName}" Header="Fichier" Width="*" />
+                        <DataGridTextColumn Binding="{Binding FileSizeBytes}" Header="Taille (o)" Width="90" />
+                        <DataGridTextColumn Binding="{Binding CreatedAt}" Header="Date" Width="150" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

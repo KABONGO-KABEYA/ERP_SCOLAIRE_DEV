@@ -1,0 +1,79 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.ErpDateField"
+                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
+                       xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+                       x:Name="Root"
+                       Width="{Binding FieldWidth, ElementName=Root}"
+                       ToolTip="{Binding Label, ElementName=Root}">
+    <StackPanel>
+        <StackPanel Margin="{StaticResource ErpFieldLabelSpacing}" Orientation="Horizontal">
+            <materialDesign:PackIcon Kind="Calendar"
+                                     Style="{StaticResource ErpFieldIcon}" />
+            <TextBlock Style="{StaticResource ErpFieldLabel}" Text="{Binding Label, ElementName=Root}" />
+            <TextBlock Style="{StaticResource ErpFieldRequiredMark}"
+                       Visibility="{Binding IsRequired, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        </StackPanel>
+
+        <Border x:Name="InputBorder" Style="{StaticResource ErpInputBorder}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DatePicker x:Name="InputDatePicker"
+                            Grid.Column="0"
+                            SelectedDate="{Binding SelectedDate, ElementName=Root, Mode=TwoWay}"
+                            Style="{StaticResource ErpInputDatePickerCore}" />
+                <materialDesign:PackIcon x:Name="SuccessIcon"
+                                         Grid.Column="1"
+                                         Margin="0,0,4,0"
+                                         Style="{StaticResource ErpValidationSuccessIcon}"
+                                         Visibility="Collapsed" />
+                <materialDesign:PackIcon x:Name="ErrorIcon"
+                                         Grid.Column="2"
+                                         Margin="0,0,10,0"
+                                         Style="{StaticResource ErpValidationErrorIcon}"
+                                         Visibility="Collapsed" />
+            </Grid>
+        </Border>
+
+        <WrapPanel Margin="0,10,0,0">
+            <Border x:Name="AgeBadge"
+                    Margin="0,0,8,0"
+                    Style="{StaticResource ErpBadgeSuccess}"
+                    Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="#22C55E" Margin="0,0,6,0" />
+                    <TextBlock x:Name="AgeText"
+                               Style="{StaticResource ErpBadgeSuccessText}"
+                               Text="{Binding Age, ElementName=Root, StringFormat={}{0} ans}" />
+                </StackPanel>
+            </Border>
+            <Border x:Name="CompatibilityBadge"
+                    Margin="0,0,8,0"
+                    Style="{StaticResource ErpBadgeInfo}"
+                    Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="#1E5EFF" Margin="0,0,6,0" />
+                    <TextBlock x:Name="CompatibilityText" Style="{StaticResource ErpBadgeInfoText}" />
+                </StackPanel>
+            </Border>
+            <Border x:Name="CategoryBadge"
+                    Style="{StaticResource ErpBadgePurple}"
+                    Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Fill="#7C3AED" Margin="0,0,6,0" />
+                    <TextBlock Style="{StaticResource ErpBadgePurpleText}"
+                               Text="{Binding AgeCategory, ElementName=Root}" />
+                </StackPanel>
+            </Border>
+        </WrapPanel>
+
+        <TextBlock x:Name="ErrorText"
+                   Style="{StaticResource ErpFieldErrorText}"
+                   Text="{Binding ErrorMessage, ElementName=Root}"
+                   Visibility="Collapsed" />
+    </StackPanel>
+</UserControl>

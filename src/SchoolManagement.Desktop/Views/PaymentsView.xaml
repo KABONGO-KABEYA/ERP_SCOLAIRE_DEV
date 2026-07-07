@@ -1,0 +1,75 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.PaymentsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <ScrollViewer Style="{StaticResource ErpPageHost}">
+        <StackPanel Style="{StaticResource ErpFadeIn}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpPageTitle}" Text="Gestion financière" />
+                    <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="Paiements, encaissements et suivi des frais scolaires" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Command="{Binding LoadPaymentsCommand}"
+                        Content="Actualiser"
+                        Style="{StaticResource ErpSecondaryButton}" />
+            </Grid>
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}" Padding="0">
+                <DataGrid Style="{StaticResource ErpDataGrid}"
+                          BorderThickness="0"
+                          ItemsSource="{Binding Payments}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding ReceiptNumber}" Header="Reçu" Width="140" />
+                        <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" />
+                        <DataGridTextColumn Binding="{Binding PaymentDate}" Header="Date" Width="150" />
+                        <DataGridTextColumn Binding="{Binding TotalAmount}" Header="Montant" Width="100" />
+                        <DataGridTextColumn Binding="{Binding Currency}" Header="Devise" Width="80" />
+                        <DataGridTextColumn Binding="{Binding Status}" Header="Statut" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpSubtitle}" Text="Nouveau paiement" />
+                    <TextBlock Margin="0,4,0,16" Style="{StaticResource ErpBodySecondary}" Text="Enregistrer un encaissement" />
+                    <WrapPanel>
+                        <ComboBox Width="220" Margin="0,0,12,12"
+                                  DisplayMemberPath="FullName"
+                                  ItemsSource="{Binding Students}"
+                                  SelectedItem="{Binding SelectedStudent}"
+                                  Style="{StaticResource ErpComboBox}"
+                                  materialDesign:HintAssist.Hint="Élève" />
+                        <ComboBox Width="180" Margin="0,0,12,12"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding Lookups.FeeTypes}"
+                                  SelectedItem="{Binding SelectedFeeType}"
+                                  Style="{StaticResource ErpComboBox}"
+                                  materialDesign:HintAssist.Hint="Type de frais" />
+                        <ComboBox Width="180" Margin="0,0,12,12"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding Lookups.CashRegisters}"
+                                  SelectedItem="{Binding SelectedCashRegister}"
+                                  Style="{StaticResource ErpComboBox}"
+                                  materialDesign:HintAssist.Hint="Caisse" />
+                        <TextBox Width="140" Margin="0,0,12,12"
+                                 materialDesign:HintAssist.Hint="Montant"
+                                 Style="{StaticResource ErpTextBox}"
+                                 Text="{Binding Amount}" />
+                        <Button Margin="0,0,0,12"
+                                Command="{Binding RecordPaymentCommand}"
+                                Content="Enregistrer"
+                                Style="{StaticResource ErpPrimaryButton}" />
+                    </WrapPanel>
+                    <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding StatusMessage}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

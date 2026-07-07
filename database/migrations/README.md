@@ -1,0 +1,48 @@
+# Migrations EF Core
+
+Les migrations EF Core sont générées dans :
+
+`src/SchoolManagement.Infrastructure/Persistence/Migrations/`
+
+## Connexion SQL Server
+
+```
+Server=localhost\HEROS_SQL19
+Database=SchoolManagementRDC
+User Id=sa
+```
+
+> L'instance détectée sur cette machine est **HEROS_SQL19** (SQL Server 2019).
+
+## Commandes
+
+```bash
+# Ajouter une migration
+.tools\dotnet-ef migrations add <NomMigration> \
+  --project src/SchoolManagement.Infrastructure \
+  --startup-project src/SchoolManagement.API \
+  --output-dir Persistence/Migrations
+
+# Appliquer à la base
+$env:ASPNETCORE_ENVIRONMENT='Production'
+.tools\dotnet-ef database update \
+  --project src/SchoolManagement.Infrastructure \
+  --startup-project src/SchoolManagement.API
+
+# Exporter script SQL idempotent
+.tools\dotnet-ef migrations script --idempotent \
+  -o database/scripts/001_InitialCreate_EF.sql \
+  --project src/SchoolManagement.Infrastructure \
+  --startup-project src/SchoolManagement.API
+```
+
+## Scripts SQL complémentaires (déploiement manuel)
+
+| Script | Contenu |
+|--------|---------|
+| `database/scripts/001_InitialCreate_EF.sql` | Tables EF Core (idempotent) |
+| `database/scripts/002_Views_Procedures_Functions.sql` | Vues, fonctions, procédures stockées |
+| `database/scripts/003_SeedData.sql` | Données de démonstration |
+| `database/scripts/004_PedagogicalStructure.sql` | Structure pédagogique RDC + locaux |
+
+Ordre d'exécution : `001` → `002` → `003` → `004`

@@ -1,0 +1,43 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.AdministrationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DockPanel>
+            <TextBlock Style="{StaticResource MaterialDesignHeadline5TextBlock}" Text="Administration système" />
+            <Button DockPanel.Dock="Right" Command="{Binding LoadCommand}" Content="Actualiser" Style="{StaticResource MaterialDesignOutlinedButton}" />
+        </DockPanel>
+        <DataGrid Grid.Row="1" Margin="0,12,0,8" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                  ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Binding="{Binding UserName}" Header="Identifiant" Width="120" />
+                <DataGridTextColumn Binding="{Binding FullName}" Header="Nom complet" Width="*" />
+                <DataGridTextColumn Binding="{Binding Email}" Header="Email" Width="*" />
+                <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="60" />
+                <DataGridTextColumn Binding="{Binding RolesDisplay}" Header="Rôles" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <materialDesign:Card Grid.Row="2" Padding="16">
+            <StackPanel>
+                <TextBlock Style="{StaticResource MaterialDesignSubtitle1TextBlock}" Text="Nouvel utilisateur" />
+                <WrapPanel Margin="0,8,0,0">
+                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Identifiant" Text="{Binding NewUserName}" Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    <TextBox Width="160" Margin="4" materialDesign:HintAssist.Hint="Email" Text="{Binding NewEmail}" Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Mot de passe" Text="{Binding NewPassword}" Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Nom" Text="{Binding NewLastName}" Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Prénom" Text="{Binding NewFirstName}" Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    <ComboBox Width="160" Margin="4" DisplayMemberPath="Name" ItemsSource="{Binding Roles}" SelectedItem="{Binding SelectedRole}" materialDesign:HintAssist.Hint="Rôle" />
+                    <Button Margin="4" Command="{Binding CreateUserCommand}" Content="Créer" Style="{StaticResource MaterialDesignRaisedButton}" />
+                    <Button Margin="4" Command="{Binding AssignRoleCommand}" Content="Assigner rôle" Style="{StaticResource MaterialDesignOutlinedButton}" />
+                    <Button Margin="4" Command="{Binding ToggleUserActiveCommand}" Content="Activer/Désactiver" Style="{StaticResource MaterialDesignOutlinedButton}" />
+                </WrapPanel>
+                <TextBlock Margin="4,8,0,0" Text="{Binding StatusMessage}" />
+            </StackPanel>
+        </materialDesign:Card>
+    </Grid>
+</UserControl>
