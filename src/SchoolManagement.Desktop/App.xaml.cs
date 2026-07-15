@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.ViewModels;
 using SchoolManagement.Desktop.Views;
 using Serilog;
@@ -18,7 +19,22 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        ProcessEnvironmentNormalizer.Apply();
         base.OnStartup(e);
+
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        if (!await DatabaseStartupGate.EnsureConnectedAsync())
+        {
+            Shutdown();
+            return;
+        }
+
+        if (!FileStorageStartupGate.EnsureConfigured())
+        {
+            Shutdown();
+            return;
+        }
 
         _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(config => config.AddJsonFile("appsettings.json", optional: true))
@@ -30,7 +46,6 @@ public partial class App : System.Windows.Application
         Services = _host.Services;
         await _host.StartAsync();
 
-        ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var uiErrorDialogShown = false;
         DispatcherUnhandledException += (_, args) =>
         {
@@ -47,7 +62,7 @@ public partial class App : System.Windows.Application
                 try
                 {
                     MessageBox.Show(
-                        $"Une erreur est survenue :\n{args.Exception.Message}",
+                        $"Une erreur est survenue :\n{GetDisplayMessage(args.Exception)}",
                         "ERP Scolaire",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
@@ -92,16 +107,25 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IAuthSessionService, AuthSessionService>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IThemeService, ThemeService>();
+        services.AddSingleton(_ => new Application.Configuration.FileStorage.FileStorageConfigurationManager(AppContext.BaseDirectory));
+        services.AddSingleton<IStudentDossierPathResolver, StudentDossierPathResolver>();
+        services.AddSingleton<IDocumentBrandingPathResolver, DocumentBrandingPathResolver>();
         services.AddSingleton<IApiClient, ApiClient>();
         services.AddTransient<AuthDelegatingHandler>();
         services.AddTransient<AuthApiService>();
         services.AddTransient<ISchoolApiService, SchoolApiService>();
         services.AddTransient<IEnrollmentWizardApiService, EnrollmentWizardApiService>();
+        services.AddTransient<IGeographyApiService, GeographyApiService>();
+        services.AddTransient<IGeographyAdminApiService, GeographyAdminApiService>();
+        services.AddTransient<IEnrollmentFormPrintService, EnrollmentFormPrintService>();
+        services.AddTransient<IStudentListPrintService, StudentListPrintService>();
         services.AddTransient<IStudentApiService, StudentApiService>();
         services.AddTransient<IPaymentApiService, PaymentApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
         services.AddTransient<IAcademicApiService, AcademicApiService>();
         services.AddTransient<IDocumentApiService, DocumentApiService>();
+        services.AddTransient<IDocumentBrandingApiService, DocumentBrandingApiService>();
+        services.AddTransient<ISchoolFeeApiService, SchoolFeeApiService>();
         services.AddTransient<IReportApiService, ReportApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
 
@@ -134,7 +158,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<ShellViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<DocumentBrandingViewModel>();
+        services.AddTransient<GeographyAdminViewModel>();
+        services.AddTransient<SchoolFeeConfigurationViewModel>();
         services.AddTransient<StudentsViewModel>();
+        services.AddTransient<StudentDossierEditViewModel>();
         services.AddTransient<EnrollmentWizardViewModel>();
         services.AddTransient<PaymentsViewModel>();
         services.AddTransient<GradesViewModel>();
@@ -153,5 +181,16 @@ public partial class App : System.Windows.Application
         }
 
         base.OnExit(e);
+    }
+
+    private static string GetDisplayMessage(Exception exception)
+    {
+        var current = exception;
+        while (current.InnerException is not null)
+        {
+            current = current.InnerException;
+        }
+
+        return current.Message;
     }
 }

@@ -23,6 +23,11 @@ appsettings.Local.json
 .env
 .env.*
 
+## Local runtime configuration (machine-specific)
+**/ServeurDonnees.txt
+**/ServeurFichiers.txt
+src/SchoolManagement.API/uploads/
+
 ## Database
 *.mdf
 *.ldf

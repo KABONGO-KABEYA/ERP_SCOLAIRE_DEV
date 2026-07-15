@@ -1,0 +1,262 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.DocumentBrandingControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             AllowDrop="True"
+             Drop="OnDrop"
+             DragOver="OnDragOver">
+    <UserControl.Resources>
+        <ui:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0"
+                    MinHeight="420"
+                    SelectedIndex="{Binding SelectedTabIndex}"
+                    Style="{StaticResource MaterialDesignFilledTabControl}">
+            <TabItem Header="Logos">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Logos}"
+                              MaxHeight="220"
+                              SelectedItem="{Binding SelectedLogo}"
+                              Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Aperçu" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="64" Height="48" Background="#F8FAFC" CornerRadius="6">
+                                            <Image Source="{Binding PreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Nom" Width="*" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsPrimary, Mode=OneWay}" Header="Principal" Width="90" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive, Mode=OneWay}" Header="Actif" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1" Margin="0,12,0,0" Padding="16" Style="{StaticResource ErpV2FormCard}">
+                        <StackPanel>
+                            <TextBox Margin="0,0,0,8" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding LogoName, UpdateSourceTrigger=PropertyChanged}" />
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox Content="Principal" IsChecked="{Binding LogoIsPrimary}" Margin="0,0,16,0" />
+                                <CheckBox Content="Actif" IsChecked="{Binding LogoIsActive}" />
+                            </StackPanel>
+                            <Border Margin="0,12,0,12" MinHeight="120" Background="#F8FAFC" CornerRadius="8">
+                                <Image MaxHeight="120" Source="{Binding LogoPreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                            </Border>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding PickLogoImageCommand}" Content="Importer" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding NewLogoCommand}" Content="Ajouter" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding SaveLogoCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding SetPrimaryLogoCommand}" Content="Définir principal" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding DeleteLogoCommand}" Content="Supprimer" Style="{StaticResource ErpDangerButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="En-têtes">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              ItemsSource="{Binding Headers}" MaxHeight="220" SelectedItem="{Binding SelectedHeader}" Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Aperçu" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="64" Height="48" Background="#F8FAFC" CornerRadius="6">
+                                            <Image Source="{Binding PreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Nom" Width="*" />
+                            <DataGridTextColumn Binding="{Binding ApplicableDocumentTypesLabel}" Header="Documents" Width="220" />
+                            <DataGridTextColumn Binding="{Binding PrintModeLabel}" Header="Mode" Width="180" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive, Mode=OneWay}" Header="Actif" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1" Margin="0,12,0,0" Padding="16" Style="{StaticResource ErpV2FormCard}">
+                        <StackPanel>
+                            <TextBox Margin="0,0,0,8" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding HeaderName, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Margin="0,0,0,4" FontWeight="SemiBold" Text="Documents concernés par cet en-tête" />
+                            <Border Margin="0,0,0,8" Padding="8" Background="#F8FAFC" CornerRadius="6" MaxHeight="140">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding HeaderDocumentTypeOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" Margin="0,2" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <ComboBox Margin="0,0,0,8" DisplayMemberPath="Label" ItemsSource="{Binding PrintModes}" SelectedValue="{Binding HeaderPrintMode}" SelectedValuePath="Value" materialDesign:HintAssist.Hint="Mode d'impression" />
+                            <CheckBox Content="Actif" IsChecked="{Binding HeaderIsActive}" Margin="0,0,0,8" />
+                            <Border Margin="0,0,0,12" MinHeight="120" Background="#F8FAFC" CornerRadius="8">
+                                <Image MaxHeight="120" Source="{Binding HeaderPreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                            </Border>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding PickHeaderImageCommand}" Content="Importer" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding NewHeaderCommand}" Content="Ajouter" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding SaveHeaderCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding DeleteHeaderCommand}" Content="Supprimer" Style="{StaticResource ErpDangerButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Signatures">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              ItemsSource="{Binding Signatures}" MaxHeight="220" SelectedItem="{Binding SelectedSignature}" Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Aperçu" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="64" Height="48" Background="#F8FAFC" CornerRadius="6">
+                                            <Image Source="{Binding PreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Binding="{Binding SignatoryName}" Header="Nom" Width="*" />
+                            <DataGridTextColumn Binding="{Binding Function}" Header="Fonction" Width="140" />
+                            <DataGridTextColumn Binding="{Binding ApplicableDocumentTypesLabel}" Header="Documents" Width="180" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive, Mode=OneWay}" Header="Actif" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1" Margin="0,12,0,0" Padding="16" Style="{StaticResource ErpV2FormCard}">
+                        <StackPanel>
+                            <WrapPanel Margin="0,0,0,8">
+                                <Button Margin="0,0,8,8" Command="{Binding ApplySignatureTemplateCommand}" CommandParameter="Directeur" Content="Directeur" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8" Command="{Binding ApplySignatureTemplateCommand}" CommandParameter="Préfet" Content="Préfet" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8" Command="{Binding ApplySignatureTemplateCommand}" CommandParameter="Gestionnaire" Content="Gestionnaire" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8" Command="{Binding ApplySignatureTemplateCommand}" CommandParameter="Secrétaire" Content="Secrétaire" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8" Command="{Binding ApplySignatureTemplateCommand}" CommandParameter="Comptable" Content="Comptable" Style="{StaticResource ErpSecondaryButton}" />
+                            </WrapPanel>
+                            <TextBox Margin="0,0,0,8" materialDesign:HintAssist.Hint="Nom du signataire" Style="{StaticResource ErpTextBox}" Text="{Binding SignatureName, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Margin="0,0,0,8" materialDesign:HintAssist.Hint="Fonction" Style="{StaticResource ErpTextBox}" Text="{Binding SignatureFunction, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Margin="0,0,0,4" FontWeight="SemiBold" Text="Documents où afficher cette signature" />
+                            <Border Margin="0,0,0,8" Padding="8" Background="#F8FAFC" CornerRadius="6" MaxHeight="140">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding SignatureDocumentTypeOptions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" Margin="0,2" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <CheckBox Content="Actif" IsChecked="{Binding SignatureIsActive}" Margin="0,0,0,8" />
+                            <Border Margin="0,0,0,12" MinHeight="80" Background="#F8FAFC" CornerRadius="8">
+                                <Image MaxHeight="80" Source="{Binding SignaturePreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                            </Border>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding PickSignatureImageCommand}" Content="Importer" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding NewSignatureCommand}" Content="Ajouter" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding SaveSignatureCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding DeleteSignatureCommand}" Content="Supprimer" Style="{StaticResource ErpDangerButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Cachets">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              ItemsSource="{Binding Stamps}" MaxHeight="220" SelectedItem="{Binding SelectedStamp}" Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Aperçu" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="64" Height="48" Background="#F8FAFC" CornerRadius="6">
+                                            <Image Source="{Binding PreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Nom" Width="*" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive, Mode=OneWay}" Header="Actif" Width="70" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1" Margin="0,12,0,0" Padding="16" Style="{StaticResource ErpV2FormCard}">
+                        <StackPanel>
+                            <TextBox Margin="0,0,0,8" materialDesign:HintAssist.Hint="Nom du cachet" Style="{StaticResource ErpTextBox}" Text="{Binding StampName, UpdateSourceTrigger=PropertyChanged}" />
+                            <CheckBox Content="Actif" IsChecked="{Binding StampIsActive}" Margin="0,0,0,8" />
+                            <Border Margin="0,0,0,12" MinHeight="100" Background="#F8FAFC" CornerRadius="8">
+                                <Image MaxHeight="100" Source="{Binding StampPreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+                            </Border>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding PickStampImageCommand}" Content="Importer" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding NewStampCommand}" Content="Ajouter" Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding SaveStampCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="8,0,0,0" Command="{Binding DeleteStampCommand}" Content="Supprimer" Style="{StaticResource ErpDangerButton}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Pied de page">
+                <Border Margin="0,12,0,0" Padding="16" Style="{StaticResource ErpV2FormCard}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                        </Grid.RowDefinitions>
+                        <TextBox Grid.Row="0" Grid.Column="0" Margin="4" materialDesign:HintAssist.Hint="Adresse" Style="{StaticResource ErpTextBox}" Text="{Binding FooterAddress, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="0" Grid.Column="1" Margin="4" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding FooterPhone, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="1" Grid.Column="0" Margin="4" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding FooterEmail, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="4" materialDesign:HintAssist.Hint="Site Web" Style="{StaticResource ErpTextBox}" Text="{Binding FooterWebsite, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="2" Grid.Column="0" Margin="4" materialDesign:HintAssist.Hint="Boîte postale" Style="{StaticResource ErpTextBox}" Text="{Binding FooterPoBox, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Margin="4" materialDesign:HintAssist.Hint="Devise de l'école" Style="{StaticResource ErpTextBox}" Text="{Binding FooterSchoolMotto, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Row="3" Grid.ColumnSpan="2" Margin="4" MinHeight="80" AcceptsReturn="True" materialDesign:HintAssist.Hint="Texte libre" Style="{StaticResource ErpTextBox}" Text="{Binding FooterFreeText, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" />
+                        <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="4" Orientation="Horizontal">
+                            <Button Command="{Binding SaveFooterCommand}" Content="Enregistrer le pied de page" Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="8,0,0,0" Command="{Binding LoadCommand}" Content="Actualiser" Style="{StaticResource ErpSecondaryButton}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Margin="0,12,0,0">
+            <TextBlock Foreground="{StaticResource ErpDangerBrush}" Text="{Binding ValidationMessage}" TextWrapping="Wrap" />
+            <TextBlock Foreground="{StaticResource ErpTextSecondaryBrush}" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</UserControl>

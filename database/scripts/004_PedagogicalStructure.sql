@@ -84,9 +84,9 @@ BEGIN
 END
 GO
 
-IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'Code' AND max_length = 40)
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'Code' AND max_length < 160)
 BEGIN
-    ALTER TABLE [ClassRooms] ALTER COLUMN [Code] nvarchar(30) NOT NULL;
-    PRINT N'Colonne ClassRooms.Code alignée sur nvarchar(30).';
+    ALTER TABLE [ClassRooms] ALTER COLUMN [Code] nvarchar(80) NOT NULL;
+    PRINT N'Colonne ClassRooms.Code alignée sur nvarchar(80).';
 END
 GO

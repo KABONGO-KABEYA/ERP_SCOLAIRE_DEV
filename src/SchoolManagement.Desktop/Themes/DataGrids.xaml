@@ -1,37 +1,14 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Style x:Key="ErpDataGrid" TargetType="DataGrid">
-        <Setter Property="AutoGenerateColumns" Value="False" />
-        <Setter Property="CanUserAddRows" Value="False" />
-        <Setter Property="IsReadOnly" Value="True" />
-        <Setter Property="HeadersVisibility" Value="Column" />
-        <Setter Property="GridLinesVisibility" Value="Horizontal" />
-        <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB" />
-        <Setter Property="BorderBrush" Value="#E5E7EB" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Background" Value="White" />
-        <Setter Property="RowBackground" Value="White" />
-        <Setter Property="AlternatingRowBackground" Value="#F9FAFB" />
-        <Setter Property="FontFamily" Value="Segoe UI" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Foreground" Value="#1F2937" />
-        <Setter Property="RowHeight" Value="44" />
-        <Setter Property="ColumnHeaderHeight" Value="44" />
-        <Setter Property="SelectionMode" Value="Single" />
-        <Setter Property="CanUserResizeColumns" Value="True" />
-        <Setter Property="CanUserReorderColumns" Value="True" />
-        <Setter Property="CanUserSortColumns" Value="True" />
-    </Style>
-
     <Style x:Key="ErpDataGridColumnHeader" TargetType="DataGridColumnHeader">
-        <Setter Property="Background" Value="#EFF6FF" />
-        <Setter Property="Foreground" Value="#1F2937" />
+        <Setter Property="Background" Value="#1E5EFF" />
+        <Setter Property="Foreground" Value="White" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="12,0" />
-        <Setter Property="BorderBrush" Value="#E5E7EB" />
-        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="BorderBrush" Value="#174ACC" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
         <Setter Property="Height" Value="44" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -54,6 +31,161 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ErpDataGrid" TargetType="DataGrid">
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB" />
+        <Setter Property="BorderBrush" Value="#E5E7EB" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="RowBackground" Value="White" />
+        <Setter Property="AlternatingRowBackground" Value="#F9FAFB" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#1F2937" />
+        <Setter Property="RowHeight" Value="44" />
+        <Setter Property="ColumnHeaderHeight" Value="44" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="CanUserResizeColumns" Value="True" />
+        <Setter Property="CanUserReorderColumns" Value="True" />
+        <Setter Property="CanUserSortColumns" Value="True" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource ErpDataGridColumnHeader}" />
+    </Style>
+
+    <Style x:Key="ErpStudentsDataGridColumnHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource ErpDataGridColumnHeader}">
+        <Setter Property="Background" Value="#1E5EFF" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="Height" Value="48" />
+        <Setter Property="BorderBrush" Value="#174ACC" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+
+    <Style x:Key="ErpStudentsDataGridCell" TargetType="DataGridCell" BasedOn="{StaticResource ErpDataGridCell}">
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="BorderBrush" Value="#EEF2F7" />
+    </Style>
+
+    <Style x:Key="ErpStudentsDataGridRow" TargetType="DataGridRow" BasedOn="{StaticResource ErpDataGridRow}">
+        <Setter Property="MinHeight" Value="52" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#F8FAFF" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#EEF3FF" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ErpTableCodeBadge" TargetType="Border">
+        <Setter Property="Background" Value="#F3F4F6" />
+        <Setter Property="BorderBrush" Value="#E5E7EB" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ErpTableCodeBadgeText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#374151" />
+    </Style>
+
+    <Style x:Key="ErpTableStatusBadge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ErpTableStatusBadgeActive" TargetType="Border" BasedOn="{StaticResource ErpTableStatusBadge}">
+        <Setter Property="Background" Value="#DCFCE7" />
+    </Style>
+
+    <Style x:Key="ErpTableStatusBadgeInactive" TargetType="Border" BasedOn="{StaticResource ErpTableStatusBadge}">
+        <Setter Property="Background" Value="#F3F4F6" />
+    </Style>
+
+    <Style x:Key="ErpTableStatusBadgeArchived" TargetType="Border" BasedOn="{StaticResource ErpTableStatusBadge}">
+        <Setter Property="Background" Value="#FEE2E2" />
+    </Style>
+
+    <Style x:Key="ErpStudentsGridActionButton" TargetType="Button">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="#EEF2FF" />
+        <Setter Property="BorderBrush" Value="#DDE4FF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="#1E5EFF" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#E0E7FF" />
+                            <Setter Property="BorderBrush" Value="#1E5EFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ErpStudentsContextMenu" TargetType="ContextMenu">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#E5E7EB" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="HasDropShadow" Value="True" />
+    </Style>
+
+    <Style x:Key="ErpStudentsContextMenuItem" TargetType="MenuItem">
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#1F2937" />
+    </Style>
+
+    <Style x:Key="ErpStudentsGridCellText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#1F2937" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="ErpStudentsDataGrid" TargetType="DataGrid" BasedOn="{StaticResource ErpDataGrid}">
+        <Setter Property="AlternatingRowBackground" Value="White" />
+        <Setter Property="RowHeight" Value="52" />
+        <Setter Property="ColumnHeaderHeight" Value="48" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource ErpStudentsDataGridColumnHeader}" />
+        <Setter Property="RowStyle" Value="{StaticResource ErpStudentsDataGridRow}" />
+        <Setter Property="CellStyle" Value="{StaticResource ErpStudentsDataGridCell}" />
     </Style>
 
 </ResourceDictionary>

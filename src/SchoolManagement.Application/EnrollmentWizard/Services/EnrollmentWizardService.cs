@@ -2,18 +2,25 @@ namespace SchoolManagement.Application.EnrollmentWizard.Services;
 
 using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Common.Models;
+using SchoolManagement.Application.Common.Storage;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.EnrollmentWizard.Interfaces;
+using SchoolManagement.Application.SchoolFees.Interfaces;
+using SchoolManagement.Application.Geography.DTOs;
+using SchoolManagement.Application.Geography.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.Interfaces;
+using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
 
-public sealed class EnrollmentWizardService : IEnrollmentWizardService
+public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
 {
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<ClassRoom> _classRoomRepository;
@@ -25,10 +32,18 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
     private readonly IRepository<Enrollment> _enrollmentRepository;
     private readonly IRepository<StudentStatusHistory> _statusHistoryRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
+    private readonly ISchoolFeeService _schoolFeeService;
     private readonly IRepository<StudentFeeBalance> _feeBalanceRepository;
     private readonly IRepository<StudentDocument> _studentDocumentRepository;
+    private readonly IRepository<GradeEntry> _gradeEntryRepository;
+    private readonly IRepository<Evaluation> _evaluationRepository;
+    private readonly IRepository<StudentAttendance> _attendanceRepository;
+    private readonly IRepository<PeriodResult> _periodResultRepository;
     private readonly IRepository<AuditEntry> _auditRepository;
     private readonly IPedagogicalStructureService _pedagogicalStructureService;
+    private readonly IStudentDossierStorageService _studentDossierStorage;
+    private readonly IAddressService _addressService;
+    private readonly IEnrollmentFormService _enrollmentFormService;
     private readonly IUnitOfWork _unitOfWork;
 
     public EnrollmentWizardService(
@@ -42,10 +57,18 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         IRepository<Enrollment> enrollmentRepository,
         IRepository<StudentStatusHistory> statusHistoryRepository,
         IRepository<FeeType> feeTypeRepository,
+        ISchoolFeeService schoolFeeService,
         IRepository<StudentFeeBalance> feeBalanceRepository,
         IRepository<StudentDocument> studentDocumentRepository,
+        IRepository<GradeEntry> gradeEntryRepository,
+        IRepository<Evaluation> evaluationRepository,
+        IRepository<StudentAttendance> attendanceRepository,
+        IRepository<PeriodResult> periodResultRepository,
         IRepository<AuditEntry> auditRepository,
         IPedagogicalStructureService pedagogicalStructureService,
+        IStudentDossierStorageService studentDossierStorage,
+        IAddressService addressService,
+        IEnrollmentFormService enrollmentFormService,
         IUnitOfWork unitOfWork)
     {
         _yearRepository = yearRepository;
@@ -58,10 +81,18 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         _enrollmentRepository = enrollmentRepository;
         _statusHistoryRepository = statusHistoryRepository;
         _feeTypeRepository = feeTypeRepository;
+        _schoolFeeService = schoolFeeService;
         _feeBalanceRepository = feeBalanceRepository;
         _studentDocumentRepository = studentDocumentRepository;
+        _gradeEntryRepository = gradeEntryRepository;
+        _evaluationRepository = evaluationRepository;
+        _attendanceRepository = attendanceRepository;
+        _periodResultRepository = periodResultRepository;
         _auditRepository = auditRepository;
         _pedagogicalStructureService = pedagogicalStructureService;
+        _studentDossierStorage = studentDossierStorage;
+        _addressService = addressService;
+        _enrollmentFormService = enrollmentFormService;
         _unitOfWork = unitOfWork;
     }
 
@@ -84,7 +115,12 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 "Configurer maintenant"));
         }
 
-        var summary = await _pedagogicalStructureService.GetSummaryAsync(schoolId, skipEnsure: true, cancellationToken);
+        var summary = await _pedagogicalStructureService.GetSummaryAsync(
+            schoolId,
+            skipEnsure: true,
+            academicYearId: currentYear?.Id,
+            cancellationToken);
+
         if (summary.EnabledClasses == 0)
         {
             issues.Add(new EnrollmentPrerequisiteIssueDto(
@@ -94,7 +130,27 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 "Configurer maintenant"));
         }
 
-        if (summary.TotalLocals == 0)
+        if (currentYear is not null)
+        {
+            var locals = await _classRoomRepository.FindAsync(
+                c => c.SchoolId == schoolId
+                    && c.AcademicYearId == currentYear.Id
+                    && c.PedagogicalClassId.HasValue,
+                cancellationToken);
+            var pedagogicalMap = ClassRoomAvailability.BuildMap(
+                await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken));
+            var selectableLocals = locals.Count(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap));
+
+            if (selectableLocals == 0)
+            {
+                issues.Add(new EnrollmentPrerequisiteIssueDto(
+                    "class_locals",
+                    "Impossible de procéder à une inscription tant qu'aucun local actif n'est défini pour l'année scolaire courante.",
+                    "pedagogical-structure",
+                    "Configurer maintenant"));
+            }
+        }
+        else if (summary.TotalLocals == 0)
         {
             issues.Add(new EnrollmentPrerequisiteIssueDto(
                 "class_locals",
@@ -133,6 +189,7 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
     public async Task<IReadOnlyList<EnrollmentStudentSearchResultDto>> SearchStudentsAsync(
         Guid schoolId,
         string search,
+        bool forReinscription = false,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(search))
@@ -179,8 +236,26 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
 
             var studentEnrollments = enrollments.Where(e => e.StudentId == student.Id).ToList();
             var currentEnrollment = currentYear is not null
-                ? studentEnrollments.FirstOrDefault(e => e.AcademicYearId == currentYear.Id)
+                ? studentEnrollments.FirstOrDefault(e => e.AcademicYearId == currentYear.Id && e.IsActive)
                 : null;
+
+            if (forReinscription && currentEnrollment is not null)
+            {
+                continue;
+            }
+
+            var referenceEnrollment = studentEnrollments
+                .Where(e => currentYear is null || e.AcademicYearId != currentYear.Id)
+                .OrderByDescending(e => e.EnrollmentDate)
+                .FirstOrDefault()
+                ?? studentEnrollments.OrderByDescending(e => e.EnrollmentDate).FirstOrDefault();
+
+            int? lastClassLevel = null;
+            if (referenceEnrollment is not null)
+            {
+                var referenceRoom = classRooms.FirstOrDefault(c => c.Id == referenceEnrollment.ClassRoomId);
+                lastClassLevel = referenceRoom?.Level;
+            }
 
             string? previousClass = null;
             string? previousYear = null;
@@ -232,7 +307,8 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 student.Phone,
                 previousClass,
                 previousYear,
-                status));
+                status,
+                lastClassLevel));
         }
 
         return results
@@ -240,6 +316,77 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             .ThenBy(r => r.FirstName)
             .Take(25)
             .ToList();
+    }
+
+    public async Task<IReadOnlyList<EnrollmentGuardianSearchResultDto>> SearchGuardiansAsync(
+        Guid schoolId,
+        string search,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return [];
+        }
+
+        var term = search.Trim().ToLowerInvariant();
+        var guardians = await _guardianRepository.FindAsync(g => g.SchoolId == schoolId, cancellationToken);
+
+        return guardians
+            .Where(g => !g.IsDeleted)
+            .Where(g =>
+                g.FirstName.ToLowerInvariant().Contains(term)
+                || g.LastName.ToLowerInvariant().Contains(term)
+                || (g.Phone?.ToLowerInvariant().Contains(term) ?? false)
+                || (g.Email?.ToLowerInvariant().Contains(term) ?? false)
+                || (g.Profession?.ToLowerInvariant().Contains(term) ?? false))
+            .OrderBy(g => g.LastName)
+            .ThenBy(g => g.FirstName)
+            .Take(25)
+            .Select(g => new EnrollmentGuardianSearchResultDto(
+                g.Id,
+                g.FirstName,
+                g.LastName,
+                g.Phone,
+                g.Email,
+                g.Address,
+                g.Profession,
+                g.Gender))
+            .ToList();
+    }
+
+    public async Task<StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
+        Guid schoolId,
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel,
+        string documentType,
+        string fileName,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(lastName))
+        {
+            throw new DomainException("Le nom de l'élève est requis pour enregistrer un fichier.");
+        }
+
+        if (string.IsNullOrWhiteSpace(registrationNumber))
+        {
+            throw new DomainException("Le matricule est requis pour enregistrer un fichier dans le dossier élève.");
+        }
+
+        var saved = await _studentDossierStorage.SaveStudentFileAsync(
+            new StudentDossierFileRequest(
+                lastName,
+                string.IsNullOrWhiteSpace(firstName) ? lastName : firstName,
+                registrationNumber,
+                academicYearLabel,
+                documentType,
+                fileName),
+            content,
+            cancellationToken);
+
+        return new StoredEnrollmentFileDto(saved.StoragePath, saved.FileName, saved.FileSizeBytes);
     }
 
     public async Task<EnrollmentStructureOptionsDto> GetStructureOptionsAsync(
@@ -253,9 +400,16 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
 
         var sections = await _sectionRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
         var sectionDtos = sections
+            .GroupBy(s => s.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(s => s.Code).First())
             .OrderBy(s => s.Name)
             .Select(s => new SectionDto(s.Id, s.Code, s.Name, s.Cycle))
             .ToList();
+
+        var canonicalSectionIdByName = sectionDtos.ToDictionary(
+            s => s.Name.Trim(),
+            s => s.Id,
+            StringComparer.OrdinalIgnoreCase);
 
         var classes = await _classRoomRepository.FindAsync(
             c => c.SchoolId == schoolId && c.AcademicYearId == currentYear.Id,
@@ -281,6 +435,37 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             {
                 pedagogicalMap.TryGetValue(c.PedagogicalClassId ?? Guid.Empty, out var pedagogical);
                 var section = sections.FirstOrDefault(s => s.Id == c.SectionId);
+
+                Guid canonicalSectionId;
+                string sectionName;
+                if (section is not null && sectionDtos.Any(s => s.Id == c.SectionId))
+                {
+                    canonicalSectionId = c.SectionId;
+                    sectionName = section.Name;
+                }
+                else if (pedagogical is not null)
+                {
+                    var programCode = PedagogicalSectionMapping.GetSectionCode(pedagogical.Program);
+                    var programSection = sectionDtos.FirstOrDefault(s =>
+                        s.Code.Equals(programCode, StringComparison.OrdinalIgnoreCase));
+                    canonicalSectionId = programSection?.Id ?? c.SectionId;
+                    sectionName = programSection?.Name
+                        ?? pedagogical.HumanitiesSection
+                        ?? section?.Name
+                        ?? "—";
+                }
+                else if (section is not null
+                    && canonicalSectionIdByName.TryGetValue(section.Name.Trim(), out var canonicalId))
+                {
+                    canonicalSectionId = canonicalId;
+                    sectionName = section.Name;
+                }
+                else
+                {
+                    canonicalSectionId = c.SectionId;
+                    sectionName = section?.Name ?? "—";
+                }
+
                 var count = countByClass.GetValueOrDefault(c.Id);
                 var fullName = pedagogical is not null
                     ? $"{pedagogical.DisplayName} {c.Name}"
@@ -292,11 +477,12 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                     fullName,
                     c.Name,
                     pedagogical?.DisplayName,
-                    pedagogical?.HumanitiesSection ?? section?.Name,
+                    pedagogical?.HumanitiesSection ?? sectionName,
                     pedagogical?.StudyOption,
-                    c.SectionId,
-                    section?.Name ?? "—",
+                    canonicalSectionId,
+                    sectionName,
                     c.PedagogicalClassId,
+                    c.Level,
                     c.MaxCapacity,
                     count,
                     pedagogical?.MinAge,
@@ -305,10 +491,16 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             })
             .ToList();
 
+        var enrollmentSectionIds = classOptions.Select(c => c.SectionId).ToHashSet();
+        var enrollmentSections = sectionDtos
+            .Where(s => enrollmentSectionIds.Contains(s.Id))
+            .OrderBy(s => s.Name)
+            .ToList();
+
         return new EnrollmentStructureOptionsDto(
             currentYear.Id,
             currentYear.Label,
-            sectionDtos,
+            enrollmentSections,
             classOptions);
     }
 
@@ -340,36 +532,63 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
 
     public async Task<EnrollmentFeeSummaryDto> CalculateFeesAsync(
         Guid schoolId,
+        Guid? pedagogicalClassId = null,
+        Guid? academicYearId = null,
         IReadOnlyList<Guid>? selectedFeeTypeIds = null,
         IReadOnlyDictionary<Guid, decimal>? discounts = null,
         CancellationToken cancellationToken = default)
     {
-        var feeTypes = await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken);
+        var feeTypes = await _feeTypeRepository.FindAsync(
+            f => f.SchoolId == schoolId && f.IsActive,
+            cancellationToken);
         if (selectedFeeTypeIds is { Count: > 0 })
         {
             var set = selectedFeeTypeIds.ToHashSet();
             feeTypes = feeTypes.Where(f => set.Contains(f.Id)).ToList();
         }
 
+        AcademicYear? year = null;
+        if (academicYearId.HasValue)
+        {
+            year = (await _yearRepository.FindAsync(
+                y => y.SchoolId == schoolId && y.Id == academicYearId.Value,
+                cancellationToken)).FirstOrDefault();
+        }
+        else
+        {
+            year = (await _yearRepository.FindAsync(
+                y => y.SchoolId == schoolId && y.IsCurrent && !y.IsClosed,
+                cancellationToken)).FirstOrDefault();
+        }
+
         discounts ??= new Dictionary<Guid, decimal>();
 
-        var lines = feeTypes
-            .OrderBy(f => f.Name)
-            .Select(f =>
+        var lines = new List<EnrollmentFeeLineDto>();
+        foreach (var feeType in feeTypes.OrderBy(f => f.Name))
+        {
+            var discount = discounts.GetValueOrDefault(feeType.Id);
+            decimal gross = 0;
+            if (year is not null && pedagogicalClassId.HasValue)
             {
-                var discount = discounts.GetValueOrDefault(f.Id);
-                var net = Math.Max(0, f.DefaultAmount - discount);
-                return new EnrollmentFeeLineDto(
-                    f.Id,
-                    f.Code,
-                    f.Name,
-                    f.DefaultAmount,
-                    discount,
-                    0,
-                    net,
-                    f.IsMandatory);
-            })
-            .ToList();
+                gross = await _schoolFeeService.ResolveAnnualAmountAsync(
+                    schoolId,
+                    year.Id,
+                    pedagogicalClassId.Value,
+                    feeType.Id,
+                    cancellationToken);
+            }
+
+            var net = Math.Max(0, gross - discount);
+            lines.Add(new EnrollmentFeeLineDto(
+                feeType.Id,
+                feeType.Code,
+                feeType.Name,
+                gross,
+                discount,
+                0,
+                net,
+                feeType.IsMandatory));
+        }
 
         var currency = feeTypes.FirstOrDefault()?.Currency ?? Currency.CDF;
         return new EnrollmentFeeSummaryDto(lines, lines.Sum(l => l.NetAmount), currency);
@@ -405,6 +624,7 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         var classRoom = await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
             _classRoomRepository,
             _pedagogicalClassRepository,
+            _yearRepository,
             schoolId,
             request.Scolarite.ClassRoomId,
             cancellationToken);
@@ -428,17 +648,23 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 cancellationToken)).FirstOrDefault()
                 ?? throw new KeyNotFoundException("Élève introuvable.");
 
-            ApplyStudentFields(student, request);
+            await ApplyStudentFieldsAsync(student, request, cancellationToken);
             await _studentRepository.UpdateAsync(student, cancellationToken);
         }
         else
         {
             var registration = await GenerateRegistrationNumberAsync(schoolId, cancellationToken);
-            student = CreateStudentEntity(schoolId, registration.RegistrationNumber, request);
+            student = await CreateStudentEntityAsync(schoolId, registration.RegistrationNumber, request, cancellationToken);
             await _studentRepository.AddAsync(student, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        await ReplaceGuardiansAsync(schoolId, student.Id, request.Guardians, cancellationToken);
+        await ReplaceGuardiansAsync(
+            schoolId,
+            student.Id,
+            request.Guardians,
+            request.ResidenceAddress,
+            cancellationToken);
 
         var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
         var enrollment = new Enrollment
@@ -484,7 +710,12 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             }
         }
 
-        await PersistDocumentsAsync(student.Id, request.Documents, cancellationToken);
+        await PersistDocumentsAsync(
+            student.Id,
+            student,
+            prerequisites.CurrentAcademicYearLabel ?? academicYearId.ToString(),
+            request.Documents,
+            cancellationToken);
 
         var auditActions = new List<string>
         {
@@ -512,6 +743,17 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var ficheMessage = string.Empty;
+        try
+        {
+            await _enrollmentFormService.SaveToStudentDossierAsync(schoolId, enrollment.Id, cancellationToken);
+            ficheMessage = " Fiche d'inscription (PDF) enregistrée dans le dossier élève.";
+        }
+        catch
+        {
+            ficheMessage = " Fiche d'inscription (PDF) non enregistrée (dossier partagé indisponible).";
+        }
+
         var className = classRoom.PedagogicalClassId.HasValue
             && pedagogicalMap.TryGetValue(classRoom.PedagogicalClassId.Value, out var pc)
             ? $"{pc.DisplayName} {classRoom.Name}"
@@ -524,13 +766,16 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             $"{student.LastName} {student.FirstName}",
             className,
             totalDue,
-            feeSummary is null
+            (feeSummary is null
                 ? "Dossier élève enregistré. Les frais scolaires seront traités séparément dans le module Paiements."
-                : "Inscription validée. Dossiers scolaire, financier, présence, examens, bulletins et disciplinaire initialisés.");
+                : "Inscription validée. Dossiers scolaire, financier, présence, examens, bulletins et disciplinaire initialisés.")
+            + ficheMessage);
     }
 
     private async Task PersistDocumentsAsync(
         Guid studentId,
+        Student student,
+        string academicYearLabel,
         IReadOnlyList<EnrollmentDocumentStatusDto> documents,
         CancellationToken cancellationToken)
     {
@@ -538,27 +783,63 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                      d.Status.Equals("Complet", StringComparison.OrdinalIgnoreCase)
                      && !string.IsNullOrWhiteSpace(d.FileName)))
         {
+            var storagePath = await EnsureDossierStoragePathAsync(
+                student,
+                academicYearLabel,
+                doc.DocumentType,
+                doc.FileName!,
+                doc.StoragePath,
+                cancellationToken);
+
             await _studentDocumentRepository.AddAsync(new StudentDocument
             {
                 StudentId = studentId,
                 DocumentType = doc.DocumentType,
                 FileName = doc.FileName!,
-                StoragePath = doc.StoragePath ?? doc.FileName!,
+                StoragePath = storagePath,
                 MimeType = GuessMimeType(doc.FileName),
-                FileSizeBytes = 0
+                FileSizeBytes = doc.FileSizeBytes
             }, cancellationToken);
 
-            if (doc.DocumentType.Equals("Photo", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(doc.StoragePath))
+            if (doc.DocumentType.Equals("Photo", StringComparison.OrdinalIgnoreCase))
             {
-                var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken)).FirstOrDefault();
-                if (student is not null)
-                {
-                    student.PhotoPath = doc.StoragePath;
-                    await _studentRepository.UpdateAsync(student, cancellationToken);
-                }
+                student.PhotoPath = storagePath;
             }
         }
+    }
+
+    private async Task<string> EnsureDossierStoragePathAsync(
+        Student student,
+        string academicYearLabel,
+        string documentType,
+        string fileName,
+        string? storagePath,
+        CancellationToken cancellationToken)
+    {
+        if (StudentDossierPathHelper.IsServerStoragePath(storagePath))
+        {
+            return storagePath!;
+        }
+
+        if (string.IsNullOrWhiteSpace(storagePath) || !File.Exists(storagePath))
+        {
+            throw new DomainException(
+                $"Le fichier « {documentType} » doit être enregistré dans le dossier partagé avant validation.");
+        }
+
+        await using var stream = File.OpenRead(storagePath);
+        var saved = await _studentDossierStorage.SaveStudentFileAsync(
+            new StudentDossierFileRequest(
+                student.LastName,
+                student.FirstName,
+                student.RegistrationNumber,
+                academicYearLabel,
+                documentType,
+                fileName),
+            stream,
+            cancellationToken);
+
+        return saved.StoragePath;
     }
 
     private static string? GuessMimeType(string? fileName)
@@ -589,9 +870,9 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             issues.Add(new("last_name", "Le nom de l'élève est obligatoire.", "identity"));
         }
 
-        if (string.IsNullOrWhiteSpace(request.FirstName))
+        if (string.IsNullOrWhiteSpace(request.MiddleName))
         {
-            issues.Add(new("first_name", "Le prénom de l'élève est obligatoire.", "identity"));
+            issues.Add(new("middle_name", "Le postnom de l'élève est obligatoire.", "identity"));
         }
 
         if (request.DateOfBirth == default)
@@ -620,19 +901,7 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             issues.Add(new("confirmation", "Vous devez confirmer l'exactitude des informations.", "validation"));
         }
 
-        var mandatoryDocs = new[] { "Acte de naissance", "Photo" };
-        foreach (var docType in mandatoryDocs)
-        {
-            var doc = request.Documents.FirstOrDefault(d =>
-                d.DocumentType.Equals(docType, StringComparison.OrdinalIgnoreCase));
-            if (doc is null || !doc.Status.Equals("Complet", StringComparison.OrdinalIgnoreCase))
-            {
-                issues.Add(new(
-                    $"document_{docType}",
-                    $"Le document « {docType} » est obligatoire et doit être complet.",
-                    "documents"));
-            }
-        }
+        ValidateGuardianGenders(request.Guardians, issues);
 
         if (issues.Count > 0)
         {
@@ -651,6 +920,7 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
                 _classRoomRepository,
                 _pedagogicalClassRepository,
+                _yearRepository,
                 schoolId,
                 request.Scolarite.ClassRoomId,
                 cancellationToken);
@@ -678,8 +948,8 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 var duplicate = await _studentRepository.FindAsync(
                     s => s.SchoolId == schoolId
                          && !s.IsArchived
-                         && s.FirstName == request.FirstName
                          && s.LastName == request.LastName
+                         && s.MiddleName == request.MiddleName
                          && s.DateOfBirth == request.DateOfBirth,
                     cancellationToken);
 
@@ -687,7 +957,7 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                 {
                     issues.Add(new(
                         "duplicate",
-                        "Un élève avec le même nom, prénom et date de naissance existe déjà.",
+                        "Un élève avec le même nom, postnom et date de naissance existe déjà.",
                         "search"));
                 }
             }
@@ -705,6 +975,21 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
                         "already_enrolled",
                         "Cet élève est déjà inscrit pour l'année scolaire courante.",
                         "scolarite"));
+                }
+                else
+                {
+                    var lastClassLevel = await GetStudentLastClassLevelAsync(
+                        request.ExistingStudentId.Value,
+                        prerequisites.CurrentAcademicYearId.Value,
+                        cancellationToken);
+
+                    if (lastClassLevel.HasValue && classRoom.Level < lastClassLevel.Value)
+                    {
+                        issues.Add(new(
+                            "class_level",
+                            "La classe sélectionnée est inférieure à la dernière classe de l'élève.",
+                            "scolarite"));
+                    }
                 }
             }
         }
@@ -734,7 +1019,11 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         }
     }
 
-    private static Student CreateStudentEntity(Guid schoolId, string registrationNumber, CompleteEnrollmentRequest request)
+    private async Task<Student> CreateStudentEntityAsync(
+        Guid schoolId,
+        string registrationNumber,
+        CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken)
     {
         var student = new Student
         {
@@ -747,17 +1036,21 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
             DateOfBirth = request.DateOfBirth,
             PlaceOfBirth = request.PlaceOfBirth?.Trim(),
             Nationality = request.Nationality?.Trim() ?? "Congolaise",
-            Address = BuildAddress(request),
             Phone = request.Phone?.Trim(),
             Email = request.Email?.Trim(),
             PhotoPath = request.PhotoPath,
             BloodGroup = request.Medical.BloodGroup?.Trim(),
             MedicalNotes = BuildMedicalNotes(request)
         };
+
+        await ApplyAddressFieldsAsync(student, request, cancellationToken);
         return student;
     }
 
-    private static void ApplyStudentFields(Student student, CompleteEnrollmentRequest request)
+    private async Task ApplyStudentFieldsAsync(
+        Student student,
+        CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken)
     {
         student.FirstName = request.FirstName.Trim();
         student.LastName = request.LastName.Trim();
@@ -766,53 +1059,36 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         student.DateOfBirth = request.DateOfBirth;
         student.PlaceOfBirth = request.PlaceOfBirth?.Trim();
         student.Nationality = request.Nationality?.Trim() ?? student.Nationality;
-        student.Address = BuildAddress(request);
         student.Phone = request.Phone?.Trim();
         student.Email = request.Email?.Trim();
         student.PhotoPath = request.PhotoPath ?? student.PhotoPath;
         student.BloodGroup = request.Medical.BloodGroup?.Trim();
         student.MedicalNotes = BuildMedicalNotes(request);
+        await ApplyAddressFieldsAsync(student, request, cancellationToken);
     }
 
-    private static string? BuildAddress(CompleteEnrollmentRequest request)
+    private async Task ApplyAddressFieldsAsync(
+        Student student,
+        CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken)
     {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(request.Address))
-        {
-            parts.Add(request.Address.Trim());
-        }
+        student.AddressId = await _addressService.UpsertAsync(
+            request.ResidenceAddress,
+            student.AddressId,
+            cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(request.City))
-        {
-            parts.Add($"Ville: {request.City.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Territory))
-        {
-            parts.Add($"Territoire: {request.Territory.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Province))
-        {
-            parts.Add($"Province: {request.Province.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Country))
-        {
-            parts.Add($"Pays: {request.Country.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Language))
-        {
-            parts.Add($"Langue: {request.Language.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Religion))
-        {
-            parts.Add($"Religion: {request.Religion.Trim()}");
-        }
-
-        return parts.Count == 0 ? null : string.Join(" | ", parts);
+        var countries = await _addressService.GetCountryNamesAsync(cancellationToken);
+        var provinces = await _addressService.GetProvinceNamesAsync(cancellationToken);
+        var cities = await _addressService.GetCityNamesAsync(cancellationToken);
+        var communes = await _addressService.GetCommuneNamesAsync(cancellationToken);
+        student.Address = AddressFormatting.ToLegacyStorage(
+            request.ResidenceAddress,
+            countries,
+            provinces,
+            cities,
+            communes,
+            request.Language,
+            request.Religion);
     }
 
     private static string BuildMedicalNotes(CompleteEnrollmentRequest request)
@@ -892,44 +1168,228 @@ public sealed class EnrollmentWizardService : IEnrollmentWizardService
         Guid schoolId,
         Guid studentId,
         IReadOnlyList<GuardianInputDto> guardians,
+        AddressInputDto? studentAddress,
         CancellationToken cancellationToken)
     {
-        var existingLinks = await _studentGuardianRepository.FindAsync(
+        var existingLinks = (await _studentGuardianRepository.FindIncludingDeletedAsync(
             sg => sg.StudentId == studentId,
-            cancellationToken);
+            cancellationToken)).ToList();
 
-        foreach (var link in existingLinks)
-        {
-            await _studentGuardianRepository.DeleteAsync(link, cancellationToken);
-        }
+        var schoolGuardians = (await _guardianRepository.FindAsync(g => g.SchoolId == schoolId, cancellationToken)).ToList();
+        var countries = await _addressService.GetCountryNamesAsync(cancellationToken);
+        var provinces = await _addressService.GetProvinceNamesAsync(cancellationToken);
+        var cities = await _addressService.GetCityNamesAsync(cancellationToken);
+        var communes = await _addressService.GetCommuneNamesAsync(cancellationToken);
+        var linkedGuardianIds = new HashSet<Guid>();
 
         foreach (var input in guardians.Where(g =>
                      !string.IsNullOrWhiteSpace(g.FirstName) || !string.IsNullOrWhiteSpace(g.LastName)))
         {
-            var guardian = new Guardian
+            Guardian? guardian = null;
+            if (input.ExistingGuardianId.HasValue)
             {
-                SchoolId = schoolId,
-                FirstName = input.FirstName.Trim(),
-                LastName = input.LastName.Trim(),
-                Phone = input.Phone?.Trim(),
-                Email = input.Email?.Trim(),
-                Address = input.Address?.Trim(),
-                Profession = string.IsNullOrWhiteSpace(input.Employer)
-                    ? input.Profession?.Trim()
-                    : $"{input.Profession?.Trim()} — {input.Employer.Trim()}"
-            };
+                guardian = schoolGuardians.FirstOrDefault(g => g.Id == input.ExistingGuardianId.Value);
+            }
 
-            await _guardianRepository.AddAsync(guardian, cancellationToken);
+            guardian ??= FindExistingGuardian(schoolGuardians, input)
+                ?? await CreateGuardianAsync(schoolId, input, studentAddress, cancellationToken);
+
+            if (!linkedGuardianIds.Add(guardian.Id))
+            {
+                continue;
+            }
+
+            if (!schoolGuardians.Any(g => g.Id == guardian.Id))
+            {
+                schoolGuardians.Add(guardian);
+            }
+            else if (!input.UsesStudentAddress)
+            {
+                guardian.AddressId = await _addressService.UpsertAsync(
+                    input.ResidenceAddress,
+                    guardian.AddressId,
+                    cancellationToken);
+                guardian.Address = AddressFormatting.ToLegacyStorage(
+                    input.ResidenceAddress,
+                    countries,
+                    provinces,
+                    cities,
+                    communes);
+                await _guardianRepository.UpdateAsync(guardian, cancellationToken);
+            }
+
+            var relationship = string.IsNullOrWhiteSpace(input.Relationship) ? "Responsable" : input.Relationship.Trim();
+            var existingLink = existingLinks.FirstOrDefault(l => l.GuardianId == guardian.Id);
+            if (existingLink is not null)
+            {
+                existingLink.Relationship = relationship;
+                existingLink.IsPrimary = input.IsPrimary;
+                existingLink.CanPickup = input.CanPickup;
+                existingLink.UsesStudentAddress = input.UsesStudentAddress;
+                existingLink.IsDeleted = false;
+                existingLink.DeletedAt = null;
+                existingLink.DeletedBy = null;
+                await _studentGuardianRepository.UpdateAsync(existingLink, cancellationToken);
+                continue;
+            }
 
             await _studentGuardianRepository.AddAsync(new StudentGuardian
             {
                 StudentId = studentId,
                 GuardianId = guardian.Id,
-                Relationship = string.IsNullOrWhiteSpace(input.Relationship) ? "Responsable" : input.Relationship.Trim(),
+                Relationship = relationship,
                 IsPrimary = input.IsPrimary,
-                CanPickup = input.CanPickup
+                CanPickup = input.CanPickup,
+                UsesStudentAddress = input.UsesStudentAddress
             }, cancellationToken);
         }
+
+        foreach (var link in existingLinks.Where(l => !l.IsDeleted && !linkedGuardianIds.Contains(l.GuardianId)))
+        {
+            await _studentGuardianRepository.DeleteAsync(link, cancellationToken);
+        }
+    }
+
+    private async Task<Guardian> CreateGuardianAsync(
+        Guid schoolId,
+        GuardianInputDto input,
+        AddressInputDto? studentAddress,
+        CancellationToken cancellationToken)
+    {
+        var addressInput = input.UsesStudentAddress ? studentAddress : input.ResidenceAddress;
+        var guardian = new Guardian
+        {
+            SchoolId = schoolId,
+            FirstName = input.FirstName.Trim(),
+            LastName = input.LastName.Trim(),
+            Phone = input.Phone?.Trim(),
+            Email = input.Email?.Trim(),
+            Gender = input.Gender,
+            Profession = string.IsNullOrWhiteSpace(input.Employer)
+                ? input.Profession?.Trim()
+                : $"{input.Profession?.Trim()} — {input.Employer.Trim()}"
+        };
+
+        guardian.AddressId = await _addressService.UpsertAsync(addressInput, null, cancellationToken);
+        var countries = await _addressService.GetCountryNamesAsync(cancellationToken);
+        var provinces = await _addressService.GetProvinceNamesAsync(cancellationToken);
+        var cities = await _addressService.GetCityNamesAsync(cancellationToken);
+        var communes = await _addressService.GetCommuneNamesAsync(cancellationToken);
+        guardian.Address = AddressFormatting.ToLegacyStorage(
+            addressInput,
+            countries,
+            provinces,
+            cities,
+            communes);
+
+        await _guardianRepository.AddAsync(guardian, cancellationToken);
+        return guardian;
+    }
+
+    private static Guardian? FindExistingGuardian(IEnumerable<Guardian> guardians, GuardianInputDto input)
+    {
+        var candidates = guardians.AsEnumerable();
+
+        if (input.Gender.HasValue)
+        {
+            candidates = candidates.Where(g => !g.Gender.HasValue || g.Gender == input.Gender);
+        }
+
+        var phoneKey = NormalizePhoneDigits(input.Phone);
+        if (phoneKey.Length >= 9)
+        {
+            return candidates.FirstOrDefault(g => NormalizePhoneDigits(g.Phone) == phoneKey);
+        }
+
+        var lastName = input.LastName.Trim();
+        var firstName = input.FirstName.Trim();
+        var email = input.Email?.Trim();
+
+        return candidates.FirstOrDefault(g =>
+            g.LastName.Equals(lastName, StringComparison.OrdinalIgnoreCase)
+            && g.FirstName.Equals(firstName, StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(email)
+                || string.Equals(g.Email?.Trim(), email, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static void ValidateGuardianGenders(
+        IReadOnlyList<GuardianInputDto> guardians,
+        List<EnrollmentValidationIssueDto> issues)
+    {
+        foreach (var guardian in guardians)
+        {
+            if (string.IsNullOrWhiteSpace(guardian.LastName) && string.IsNullOrWhiteSpace(guardian.FirstName))
+            {
+                continue;
+            }
+
+            if (IsFatherRelationship(guardian.Relationship))
+            {
+                if (guardian.Gender != Gender.Masculin)
+                {
+                    issues.Add(new("guardian_gender", "Le père doit être de sexe masculin.", "guardians"));
+                }
+            }
+            else if (IsMotherRelationship(guardian.Relationship))
+            {
+                if (guardian.Gender != Gender.Feminin)
+                {
+                    issues.Add(new("guardian_gender", "La mère doit être de sexe féminin.", "guardians"));
+                }
+            }
+            else if (RequiresExplicitGender(guardian.Relationship) && !guardian.Gender.HasValue)
+            {
+                issues.Add(new(
+                    "guardian_gender",
+                    $"Le sexe est obligatoire pour le responsable « {guardian.Relationship} ».",
+                    "guardians"));
+            }
+        }
+    }
+
+    private static bool IsFatherRelationship(string relationship) =>
+        relationship.Contains("père", StringComparison.OrdinalIgnoreCase)
+        || relationship.Contains("pere", StringComparison.OrdinalIgnoreCase)
+        || relationship.Contains("father", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMotherRelationship(string relationship) =>
+        relationship.Contains("mère", StringComparison.OrdinalIgnoreCase)
+        || relationship.Contains("mere", StringComparison.OrdinalIgnoreCase)
+        || relationship.Contains("mother", StringComparison.OrdinalIgnoreCase);
+
+    private static bool RequiresExplicitGender(string relationship) =>
+        !IsFatherRelationship(relationship) && !IsMotherRelationship(relationship);
+
+    private static string NormalizePhoneDigits(string? phone) =>
+        string.IsNullOrWhiteSpace(phone)
+            ? string.Empty
+            : new string(phone.Where(char.IsDigit).ToArray());
+
+    private async Task<int?> GetStudentLastClassLevelAsync(
+        Guid studentId,
+        Guid currentAcademicYearId,
+        CancellationToken cancellationToken)
+    {
+        var enrollments = await _enrollmentRepository.FindAsync(
+            e => e.StudentId == studentId && e.IsActive,
+            cancellationToken);
+
+        var referenceEnrollment = enrollments
+            .Where(e => e.AcademicYearId != currentAcademicYearId)
+            .OrderByDescending(e => e.EnrollmentDate)
+            .FirstOrDefault()
+            ?? enrollments.OrderByDescending(e => e.EnrollmentDate).FirstOrDefault();
+
+        if (referenceEnrollment is null)
+        {
+            return null;
+        }
+
+        var classRoom = (await _classRoomRepository.FindAsync(
+            c => c.Id == referenceEnrollment.ClassRoomId,
+            cancellationToken)).FirstOrDefault();
+
+        return classRoom?.Level;
     }
 
     private static EnrollmentStatus MapRegistrationKind(RegistrationKind kind) => kind switch

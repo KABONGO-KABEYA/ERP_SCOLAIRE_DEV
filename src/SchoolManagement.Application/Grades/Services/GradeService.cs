@@ -64,6 +64,7 @@ public sealed class GradeService : IGradeService
         var classRoom = await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
             _classRoomRepository,
             _pedagogicalClassRepository,
+            _yearRepository,
             schoolId,
             request.ClassRoomId,
             cancellationToken);
@@ -97,6 +98,7 @@ public sealed class GradeService : IGradeService
         var classRoom = await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
             _classRoomRepository,
             _pedagogicalClassRepository,
+            _yearRepository,
             schoolId,
             classRoomId,
             cancellationToken);
@@ -207,6 +209,7 @@ public sealed class GradeService : IGradeService
         await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
             _classRoomRepository,
             _pedagogicalClassRepository,
+            _yearRepository,
             schoolId,
             request.ClassRoomId,
             cancellationToken);

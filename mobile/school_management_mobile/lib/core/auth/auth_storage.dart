@@ -8,17 +8,20 @@ class AuthStorage {
   static const _refreshTokenKey = 'refresh_token';
   static const _userNameKey = 'user_name';
   static const _rolesKey = 'user_roles';
+  static const _permissionsKey = 'user_permissions';
 
   static Future<void> saveSession({
     required String accessToken,
     required String refreshToken,
     required String userName,
     required List<String> roles,
+    required List<String> permissions,
   }) async {
     await _storage.write(key: _accessTokenKey, value: accessToken);
     await _storage.write(key: _refreshTokenKey, value: refreshToken);
     await _storage.write(key: _userNameKey, value: userName);
     await _storage.write(key: _rolesKey, value: roles.join(','));
+    await _storage.write(key: _permissionsKey, value: permissions.join(','));
   }
 
   static Future<String?> get accessToken => _storage.read(key: _accessTokenKey);
@@ -31,6 +34,12 @@ class AuthStorage {
     final raw = await _storage.read(key: _rolesKey);
     if (raw == null || raw.isEmpty) return [];
     return raw.split(',').where((r) => r.isNotEmpty).toList();
+  }
+
+  static Future<List<String>> get permissions async {
+    final raw = await _storage.read(key: _permissionsKey);
+    if (raw == null || raw.isEmpty) return [];
+    return raw.split(',').where((p) => p.isNotEmpty).toList();
   }
 
   static Future<bool> get isLoggedIn async =>
@@ -51,9 +60,22 @@ class AuthStorage {
     return userRoles.any((r) => r.toUpperCase().contains('DIRECTION'));
   }
 
+  static Future<bool> get canManageEnrollments async {
+    final perms = await permissions;
+    if (perms.contains('admin.full') || perms.contains('students.create')) {
+      return true;
+    }
+    final userRoles = await roles;
+    return userRoles.any((r) {
+      final upper = r.toUpperCase();
+      return upper.contains('ADMIN') || upper.contains('SECRET');
+    });
+  }
+
   static Future<String> get homeRoute async {
-    if (await isDirection) return '/direction/dashboard';
     if (await isTeacher) return '/teacher/assignments';
+    if (await canManageEnrollments) return '/secretary/home';
+    if (await isDirection) return '/direction/dashboard';
     return '/children';
   }
 

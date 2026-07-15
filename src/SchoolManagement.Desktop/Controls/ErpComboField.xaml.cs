@@ -14,7 +14,8 @@ public partial class ErpComboField : UserControl
         DependencyProperty.Register(nameof(IconKind), typeof(MaterialDesignThemes.Wpf.PackIconKind), typeof(ErpComboField),
             new PropertyMetadata(MaterialDesignThemes.Wpf.PackIconKind.None));
     public static readonly DependencyProperty FieldWidthProperty =
-        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpComboField), new PropertyMetadata(260d));
+        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpComboField),
+            new PropertyMetadata(260d, OnLayoutPropertyChanged));
     public static readonly DependencyProperty ErrorMessageProperty =
         DependencyProperty.Register(nameof(ErrorMessage), typeof(string), typeof(ErpComboField), new PropertyMetadata(string.Empty));
     public static readonly DependencyProperty ShowValidationProperty =
@@ -32,6 +33,9 @@ public partial class ErpComboField : UserControl
     public static readonly DependencyProperty SelectedValuePathProperty =
         DependencyProperty.Register(nameof(SelectedValuePath), typeof(string), typeof(ErpComboField), new PropertyMetadata(string.Empty));
 
+    public static readonly DependencyProperty RefreshOnDropDownOpenProperty =
+        DependencyProperty.Register(nameof(RefreshOnDropDownOpen), typeof(bool), typeof(ErpComboField), new PropertyMetadata(false));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
     public MaterialDesignThemes.Wpf.PackIconKind IconKind { get => (MaterialDesignThemes.Wpf.PackIconKind)GetValue(IconKindProperty); set => SetValue(IconKindProperty, value); }
@@ -43,11 +47,42 @@ public partial class ErpComboField : UserControl
     public object? SelectedValue { get => GetValue(SelectedValueProperty); set => SetValue(SelectedValueProperty, value); }
     public string DisplayMemberPath { get => (string)GetValue(DisplayMemberPathProperty); set => SetValue(DisplayMemberPathProperty, value); }
     public string SelectedValuePath { get => (string)GetValue(SelectedValuePathProperty); set => SetValue(SelectedValuePathProperty, value); }
+    public bool RefreshOnDropDownOpen { get => (bool)GetValue(RefreshOnDropDownOpenProperty); set => SetValue(RefreshOnDropDownOpenProperty, value); }
+
+    public event EventHandler? DropDownOpened;
+    public event Func<EventArgs, Task>? PreparingDropDownAsync;
 
     public ErpComboField()
     {
         InitializeComponent();
-        Loaded += (_, _) => RefreshValidation();
+        Loaded += (_, _) =>
+        {
+            UpdateLayoutSizing();
+            RefreshValidation();
+        };
+    }
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.Property == HorizontalAlignmentProperty)
+        {
+            UpdateLayoutSizing();
+        }
+    }
+
+    private static void OnLayoutPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpComboField field)
+        {
+            field.UpdateLayoutSizing();
+        }
+    }
+
+    private void UpdateLayoutSizing()
+    {
+        ErpFieldLayout.ApplyResponsiveWidth(this, FieldWidth);
     }
 
     private static void OnChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -93,5 +128,29 @@ public partial class ErpComboField : UserControl
     {
         ShowValidation = true;
         RefreshValidation();
+    }
+
+    private void InputComboBox_OnDropDownOpened(object sender, EventArgs e)
+    {
+        DropDownOpened?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async void InputComboBox_OnPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (PreparingDropDownAsync is null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        try
+        {
+            await PreparingDropDownAsync(EventArgs.Empty);
+            InputComboBox.IsDropDownOpen = true;
+        }
+        catch
+        {
+            InputComboBox.IsDropDownOpen = false;
+        }
     }
 }

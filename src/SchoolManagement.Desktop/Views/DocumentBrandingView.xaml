@@ -1,0 +1,21 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.DocumentBrandingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls">
+    <Grid Margin="24,20" Style="{StaticResource ErpV2PageHost}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Style="{StaticResource ErpPageTitle}" Text="Configuration des En-têtes et Logos" />
+            <TextBlock Margin="0,6,0,0"
+                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                       Text="Logos, en-têtes, signatures, cachets et pied de page pour tous les documents imprimés."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <controls:DocumentBrandingControl Grid.Row="1" DataContext="{Binding}" />
+    </Grid>
+</UserControl>

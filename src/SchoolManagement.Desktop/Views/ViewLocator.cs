@@ -15,10 +15,19 @@ public class ViewLocator : IValueConverter
         }
 
         var viewModelType = value.GetType();
-        var viewName = viewModelType.FullName!
-            .Replace(".ViewModels.", ".Views.", StringComparison.Ordinal)
-            .Replace("ViewModel", "View", StringComparison.Ordinal);
-        var viewType = viewModelType.Assembly.GetType(viewName);
+        Type? viewType;
+
+        if (viewModelType == typeof(EnrollmentWizardViewModel))
+        {
+            viewType = typeof(InscriptionEleveV2View);
+        }
+        else
+        {
+            var viewName = viewModelType.FullName!
+                .Replace(".ViewModels.", ".Views.", StringComparison.Ordinal)
+                .Replace("ViewModel", "View", StringComparison.Ordinal);
+            viewType = viewModelType.Assembly.GetType(viewName);
+        }
 
         if (viewType is null)
         {

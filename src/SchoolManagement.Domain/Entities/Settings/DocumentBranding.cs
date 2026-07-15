@@ -1,0 +1,99 @@
+using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Enums;
+
+namespace SchoolManagement.Domain.Entities.Settings;
+
+public class SchoolLogo : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public string ImagePath { get; set; } = string.Empty;
+
+    public bool IsPrimary { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+public class SchoolDocumentHeader : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public DocumentBrandingType DocumentType { get; set; }
+
+    /// <summary>Types de documents concernés (CSV d'entiers enum). Si vide, seul <see cref="DocumentType"/> s'applique.</summary>
+    public string? ApplicableDocumentTypes { get; set; }
+
+    public HeaderPrintMode PrintMode { get; set; }
+
+    public string? ImagePath { get; set; }
+
+    public int? WidthPx { get; set; }
+
+    public int? HeightPx { get; set; }
+
+    public int? ResolutionDpi { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+public class SchoolSignature : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string SignatoryName { get; set; } = string.Empty;
+
+    public string Function { get; set; } = string.Empty;
+
+    public DocumentBrandingType DocumentType { get; set; } = DocumentBrandingType.Autre;
+
+    /// <summary>Types de documents où cette signature apparaît (CSV d'entiers enum).</summary>
+    public string? ApplicableDocumentTypes { get; set; }
+
+    public string ImagePath { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+public class SchoolStamp : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public string ImagePath { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+public class SchoolDocumentFooter : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string? Address { get; set; }
+
+    public string? Phone { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Website { get; set; }
+
+    public string? PoBox { get; set; }
+
+    public string? SchoolMotto { get; set; }
+
+    public string? FreeText { get; set; }
+
+    public School School { get; set; } = null!;
+}

@@ -1,0 +1,81 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.ErpAddressControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels"
+             x:Name="Root">
+    <Grid DataContext="{Binding Editor, ElementName=Root}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <erp:ErpComboField Grid.Row="0"
+                           Grid.Column="0"
+                           Margin="{StaticResource ErpFormCellMargin}"
+                           DisplayMemberPath="Name"
+                           HorizontalAlignment="Stretch"
+                           IconKind="Earth"
+                           ItemsSource="{Binding Countries}"
+                           Label="Pays"
+                           SelectedItem="{Binding SelectedCountry, Mode=TwoWay}" />
+        <erp:ErpComboField x:Name="ProvinceField"
+                           Grid.Row="0"
+                           Grid.Column="1"
+                           Margin="0,0,0,18"
+                           DisplayMemberPath="Name"
+                           HorizontalAlignment="Stretch"
+                           IconKind="MapMarker"
+                           ItemsSource="{Binding Provinces}"
+                           Label="Province"
+                           SelectedItem="{Binding SelectedProvince, Mode=TwoWay}" />
+        <erp:ErpComboField x:Name="CityField"
+                           Grid.Row="1"
+                           Grid.Column="0"
+                           Margin="{StaticResource ErpFormCellMargin}"
+                           DisplayMemberPath="Name"
+                           HorizontalAlignment="Stretch"
+                           IconKind="CityVariant"
+                           ItemsSource="{Binding Cities}"
+                           Label="Ville"
+                           SelectedItem="{Binding SelectedCity, Mode=TwoWay}" />
+        <erp:ErpComboField x:Name="CommuneField"
+                           Grid.Row="1"
+                           Grid.Column="1"
+                           Margin="0,0,0,18"
+                           DisplayMemberPath="Name"
+                           HorizontalAlignment="Stretch"
+                           IconKind="MapMarkerRadius"
+                           ItemsSource="{Binding Communes}"
+                           Label="Commune"
+                           SelectedItem="{Binding SelectedCommune, Mode=TwoWay}" />
+        <erp:ErpTextField Grid.Row="2"
+                          Grid.Column="0"
+                          Margin="{StaticResource ErpFormCellMargin}"
+                          HorizontalAlignment="Stretch"
+                          IconKind="HomeGroup"
+                          Label="Quartier"
+                          Text="{Binding Neighborhood, UpdateSourceTrigger=PropertyChanged}" />
+        <erp:ErpTextField Grid.Row="2"
+                          Grid.Column="1"
+                          Margin="0,0,0,18"
+                          HorizontalAlignment="Stretch"
+                          IconKind="RoadVariant"
+                          Label="Avenue"
+                          Text="{Binding Avenue, UpdateSourceTrigger=PropertyChanged}" />
+        <erp:ErpTextField Grid.Row="3"
+                          Grid.Column="0"
+                          Grid.ColumnSpan="2"
+                          Margin="0,0,0,18"
+                          HorizontalAlignment="Stretch"
+                          IconKind="Home"
+                          Label="Numéro de maison"
+                          Text="{Binding HouseNumber, UpdateSourceTrigger=PropertyChanged}" />
+    </Grid>
+</UserControl>

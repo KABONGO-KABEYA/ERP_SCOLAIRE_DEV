@@ -63,7 +63,7 @@ public partial class AdministrationViewModel : ViewModelBase
         {
             var roleIds = SelectedRole is not null ? new List<Guid> { SelectedRole.Id } : new List<Guid>();
             await _adminApiService.CreateUserAsync(new CreateUserRequest(
-                NewUserName, NewEmail, NewPassword, NewFirstName, NewLastName, roleIds));
+                NewUserName, NewEmail, NewPassword, NewFirstName, NewLastName, roleIds, null));
 
             NewUserName = string.Empty;
             NewEmail = string.Empty;

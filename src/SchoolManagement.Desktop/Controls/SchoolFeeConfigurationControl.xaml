@@ -1,0 +1,924 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.SchoolFeeConfigurationControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid VerticalAlignment="Stretch" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Stretch">
+
+                <!-- ═══════════ 1. CONFIGURATION DES TARIFS ═══════════ -->
+                <Border HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStudentsLikePanel}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding ToggleTariffConfigurationCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding TariffConfigurationToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsTariffConfigurationExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsTariffConfigurationExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="ClipboardTextOutline" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding TariffConfigurationSectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding IsTariffConfigurationExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Border Style="{StaticResource SchoolFeeReadOnlyBanner}"
+                                    Visibility="{Binding ReadOnlyNotice, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Margin="0,0,8,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#B45309"
+                                                           Kind="LockOutline" />
+                                    <TextBlock Foreground="#92400E"
+                                               Text="{Binding ReadOnlyNotice}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,8" Style="{StaticResource SchoolFeeSectionCard}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Margin="0,0,0,10" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Margin="0,0,8,0"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{StaticResource ErpPrimaryBrush}"
+                                                               Kind="TuneVariant" />
+                                        <TextBlock Style="{StaticResource SchoolFeeSectionTitle}" Text="Paramètres" />
+                                    </StackPanel>
+                                    <UniformGrid Grid.Row="1" Columns="4">
+                                        <erp:ErpComboField Margin="0,0,8,0"
+                                                           DisplayMemberPath="Label"
+                                                           FieldWidth="200"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="CalendarRange"
+                                                           ItemsSource="{Binding AcademicYears}"
+                                                           Label="Année scolaire"
+                                                           SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
+                                        <erp:ErpComboField Margin="0,0,8,0"
+                                                           DisplayMemberPath="Name"
+                                                           FieldWidth="200"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="School"
+                                                           ItemsSource="{Binding Sections}"
+                                                           Label="Section"
+                                                           SelectedItem="{Binding SelectedSection, Mode=TwoWay}" />
+                                        <erp:ErpComboField Margin="0,0,8,0"
+                                                           DisplayMemberPath="Name"
+                                                           FieldWidth="200"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="TagMultiple"
+                                                           ItemsSource="{Binding PricingCategories}"
+                                                           Label="Catégorie"
+                                                           SelectedItem="{Binding SelectedPricingCategory, Mode=TwoWay}" />
+                                        <erp:ErpComboField Margin="0,0,0,0"
+                                                           DisplayMemberPath="Name"
+                                                           FieldWidth="200"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="CashMultiple"
+                                                           ItemsSource="{Binding FeeTypes}"
+                                                           Label="Type de frais"
+                                                           SelectedItem="{Binding SelectedFeeType, Mode=TwoWay}" />
+                                    </UniformGrid>
+                                    <StackPanel Grid.Row="2" Margin="0,10,0,0" Orientation="Horizontal">
+                                        <StackPanel Margin="0,0,16,0">
+                                            <StackPanel Margin="{StaticResource ErpFieldLabelSpacing}" Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="CurrencyUsd" Style="{StaticResource ErpFieldIcon}" />
+                                                <TextBlock Style="{StaticResource ErpFieldLabel}" Text="Devise" />
+                                            </StackPanel>
+                                            <Border Margin="0,4,0,0"
+                                                    Padding="12,10"
+                                                    MinWidth="120"
+                                                    Background="{StaticResource ErpInputReadOnlyBrush}"
+                                                    BorderBrush="{StaticResource ErpInputBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8">
+                                                <TextBlock FontWeight="SemiBold"
+                                                           Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                           Text="{Binding CurrencyDisplay}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Grid MinHeight="280">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="240" MinWidth="200" />
+                                    <ColumnDefinition Width="*" MinWidth="320" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Margin="0,0,8,0"
+                                        Style="{StaticResource SchoolFeeSectionCard}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="120" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                   Kind="GoogleClassroom" />
+                                            <TextBlock Style="{StaticResource SchoolFeeSectionTitle}" Text="Classes" />
+                                        </StackPanel>
+                                        <Border Grid.Row="1" Margin="0,8,0,8" Style="{StaticResource SchoolFeeMetricPill}">
+                                            <TextBlock FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Text="{Binding SelectedClassesSummary}" />
+                                        </Border>
+                                        <erp:ErpSearchField Grid.Row="2"
+                                                            Margin="0,0,0,6"
+                                                            Placeholder="Rechercher une classe…"
+                                                            Text="{Binding ClassSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                        <StackPanel Grid.Row="3" Margin="0,0,0,8" Orientation="Horizontal">
+                                            <Button Command="{Binding SelectAllClassesCommand}"
+                                                    Content="Tout"
+                                                    Padding="10,5"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                            <Button Margin="6,0,0,0"
+                                                    Command="{Binding ClearClassSelectionCommand}"
+                                                    Content="Aucun"
+                                                    Padding="10,5"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                        </StackPanel>
+                                        <Border Grid.Row="4"
+                                                Background="#F9FAFB"
+                                                BorderBrush="#E5E7EB"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="4,4">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding VisibleClasses}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Style="{StaticResource SchoolFeeClassListItemHost}">
+                                                                <CheckBox Content="{Binding DisplayName}"
+                                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                          IsEnabled="{Binding IsSelectionCompatible}"
+                                                                          Style="{StaticResource SchoolFeeClassCheckBox}"
+                                                                          ToolTip="{Binding SelectionTooltip}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Column="1"
+                                        Style="{StaticResource SchoolFeeSectionCard}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="160" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                       Kind="TableLarge" />
+                                                <TextBlock Style="{StaticResource SchoolFeeSectionTitle}" Text="Configuration des montants" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Style="{StaticResource SchoolFeeMetricPill}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource ErpPrimaryBrush}"
+                                                           Text="{Binding InstallmentCount, StringFormat={}{0} tranche(s)}" />
+                                            </Border>
+                                        </Grid>
+
+                                        <DockPanel Grid.Row="1" Style="{StaticResource SchoolFeeAmountsToolbar}">
+                                            <Button x:Name="AddInstallmentButton"
+                                                    Command="{Binding ToggleAddInstallmentPickerCommand}"
+                                                    DockPanel.Dock="Left"
+                                                    IsEnabled="{Binding CanOpenAddInstallmentPicker}"
+                                                    ToolTip="Ajouter une tranche disponible au tableau">
+                                                <Button.Style>
+                                                    <Style BasedOn="{StaticResource SchoolFeeAddInstallmentButton}" TargetType="Button">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsScheduleReadOnly}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Margin="0,0,6,0"
+                                                                           VerticalAlignment="Center"
+                                                                           Kind="Plus"
+                                                                           Width="16"
+                                                                           Height="16" />
+                                                    <TextBlock Text="Ajouter une tranche" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Popup AllowsTransparency="True"
+                                                   IsOpen="{Binding IsAddInstallmentPickerOpen, Mode=TwoWay}"
+                                                   Placement="Bottom"
+                                                   PlacementTarget="{Binding ElementName=AddInstallmentButton}"
+                                                   StaysOpen="False">
+                                                <Border Style="{StaticResource SchoolFeeInstallmentPickerPopup}">
+                                                    <StackPanel>
+                                                        <TextBlock Margin="6,4,6,8"
+                                                                   FontSize="11"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                                   Text="Tranches disponibles" />
+                                                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                                                            <ItemsControl ItemsSource="{Binding AvailableInstallmentsForConfiguration}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Button Command="{Binding DataContext.AddScheduleInstallmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding}"
+                                                                                Style="{StaticResource SchoolFeeInstallmentPickerItem}">
+                                                                            <Grid>
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="Auto" />
+                                                                                    <ColumnDefinition Width="*" />
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <Border Grid.Column="0"
+                                                                                        Margin="0,0,10,0"
+                                                                                        Style="{StaticResource SchoolFeeGridOrderBadge}">
+                                                                                    <TextBlock Style="{StaticResource SchoolFeeGridOrderText}"
+                                                                                               Text="{Binding SortOrder}" />
+                                                                                </Border>
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           VerticalAlignment="Center"
+                                                                                           FontSize="13"
+                                                                                           FontWeight="Medium"
+                                                                                           Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                                                           Text="{Binding Name}" />
+                                                                            </Grid>
+                                                                        </Button>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </ScrollViewer>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Popup>
+                                        </DockPanel>
+
+                                        <DataGrid Grid.Row="2"
+                                                  x:Name="ScheduleAmountsGrid"
+                                                  AlternationCount="2"
+                                                  AutoGenerateColumns="False"
+                                                  CanUserAddRows="False"
+                                                  HorizontalAlignment="Stretch"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  IsReadOnly="{Binding IsScheduleReadOnly}"
+                                                  ItemsSource="{Binding ScheduleLines}"
+                                                  SelectedItem="{Binding SelectedScheduleLine, Mode=TwoWay}"
+                                                  Style="{StaticResource SchoolFeeScheduleDataGrid}"
+                                                  VerticalAlignment="Stretch"
+                                                  VerticalScrollBarVisibility="Auto">
+                                            <DataGrid.Columns>
+                                                <DataGridTemplateColumn Width="72" IsReadOnly="True">
+                                                    <DataGridTemplateColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}"
+                                                                   HorizontalAlignment="Center"
+                                                                   Text="Ordre" />
+                                                    </DataGridTemplateColumn.Header>
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border Style="{StaticResource SchoolFeeGridOrderBadge}">
+                                                                <TextBlock Style="{StaticResource SchoolFeeGridOrderText}"
+                                                                           Text="{Binding SortOrder}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTextColumn Binding="{Binding InstallmentName}"
+                                                                    MinWidth="140"
+                                                                    Width="*"
+                                                                    IsReadOnly="True">
+                                                    <DataGridTextColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}" Text="Tranche" />
+                                                    </DataGridTextColumn.Header>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style BasedOn="{StaticResource SchoolFeeDataGridText}" TargetType="TextBlock">
+                                                            <Setter Property="FontWeight" Value="Medium" />
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                                <DataGridTemplateColumn Width="150">
+                                                    <DataGridTemplateColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}"
+                                                                   HorizontalAlignment="Right"
+                                                                   Margin="0,0,8,0"
+                                                                   Text="Montant" />
+                                                    </DataGridTemplateColumn.Header>
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border Style="{StaticResource SchoolFeeGridInputBorder}">
+                                                                <TextBox IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                         materialDesign:HintAssist.Hint="0,00"
+                                                                         Style="{StaticResource SchoolFeeGridNumericTextBox}"
+                                                                         Text="{Binding AmountText, UpdateSourceTrigger=LostFocus}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Width="180">
+                                                    <DataGridTemplateColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}" Text="Date limite" />
+                                                    </DataGridTemplateColumn.Header>
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <erp:ErpGridDatePicker DisplayDateEnd="{Binding MaxDueDatePicker, Mode=OneWay}"
+                                                                                   DisplayDateStart="{Binding MinDueDatePicker, Mode=OneWay}"
+                                                                                   IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                                   SelectedDate="{Binding DueDatePicker, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Width="110" IsReadOnly="True">
+                                                    <DataGridTemplateColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}" Text="État" />
+                                                    </DataGridTemplateColumn.Header>
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border>
+                                                                <Border.Style>
+                                                                    <Style BasedOn="{StaticResource SchoolFeeGridStatusBadge}" TargetType="Border">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Complete}">
+                                                                                <Setter Property="Background" Value="{StaticResource ErpBadgeInfoBgBrush}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Configured}">
+                                                                                <Setter Property="Background" Value="{StaticResource ErpBadgeSuccessBgBrush}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Pending}">
+                                                                                <Setter Property="Background" Value="#F3F4F6" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="{Binding StatusLabel}">
+                                                                    <TextBlock.Style>
+                                                                        <Style BasedOn="{StaticResource SchoolFeeGridStatusText}" TargetType="TextBlock">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Complete}">
+                                                                                    <Setter Property="Foreground" Value="#1E5EFF" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Configured}">
+                                                                                    <Setter Property="Foreground" Value="#15803D" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding StatusKind}" Value="{x:Static vm:ScheduleLineStatusKind.Pending}">
+                                                                                    <Setter Property="Foreground" Value="#6B7280" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Width="72" IsReadOnly="True">
+                                                    <DataGridTemplateColumn.Header>
+                                                        <TextBlock Style="{StaticResource SchoolFeeScheduleColumnHeader}"
+                                                                   HorizontalAlignment="Center"
+                                                                   Text="Actions" />
+                                                    </DataGridTemplateColumn.Header>
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel HorizontalAlignment="Center"
+                                                                        Orientation="Horizontal"
+                                                                        VerticalAlignment="Center">
+                                                                <Button Command="{Binding DataContext.RemoveScheduleInstallmentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip="Supprimer cette tranche">
+                                                                    <Button.Style>
+                                                                        <Style BasedOn="{StaticResource SchoolFeeGridRowActionButton}" TargetType="Button">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                    <materialDesign:PackIcon Kind="DeleteOutline"
+                                                                                             Width="18"
+                                                                                             Height="18" />
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+
+                                        <Border Grid.Row="3"
+                                                Margin="0,10,0,0"
+                                                Style="{StaticResource SchoolFeeScheduleTotalBar}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Style="{StaticResource SchoolFeeTotalLabel}" Text="TOTAL ANNUEL" />
+                                                    <TextBlock Margin="0,2,0,0"
+                                                               FontSize="12"
+                                                               Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                               Text="{Binding CurrencyDisplay, StringFormat=Devise : {0}}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Style="{StaticResource SchoolFeeTotalAmount}"
+                                                           Text="{Binding AnnualTotalWithCurrencyDisplay}"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══════════ 2. TYPES DE FRAIS ═══════════ -->
+                <Border HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStackSection}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding ToggleFeeTypePanelsCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding FeeTypePanelsToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsFeeTypePanelsExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsFeeTypePanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="CashMultiple" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding FeeTypeSectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Margin="0,10,0,0"
+                              Style="{StaticResource SchoolFeeCatalogSplitGrid}"
+                              Visibility="{Binding IsFeeTypePanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Margin="0,0,8,0"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Margin="0,0,0,8"
+                                               Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                               Text="Catalogue" />
+                                    <DataGrid Grid.Row="1"
+                                              AutoGenerateColumns="False"
+                                              BorderThickness="0"
+                                              CanUserAddRows="False"
+                                              CanUserResizeColumns="True"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              IsReadOnly="True"
+                                              ItemsSource="{Binding CatalogFeeTypes}"
+                                              MinHeight="260"
+                                              SelectedItem="{Binding SelectedCatalogFeeType}"
+                                              Style="{StaticResource SchoolFeePremiumDataGrid}"
+                                              VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" MinWidth="90" Width="110" />
+                                            <DataGridTextColumn Binding="{Binding Name}" Header="Libellé" MinWidth="160" Width="*" />
+                                            <DataGridTextColumn Binding="{Binding Currency}" Header="Devise" MinWidth="70" Width="90" />
+                                            <DataGridCheckBoxColumn Binding="{Binding IsMandatory}" Header="Oblig." Width="75" />
+                                            <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="75" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Margin="0,0,0,12"
+                                                   Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                                   Text="Fiche type de frais" />
+                                        <TextBox HorizontalAlignment="Stretch"
+                                                 IsReadOnly="True"
+                                                 Style="{StaticResource ErpTextBox}"
+                                                 Text="{Binding FeeTypeCode}"
+                                                 Visibility="{Binding IsEditingFeeType, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 materialDesign:HintAssist.Hint="Code généré" />
+                                        <TextBox Margin="0,8,0,0"
+                                                 HorizontalAlignment="Stretch"
+                                                 Style="{StaticResource ErpTextBox}"
+                                                 Text="{Binding FeeTypeName, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Libellé" />
+                                        <ComboBox Margin="0,8,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding Currencies}"
+                                                  SelectedItem="{Binding FeeTypeCurrency}"
+                                                  Style="{StaticResource ErpComboBox}" />
+                                        <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+                                            <CheckBox Margin="0,0,16,0" Content="Obligatoire" IsChecked="{Binding FeeTypeIsMandatory}" />
+                                            <CheckBox Content="Actif" IsChecked="{Binding FeeTypeIsActive}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                            <Button Command="{Binding NewFeeTypeCommand}" Content="Nouveau" Style="{StaticResource ErpSecondaryButton}" />
+                                            <Button Margin="8,0,0,0" Command="{Binding SaveFeeTypeCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                            <Button Margin="8,0,0,0" Command="{Binding DeleteFeeTypeCommand}" Content="Désactiver" Style="{StaticResource ErpDangerButton}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══════════ 3. CATÉGORIES TARIFAIRES ═══════════ -->
+                <Border HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStackSection}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding TogglePricingCategoryPanelsCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding PricingCategoryPanelsToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsPricingCategoryPanelsExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsPricingCategoryPanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="TagMultiple" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding PricingCategorySectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Margin="0,10,0,0"
+                              Style="{StaticResource SchoolFeeCatalogSplitGrid}"
+                              Visibility="{Binding IsPricingCategoryPanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Margin="0,0,8,0"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Margin="0,0,0,8"
+                                               Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                               Text="Catalogue" />
+                                    <DataGrid Grid.Row="1"
+                                              AutoGenerateColumns="False"
+                                              BorderThickness="0"
+                                              CanUserAddRows="False"
+                                              CanUserResizeColumns="True"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              IsReadOnly="True"
+                                              ItemsSource="{Binding CatalogPricingCategories}"
+                                              MinHeight="260"
+                                              SelectedItem="{Binding SelectedCatalogPricingCategory}"
+                                              Style="{StaticResource SchoolFeePremiumDataGrid}"
+                                              VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" MinWidth="90" Width="110" />
+                                            <DataGridTextColumn Binding="{Binding Name}" Header="Libellé" MinWidth="160" Width="*" />
+                                            <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="75" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Margin="0,0,0,12"
+                                                   Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                                   Text="Fiche catégorie" />
+                                        <TextBox HorizontalAlignment="Stretch"
+                                                 Style="{StaticResource ErpTextBox}"
+                                                 Text="{Binding PricingCategoryCode, UpdateSourceTrigger=PropertyChanged}"
+                                                 Visibility="{Binding IsEditingPricingCategory, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 materialDesign:HintAssist.Hint="Code" />
+                                        <TextBox Margin="0,8,0,0"
+                                                 HorizontalAlignment="Stretch"
+                                                 Style="{StaticResource ErpTextBox}"
+                                                 Text="{Binding PricingCategoryName, UpdateSourceTrigger=PropertyChanged}"
+                                                 materialDesign:HintAssist.Hint="Libellé (ex. Général, Boursier…)" />
+                                        <TextBox Margin="0,8,0,0"
+                                                 HorizontalAlignment="Stretch"
+                                                 AcceptsReturn="True"
+                                                 MinHeight="72"
+                                                 Style="{StaticResource ErpTextBox}"
+                                                 Text="{Binding PricingCategoryDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 materialDesign:HintAssist.Hint="Description (optionnelle)" />
+                                        <CheckBox Margin="0,8,0,0" Content="Actif" IsChecked="{Binding PricingCategoryIsActive}" />
+                                        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                            <Button Command="{Binding NewPricingCategoryCommand}" Content="Nouvelle" Style="{StaticResource ErpSecondaryButton}" />
+                                            <Button Margin="8,0,0,0" Command="{Binding SavePricingCategoryCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                            <Button Margin="8,0,0,0" Command="{Binding DeletePricingCategoryCommand}" Content="Désactiver" Style="{StaticResource ErpDangerButton}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══════════ 4. TRANCHES ═══════════ -->
+                <Border HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStackSection}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding ToggleInstallmentPanelsCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding InstallmentPanelsToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsInstallmentPanelsExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsInstallmentPanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="CalendarClock" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding InstallmentSectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Margin="0,10,0,0"
+                              Style="{StaticResource SchoolFeeCatalogSplitGrid}"
+                              Visibility="{Binding IsInstallmentPanelsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                                <ColumnDefinition Width="*" MinWidth="280" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Margin="0,0,8,0"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Margin="0,0,0,8"
+                                               Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                               Text="Catalogue" />
+                                    <DataGrid Grid.Row="1"
+                                              AutoGenerateColumns="False"
+                                              BorderThickness="0"
+                                              CanUserAddRows="False"
+                                              CanUserResizeColumns="True"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              IsReadOnly="True"
+                                              ItemsSource="{Binding CatalogInstallments}"
+                                              MinHeight="260"
+                                              SelectedItem="{Binding SelectedInstallment}"
+                                              Style="{StaticResource SchoolFeePremiumDataGrid}"
+                                              VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Binding="{Binding SortOrder}" Header="Ordre" MinWidth="70" Width="90" />
+                                            <DataGridTextColumn Binding="{Binding Name}" Header="Libellé" MinWidth="160" Width="*" />
+                                            <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    Style="{StaticResource SchoolFeeCatalogSectionCard}">
+                                <StackPanel>
+                                    <TextBlock Margin="0,0,0,12"
+                                               Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                               Text="Fiche tranche" />
+                                    <TextBox HorizontalAlignment="Stretch"
+                                             Style="{StaticResource ErpTextBox}"
+                                             Text="{Binding InstallmentName, UpdateSourceTrigger=PropertyChanged}"
+                                             materialDesign:HintAssist.Hint="Libellé (ex. 1ère tranche)" />
+                                    <TextBox Margin="0,8,0,0"
+                                             HorizontalAlignment="Stretch"
+                                             Style="{StaticResource ErpTextBox}"
+                                             Text="{Binding InstallmentSortOrder, UpdateSourceTrigger=PropertyChanged}"
+                                             materialDesign:HintAssist.Hint="Ordre d'affichage" />
+                                    <CheckBox Margin="0,8,0,0" Content="Actif" IsChecked="{Binding InstallmentIsActive}" />
+                                    <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                        <Button Command="{Binding NewInstallmentCommand}" Content="Nouvelle" Style="{StaticResource ErpSecondaryButton}" />
+                                        <Button Margin="8,0,0,0" Command="{Binding SaveInstallmentCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                        <Button Margin="8,0,0,0" Command="{Binding DeleteInstallmentCommand}" Content="Désactiver" Style="{StaticResource ErpDangerButton}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1"
+                Margin="0,10,0,0"
+                Style="{StaticResource SchoolFeeActionBar}">
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button Command="{Binding CopyFromPreviousYearCommand}"
+                        IsEnabled="{Binding IsScheduleEditable}"
+                        Padding="14,7"
+                        Style="{StaticResource ErpSecondaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Kind="History" />
+                        <TextBlock VerticalAlignment="Center" Text="Copie année précédente" />
+                    </StackPanel>
+                </Button>
+                <Button Margin="8,0,0,0"
+                        Command="{Binding ResetScheduleCommand}"
+                        IsEnabled="{Binding IsScheduleEditable}"
+                        Padding="14,7"
+                        Style="{StaticResource ErpSecondaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Kind="BackupRestore" />
+                        <TextBlock VerticalAlignment="Center" Text="Réinitialiser" />
+                    </StackPanel>
+                </Button>
+                <Button Margin="8,0,0,0"
+                        Command="{Binding SaveScheduleCommand}"
+                        IsEnabled="{Binding IsScheduleEditable}"
+                        Padding="16,7"
+                        Style="{StaticResource ErpPrimaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Margin="0,0,8,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="White"
+                                               Kind="ContentSaveOutline" />
+                        <TextBlock VerticalAlignment="Center" Foreground="White" Text="Enregistrer" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Notification -->
+        <Border Grid.Row="2"
+                Margin="0,8,0,0"
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource SchoolFeeNotificationInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding StatusMessageKind}" Value="{x:Static vm:FeeStatusMessageKind.Success}">
+                            <Setter Property="Background" Value="#ECFDF5" />
+                            <Setter Property="BorderBrush" Value="#A7F3D0" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding StatusMessageKind}" Value="{x:Static vm:FeeStatusMessageKind.Warning}">
+                            <Setter Property="Background" Value="#FFFBEB" />
+                            <Setter Property="BorderBrush" Value="#FCD34D" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding StatusMessageKind}" Value="{x:Static vm:FeeStatusMessageKind.Error}">
+                            <Setter Property="Background" Value="#FEF2F2" />
+                            <Setter Property="BorderBrush" Value="#FECACA" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon Margin="0,0,10,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                       Kind="InformationOutline" />
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="{StaticResource ErpTextPrimaryBrush}"
+                           Text="{Binding StatusMessage}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Overlay chargement -->
+        <Border Grid.Row="0"
+                Grid.RowSpan="3"
+                Style="{StaticResource SchoolFeeLoadingOverlay}"
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar Width="180"
+                             Height="4"
+                             IsIndeterminate="True"
+                             Foreground="{StaticResource ErpPrimaryBrush}" />
+                <TextBlock Margin="0,10,0,0"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource ErpBodySecondary}"
+                           Text="Chargement en cours…" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -35,7 +35,9 @@ public static class SettingsNavCatalog
                 new SettingsNavItem { Key = "structure-pedagogique", Title = "Structure pédagogique", IconKind = "GoogleClassroom", Section = SettingsSection.StructurePedagogique },
                 new SettingsNavItem { Key = "annees-scolaires", Title = "Années scolaires", IconKind = "CalendarRange", Section = SettingsSection.AnneesScolaires },
                 new SettingsNavItem { Key = "matieres", Title = "Matières", IconKind = "BookEducation", Section = SettingsSection.Matieres },
-                new SettingsNavItem { Key = "utilisateurs", Title = "Utilisateurs", IconKind = "AccountCog", Section = SettingsSection.Utilisateurs }
+                new SettingsNavItem { Key = "geographie", Title = "Géographie", IconKind = "Earth", Section = SettingsSection.Geographie },
+                new SettingsNavItem { Key = "utilisateurs", Title = "Utilisateurs", IconKind = "AccountCog", Section = SettingsSection.Utilisateurs },
+                new SettingsNavItem { Key = "enseignants", Title = "Enseignants", IconKind = "HumanMaleBoard", Section = SettingsSection.Enseignants }
             ]
         },
         new SettingsNavGroup
@@ -43,8 +45,7 @@ public static class SettingsNavCatalog
             Title = "Configuration financière",
             Items =
             [
-                new SettingsNavItem { Key = "frais-scolaires", Title = "Frais scolaires", IconKind = "CashMultiple", Section = SettingsSection.FraisScolaires },
-                new SettingsNavItem { Key = "modes-paiement", Title = "Modes de paiement", IconKind = "CreditCardOutline", Section = null }
+                new SettingsNavItem { Key = "frais-scolaires", Title = "Frais scolaires", IconKind = "CashMultiple", Section = SettingsSection.FraisScolaires }
             ]
         },
         new SettingsNavGroup

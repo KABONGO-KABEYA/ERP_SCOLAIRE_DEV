@@ -1,0 +1,27 @@
+<Window x:Class="SchoolManagement.Desktop.Views.StudentEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+        Title="Modifier l'élève"
+        Width="520"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F7FB">
+    <Border Margin="24" Padding="20" Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1">
+        <StackPanel>
+            <TextBlock FontFamily="Segoe UI" FontSize="18" FontWeight="Bold" Text="Modifier l'élève (année courante)" />
+            <TextBlock x:Name="RegistrationText" Margin="0,4,0,16" Foreground="#6B7280" />
+
+            <erp:ErpTextField x:Name="LastNameField" Label="Nom" />
+            <erp:ErpTextField x:Name="MiddleNameField" Label="Postnom" />
+            <erp:ErpTextField x:Name="FirstNameField" Label="Prénom" />
+            <erp:ErpTextField x:Name="PhoneField" Label="Téléphone" />
+            <erp:ErpTextField x:Name="EmailField" Label="Email" />
+
+            <StackPanel Margin="0,16,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Margin="0,0,8,0" Content="Annuler" Click="CancelButton_OnClick" Style="{StaticResource ErpSecondaryButton}" />
+                <Button Content="Enregistrer" Click="SaveButton_OnClick" Style="{StaticResource ErpPrimaryButton}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

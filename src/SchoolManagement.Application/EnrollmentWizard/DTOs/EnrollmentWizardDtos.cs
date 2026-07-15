@@ -1,6 +1,8 @@
 namespace SchoolManagement.Application.EnrollmentWizard.DTOs;
 
 using SchoolManagement.Application.Academic.DTOs;
+using SchoolManagement.Application.DocumentBranding.DTOs;
+using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Domain.Enums;
 
@@ -23,12 +25,15 @@ public sealed record GuardianInputDto(
     string LastName,
     string? Phone,
     string? Email,
-    string? Address,
+    AddressInputDto? ResidenceAddress,
     string? Profession,
     string? Employer,
     string Relationship,
     bool IsPrimary,
-    bool CanPickup);
+    bool CanPickup,
+    Gender? Gender = null,
+    bool UsesStudentAddress = false,
+    Guid? ExistingGuardianId = null);
 
 public sealed record EnrollmentScolariteDto(
     Guid SectionId,
@@ -56,7 +61,13 @@ public sealed record EnrollmentDocumentStatusDto(
     string DocumentType,
     string Status,
     string? FileName,
-    string? StoragePath = null);
+    string? StoragePath = null,
+    long FileSizeBytes = 0);
+
+public sealed record StoredEnrollmentFileDto(
+    string StoragePath,
+    string FileName,
+    long FileSizeBytes);
 
 public sealed record EnrollmentFeeLineDto(
     Guid FeeTypeId,
@@ -85,7 +96,8 @@ public sealed record EnrollmentStudentSearchResultDto(
     string? Phone,
     string? PreviousClassName,
     string? PreviousAcademicYear,
-    string StatusLabel)
+    string StatusLabel,
+    int? LastClassLevel = null)
 {
     public string FullName => string.IsNullOrWhiteSpace(MiddleName)
         ? $"{LastName} {FirstName}"
@@ -101,13 +113,9 @@ public sealed record CompleteEnrollmentRequest(
     DateOnly DateOfBirth,
     string? PlaceOfBirth,
     string? Nationality,
-    string? Province,
-    string? Territory,
-    string? City,
-    string? Country,
+    AddressInputDto? ResidenceAddress,
     string? Language,
     string? Religion,
-    string? Address,
     string? Phone,
     string? Email,
     string? PhotoPath,
@@ -133,6 +141,21 @@ public sealed record CompleteEnrollmentResultDto(
     decimal TotalDue,
     string Message);
 
+public sealed record StudentDossierEditDto(
+    Guid StudentId,
+    Guid EnrollmentId,
+    string RegistrationNumber,
+    bool CanChangeClass,
+    string? ClassChangeBlockedReason,
+    CompleteEnrollmentRequest Dossier);
+
+public sealed record UpdateStudentDossierResultDto(
+    Guid StudentId,
+    Guid EnrollmentId,
+    string RegistrationNumber,
+    string StudentFullName,
+    string Message);
+
 public sealed record GeneratedRegistrationNumberDto(string RegistrationNumber);
 
 public sealed record ClassCapacityDto(
@@ -153,14 +176,99 @@ public sealed record EnrollmentClassOptionDto(
     Guid SectionId,
     string SectionName,
     Guid? PedagogicalClassId,
+    int Level,
     int? MaxCapacity,
     int CurrentCount,
     int? MinAge,
     int? MaxAge,
     bool IsSelectable);
 
+public sealed record EnrollmentGuardianSearchResultDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string? Phone,
+    string? Email,
+    string? Address,
+    string? Profession,
+    Gender? Gender)
+{
+    public string FullName => $"{LastName} {FirstName}".Trim();
+}
+
 public sealed record EnrollmentStructureOptionsDto(
     Guid AcademicYearId,
     string AcademicYearLabel,
     IReadOnlyList<SectionDto> Sections,
     IReadOnlyList<EnrollmentClassOptionDto> Classes);
+
+public sealed record EnrollmentFormGuardianDto(
+    string LastName,
+    string FirstName,
+    string Relationship,
+    string? Phone,
+    string? Email,
+    string? Address,
+    string? Profession,
+    bool IsPrimary,
+    bool CanPickup)
+{
+    public string FullName => $"{LastName} {FirstName}".Trim();
+}
+
+public sealed record EnrollmentFormDocumentDto(
+    string SchoolName,
+    string AcademicYearLabel,
+    DateTime GeneratedAt,
+    DocumentPrintBrandingDto Branding,
+    string RegistrationNumber,
+    string LastName,
+    string FirstName,
+    string? MiddleName,
+    string GenderLabel,
+    DateOnly DateOfBirth,
+    int Age,
+    string? PlaceOfBirth,
+    string? Nationality,
+    string? Province,
+    string? Territory,
+    string? Commune,
+    string? Avenue,
+    string? HouseNumber,
+    string? Phone,
+    string? Email,
+    string? PhotoPath,
+    string ClassName,
+    string? SectionName,
+    string EducationRegime,
+    string RegistrationStatut,
+    string RegistrationKindLabel,
+    DateOnly EnrollmentDate,
+    string? PreviousSchool,
+    string? PreviousClass,
+    string? PreviousStudentCode,
+    string? BloodGroup,
+    string? Allergies,
+    string? ChronicDiseases,
+    string? Disability,
+    string? DoctorName,
+    string? MedicalCenter,
+    string? Observations,
+    IReadOnlyList<string> ProvidedDocuments,
+    decimal? RegistrationFee,
+    decimal AmountPaid,
+    string? Currency,
+    string? PrintedBy,
+    string Workstation,
+    string ErpVersion,
+    EnrollmentFormGuardianDto? Father,
+    EnrollmentFormGuardianDto? Mother,
+    EnrollmentFormGuardianDto? LegalGuardian,
+    IReadOnlyList<EnrollmentFormGuardianDto> Guardians)
+{
+    public string FullName => string.IsNullOrWhiteSpace(MiddleName)
+        ? $"{LastName} {FirstName}".Trim()
+        : $"{LastName} {MiddleName} {FirstName}".Trim();
+
+    public decimal? BalanceDue => RegistrationFee.HasValue ? RegistrationFee - AmountPaid : null;
+}

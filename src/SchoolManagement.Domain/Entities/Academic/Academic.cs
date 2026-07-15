@@ -1,4 +1,5 @@
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 
@@ -17,6 +18,10 @@ public class Teacher : AuditableEntity, IAggregateRoot
     public string? Phone { get; set; }
 
     public string? Email { get; set; }
+
+    public Guid? AddressId { get; set; }
+
+    public PostalAddress? ResidenceAddress { get; set; }
 
     public string? Specialization { get; set; }
 

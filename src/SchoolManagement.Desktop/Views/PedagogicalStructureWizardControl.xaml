@@ -1,7 +1,15 @@
 <UserControl x:Class="SchoolManagement.Desktop.Views.PedagogicalStructureWizardControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:dto="clr-namespace:SchoolManagement.Application.Schools.DTOs;assembly=SchoolManagement.Application">
+    <UserControl.Resources>
+        <ui:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -10,46 +18,47 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Statistiques -->
         <UniformGrid x:Name="StatsPanel"
                      Grid.Row="0"
                      Margin="0,0,0,16"
                      Columns="6"
                      Rows="1" />
 
-        <!-- Recherche et filtres -->
-        <Grid Grid.Row="1" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="SearchBox"
-                     materialDesign:HintAssist.Hint="Rechercher une section, une option ou une classe…"
-                     Style="{StaticResource ErpTextBox}"
-                     TextChanged="SearchBox_OnTextChanged" />
-            <StackPanel Grid.Column="1"
-                        Margin="12,0,0,0"
-                        Orientation="Horizontal">
-                <ToggleButton x:Name="FilterAllChip"
-                              Checked="FilterChip_OnChecked"
-                              Content="Toutes"
-                              Style="{StaticResource ErpWizardFilterChip}" />
-                <ToggleButton x:Name="FilterEnabledChip"
-                              Checked="FilterChip_OnChecked"
-                              Content="Activées"
-                              Style="{StaticResource ErpWizardFilterChip}" />
-                <ToggleButton x:Name="FilterDisabledChip"
-                              Checked="FilterChip_OnChecked"
-                              Content="Inactives"
-                              Style="{StaticResource ErpWizardFilterChip}" />
-                <ToggleButton x:Name="FilterNoLocalsChip"
-                              Checked="FilterChip_OnChecked"
-                              Content="Sans locaux"
-                              Style="{StaticResource ErpWizardFilterChip}" />
-            </StackPanel>
-        </Grid>
+        <Border Grid.Row="1"
+                Margin="0,0,0,16"
+                Style="{StaticResource ErpV2FormCard}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <erp:ErpSearchField x:Name="SearchField"
+                                    HorizontalAlignment="Stretch"
+                                    Placeholder="Rechercher une section, une option ou une classe…"
+                                    Text="{Binding ClassSearch, UpdateSourceTrigger=PropertyChanged}" />
+                <StackPanel Grid.Column="1"
+                            Margin="12,0,0,0"
+                            Orientation="Horizontal">
+                    <ToggleButton x:Name="FilterAllChip"
+                                  Checked="FilterChip_OnChecked"
+                                  Content="Toutes"
+                                  Style="{StaticResource ErpWizardFilterChip}" />
+                    <ToggleButton x:Name="FilterEnabledChip"
+                                  Checked="FilterChip_OnChecked"
+                                  Content="Activées"
+                                  Style="{StaticResource ErpWizardFilterChip}" />
+                    <ToggleButton x:Name="FilterDisabledChip"
+                                  Checked="FilterChip_OnChecked"
+                                  Content="Inactives"
+                                  Style="{StaticResource ErpWizardFilterChip}" />
+                    <ToggleButton x:Name="FilterNoLocalsChip"
+                                  Checked="FilterChip_OnChecked"
+                                  Content="Sans locaux"
+                                  Style="{StaticResource ErpWizardFilterChip}" />
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- 3 colonnes -->
         <Grid Grid.Row="2" MinHeight="420">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" MinWidth="240" />
@@ -70,7 +79,8 @@
                                Margin="4,4,4,12"
                                Style="{StaticResource ErpSubtitle}"
                                Text="Sections" />
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer x:Name="SectionsScrollViewer"
+                                  VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="SectionsPanel" />
                     </ScrollViewer>
                 </DockPanel>
@@ -82,8 +92,7 @@
                     BorderBrush="{StaticResource ErpBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="16"
-                    Padding="16"
-                    Style="{StaticResource ErpFadeIn}">
+                    Padding="16">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock x:Name="MiddleTitleText"
@@ -95,7 +104,8 @@
                                    Text="Sélectionnez une section pour commencer."
                                    TextWrapping="Wrap" />
                     </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer x:Name="MiddleScrollViewer"
+                                  VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="MiddlePanel" />
                     </ScrollViewer>
                 </DockPanel>
@@ -107,28 +117,158 @@
                     BorderBrush="{StaticResource ErpBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="16"
-                    Padding="16"
-                    Style="{StaticResource ErpFadeIn}">
+                    Padding="16">
                 <DockPanel>
-                    <TextBlock x:Name="RightTitleText"
-                               DockPanel.Dock="Top"
-                               Margin="0,0,0,4"
-                               Style="{StaticResource ErpSubtitle}"
-                               Text="Locaux" />
-                    <TextBlock x:Name="RightSubtitleText"
-                               DockPanel.Dock="Top"
-                               Margin="0,0,0,12"
-                               Foreground="{StaticResource ErpTextSecondaryBrush}"
-                               Text="Sélectionnez une classe pour gérer ses locaux."
-                               TextWrapping="Wrap" />
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="RightPanel" />
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock x:Name="RightTitleText"
+                                   Style="{StaticResource ErpSubtitle}"
+                                   Text="Locaux" />
+                        <TextBlock x:Name="RightSubtitleText"
+                                   Margin="0,4,0,0"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="Sélectionnez une classe pour gérer ses locaux."
+                                   TextWrapping="Wrap" />
+                        <ComboBox Margin="0,12,0,0"
+                                  DisplayMemberPath="Label"
+                                  ItemsSource="{Binding AcademicYears}"
+                                  SelectedItem="{Binding SelectedAcademicYear}"
+                                  materialDesign:HintAssist.Hint="Année scolaire (courante par défaut)" />
+                    </StackPanel>
+
+                    <ScrollViewer x:Name="RightScrollViewer"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock x:Name="RightEmptyText"
+                                       Margin="0,0,0,12"
+                                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                       Text="Aucun local configuré pour cette classe."
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+
+                            <ListBox x:Name="LocalsListBox"
+                                     Margin="0,0,0,4"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ItemsSource="{Binding ClassLocals}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     SelectedItem="{Binding SelectedLocal}">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="0,0,0,8" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="CardBorder"
+                                                            Padding="12"
+                                                            Background="#F9FAFB"
+                                                            BorderBrush="{StaticResource ErpBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="10"
+                                                            Cursor="Hand">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="CardBorder" Property="Background" Value="#E8EFFF" />
+                                                            <Setter TargetName="CardBorder" Property="BorderBrush" Value="#1E5EFF" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type dto:ClassLocalDto}">
+                                        <StackPanel>
+                                            <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding LocalName}" />
+                                            <TextBlock Margin="0,2,0,0"
+                                                       FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{StaticResource ErpTextSecondaryBrush}">
+                                                <TextBlock.Text>
+                                                    <Binding Path="MaxCapacity" StringFormat="{}{0} élèves">
+                                                        <Binding.TargetNullValue>Capacité non définie</Binding.TargetNullValue>
+                                                    </Binding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                            <TextBlock Margin="0,4,0,0"
+                                                       FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="12">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Inactif" />
+                                                        <Setter Property="Foreground" Value="#EF4444" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                <Setter Property="Text" Value="✔ Actif" />
+                                                                <Setter Property="Foreground" Value="#22C55E" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <Border x:Name="LocalFormCard"
+                                    Margin="0,12,0,0"
+                                    Style="{StaticResource ErpV2FormCard}"
+                                    Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock Margin="0,0,0,12"
+                                               Style="{StaticResource ErpBody}"
+                                               Text="Nouveau local ou modification" />
+                                    <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                      IconKind="Door"
+                                                      Label="Nom du local"
+                                                      Text="{Binding LocalName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                      IconKind="AccountGroup"
+                                                      Label="Capacité"
+                                                      Text="{Binding LocalCapacityText, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                      IconKind="NoteTextOutline"
+                                                      Label="Observations"
+                                                      Text="{Binding LocalObservations, UpdateSourceTrigger=PropertyChanged}" />
+                                    <CheckBox Margin="0,4,0,12"
+                                              Content="Local actif"
+                                              IsChecked="{Binding LocalIsActive}" />
+                                    <WrapPanel>
+                                        <Button Margin="0,0,8,0"
+                                                Command="{Binding NewLocalCommand}"
+                                                Content="Nouveau"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                        <Button Margin="0,0,8,0"
+                                                Command="{Binding AddLocalCommand}"
+                                                Content="Ajouter"
+                                                Style="{StaticResource ErpPrimaryButton}" />
+                                        <Button Margin="0,0,8,0"
+                                                Command="{Binding UpdateLocalCommand}"
+                                                Content="Modifier"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                        <Button Command="{Binding DeleteLocalCommand}"
+                                                Content="Supprimer"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
             </Border>
         </Grid>
 
-        <!-- Actions -->
         <DockPanel Grid.Row="3" Margin="0,16,0,0">
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"

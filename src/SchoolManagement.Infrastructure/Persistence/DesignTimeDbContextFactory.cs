@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
+using SchoolManagement.Application.Configuration.Database;
 
 namespace SchoolManagement.Infrastructure.Persistence;
 
@@ -8,14 +8,22 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<SchoolDbCo
 {
     public SchoolDbContext CreateDbContext(string[] args)
     {
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "../SchoolManagement.API"))
-            .AddJsonFile("appsettings.json", optional: false)
-            .AddJsonFile("appsettings.Development.json", optional: true)
-            .Build();
+        var apiDirectory = Path.Combine(Directory.GetCurrentDirectory(), "../SchoolManagement.API");
+        var bootstrap = new DatabaseConnectionBootstrap(apiDirectory);
+        bootstrap.ConfigurationManager.EnsureDefaultFileExists();
 
+        var configuration = bootstrap.LoadConfiguration();
+        var validation = bootstrap.ConfigurationManager.Validate(configuration);
+        if (!validation.IsValid)
+        {
+            throw new InvalidOperationException(
+                "ServeurDonnees.txt invalide pour les migrations EF : "
+                + string.Join("; ", validation.FieldErrors.Values));
+        }
+
+        var connectionString = bootstrap.BuildConnectionString(configuration);
         var optionsBuilder = new DbContextOptionsBuilder<SchoolDbContext>();
-        optionsBuilder.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+        optionsBuilder.UseSqlServer(connectionString);
 
         return new SchoolDbContext(optionsBuilder.Options);
     }

@@ -15,7 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _userController = TextEditingController(text: 'direction');
+  final _userController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -79,10 +79,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: ErpColors.primary,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.school, color: Colors.white, size: 40),
+            padding: const EdgeInsets.all(8),
+            child: Image.asset('assets/icon/app_icon.png', fit: BoxFit.contain),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -110,7 +111,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (showBrandHeader) ...[
-                  Icon(Icons.school, size: 56, color: Theme.of(context).colorScheme.primary),
+                  Image.asset('assets/icon/app_icon.png', height: 72, fit: BoxFit.contain),
                   const SizedBox(height: 16),
                   Text('ERP Scolaire RDC', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 24),

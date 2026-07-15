@@ -1,5 +1,7 @@
 namespace SchoolManagement.Application.Admin.DTOs;
 
+using SchoolManagement.Application.Geography.DTOs;
+
 public sealed record UserAccountDto(
     Guid Id,
     string UserName,
@@ -7,7 +9,9 @@ public sealed record UserAccountDto(
     string FullName,
     bool IsActive,
     bool MustChangePassword,
-    IReadOnlyList<string> Roles)
+    IReadOnlyList<string> Roles,
+    Guid? AddressId,
+    string? AddressLine)
 {
     public string RolesDisplay => string.Join(", ", Roles);
 }
@@ -24,12 +28,15 @@ public sealed record CreateUserRequest(
     string Password,
     string FirstName,
     string LastName,
-    IReadOnlyList<Guid> RoleIds);
+    IReadOnlyList<Guid> RoleIds,
+    AddressInputDto? ResidenceAddress);
 
 public sealed record UpdateUserRequest(
     string Email,
     string FirstName,
     string LastName,
-    bool IsActive);
+    bool IsActive,
+    AddressInputDto? ResidenceAddress = null,
+    bool UpdateAddress = false);
 
 public sealed record SetUserRolesRequest(IReadOnlyList<Guid> RoleIds);

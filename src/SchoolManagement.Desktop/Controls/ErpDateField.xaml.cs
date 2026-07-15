@@ -11,7 +11,8 @@ public partial class ErpDateField : UserControl
     public static readonly DependencyProperty IsRequiredProperty =
         DependencyProperty.Register(nameof(IsRequired), typeof(bool), typeof(ErpDateField), new PropertyMetadata(false));
     public static readonly DependencyProperty FieldWidthProperty =
-        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpDateField), new PropertyMetadata(220d));
+        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpDateField),
+            new PropertyMetadata(220d, OnLayoutPropertyChanged));
     public static readonly DependencyProperty ErrorMessageProperty =
         DependencyProperty.Register(nameof(ErrorMessage), typeof(string), typeof(ErpDateField), new PropertyMetadata(string.Empty));
     public static readonly DependencyProperty ShowValidationProperty =
@@ -29,6 +30,11 @@ public partial class ErpDateField : UserControl
     public static readonly DependencyProperty IsCompatibilityOkProperty =
         DependencyProperty.Register(nameof(IsCompatibilityOk), typeof(bool), typeof(ErpDateField),
             new PropertyMetadata(true, OnCompatibilityChanged));
+    public static readonly DependencyProperty ShowBadgesProperty =
+        DependencyProperty.Register(nameof(ShowBadges), typeof(bool), typeof(ErpDateField), new PropertyMetadata(true, OnShowBadgesChanged));
+    public static readonly DependencyProperty DateValidationModeProperty =
+        DependencyProperty.Register(nameof(DateValidationMode), typeof(ErpDateValidationMode), typeof(ErpDateField),
+            new PropertyMetadata(ErpDateValidationMode.BirthDate, OnValidationModeChanged));
 
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
@@ -40,11 +46,44 @@ public partial class ErpDateField : UserControl
     public string AgeCategory { get => (string)GetValue(AgeCategoryProperty); set => SetValue(AgeCategoryProperty, value); }
     public string CompatibilityMessage { get => (string)GetValue(CompatibilityMessageProperty); set => SetValue(CompatibilityMessageProperty, value); }
     public bool IsCompatibilityOk { get => (bool)GetValue(IsCompatibilityOkProperty); set => SetValue(IsCompatibilityOkProperty, value); }
+    public bool ShowBadges { get => (bool)GetValue(ShowBadgesProperty); set => SetValue(ShowBadgesProperty, value); }
+    public ErpDateValidationMode DateValidationMode
+    {
+        get => (ErpDateValidationMode)GetValue(DateValidationModeProperty);
+        set => SetValue(DateValidationModeProperty, value);
+    }
 
     public ErpDateField()
     {
         InitializeComponent();
-        Loaded += (_, _) => UpdateDerivedValues();
+        Loaded += (_, _) =>
+        {
+            UpdateLayoutSizing();
+            UpdateDerivedValues();
+        };
+    }
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.Property == HorizontalAlignmentProperty)
+        {
+            UpdateLayoutSizing();
+        }
+    }
+
+    private static void OnLayoutPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpDateField field)
+        {
+            field.UpdateLayoutSizing();
+        }
+    }
+
+    private void UpdateLayoutSizing()
+    {
+        ErpFieldLayout.ApplyResponsiveWidth(this, FieldWidth);
     }
 
     private static void OnDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -64,6 +103,22 @@ public partial class ErpDateField : UserControl
         }
     }
 
+    private static void OnShowBadgesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpDateField field)
+        {
+            field.UpdateBadgeVisibility();
+        }
+    }
+
+    private static void OnValidationModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpDateField field)
+        {
+            field.UpdateDerivedValues();
+        }
+    }
+
     private void UpdateDerivedValues()
     {
         if (SelectedDate is null)
@@ -72,22 +127,38 @@ public partial class ErpDateField : UserControl
             AgeCategory = "—";
             AgeBadge.Visibility = Visibility.Collapsed;
             CategoryBadge.Visibility = Visibility.Collapsed;
+            UpdateBadgeVisibility();
             RefreshValidation();
             return;
         }
 
-        var birth = DateOnly.FromDateTime(SelectedDate.Value);
-        Age = CalculateAge(birth, DateOnly.FromDateTime(DateTime.Today));
-        AgeCategory = Age < 18 ? "Mineur" : "Majeur";
-        AgeBadge.Visibility = Visibility.Visible;
-        CategoryBadge.Visibility = Visibility.Visible;
+        if (DateValidationMode == ErpDateValidationMode.BirthDate)
+        {
+            var birth = DateOnly.FromDateTime(SelectedDate.Value);
+            Age = CalculateAge(birth, DateOnly.FromDateTime(DateTime.Today));
+            AgeCategory = Age < 18 ? "Mineur" : "Majeur";
+        }
+        else
+        {
+            Age = 0;
+            AgeCategory = "—";
+            AgeBadge.Visibility = Visibility.Collapsed;
+            CategoryBadge.Visibility = Visibility.Collapsed;
+        }
+
+        UpdateBadgeVisibility();
         UpdateCompatibilityBadge();
-        ApplyVisualState("Valid");
         RefreshValidation();
     }
 
     private void UpdateCompatibilityBadge()
     {
+        if (!ShowBadges)
+        {
+            CompatibilityBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(CompatibilityMessage))
         {
             CompatibilityBadge.Visibility = Visibility.Collapsed;
@@ -104,6 +175,24 @@ public partial class ErpDateField : UserControl
         CompatibilityText.Text = CompatibilityMessage;
     }
 
+    private void UpdateBadgeVisibility()
+    {
+        if (!ShowBadges || SelectedDate is null)
+        {
+            AgeBadge.Visibility = Visibility.Collapsed;
+            CategoryBadge.Visibility = Visibility.Collapsed;
+            if (!ShowBadges)
+            {
+                CompatibilityBadge.Visibility = Visibility.Collapsed;
+            }
+
+            return;
+        }
+
+        AgeBadge.Visibility = Visibility.Visible;
+        CategoryBadge.Visibility = Visibility.Visible;
+    }
+
     private void RefreshValidation()
     {
         if (!IsLoaded)
@@ -114,15 +203,29 @@ public partial class ErpDateField : UserControl
         if (IsRequired && SelectedDate is null)
         {
             ApplyVisualState(ShowValidation ? "Error" : "Normal");
-            ErrorMessage = ShowValidation ? "La date de naissance est obligatoire." : string.Empty;
+            ErrorMessage = ShowValidation
+                ? DateValidationMode == ErpDateValidationMode.EnrollmentDate
+                    ? "La date d'inscription est obligatoire."
+                    : "La date de naissance est obligatoire."
+                : string.Empty;
             return;
         }
 
-        if (SelectedDate >= DateTime.Today)
+        if (SelectedDate is not null)
         {
-            ApplyVisualState("Error");
-            ErrorMessage = "La date de naissance doit être dans le passé.";
-            return;
+            if (DateValidationMode == ErpDateValidationMode.BirthDate && SelectedDate >= DateTime.Today)
+            {
+                ApplyVisualState("Error");
+                ErrorMessage = "La date de naissance doit être dans le passé.";
+                return;
+            }
+
+            if (DateValidationMode == ErpDateValidationMode.EnrollmentDate && SelectedDate.Value.Date > DateTime.Today)
+            {
+                ApplyVisualState("Error");
+                ErrorMessage = "La date d'inscription ne peut pas être dans le futur.";
+                return;
+            }
         }
 
         ErrorMessage = string.Empty;

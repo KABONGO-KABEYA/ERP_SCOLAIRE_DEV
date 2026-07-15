@@ -13,6 +13,10 @@ public interface IRepository<T> where T : class
         Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<T>> FindIncludingDeletedAsync(
+        Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default);
+
     Task<T> AddAsync(T entity, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(T entity, CancellationToken cancellationToken = default);

@@ -4,6 +4,7 @@ using SchoolManagement.Application.Admin.DTOs;
 using SchoolManagement.Application.Admin.Interfaces;
 using SchoolManagement.Application.Auth.Interfaces;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Geography.Interfaces;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Exceptions;
 
@@ -13,6 +14,7 @@ public sealed class AdminService : IAdminService
     private readonly IRepository<Role> _roleRepository;
     private readonly IRepository<UserRoleAssignment> _userRoleRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IAddressService _addressService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AdminService(
@@ -20,12 +22,14 @@ public sealed class AdminService : IAdminService
         IRepository<Role> roleRepository,
         IRepository<UserRoleAssignment> userRoleRepository,
         IPasswordHasher passwordHasher,
+        IAddressService addressService,
         IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
         _passwordHasher = passwordHasher;
+        _addressService = addressService;
         _unitOfWork = unitOfWork;
     }
 
@@ -36,11 +40,13 @@ public sealed class AdminService : IAdminService
         var roles = await _roleRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
         var roleMap = roles.ToDictionary(r => r.Id);
 
-        return users
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .Select(u => MapUser(u, assignments, roleMap))
-            .ToList();
+        var result = new List<UserAccountDto>();
+        foreach (var user in users.OrderBy(u => u.LastName).ThenBy(u => u.FirstName))
+        {
+            result.Add(await MapUserAsync(user, assignments, roleMap, cancellationToken));
+        }
+
+        return result;
     }
 
     public async Task<IReadOnlyList<RoleDto>> GetRolesAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -65,6 +71,8 @@ public sealed class AdminService : IAdminService
             throw new DomainException($"L'identifiant '{request.UserName}' existe déjà.");
         }
 
+        var addressId = await _addressService.UpsertAsync(request.ResidenceAddress, null, cancellationToken);
+
         var user = new UserAccount
         {
             SchoolId = schoolId,
@@ -73,6 +81,7 @@ public sealed class AdminService : IAdminService
             PasswordHash = _passwordHasher.Hash(request.Password),
             FirstName = request.FirstName,
             LastName = request.LastName,
+            AddressId = addressId,
             IsActive = true,
             MustChangePassword = true
         };
@@ -84,7 +93,7 @@ public sealed class AdminService : IAdminService
 
         var roles = await _roleRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
         var assignments = await _userRoleRepository.FindAsync(a => a.UserId == user.Id, cancellationToken);
-        return MapUser(user, assignments, roles.ToDictionary(r => r.Id));
+        return await MapUserAsync(user, assignments, roles.ToDictionary(r => r.Id), cancellationToken);
     }
 
     public async Task<UserAccountDto> UpdateUserAsync(
@@ -98,6 +107,14 @@ public sealed class AdminService : IAdminService
         user.FirstName = request.FirstName;
         user.LastName = request.LastName;
         user.IsActive = request.IsActive;
+
+        if (request.UpdateAddress)
+        {
+            user.AddressId = await _addressService.UpsertAsync(
+                request.ResidenceAddress,
+                user.AddressId,
+                cancellationToken);
+        }
 
         await _userRepository.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -164,19 +181,27 @@ public sealed class AdminService : IAdminService
         var user = await GetUserOrThrowAsync(schoolId, userId, cancellationToken);
         var assignments = await _userRoleRepository.FindAsync(a => a.UserId == userId, cancellationToken);
         var roles = await _roleRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
-        return MapUser(user, assignments, roles.ToDictionary(r => r.Id));
+        return await MapUserAsync(user, assignments, roles.ToDictionary(r => r.Id), cancellationToken);
     }
 
-    private static UserAccountDto MapUser(
+    private async Task<UserAccountDto> MapUserAsync(
         UserAccount user,
         IReadOnlyList<UserRoleAssignment> assignments,
-        IReadOnlyDictionary<Guid, Role> roleMap)
+        IReadOnlyDictionary<Guid, Role> roleMap,
+        CancellationToken cancellationToken)
     {
         var roleCodes = assignments
             .Where(a => a.UserId == user.Id && roleMap.ContainsKey(a.RoleId))
             .Select(a => roleMap[a.RoleId].Code)
             .Distinct()
             .ToList();
+
+        string? addressLine = null;
+        if (user.AddressId.HasValue)
+        {
+            var address = await _addressService.GetAsync(user.AddressId.Value, cancellationToken);
+            addressLine = address?.FormattedLine;
+        }
 
         return new UserAccountDto(
             user.Id,
@@ -185,6 +210,8 @@ public sealed class AdminService : IAdminService
             $"{user.LastName} {user.FirstName}",
             user.IsActive,
             user.MustChangePassword,
-            roleCodes);
+            roleCodes,
+            user.AddressId,
+            addressLine);
     }
 }

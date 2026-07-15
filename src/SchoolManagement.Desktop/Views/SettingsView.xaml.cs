@@ -19,6 +19,7 @@ public partial class SettingsView : UserControl
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        DataContextChanged += OnDataContextChanged;
     }
 
     public string? ActivePlaceholderKey
@@ -27,34 +28,33 @@ public partial class SettingsView : UserControl
         set => SetValue(ActivePlaceholderKeyProperty, value);
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) =>
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
         SettingsNavigationBridge.SectionSelected += OnSettingsSectionSelected;
+        ApplyCurrentSelection();
+    }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) =>
         SettingsNavigationBridge.SectionSelected -= OnSettingsSectionSelected;
 
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+        ApplyCurrentSelection();
+
+    private void ApplyCurrentSelection()
+    {
+        if (SettingsNavigationBridge.CurrentSelection is { } item)
+        {
+            OnSettingsSectionSelected(item);
+        }
+    }
+
     private void OnSettingsSectionSelected(SettingsNavItem item)
     {
-        if (DataContext is not SettingsViewModel viewModel)
+        if (DataContext is SettingsViewModel viewModel)
         {
-            return;
+            SettingsNavigationBridge.ApplyToViewModel(viewModel, item);
         }
 
-        if (item.Section is SettingsSection section)
-        {
-            ActivePlaceholderKey = null;
-            var node = viewModel.SettingsNodes
-                .SelectMany(node => node.Children)
-                .FirstOrDefault(node => node.Section == section);
-
-            if (node is not null)
-            {
-                viewModel.SelectedSettingsNode = node;
-            }
-
-            return;
-        }
-
-        ActivePlaceholderKey = item.Key;
+        ActivePlaceholderKey = item.Section is null ? item.Key : null;
     }
 }

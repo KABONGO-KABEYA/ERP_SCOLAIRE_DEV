@@ -16,6 +16,8 @@ using SchoolManagement.Domain.Entities.Security;
 
 using SchoolManagement.Domain.Entities.Settings;
 
+using SchoolManagement.Domain.Entities.Geography;
+
 using SchoolManagement.Domain.Entities.Students;
 
 
@@ -68,11 +70,29 @@ public class SchoolDbContext : DbContext
 
     public DbSet<FeeType> FeeTypes => Set<FeeType>();
 
+    public DbSet<FeePricingCategory> FeePricingCategories => Set<FeePricingCategory>();
+
+    public DbSet<FeeInstallment> FeeInstallments => Set<FeeInstallment>();
+
+    public DbSet<FeeTypeInstallment> FeeTypeInstallments => Set<FeeTypeInstallment>();
+
+    public DbSet<ClassFeeAmount> ClassFeeAmounts => Set<ClassFeeAmount>();
+
     public DbSet<Bank> Banks => Set<Bank>();
 
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
 
     public DbSet<AppConfiguration> AppConfigurations => Set<AppConfiguration>();
+
+    public DbSet<SchoolLogo> SchoolLogos => Set<SchoolLogo>();
+
+    public DbSet<SchoolDocumentHeader> SchoolDocumentHeaders => Set<SchoolDocumentHeader>();
+
+    public DbSet<SchoolSignature> SchoolSignatures => Set<SchoolSignature>();
+
+    public DbSet<SchoolStamp> SchoolStamps => Set<SchoolStamp>();
+
+    public DbSet<SchoolDocumentFooter> SchoolDocumentFooters => Set<SchoolDocumentFooter>();
 
 
 
@@ -89,6 +109,16 @@ public class SchoolDbContext : DbContext
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
 
     public DbSet<StudentStatusHistory> StudentStatusHistory => Set<StudentStatusHistory>();
+
+    public DbSet<Country> Countries => Set<Country>();
+
+    public DbSet<Province> Provinces => Set<Province>();
+
+    public DbSet<City> Cities => Set<City>();
+
+    public DbSet<Commune> Communes => Set<Commune>();
+
+    public DbSet<PostalAddress> PostalAddresses => Set<PostalAddress>();
 
 
 

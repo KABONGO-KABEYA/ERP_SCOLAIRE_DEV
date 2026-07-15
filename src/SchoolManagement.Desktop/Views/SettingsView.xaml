@@ -3,17 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
-             xmlns:views="clr-namespace:SchoolManagement.Desktop.Views">
+             xmlns:views="clr-namespace:SchoolManagement.Desktop.Views"
+             xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls">
     <UserControl.Resources>
         <ui:StringMatchVisibilityConverter x:Key="StringMatchVisibilityConverter" />
         <ui:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
     </UserControl.Resources>
 
-    <ScrollViewer Style="{StaticResource ErpPageHost}"
-                  VerticalScrollBarVisibility="Auto">
-        <Border Style="{StaticResource ErpCard}" Padding="20,16">
-            <StackPanel>
-                    <StackPanel Visibility="{Binding ActivePlaceholderKey, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource NullToVisibilityConverter}}">
+    <Grid Style="{StaticResource ErpV2PageHost}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer x:Name="SettingsScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsScrollableSettingsContent, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ErpCard}" Padding="20,16">
+                <StackPanel>
+                    <StackPanel>
                         <TextBlock Style="{StaticResource ErpPageTitle}"
                                    Text="{Binding SelectedSectionTitle}" />
                         <TextBlock Margin="0,6,0,0"
@@ -63,7 +72,7 @@
 
                             <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="4" Orientation="Horizontal">
                                 <Button Command="{Binding SaveCommand}"
-                                        Content="Enregistrer"
+                                        Content="Enregistrer les informations"
                                         Style="{StaticResource ErpPrimaryButton}" />
                                 <Button Margin="8,0,0,0"
                                         Command="{Binding LoadCommand}"
@@ -71,6 +80,17 @@
                                         Style="{StaticResource ErpSecondaryButton}" />
                             </StackPanel>
                         </Grid>
+
+                        <Separator Margin="0,24,0,16" />
+
+                        <TextBlock Style="{StaticResource ErpSubtitle}"
+                                   Text="En-têtes et logos des documents" />
+                        <TextBlock Margin="0,6,0,12"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="Configurez les éléments graphiques utilisés automatiquement sur tous les documents imprimés (bulletins, reçus, attestations, etc.)."
+                                   TextWrapping="Wrap" />
+
+                        <controls:DocumentBrandingControl DataContext="{Binding DocumentBranding}" />
                     </StackPanel>
 
                     <StackPanel Margin="0,20,0,0"
@@ -142,10 +162,6 @@
                         </Border>
                     </StackPanel>
 
-                    <views:PedagogicalStructureWizardControl DataContext="{Binding}"
-                                                           Margin="0,20,0,0"
-                                                           Visibility="{Binding IsStructurePedagogiqueSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
-
                     <StackPanel Margin="0,20,0,0"
                                 Visibility="{Binding IsReglementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <DockPanel>
@@ -175,33 +191,6 @@
                                     Content="Enregistrer le règlement"
                                     Style="{StaticResource ErpPrimaryButton}" />
                         </StackPanel>
-                    </StackPanel>
-
-                    <StackPanel Margin="0,20,0,0"
-                                Visibility="{Binding IsFraisScolairesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <DockPanel>
-                            <TextBlock Style="{StaticResource ErpSubtitle}"
-                                       Text="Types de frais disponibles" />
-                            <Button DockPanel.Dock="Right"
-                                    Command="{Binding LoadFeeTypesCommand}"
-                                    Content="Actualiser"
-                                    Style="{StaticResource ErpSecondaryButton}" />
-                        </DockPanel>
-
-                        <DataGrid Margin="0,12,0,0"
-                                  Style="{StaticResource ErpDataGrid}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  IsReadOnly="True"
-                                  ItemsSource="{Binding FeeTypes}"
-                                  MaxHeight="360">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
-                                <DataGridTextColumn Binding="{Binding Name}" Header="Frais scolaire" Width="*" />
-                                <DataGridTextColumn Binding="{Binding DefaultAmount}" Header="Montant par défaut" Width="140" />
-                                <DataGridTextColumn Binding="{Binding Currency}" Header="Devise" Width="90" />
-                            </DataGrid.Columns>
-                        </DataGrid>
                     </StackPanel>
 
                     <StackPanel Margin="0,20,0,0"
@@ -274,6 +263,17 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,20,0,0"
+                                Visibility="{Binding IsGeographieSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Style="{StaticResource ErpSubtitle}"
+                                   Text="Pays, provinces, villes et communes" />
+                        <TextBlock Margin="0,6,0,12"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="Enregistrez manuellement ou importez un fichier Excel conforme au modèle téléchargeable."
+                                   TextWrapping="Wrap" />
+                        <controls:GeographyAdminControl DataContext="{Binding GeographyAdmin}" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,20,0,0"
                                 Visibility="{Binding IsUtilisateursSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <DockPanel>
                             <TextBlock Style="{StaticResource ErpSubtitle}"
@@ -317,28 +317,120 @@
                                     <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Prénom" Text="{Binding NewAdminFirstName}" Style="{StaticResource ErpTextBox}" />
                                     <ComboBox Width="180" Margin="4" DisplayMemberPath="Name" ItemsSource="{Binding AdminRoles}" SelectedItem="{Binding SelectedAdminRole}" materialDesign:HintAssist.Hint="Rôle" />
                                 </WrapPanel>
+                                <TextBlock Margin="4,8,4,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Adresse (facultative)" />
+                                <erp:ErpAddressControl Margin="4,4,4,0"
+                                                     Editor="{Binding NewAdminUserAddressEditor}" />
                                 <WrapPanel Margin="0,8,0,0">
                                     <Button Margin="4" Command="{Binding CreateAdminUserCommand}" Content="Créer" Style="{StaticResource ErpPrimaryButton}" />
                                     <Button Margin="4" Command="{Binding AssignAdminRoleCommand}" Content="Assigner rôle" Style="{StaticResource ErpSecondaryButton}" />
                                     <Button Margin="4" Command="{Binding ToggleAdminUserActiveCommand}" Content="Activer/Désactiver" Style="{StaticResource ErpSecondaryButton}" />
                                 </WrapPanel>
+                                <TextBlock Margin="4,16,4,0"
+                                           Style="{StaticResource ErpBody}"
+                                           Text="Utilisateur sélectionné — adresse" />
+                                <erp:ErpAddressControl Margin="4,4,4,0"
+                                                     Editor="{Binding SelectedAdminUserAddressEditor}" />
+                                <Button Margin="4,8,4,0"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding SaveSelectedAdminUserCommand}"
+                                        Content="Enregistrer l'adresse"
+                                        Style="{StaticResource ErpPrimaryButton}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
-                    <Border Margin="0,20,0,0"
-                            Padding="32"
-                            Background="#F9FAFB"
-                            BorderBrush="{StaticResource ErpBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Visibility="{Binding ActivePlaceholderKey, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StringMatchVisibilityConverter}, ConverterParameter=modes-paiement}">
-                        <StackPanel HorizontalAlignment="Center" MaxWidth="520">
-                            <materialDesign:PackIcon Kind="CreditCardOutline" Width="48" Height="48" Foreground="{StaticResource ErpPrimaryBrush}" HorizontalAlignment="Center" />
-                            <TextBlock Margin="0,16,0,8" Style="{StaticResource ErpSubtitle}" Text="Modes de paiement" HorizontalAlignment="Center" />
-                            <TextBlock Style="{StaticResource ErpBodySecondary}" Text="Configuration des modes de paiement acceptés par l'établissement." TextWrapping="Wrap" TextAlignment="Center" />
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Margin="0,20,0,0"
+                                Visibility="{Binding IsEnseignantsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <DockPanel>
+                            <TextBlock Style="{StaticResource ErpSubtitle}"
+                                       Text="Personnel enseignant" />
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding LoadTeachersCommand}"
+                                    Content="Actualiser"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </DockPanel>
+
+                        <DataGrid Margin="0,12,0,8"
+                                  Style="{StaticResource ErpDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  ItemsSource="{Binding AdminTeachers}"
+                                  SelectedItem="{Binding SelectedAdminTeacher}"
+                                  MaxHeight="260">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Binding="{Binding EmployeeNumber}" Header="Matricule" Width="100" />
+                                <DataGridTextColumn Binding="{Binding FullName}" Header="Nom complet" Width="*" />
+                                <DataGridTextColumn Binding="{Binding Email}" Header="Email" Width="*" />
+                                <DataGridTextColumn Binding="{Binding Phone}" Header="Téléphone" Width="120" />
+                                <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="60" />
+                                <DataGridTextColumn Binding="{Binding AddressLine}" Header="Adresse" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Border Padding="12"
+                                Background="#F9FAFB"
+                                BorderBrush="{StaticResource ErpBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource ErpBody}"
+                                           Text="Nouvel enseignant" />
+                                <WrapPanel Margin="0,8,0,0">
+                                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Matricule" Text="{Binding NewTeacherEmployeeNumber}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Nom" Text="{Binding NewTeacherLastName}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Prénom" Text="{Binding NewTeacherFirstName}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Téléphone" Text="{Binding NewTeacherPhone}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="180" Margin="4" materialDesign:HintAssist.Hint="Email" Text="{Binding NewTeacherEmail}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="160" Margin="4" materialDesign:HintAssist.Hint="Spécialisation" Text="{Binding NewTeacherSpecialization}" Style="{StaticResource ErpTextBox}" />
+                                    <DatePicker Width="160" Margin="4" materialDesign:HintAssist.Hint="Date d'embauche" SelectedDate="{Binding NewTeacherHireDate}" Style="{StaticResource ErpDatePicker}" />
+                                </WrapPanel>
+                                <TextBlock Margin="4,8,4,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Adresse (facultative)" />
+                                <erp:ErpAddressControl Margin="4,4,4,0"
+                                                     Editor="{Binding NewTeacherAddressEditor}" />
+                                <Button Margin="4,8,4,0"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding CreateAdminTeacherCommand}"
+                                        Content="Créer l'enseignant"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,12,0,0"
+                                Padding="12"
+                                Background="#F9FAFB"
+                                BorderBrush="{StaticResource ErpBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource ErpBody}"
+                                           Text="Enseignant sélectionné" />
+                                <WrapPanel Margin="0,8,0,0">
+                                    <TextBox Width="120" Margin="4" materialDesign:HintAssist.Hint="Matricule" Text="{Binding EditTeacherEmployeeNumber}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Nom" Text="{Binding EditTeacherLastName}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Prénom" Text="{Binding EditTeacherFirstName}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="140" Margin="4" materialDesign:HintAssist.Hint="Téléphone" Text="{Binding EditTeacherPhone}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="180" Margin="4" materialDesign:HintAssist.Hint="Email" Text="{Binding EditTeacherEmail}" Style="{StaticResource ErpTextBox}" />
+                                    <TextBox Width="160" Margin="4" materialDesign:HintAssist.Hint="Spécialisation" Text="{Binding EditTeacherSpecialization}" Style="{StaticResource ErpTextBox}" />
+                                    <DatePicker Width="160" Margin="4" materialDesign:HintAssist.Hint="Date d'embauche" SelectedDate="{Binding EditTeacherHireDate}" Style="{StaticResource ErpDatePicker}" />
+                                    <CheckBox Margin="4,12,4,4" Content="Actif" IsChecked="{Binding EditTeacherIsActive}" />
+                                </WrapPanel>
+                                <TextBlock Margin="4,8,4,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Adresse" />
+                                <erp:ErpAddressControl Margin="4,4,4,0"
+                                                     Editor="{Binding SelectedTeacherAddressEditor}" />
+                                <WrapPanel Margin="0,8,0,0">
+                                    <Button Margin="4" Command="{Binding SaveSelectedAdminTeacherCommand}" Content="Enregistrer" Style="{StaticResource ErpPrimaryButton}" />
+                                    <Button Margin="4" Command="{Binding ToggleAdminTeacherActiveCommand}" Content="Activer/Désactiver" Style="{StaticResource ErpSecondaryButton}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
                     <Border Margin="0,20,0,0" Padding="32" Background="#F9FAFB" BorderBrush="{StaticResource ErpBorderBrush}" BorderThickness="1" CornerRadius="12"
                             Visibility="{Binding ActivePlaceholderKey, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StringMatchVisibilityConverter}, ConverterParameter=calendrier}">
@@ -416,6 +508,20 @@
                                Foreground="{StaticResource ErpTextSecondaryBrush}"
                                Text="{Binding StatusMessage}" />
                 </StackPanel>
-        </Border>
-    </ScrollViewer>
+            </Border>
+        </ScrollViewer>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsFraisScolairesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:SchoolFeeConfigurationControl HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Stretch"
+                                                      DataContext="{Binding SchoolFeeConfiguration}" />
+        </Grid>
+
+        <views:PedagogicalStructureWizardControl Grid.Row="0"
+                                                 DataContext="{Binding}"
+                                                 Margin="20,16"
+                                                 Visibility="{Binding IsStructurePedagogiqueSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
+    </Grid>
 </UserControl>

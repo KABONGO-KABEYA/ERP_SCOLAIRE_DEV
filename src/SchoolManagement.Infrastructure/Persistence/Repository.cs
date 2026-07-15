@@ -26,6 +26,11 @@ public class Repository<T> : IRepository<T> where T : class
         CancellationToken cancellationToken = default) =>
         await DbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
 
+    public virtual async Task<IReadOnlyList<T>> FindIncludingDeletedAsync(
+        Expression<Func<T, bool>> predicate,
+        CancellationToken cancellationToken = default) =>
+        await DbSet.IgnoreQueryFilters().Where(predicate).ToListAsync(cancellationToken);
+
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await DbSet.AddAsync(entity, cancellationToken);

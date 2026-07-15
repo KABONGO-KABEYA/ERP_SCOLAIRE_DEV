@@ -4,6 +4,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:SchoolManagement.Desktop.Views"
         Title="{Binding ApplicationTitle}"
+        Icon="pack://siteoforigin:,,,/Assets/app.ico"
         Height="800"
         Width="1440"
         MinHeight="680"

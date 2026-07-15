@@ -12,6 +12,7 @@ using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Infrastructure.Auth;
 using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
+using SchoolManagement.Application.Enrollment.Interfaces;
 using SchoolManagement.Infrastructure.Seeding;
 using SchoolManagement.Infrastructure.Services;
 
@@ -19,10 +20,14 @@ public static class InfrastructureServiceRegistration
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string connectionString)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "La chaîne de connexion SQL Server est manquante. Configurez ServeurDonnees.txt.");
+        }
 
         services.AddDbContext<SchoolDbContext>(options =>
             options.UseSqlServer(connectionString, sql =>
@@ -46,6 +51,9 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DatabaseSeeder>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+        services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
+        services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();
+        services.AddScoped<IEnrollmentMaintenanceService, EnrollmentMaintenanceService>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

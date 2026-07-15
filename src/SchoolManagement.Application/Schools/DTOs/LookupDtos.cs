@@ -2,7 +2,7 @@ namespace SchoolManagement.Application.Schools.DTOs;
 
 using SchoolManagement.Domain.Enums;
 
-public sealed record FeeTypeLookupDto(Guid Id, string Code, string Name, decimal DefaultAmount, Currency Currency);
+public sealed record FeeTypeLookupDto(Guid Id, string Code, string Name, Currency Currency);
 
 public sealed record CashRegisterLookupDto(Guid Id, string Code, string Name, Currency Currency);
 

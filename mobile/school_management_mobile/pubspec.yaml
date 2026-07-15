@@ -1,5 +1,5 @@
 name: school_management_mobile
-description: Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction).
+description: Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction, Secrétariat).
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -21,6 +21,8 @@ dependencies:
   hive_flutter: ^1.1.0
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
+  file_picker: ^8.1.7
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
@@ -30,6 +32,25 @@ dev_dependencies:
   riverpod_generator: ^2.6.3
   freezed: ^2.5.7
   json_serializable: ^6.8.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icon/app_icon.png
+  web:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    background_color: "#FFFFFF"
+    theme_color: "#1E5EFF"
+  windows:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    icon_size: 256
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png

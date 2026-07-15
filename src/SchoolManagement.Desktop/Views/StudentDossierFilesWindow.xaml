@@ -1,0 +1,58 @@
+<Window x:Class="SchoolManagement.Desktop.Views.StudentDossierFilesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="720"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F7FB">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock FontSize="18"
+                       FontWeight="SemiBold"
+                       Text="Fichiers du dossier élève" />
+            <TextBlock x:Name="StudentNameText"
+                       Margin="0,4,0,0"
+                       Foreground="#6B7280" />
+            <TextBlock Margin="0,8,0,0"
+                       Foreground="#6B7280"
+                       Text="Double-cliquez sur un fichier pour l'ouvrir."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ListBox x:Name="FilesList"
+                 Grid.Row="1"
+                 BorderBrush="#E5E7EB"
+                 BorderThickness="1"
+                 MouseDoubleClick="FilesList_OnMouseDoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="4">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding FileName}" />
+                        <TextBlock Foreground="#6B7280"
+                                   FontSize="11"
+                                   Text="{Binding StoragePath}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2"
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button Margin="0,0,8,0"
+                    Click="OpenSelected_OnClick"
+                    Content="Ouvrir"
+                    Style="{StaticResource ErpSecondaryButton}" />
+            <Button Click="Close_OnClick"
+                    Content="Fermer"
+                    Style="{StaticResource ErpPrimaryButton}" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -11,6 +11,23 @@ public interface IEnrollmentWizardService
     Task<IReadOnlyList<EnrollmentStudentSearchResultDto>> SearchStudentsAsync(
         Guid schoolId,
         string search,
+        bool forReinscription = false,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<EnrollmentGuardianSearchResultDto>> SearchGuardiansAsync(
+        Guid schoolId,
+        string search,
+        CancellationToken cancellationToken = default);
+
+    Task<StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
+        Guid schoolId,
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel,
+        string documentType,
+        string fileName,
+        Stream content,
         CancellationToken cancellationToken = default);
 
     Task<EnrollmentStructureOptionsDto> GetStructureOptionsAsync(Guid schoolId, CancellationToken cancellationToken = default);
@@ -23,6 +40,8 @@ public interface IEnrollmentWizardService
 
     Task<EnrollmentFeeSummaryDto> CalculateFeesAsync(
         Guid schoolId,
+        Guid? pedagogicalClassId = null,
+        Guid? academicYearId = null,
         IReadOnlyList<Guid>? selectedFeeTypeIds = null,
         IReadOnlyDictionary<Guid, decimal>? discounts = null,
         CancellationToken cancellationToken = default);
@@ -34,6 +53,23 @@ public interface IEnrollmentWizardService
 
     Task<CompleteEnrollmentResultDto> CompleteAsync(
         Guid schoolId,
+        CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentDossierEditDto> GetStudentDossierForEditAsync(
+        Guid schoolId,
+        Guid studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<EnrollmentValidationResultDto> ValidateStudentDossierUpdateAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<UpdateStudentDossierResultDto> UpdateStudentDossierAsync(
+        Guid schoolId,
+        Guid enrollmentId,
         CompleteEnrollmentRequest request,
         CancellationToken cancellationToken = default);
 }

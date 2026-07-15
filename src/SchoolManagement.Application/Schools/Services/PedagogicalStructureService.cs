@@ -1,10 +1,12 @@
 namespace SchoolManagement.Application.Schools.Services;
 
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.Catalog;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Schools.Interfaces;
 using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
 
@@ -17,6 +19,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<StudyOption> _studyOptionRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
+    private readonly IRepository<Enrollment> _enrollmentRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public PedagogicalStructureService(
@@ -25,6 +28,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         IRepository<Section> sectionRepository,
         IRepository<StudyOption> studyOptionRepository,
         IRepository<AcademicYear> yearRepository,
+        IRepository<Enrollment> enrollmentRepository,
         IUnitOfWork unitOfWork)
     {
         _pedagogicalClassRepository = pedagogicalClassRepository;
@@ -32,6 +36,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         _sectionRepository = sectionRepository;
         _studyOptionRepository = studyOptionRepository;
         _yearRepository = yearRepository;
+        _enrollmentRepository = enrollmentRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -80,6 +85,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     public async Task<PedagogicalStructureSummaryDto> GetSummaryAsync(
         Guid schoolId,
         bool skipEnsure = false,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default)
     {
         if (!skipEnsure)
@@ -99,6 +105,11 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
                 c => c.SchoolId == schoolId && c.PedagogicalClassId.HasValue && classIds.Contains(c.PedagogicalClassId.Value),
                 cancellationToken);
 
+        if (academicYearId.HasValue)
+        {
+            locals = locals.Where(l => l.AcademicYearId == academicYearId.Value).ToList();
+        }
+
         return new PedagogicalStructureSummaryDto(
             classes.Count,
             classes.Count(c => c.IsEnabled),
@@ -110,6 +121,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         string? search = null,
         SchoolProgram? program = null,
         bool? enabledOnly = null,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default)
     {
         await EnsureInitializedAsync(schoolId, cancellationToken);
@@ -122,6 +134,11 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         var locals = await _classRoomRepository.FindAsync(
             c => c.SchoolId == schoolId && c.PedagogicalClassId.HasValue,
             cancellationToken);
+
+        if (academicYearId.HasValue)
+        {
+            locals = locals.Where(l => l.AcademicYearId == academicYearId.Value).ToList();
+        }
 
         var localCounts = locals
             .GroupBy(l => l.PedagogicalClassId!.Value)
@@ -165,6 +182,12 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         CancellationToken cancellationToken = default)
     {
         var pedagogicalClass = await GetClassOrThrowAsync(schoolId, classId, cancellationToken);
+
+        if (!request.IsEnabled && pedagogicalClass.IsEnabled)
+        {
+            await EnsureNoCurrentYearEnrollmentsForClassAsync(schoolId, classId, cancellationToken);
+        }
+
         pedagogicalClass.IsEnabled = request.IsEnabled;
         pedagogicalClass.MinAge = request.MinAge;
         pedagogicalClass.MaxAge = request.MaxAge;
@@ -196,6 +219,11 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
             if (!map.TryGetValue(item.Id, out var pedagogicalClass))
             {
                 continue;
+            }
+
+            if (!item.IsEnabled && pedagogicalClass.IsEnabled)
+            {
+                await EnsureNoCurrentYearEnrollmentsForClassAsync(schoolId, item.Id, cancellationToken);
             }
 
             pedagogicalClass.IsEnabled = item.IsEnabled;
@@ -265,7 +293,8 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
 
         var sectionId = await ResolveSectionIdAsync(schoolId, pedagogicalClass, cancellationToken);
         var studyOptionId = await ResolveStudyOptionIdAsync(schoolId, pedagogicalClass, cancellationToken);
-        var code = BuildLocalCode(pedagogicalClass, localName, existingLocals.Count);
+        var code = ClassLocalCodeBuilder.Build(pedagogicalClass, localName, existingLocals.Count);
+        code = await EnsureUniqueLocalCodeAsync(schoolId, year.Id, code, cancellationToken);
 
         var local = new ClassRoom
         {
@@ -315,6 +344,11 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
             throw new DomainException($"Le local '{localName}' existe déjà pour cette classe.");
         }
 
+        if (!request.IsActive && local.IsActive)
+        {
+            await EnsureNoCurrentYearEnrollmentsForLocalAsync(schoolId, localId, cancellationToken);
+        }
+
         local.Name = localName;
         local.MaxCapacity = request.MaxCapacity;
         local.Observations = request.Observations?.Trim();
@@ -329,8 +363,72 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     public async Task DeleteLocalAsync(Guid schoolId, Guid localId, CancellationToken cancellationToken = default)
     {
         var local = await GetLocalOrThrowAsync(schoolId, localId, cancellationToken);
+        await EnsureNoCurrentYearEnrollmentsForLocalAsync(schoolId, localId, cancellationToken);
         await _classRoomRepository.DeleteAsync(local, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<AcademicYear> GetCurrentYearOrThrowAsync(Guid schoolId, CancellationToken cancellationToken)
+    {
+        return (await _yearRepository.FindAsync(
+            y => y.SchoolId == schoolId && y.IsCurrent && !y.IsClosed,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Aucune année scolaire courante ouverte.");
+    }
+
+    private async Task EnsureNoCurrentYearEnrollmentsForLocalAsync(
+        Guid schoolId,
+        Guid localId,
+        CancellationToken cancellationToken)
+    {
+        var currentYear = await GetCurrentYearOrThrowAsync(schoolId, cancellationToken);
+        var local = await GetLocalOrThrowAsync(schoolId, localId, cancellationToken);
+
+        if (local.AcademicYearId != currentYear.Id)
+        {
+            return;
+        }
+
+        var enrollments = await _enrollmentRepository.FindAsync(
+            e => e.ClassRoomId == localId
+                && e.AcademicYearId == currentYear.Id
+                && e.IsActive,
+            cancellationToken);
+
+        if (enrollments.Count > 0)
+        {
+            throw new DomainException(
+                "Impossible de désactiver ou supprimer ce local : des élèves y sont inscrits pour l'année scolaire courante.");
+        }
+    }
+
+    private async Task EnsureNoCurrentYearEnrollmentsForClassAsync(
+        Guid schoolId,
+        Guid pedagogicalClassId,
+        CancellationToken cancellationToken)
+    {
+        var currentYear = await GetCurrentYearOrThrowAsync(schoolId, cancellationToken);
+        var locals = await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId
+                && c.PedagogicalClassId == pedagogicalClassId
+                && c.AcademicYearId == currentYear.Id,
+            cancellationToken);
+
+        if (locals.Count == 0)
+        {
+            return;
+        }
+
+        var localIds = locals.Select(l => l.Id).ToHashSet();
+        var enrollments = await _enrollmentRepository.FindAsync(
+            e => e.AcademicYearId == currentYear.Id && e.IsActive,
+            cancellationToken);
+
+        if (enrollments.Any(e => localIds.Contains(e.ClassRoomId)))
+        {
+            throw new DomainException(
+                "Impossible de désactiver cette classe : des élèves y sont inscrits pour l'année scolaire courante.");
+        }
     }
 
     private async Task<PedagogicalClass> GetClassOrThrowAsync(Guid schoolId, Guid classId, CancellationToken cancellationToken)
@@ -386,21 +484,31 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         _ => program.ToString()
     };
 
-    private static string BuildLocalCode(PedagogicalClass pedagogicalClass, string localName, int existingCount)
+    private async Task<string> EnsureUniqueLocalCodeAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        string baseCode,
+        CancellationToken cancellationToken)
     {
-        var suffix = new string(localName
-            .ToUpperInvariant()
-            .Where(char.IsLetterOrDigit)
-            .Take(6)
-            .ToArray());
-
-        if (string.IsNullOrEmpty(suffix))
+        var code = baseCode;
+        for (var sequence = 2; sequence <= 99; sequence++)
         {
-            suffix = $"L{existingCount + 1}";
+            var duplicates = await _classRoomRepository.FindAsync(
+                c => c.SchoolId == schoolId && c.AcademicYearId == academicYearId && c.Code == code,
+                cancellationToken);
+            if (duplicates.Count == 0)
+            {
+                return code;
+            }
+
+            code = ClassLocalCodeBuilder.WithSuffix(baseCode, sequence);
         }
 
-        return $"{pedagogicalClass.TemplateCode}-{suffix}";
+        throw new DomainException("Impossible de générer un code local unique.");
     }
+
+    private static string BuildLocalCode(PedagogicalClass pedagogicalClass, string localName, int existingCount) =>
+        ClassLocalCodeBuilder.Build(pedagogicalClass, localName, existingCount);
 
     private async Task EnsureSectionsAsync(Guid schoolId, CancellationToken cancellationToken)
     {
@@ -439,16 +547,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         PedagogicalClass pedagogicalClass,
         CancellationToken cancellationToken)
     {
-        var code = pedagogicalClass.Program switch
-        {
-            SchoolProgram.Maternelle => "MAT",
-            SchoolProgram.Primaire => "PRI",
-            SchoolProgram.CTEB => "CTEB",
-            SchoolProgram.Humanites => "HUM",
-            SchoolProgram.HumanitesProfessionnelles => "HPRO",
-            SchoolProgram.FilieresSpecialisees => "FS",
-            _ => "PRI"
-        };
+        var code = PedagogicalSectionMapping.GetSectionCode(pedagogicalClass.Program);
 
         var section = (await _sectionRepository.FindAsync(
             s => s.SchoolId == schoolId && s.Code == code, cancellationToken)).FirstOrDefault()

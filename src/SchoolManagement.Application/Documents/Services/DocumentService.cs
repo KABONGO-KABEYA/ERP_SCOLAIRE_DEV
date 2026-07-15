@@ -1,26 +1,31 @@
 namespace SchoolManagement.Application.Documents.Services;
 
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Common.Models;
 using SchoolManagement.Application.Documents.DTOs;
 using SchoolManagement.Application.Documents.Interfaces;
+using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 
 public sealed class DocumentService : IDocumentService
 {
     private readonly IRepository<StudentDocument> _documentRepository;
     private readonly IRepository<Student> _studentRepository;
-    private readonly IFileStorageService _fileStorage;
+    private readonly IRepository<AcademicYear> _yearRepository;
+    private readonly IStudentDossierStorageService _studentDossierStorage;
     private readonly IUnitOfWork _unitOfWork;
 
     public DocumentService(
         IRepository<StudentDocument> documentRepository,
         IRepository<Student> studentRepository,
-        IFileStorageService fileStorage,
+        IRepository<AcademicYear> yearRepository,
+        IStudentDossierStorageService studentDossierStorage,
         IUnitOfWork unitOfWork)
     {
         _documentRepository = documentRepository;
         _studentRepository = studentRepository;
-        _fileStorage = fileStorage;
+        _yearRepository = yearRepository;
+        _studentDossierStorage = studentDossierStorage;
         _unitOfWork = unitOfWork;
     }
 
@@ -61,17 +66,35 @@ public sealed class DocumentService : IDocumentService
             s => s.Id == request.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Élève introuvable.");
 
-        var storagePath = await _fileStorage.SaveAsync(schoolId, request.StudentId, fileName, content, cancellationToken);
+        var currentYear = (await _yearRepository.FindAsync(
+            y => y.SchoolId == schoolId && y.IsCurrent && !y.IsClosed, cancellationToken)).FirstOrDefault();
+
+        var saved = await _studentDossierStorage.SaveStudentFileAsync(
+            new StudentDossierFileRequest(
+                student.LastName,
+                student.FirstName,
+                student.RegistrationNumber,
+                currentYear?.Label ?? DateTime.UtcNow.Year.ToString(),
+                request.DocumentType,
+                fileName),
+            content,
+            cancellationToken);
 
         var document = new StudentDocument
         {
             StudentId = request.StudentId,
             DocumentType = request.DocumentType,
-            FileName = fileName,
-            StoragePath = storagePath,
+            FileName = saved.FileName,
+            StoragePath = saved.StoragePath,
             MimeType = mimeType,
-            FileSizeBytes = fileSizeBytes
+            FileSizeBytes = saved.FileSizeBytes
         };
+
+        if (request.DocumentType.Equals("Photo", StringComparison.OrdinalIgnoreCase))
+        {
+            student.PhotoPath = saved.StoragePath;
+            await _studentRepository.UpdateAsync(student, cancellationToken);
+        }
 
         await _documentRepository.AddAsync(document, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -82,7 +105,7 @@ public sealed class DocumentService : IDocumentService
             $"{student.LastName} {student.FirstName}",
             document.DocumentType,
             document.FileName,
-            document.FileSizeBytes,
+            saved.FileSizeBytes,
             document.MimeType,
             document.CreatedAt);
     }
@@ -99,7 +122,7 @@ public sealed class DocumentService : IDocumentService
             s => s.Id == document.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
             ?? throw new UnauthorizedAccessException();
 
-        var stream = await _fileStorage.OpenReadAsync(document.StoragePath, cancellationToken)
+        var stream = await _studentDossierStorage.OpenReadAsync(document.StoragePath, cancellationToken)
             ?? throw new FileNotFoundException("Fichier introuvable sur le serveur.");
 
         return (stream, document.FileName, document.MimeType ?? "application/octet-stream");
@@ -114,7 +137,7 @@ public sealed class DocumentService : IDocumentService
             s => s.Id == document.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
             ?? throw new UnauthorizedAccessException();
 
-        await _fileStorage.DeleteAsync(document.StoragePath, cancellationToken);
+        await _studentDossierStorage.DeleteAsync(document.StoragePath, cancellationToken);
         await _documentRepository.DeleteAsync(document, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }

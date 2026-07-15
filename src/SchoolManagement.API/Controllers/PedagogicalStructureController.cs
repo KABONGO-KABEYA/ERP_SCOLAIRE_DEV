@@ -30,17 +30,19 @@ public class PedagogicalStructureController : ControllerBase
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         await _service.EnsureInitializedAsync(schoolId, cancellationToken);
-        var summary = await _service.GetSummaryAsync(schoolId, skipEnsure: true, cancellationToken);
+        var summary = await _service.GetSummaryAsync(schoolId, skipEnsure: true, academicYearId: null, cancellationToken);
         return Ok(ApiResponse<PedagogicalStructureSummaryDto>.Ok(summary, "Structure pédagogique initialisée."));
     }
 
     [HttpGet("summary")]
     [Authorize(Policy = Permissions.SchoolsRead)]
     [ProducesResponseType(typeof(ApiResponse<PedagogicalStructureSummaryDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSummary(
+        [FromQuery] Guid? academicYearId,
+        CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
-        var summary = await _service.GetSummaryAsync(schoolId, cancellationToken: cancellationToken);
+        var summary = await _service.GetSummaryAsync(schoolId, academicYearId: academicYearId, cancellationToken: cancellationToken);
         return Ok(ApiResponse<PedagogicalStructureSummaryDto>.Ok(summary));
     }
 
@@ -51,10 +53,11 @@ public class PedagogicalStructureController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] SchoolProgram? program,
         [FromQuery] bool? enabledOnly,
+        [FromQuery] Guid? academicYearId,
         CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
-        var classes = await _service.GetClassesAsync(schoolId, search, program, enabledOnly, cancellationToken);
+        var classes = await _service.GetClassesAsync(schoolId, search, program, enabledOnly, academicYearId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<PedagogicalClassDto>>.Ok(classes));
     }
 

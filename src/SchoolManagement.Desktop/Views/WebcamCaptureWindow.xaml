@@ -1,0 +1,55 @@
+<Window x:Class="SchoolManagement.Desktop.Views.WebcamCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Capture photo"
+        Width="640"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F5F7FB">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,12"
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Text="Positionnez l'élève face à la webcam puis cliquez sur Capturer." />
+
+        <Border Grid.Row="1"
+                Background="#111827"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12">
+            <Image x:Name="PreviewImage"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+        </Border>
+
+        <TextBlock x:Name="StatusText"
+                   Grid.Row="2"
+                   Margin="0,12,0,0"
+                   Foreground="#6B7280"
+                   Text="Initialisation de la webcam…"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="3"
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button Margin="0,0,8,0"
+                    Click="Cancel_OnClick"
+                    Content="Annuler"
+                    Style="{StaticResource ErpSecondaryButton}" />
+            <Button Click="Capture_OnClick"
+                    Content="Capturer"
+                    Style="{StaticResource ErpPrimaryButton}" />
+        </StackPanel>
+    </Grid>
+</Window>

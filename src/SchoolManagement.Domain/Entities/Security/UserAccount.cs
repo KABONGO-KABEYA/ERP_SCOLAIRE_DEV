@@ -1,4 +1,5 @@
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Domain.Entities.Security;
@@ -18,6 +19,10 @@ public class UserAccount : AuditableEntity, IAggregateRoot
     public string LastName { get; set; } = string.Empty;
 
     public string? Phone { get; set; }
+
+    public Guid? AddressId { get; set; }
+
+    public PostalAddress? ResidenceAddress { get; set; }
 
     public Guid? TeacherId { get; set; }
 

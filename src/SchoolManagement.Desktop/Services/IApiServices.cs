@@ -47,12 +47,14 @@ public interface ISchoolApiService
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.Schools.DTOs.PedagogicalStructureSummaryDto> GetPedagogicalSummaryAsync(
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SchoolManagement.Application.Schools.DTOs.PedagogicalClassDto>> GetPedagogicalClassesAsync(
         string? search = null,
         SchoolManagement.Domain.Enums.SchoolProgram? program = null,
         bool? enabledOnly = null,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.Schools.DTOs.PedagogicalClassDto> UpdatePedagogicalClassAsync(
@@ -122,11 +124,34 @@ public interface IStudentApiService
         SchoolManagement.Application.Students.DTOs.StudentSearchRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Students.DTOs.StudentProfileDto> GetProfileAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default);
+
     Task<SchoolManagement.Application.Students.DTOs.StudentDto> CreateAsync(
         SchoolManagement.Application.Students.DTOs.CreateStudentRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Students.DTOs.StudentDto> UpdateAsync(
+        Guid studentId,
+        SchoolManagement.Application.Students.DTOs.UpdateStudentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task WithdrawFromCurrentYearAsync(
+        Guid studentId,
+        SchoolManagement.Application.Students.DTOs.WithdrawFromCurrentYearRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Students.WithdrawalReasonsDto> GetWithdrawalReasonsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task ExcludeFromCurrentYearAsync(Guid studentId, CancellationToken cancellationToken = default);
+
     Task ArchiveAsync(Guid studentId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Students.DTOs.StudentDossierFileDto>> ListDossierFilesAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IEnrollmentWizardApiService
@@ -138,6 +163,20 @@ public interface IEnrollmentWizardApiService
 
     Task<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentStudentSearchResultDto>> SearchStudentsAsync(
         string search,
+        bool forReinscription = false,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentGuardianSearchResultDto>> SearchGuardiansAsync(
+        string search,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel,
+        string documentType,
+        string filePath,
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentStructureOptionsDto> GetStructureOptionsAsync(
@@ -149,6 +188,8 @@ public interface IEnrollmentWizardApiService
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFeeSummaryDto> CalculateFeesAsync(
+        Guid? pedagogicalClassId = null,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentValidationResultDto> ValidateAsync(
@@ -157,6 +198,102 @@ public interface IEnrollmentWizardApiService
 
     Task<SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentResultDto> CompleteAsync(
         SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFormDocumentDto> GetEnrollmentFormAsync(
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StudentDossierEditDto> GetStudentDossierForEditAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentValidationResultDto> ValidateStudentDossierUpdateAsync(
+        Guid enrollmentId,
+        SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.EnrollmentWizard.DTOs.UpdateStudentDossierResultDto> UpdateStudentDossierAsync(
+        Guid enrollmentId,
+        SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGeographyApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCountriesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetProvincesAsync(
+        Guid countryId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCitiesAsync(
+        Guid provinceId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCommunesAsync(
+        Guid cityId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.AddressDto?> GetAddressAsync(
+        Guid addressId,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGeographyAdminApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCountriesAsync(
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetProvincesAsync(
+        Guid countryId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCitiesAsync(
+        Guid provinceId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCommunesAsync(
+        Guid cityId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCountryAsync(
+        SchoolManagement.Application.Geography.DTOs.UpsertGeographyItemRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveProvinceAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateProvinceRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCityAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateCityRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCommuneAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateCommuneRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateCountryAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeactivateProvinceAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeactivateCityAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeactivateCommuneAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<byte[]> DownloadImportTemplateAsync(CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Geography.DTOs.GeographyImportResultDto> ImportExcelAsync(
+        string filePath,
         CancellationToken cancellationToken = default);
 }
 
@@ -242,5 +379,161 @@ public interface IAdminApiService
     Task<SchoolManagement.Application.Admin.DTOs.UserAccountDto> SetUserRolesAsync(
         Guid userId,
         SchoolManagement.Application.Admin.DTOs.SetUserRolesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>> GetTeachersAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto> CreateTeacherAsync(
+        SchoolManagement.Application.Admin.DTOs.CreateTeacherAdminRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto> UpdateTeacherAsync(
+        Guid teacherId,
+        SchoolManagement.Application.Admin.DTOs.UpdateTeacherAdminRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IDocumentBrandingApiService
+{
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingConfigurationDto> GetConfigurationAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingLookupDto> GetLookupsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto> CreateLogoAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolLogoRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto> UpdateLogoAsync(
+        Guid logoId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolLogoRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteLogoAsync(Guid logoId, CancellationToken cancellationToken = default);
+
+    Task SetPrimaryLogoAsync(Guid logoId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto> CreateHeaderAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentHeaderRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto> UpdateHeaderAsync(
+        Guid headerId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentHeaderRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteHeaderAsync(Guid headerId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto> CreateSignatureAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolSignatureRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto> UpdateSignatureAsync(
+        Guid signatureId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolSignatureRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteSignatureAsync(Guid signatureId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto> CreateStampAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolStampRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto> UpdateStampAsync(
+        Guid stampId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolStampRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteStampAsync(Guid stampId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentFooterDto> SaveFooterAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentFooterRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface ISchoolFeeApiService
+{
+    Task<SchoolManagement.Application.SchoolFees.DTOs.SchoolFeeCatalogDto> GetCatalogAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto> CreateFeeTypeAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CreateFeeTypeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto> UpdateFeeTypeAsync(
+        Guid feeTypeId,
+        SchoolManagement.Application.SchoolFees.DTOs.UpdateFeeTypeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteFeeTypeAsync(Guid feeTypeId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto> CreatePricingCategoryAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CreateFeePricingCategoryRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto> UpdatePricingCategoryAsync(
+        Guid categoryId,
+        SchoolManagement.Application.SchoolFees.DTOs.UpdateFeePricingCategoryRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeletePricingCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto> CreateInstallmentAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeInstallmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto> UpdateInstallmentAsync(
+        Guid installmentId,
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeInstallmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteInstallmentAsync(Guid installmentId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>> GetFeeTypeInstallmentsAsync(
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>> SaveFeeTypeInstallmentsAsync(
+        Guid feeTypeId,
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeTypeInstallmentsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto> GetScheduleAsync(
+        Guid academicYearId,
+        Guid pedagogicalClassId,
+        Guid feePricingCategoryId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleSignatureDto>> GetScheduleSignaturesAsync(
+        Guid academicYearId,
+        Guid feePricingCategoryId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto> SaveScheduleAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleBulkResult> SaveScheduleBulkAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleBulkRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleResult> CopyScheduleFromPreviousAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkResult> CopyScheduleFromPreviousBulkAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkRequest request,
         CancellationToken cancellationToken = default);
 }

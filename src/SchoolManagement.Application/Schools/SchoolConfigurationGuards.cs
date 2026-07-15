@@ -33,6 +33,7 @@ public static class SchoolConfigurationGuards
     public static async Task<ClassRoom> EnsureSelectableClassRoomAsync(
         IRepository<ClassRoom> classRoomRepository,
         IRepository<PedagogicalClass> pedagogicalClassRepository,
+        IRepository<AcademicYear> yearRepository,
         Guid schoolId,
         Guid classRoomId,
         CancellationToken cancellationToken = default)
@@ -41,6 +42,16 @@ public static class SchoolConfigurationGuards
             c => c.Id == classRoomId && c.SchoolId == schoolId,
             cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Classe introuvable.");
+
+        var currentYear = (await yearRepository.FindAsync(
+            y => y.SchoolId == schoolId && y.IsCurrent && !y.IsClosed,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Aucune année scolaire courante ouverte.");
+
+        if (classRoom.AcademicYearId != currentYear.Id)
+        {
+            throw new DomainException("Cette classe n'est pas disponible pour l'année scolaire courante.");
+        }
 
         var pedagogicalMap = ClassRoomAvailability.BuildMap(
             await pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken));

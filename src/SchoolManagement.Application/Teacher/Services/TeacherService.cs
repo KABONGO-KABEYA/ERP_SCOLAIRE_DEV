@@ -94,6 +94,7 @@ public sealed class TeacherService : ITeacherService
         await SchoolConfigurationGuards.EnsureSelectableClassRoomAsync(
             _classRoomRepository,
             _pedagogicalClassRepository,
+            _yearRepository,
             schoolId,
             classRoomId,
             cancellationToken);

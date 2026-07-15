@@ -1,0 +1,50 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.ErpGridDatePicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             x:Name="Root"
+             FocusVisualStyle="{x:Null}">
+    <Border x:Name="HostBorder"
+            Style="{StaticResource SchoolFeeGridDateCellBorder}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       FontFamily="{StaticResource ErpFontFamily}"
+                       FontSize="13"
+                       FontWeight="Medium"
+                       Foreground="{StaticResource ErpTextPrimaryBrush}"
+                       Text="{Binding SelectedDate, ElementName=Root, StringFormat=dd/MM/yyyy, TargetNullValue=—}" />
+            <Button x:Name="OpenCalendarButton"
+                    Grid.Column="1"
+                    Click="OpenCalendarButton_OnClick"
+                    Style="{StaticResource SchoolFeeGridDatePickerButton}">
+                <materialDesign:PackIcon Width="16"
+                                         Height="16"
+                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                         Kind="CalendarMonthOutline" />
+            </Button>
+            <Popup x:Name="CalendarPopup"
+                   AllowsTransparency="True"
+                   Placement="Bottom"
+                   PlacementTarget="{Binding ElementName=HostBorder}"
+                   StaysOpen="False">
+                <Border Background="White"
+                        BorderBrush="#E5E7EB"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Effect="{StaticResource ErpCardShadow}"
+                        Padding="6">
+                    <Calendar x:Name="CalendarControl"
+                              Background="White"
+                              BorderThickness="0"
+                              SelectedDatesChanged="CalendarControl_OnSelectedDatesChanged" />
+                </Border>
+            </Popup>
+        </Grid>
+    </Border>
+</UserControl>

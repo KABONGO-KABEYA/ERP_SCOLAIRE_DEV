@@ -185,7 +185,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                 <Border Width="4" Background="{StaticResource ErpPrimaryBrush}" CornerRadius="2" Margin="0,0,12,0" />
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource ErpBody}" Text="Rentrée scolaire 2025-2026" />
+                                    <TextBlock Style="{StaticResource ErpBody}" Text="{Binding CurrentAcademicYearLabel}" />
                                     <TextBlock Style="{StaticResource ErpBodySecondary}" Text="Septembre 2025" />
                                 </StackPanel>
                             </StackPanel>

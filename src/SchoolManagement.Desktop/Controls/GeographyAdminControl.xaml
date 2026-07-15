@@ -1,0 +1,327 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.GeographyAdminControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+    <UserControl.Resources>
+        <ui:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Margin="4,0,0,0"
+                        Command="{Binding DownloadTemplateCommand}"
+                        Content="Télécharger le modèle Excel"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button Margin="4,0,0,0"
+                        Command="{Binding ImportExcelCommand}"
+                        Content="Importer Excel"
+                        Style="{StaticResource ErpPrimaryButton}" />
+                <Button Margin="4,0,0,0"
+                        Command="{Binding RefreshCurrentTabCommand}"
+                        Content="Actualiser"
+                        Style="{StaticResource ErpSecondaryButton}" />
+            </StackPanel>
+            <CheckBox VerticalAlignment="Center"
+                      Content="Afficher les éléments inactifs"
+                      IsChecked="{Binding IncludeInactive}" />
+        </DockPanel>
+
+        <TextBlock Grid.Row="1"
+                   Margin="0,0,0,8"
+                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                   Text="Colonnes du modèle : Pays_Code, Pays_Nom, Province_Code, Province_Nom, Ville_Code, Ville_Nom, Commune_Code, Commune_Nom."
+                   TextWrapping="Wrap" />
+
+        <TabControl Grid.Row="2"
+                    MinHeight="420"
+                    SelectedIndex="{Binding SelectedTabIndex}"
+                    Style="{StaticResource MaterialDesignFilledTabControl}">
+            <TabItem Header="Pays">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DataGrid Grid.Row="0"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Countries}"
+                              MaxHeight="260"
+                              SelectedItem="{Binding SelectedCountry}"
+                              Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Pays" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#F9FAFB"
+                            BorderBrush="{StaticResource ErpBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <StackPanel>
+                            <WrapPanel>
+                                <TextBox Width="140"
+                                         Margin="4"
+                                         materialDesign:HintAssist.Hint="Code"
+                                         Style="{StaticResource ErpTextBox}"
+                                         Text="{Binding CountryCode, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox Width="280"
+                                         Margin="4"
+                                         materialDesign:HintAssist.Hint="Nom du pays"
+                                         Style="{StaticResource ErpTextBox}"
+                                         Text="{Binding CountryName, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Margin="4"
+                                        Command="{Binding NewCountryCommand}"
+                                        Content="Nouveau"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="4"
+                                        Command="{Binding SaveCountryCommand}"
+                                        Content="Enregistrer"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="4"
+                                        Command="{Binding DeactivateCountryCommand}"
+                                        Content="Désactiver"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Provinces">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ComboBox Grid.Row="0"
+                              Width="320"
+                              Margin="4,0,4,8"
+                              DisplayMemberPath="Name"
+                              ItemsSource="{Binding Countries}"
+                              materialDesign:HintAssist.Hint="Pays"
+                              SelectedItem="{Binding ProvinceCountryFilter}" />
+                    <DataGrid Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Provinces}"
+                              MaxHeight="220"
+                              SelectedItem="{Binding SelectedProvince}"
+                              Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Province" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#F9FAFB"
+                            BorderBrush="{StaticResource ErpBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <WrapPanel>
+                            <TextBox Width="140"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Code"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding ProvinceCode, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Width="280"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Nom de la province"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding ProvinceName, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Margin="4"
+                                    Command="{Binding NewProvinceCommand}"
+                                    Content="Nouveau"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding SaveProvinceCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding DeactivateProvinceCommand}"
+                                    Content="Désactiver"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </WrapPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Villes">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <ComboBox Width="240"
+                                  Margin="4,0,4,8"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding Countries}"
+                                  materialDesign:HintAssist.Hint="Pays"
+                                  SelectedItem="{Binding CityCountryFilter}" />
+                        <ComboBox Width="240"
+                                  Margin="4,0,4,8"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding CityProvinces}"
+                                  materialDesign:HintAssist.Hint="Province"
+                                  SelectedItem="{Binding CityProvinceFilter}" />
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Cities}"
+                              MaxHeight="220"
+                              SelectedItem="{Binding SelectedCity}"
+                              Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Ville" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#F9FAFB"
+                            BorderBrush="{StaticResource ErpBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <WrapPanel>
+                            <TextBox Width="140"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Code"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding CityCode, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Width="280"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Nom de la ville"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding CityName, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Margin="4"
+                                    Command="{Binding NewCityCommand}"
+                                    Content="Nouveau"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding SaveCityCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding DeactivateCityCommand}"
+                                    Content="Désactiver"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </WrapPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Communes">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <ComboBox Width="200"
+                                  Margin="4,0,4,8"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding Countries}"
+                                  materialDesign:HintAssist.Hint="Pays"
+                                  SelectedItem="{Binding CommuneCountryFilter}" />
+                        <ComboBox Width="200"
+                                  Margin="4,0,4,8"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding CommuneProvinces}"
+                                  materialDesign:HintAssist.Hint="Province"
+                                  SelectedItem="{Binding CommuneProvinceFilter}" />
+                        <ComboBox Width="200"
+                                  Margin="4,0,4,8"
+                                  DisplayMemberPath="Name"
+                                  ItemsSource="{Binding CommuneCities}"
+                                  materialDesign:HintAssist.Hint="Ville"
+                                  SelectedItem="{Binding CommuneCityFilter}" />
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Communes}"
+                              MaxHeight="220"
+                              SelectedItem="{Binding SelectedCommune}"
+                              Style="{StaticResource ErpDataGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Commune" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2"
+                            Margin="0,12,0,0"
+                            Padding="12"
+                            Background="#F9FAFB"
+                            BorderBrush="{StaticResource ErpBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <WrapPanel>
+                            <TextBox Width="140"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Code"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding CommuneCode, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Width="280"
+                                     Margin="4"
+                                     materialDesign:HintAssist.Hint="Nom de la commune"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding CommuneName, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Margin="4"
+                                    Command="{Binding NewCommuneCommand}"
+                                    Content="Nouveau"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding SaveCommuneCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="4"
+                                    Command="{Binding DeactivateCommuneCommand}"
+                                    Content="Désactiver"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </WrapPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Foreground="#DC2626"
+                       Text="{Binding ValidationMessage}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding ValidationMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+            <TextBlock Margin="0,4,0,0"
+                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                       Text="{Binding StatusMessage}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+            <TextBlock Margin="0,4,0,0"
+                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                       Text="{Binding ImportSummary}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding ImportSummary, Converter={StaticResource NullToVisibilityConverter}}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -10,6 +10,7 @@ public interface IPedagogicalStructureService
     Task<PedagogicalStructureSummaryDto> GetSummaryAsync(
         Guid schoolId,
         bool skipEnsure = false,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<PedagogicalClassDto>> GetClassesAsync(
@@ -17,6 +18,7 @@ public interface IPedagogicalStructureService
         string? search = null,
         SchoolProgram? program = null,
         bool? enabledOnly = null,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
 
     Task<PedagogicalClassDto> UpdateClassAsync(

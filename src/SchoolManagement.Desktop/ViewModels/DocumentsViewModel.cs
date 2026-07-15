@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using SchoolManagement.Application.Documents.DTOs;
 using SchoolManagement.Application.Students.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -37,7 +38,9 @@ public partial class DocumentsViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            var result = await _studentApiService.SearchAsync(new StudentSearchRequest(null, null, 1, 200));
+            var result = await _studentApiService.SearchAsync(new StudentSearchRequest(
+                null, null, null, null, null, null,
+                ApplyFilters: false, IncludeAll: true, Page: 1, PageSize: 200));
             Students.Clear();
             foreach (var s in result.Items) Students.Add(s);
             SelectedStudent = Students.FirstOrDefault();
@@ -75,8 +78,7 @@ public partial class DocumentsViewModel : ViewModelBase
             Title = "Sélectionner un document",
             Filter = "Tous les fichiers|*.*"
         };
-
-        if (dialog.ShowDialog() != true)
+        if (ErpFileDialog.ShowOpen(dialog, ErpFileDialog.ResolveOwnerWindow()) != true)
         {
             return;
         }
@@ -117,8 +119,7 @@ public partial class DocumentsViewModel : ViewModelBase
             FileName = SelectedDocument.FileName,
             Title = "Enregistrer le document"
         };
-
-        if (dialog.ShowDialog() != true) return;
+        if (ErpFileDialog.ShowSave(dialog, ErpFileDialog.ResolveOwnerWindow()) != true) return;
 
         IsBusy = true;
         try

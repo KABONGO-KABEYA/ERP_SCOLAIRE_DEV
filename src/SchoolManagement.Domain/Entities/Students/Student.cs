@@ -23,7 +23,11 @@ public class Student : AuditableEntity, IAggregateRoot
 
     public string? Nationality { get; set; } = "Congolaise";
 
+    public Guid? AddressId { get; set; }
+
     public string? Address { get; set; }
+
+    public Entities.Geography.PostalAddress? ResidenceAddress { get; set; }
 
     public string? Phone { get; set; }
 
@@ -58,11 +62,17 @@ public class Guardian : AuditableEntity, IAggregateRoot
 
     public string? Email { get; set; }
 
+    public Guid? AddressId { get; set; }
+
     public string? Address { get; set; }
+
+    public Entities.Geography.PostalAddress? ResidenceAddress { get; set; }
 
     public string? Profession { get; set; }
 
     public string? NationalId { get; set; }
+
+    public Gender? Gender { get; set; }
 
     public ICollection<StudentGuardian> Students { get; set; } = [];
 }
@@ -78,6 +88,8 @@ public class StudentGuardian : AuditableEntity
     public bool IsPrimary { get; set; }
 
     public bool CanPickup { get; set; } = true;
+
+    public bool UsesStudentAddress { get; set; }
 
     public Student Student { get; set; } = null!;
 

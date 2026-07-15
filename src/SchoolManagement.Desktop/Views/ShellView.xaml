@@ -24,18 +24,12 @@
             <DockPanel LastChildFill="True">
                 <!-- School branding -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
-                    <Border Width="52"
-                            Height="52"
-                            Background="#1E5EFF"
-                            CornerRadius="14"
-                            HorizontalAlignment="Left">
-                        <materialDesign:PackIcon Kind="School"
-                                                 Width="28"
-                                                 Height="28"
-                                                 Foreground="White"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center" />
-                    </Border>
+                    <Image Source="/Assets/icone.png"
+                           Width="52"
+                           Height="52"
+                           HorizontalAlignment="Left"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Margin="0,14,0,2"
                                FontFamily="Segoe UI"
                                FontSize="16"
@@ -166,7 +160,7 @@
                                            FontSize="13"
                                            FontWeight="Medium"
                                            Foreground="#1E5EFF"
-                                           Text="Année scolaire 2025-2026" />
+                                           Text="{Binding CurrentAcademicYearLabel}" />
                             </StackPanel>
                         </Border>
 

@@ -56,6 +56,29 @@ public enum RegistrationKind
     RetourApresAbandon = 4
 }
 
+/// <summary>Type de document pour l'en-tête graphique.</summary>
+public enum DocumentBrandingType
+{
+    BulletinScolaire = 1,
+    Recu = 2,
+    Attestation = 3,
+    Certificat = 4,
+    Diplome = 5,
+    Lettre = 6,
+    CarteScolaire = 7,
+    RelevePoints = 8,
+    Palmares = 9,
+    FicheInscription = 10,
+    Autre = 99
+}
+
+/// <summary>Mode d'impression de l'en-tête.</summary>
+public enum HeaderPrintMode
+{
+    FullImage = 1,
+    LogoOnly = 2
+}
+
 public enum UserRole
 {
     Administrateur = 1,

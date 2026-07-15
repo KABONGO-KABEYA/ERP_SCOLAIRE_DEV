@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Students;
 using SchoolManagement.Application.Students.DTOs;
 using SchoolManagement.Application.Students.Interfaces;
 using SchoolManagement.Shared.Constants;
@@ -62,6 +63,56 @@ public class StudentsController : ControllerBase
         return Ok(ApiResponse<StudentDto>.Ok(student, "Élève mis à jour."));
     }
 
+    [HttpGet("{id:guid}/profile")]
+    [Authorize(Policy = Permissions.StudentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<StudentProfileDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetProfile(Guid id, CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var profile = await _studentService.GetProfileAsync(schoolId, id, cancellationToken);
+        return Ok(ApiResponse<StudentProfileDto>.Ok(profile));
+    }
+
+    [HttpPost("{id:guid}/withdraw-current-year")]
+    [Authorize(Policy = Permissions.StudentsUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> WithdrawFromCurrentYear(
+        Guid id,
+        [FromBody] WithdrawFromCurrentYearRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _studentService.WithdrawFromCurrentYearAsync(schoolId, id, request, cancellationToken);
+        var message = request.WithdrawalType == StudentWithdrawalType.Exclusion
+            ? "Élève exclu de l'année scolaire courante."
+            : "Abandon enregistré pour l'année scolaire courante.";
+        return Ok(ApiResponse<object>.Ok(new { }, message));
+    }
+
+    [HttpGet("withdrawal-reasons")]
+    [Authorize(Policy = Permissions.StudentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<WithdrawalReasonsDto>), StatusCodes.Status200OK)]
+    public IActionResult GetWithdrawalReasons()
+    {
+        var reasons = _studentService.GetWithdrawalReasons();
+        return Ok(ApiResponse<WithdrawalReasonsDto>.Ok(reasons));
+    }
+
+    [HttpPost("{id:guid}/exclude-current-year")]
+    [Authorize(Policy = Permissions.StudentsUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [Obsolete("Utiliser withdraw-current-year avec une raison.")]
+    public async Task<IActionResult> ExcludeFromCurrentYear(Guid id, CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _studentService.WithdrawFromCurrentYearAsync(
+            schoolId,
+            id,
+            new WithdrawFromCurrentYearRequest(StudentWithdrawalType.Exclusion, "AUTORITE"),
+            cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { }, "Élève exclu de l'année scolaire courante."));
+    }
+
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.StudentsDelete)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
@@ -70,5 +121,15 @@ public class StudentsController : ControllerBase
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         await _studentService.ArchiveAsync(schoolId, id, cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }, "Élève archivé."));
+    }
+
+    [HttpGet("{id:guid}/dossier-files")]
+    [Authorize(Policy = Permissions.StudentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<StudentDossierFileDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListDossierFiles(Guid id, CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var files = await _studentService.ListDossierFilesAsync(schoolId, id, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<StudentDossierFileDto>>.Ok(files));
     }
 }

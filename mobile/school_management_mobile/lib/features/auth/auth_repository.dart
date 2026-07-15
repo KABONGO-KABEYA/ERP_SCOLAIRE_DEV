@@ -38,6 +38,7 @@ class AuthRepository {
       refreshToken: session.refreshToken,
       userName: session.user.fullName,
       roles: session.user.roles,
+      permissions: session.user.permissions,
     );
     return session;
   }

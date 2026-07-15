@@ -4,15 +4,17 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_storage.dart';
 import '../core/providers/app_providers.dart';
-import '../../features/auth/auth_repository.dart';
-import '../../features/auth/login_screen.dart';
-import '../../features/parent/children_screen.dart';
-import '../../features/parent/child_detail_screen.dart';
-import '../../features/teacher/assignments_screen.dart';
-import '../../features/teacher/class_screen.dart';
-import '../../features/teacher/evaluations_screen.dart';
-import '../../features/teacher/grade_entry_screen.dart';
-import '../../features/direction/dashboard_screen.dart';
+import '../features/auth/auth_repository.dart';
+import '../features/auth/login_screen.dart';
+import '../features/parent/children_screen.dart';
+import '../features/parent/child_detail_screen.dart';
+import '../features/teacher/assignments_screen.dart';
+import '../features/teacher/class_screen.dart';
+import '../features/teacher/evaluations_screen.dart';
+import '../features/teacher/grade_entry_screen.dart';
+import '../features/direction/dashboard_screen.dart';
+import '../features/enrollment/enrollment_wizard_screen.dart';
+import '../features/secretary/secretary_home_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -27,6 +29,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (!loggedIn && !onLogin) return '/login';
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
+
+      final canEnroll = await AuthStorage.canManageEnrollments;
+      if (state.matchedLocation.startsWith('/secretary') && !canEnroll) {
+        return await AuthStorage.homeRoute;
+      }
       return null;
     },
     routes: [
@@ -40,6 +47,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
+      GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
+      GoRoute(
+        path: '/secretary/enrollment',
+        builder: (context, state) => EnrollmentWizardScreen(
+          isReinscription: state.uri.queryParameters['mode'] == 're',
+        ),
+      ),
       GoRoute(path: '/teacher/assignments', builder: (_, __) => const TeacherAssignmentsScreen()),
       GoRoute(
         path: '/teacher/classes/:classRoomId',

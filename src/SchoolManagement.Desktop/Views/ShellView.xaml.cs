@@ -38,6 +38,7 @@ public partial class ShellView : UserControl
             }
             else if (args.PropertyName == nameof(ShellViewModel.CurrentViewModel))
             {
+                ApplyPendingSettingsSelection(shellViewModel);
                 UpdatePageTitle(shellViewModel);
             }
         };
@@ -215,6 +216,12 @@ public partial class ShellView : UserControl
         _settingsExpander!.IsExpanded = true;
         _selectedSettingsKey = item.Key;
         UpdateSettingsSubNavSelection(item.Key);
+
+        if (shellViewModel.CurrentViewModel is SettingsViewModel settingsViewModel)
+        {
+            SettingsNavigationBridge.ApplyToViewModel(settingsViewModel, item);
+        }
+
         PageTitleText.Text = item.Title;
         PageSubtitleText.Text = GetSettingsSubtitle(item);
         SettingsNavigationBridge.Select(item);
@@ -275,6 +282,24 @@ public partial class ShellView : UserControl
         }
     }
 
+    private void ApplyPendingSettingsSelection(ShellViewModel shellViewModel)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedSettingsKey)
+            || shellViewModel.CurrentViewModel is not SettingsViewModel settingsViewModel)
+        {
+            return;
+        }
+
+        var item = SettingsNavCatalog.FindByKey(_selectedSettingsKey);
+        if (item is null)
+        {
+            return;
+        }
+
+        SettingsNavigationBridge.ApplyToViewModel(settingsViewModel, item);
+        SettingsNavigationBridge.Select(item);
+    }
+
     private void UpdatePageTitle(ShellViewModel shellViewModel)
     {
         if (shellViewModel.CurrentViewModel is SettingsViewModel settingsViewModel &&
@@ -282,6 +307,15 @@ public partial class ShellView : UserControl
         {
             PageTitleText.Text = settingsViewModel.SelectedSectionTitle;
             PageSubtitleText.Text = settingsViewModel.SelectedSectionDescription;
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is EnrollmentWizardViewModel wizardViewModel)
+        {
+            PageTitleText.Text = "Assistant d'inscription";
+            PageSubtitleText.Text = wizardViewModel.IsReinscriptionMode
+                ? "Réinscription d'un élève pour la nouvelle année scolaire"
+                : "Création du dossier scolaire d'un nouvel élève";
             return;
         }
 
@@ -298,12 +332,13 @@ public partial class ShellView : UserControl
 
         return item.Key switch
         {
-            "etablissement" => "Informations générales de l'établissement.",
+            "etablissement" => "Informations générales, logos, en-têtes, signatures et identité documentaire.",
             "structure-pedagogique" => "Activez uniquement les classes réellement organisées dans l'établissement.",
             "annees-scolaires" => "Créez les années scolaires et définissez l'année courante.",
             "matieres" => "Gérez les matières rattachées aux classes actives.",
             "utilisateurs" => "Gérez les comptes utilisateurs et l'affectation des rôles.",
-            "frais-scolaires" => "Consultez les types de frais disponibles pour les paiements scolaires.",
+            "enseignants" => "Gérez le personnel enseignant et leurs adresses.",
+            "frais-scolaires" => "Configuration des frais par année, classe et type de frais.",
             "reglement" => "Rédigez et enregistrez le règlement d'ordre intérieur.",
             _ => "Configuration de l'établissement scolaire."
         };

@@ -37,7 +37,6 @@ public partial class PaymentsViewModel : ViewModelBase
     {
         if (value is not null)
         {
-            Amount = value.DefaultAmount;
             Currency = value.Currency;
         }
     }
@@ -60,7 +59,9 @@ public partial class PaymentsViewModel : ViewModelBase
             SelectedCashRegister = Lookups.CashRegisters.FirstOrDefault();
             SelectedFeeType = Lookups.FeeTypes.FirstOrDefault();
 
-            var students = await _studentApiService.SearchAsync(new StudentSearchRequest(null, null, 1, 100));
+            var students = await _studentApiService.SearchAsync(new StudentSearchRequest(
+                null, null, null, null, null, null,
+                ApplyFilters: false, IncludeAll: true, Page: 1, PageSize: 100));
             Students.Clear();
             foreach (var s in students.Items) Students.Add(s);
             SelectedStudent = Students.FirstOrDefault();

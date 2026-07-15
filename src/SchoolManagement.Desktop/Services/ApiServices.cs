@@ -355,20 +355,30 @@ public sealed class SchoolApiService : ApiServiceBase, ISchoolApiService
         PutAsync<SchoolManagement.Application.Schools.DTOs.SchoolRegulationDto>("api/v1/schools/current/regulation", request, cancellationToken);
 
     public Task<SchoolManagement.Application.Schools.DTOs.PedagogicalStructureSummaryDto> GetPedagogicalSummaryAsync(
-        CancellationToken cancellationToken = default) =>
-        GetAsync<SchoolManagement.Application.Schools.DTOs.PedagogicalStructureSummaryDto>(
-            "api/v1/schools/current/pedagogical-structure/summary", cancellationToken);
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = "api/v1/schools/current/pedagogical-structure/summary";
+        if (academicYearId.HasValue)
+        {
+            url += $"?academicYearId={academicYearId}";
+        }
+
+        return GetAsync<SchoolManagement.Application.Schools.DTOs.PedagogicalStructureSummaryDto>(url, cancellationToken);
+    }
 
     public Task<IReadOnlyList<SchoolManagement.Application.Schools.DTOs.PedagogicalClassDto>> GetPedagogicalClassesAsync(
         string? search = null,
         SchoolManagement.Domain.Enums.SchoolProgram? program = null,
         bool? enabledOnly = null,
+        Guid? academicYearId = null,
         CancellationToken cancellationToken = default)
     {
         var query = new List<string>();
         if (!string.IsNullOrWhiteSpace(search)) query.Add($"search={Uri.EscapeDataString(search)}");
         if (program.HasValue) query.Add($"program={(int)program.Value}");
         if (enabledOnly.HasValue) query.Add($"enabledOnly={enabledOnly.Value.ToString().ToLowerInvariant()}");
+        if (academicYearId.HasValue) query.Add($"academicYearId={academicYearId}");
         var url = "api/v1/schools/current/pedagogical-structure/classes";
         if (query.Count > 0) url += "?" + string.Join("&", query);
         return GetAsync<IReadOnlyList<SchoolManagement.Application.Schools.DTOs.PedagogicalClassDto>>(url, cancellationToken);
@@ -428,17 +438,91 @@ public sealed class StudentApiService : ApiServiceBase, IStudentApiService
         SchoolManagement.Application.Students.DTOs.StudentSearchRequest request,
         CancellationToken cancellationToken = default)
     {
-        var url = $"api/v1/students?search={Uri.EscapeDataString(request.Search ?? "")}&page={request.Page}&pageSize={request.PageSize}";
+        var query = new List<string>
+        {
+            $"page={request.Page}",
+            $"pageSize={request.PageSize}",
+            $"applyFilters={request.ApplyFilters.ToString().ToLowerInvariant()}",
+            $"includeAll={request.IncludeAll.ToString().ToLowerInvariant()}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            query.Add($"search={Uri.EscapeDataString(request.Search)}");
+        }
+
+        if (request.AcademicYearId.HasValue)
+        {
+            query.Add($"academicYearId={request.AcademicYearId}");
+        }
+
+        if (request.SectionId.HasValue)
+        {
+            query.Add($"sectionId={request.SectionId}");
+        }
+
+        if (request.PedagogicalClassId.HasValue)
+        {
+            query.Add($"pedagogicalClassId={request.PedagogicalClassId}");
+        }
+
+        if (request.ClassRoomId.HasValue)
+        {
+            query.Add($"classRoomId={request.ClassRoomId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.StudyOption))
+        {
+            query.Add($"studyOption={Uri.EscapeDataString(request.StudyOption)}");
+        }
+
+        query.Add($"includeInscrits={request.IncludeInscrits.ToString().ToLowerInvariant()}");
+        query.Add($"includeExcluded={request.IncludeExcluded.ToString().ToLowerInvariant()}");
+        query.Add($"includeAbandoned={request.IncludeAbandoned.ToString().ToLowerInvariant()}");
+
+        var url = "api/v1/students?" + string.Join("&", query);
         return GetAsync<SchoolManagement.Application.Students.DTOs.StudentListDto>(url, cancellationToken);
     }
+
+    public Task<SchoolManagement.Application.Students.DTOs.StudentProfileDto> GetProfileAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Students.DTOs.StudentProfileDto>(
+            $"api/v1/students/{studentId}/profile", cancellationToken);
 
     public Task<SchoolManagement.Application.Students.DTOs.StudentDto> CreateAsync(
         SchoolManagement.Application.Students.DTOs.CreateStudentRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.Students.DTOs.StudentDto>("api/v1/students", request, cancellationToken);
 
+    public Task<SchoolManagement.Application.Students.DTOs.StudentDto> UpdateAsync(
+        Guid studentId,
+        SchoolManagement.Application.Students.DTOs.UpdateStudentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Students.DTOs.StudentDto>($"api/v1/students/{studentId}", request, cancellationToken);
+
+    public Task WithdrawFromCurrentYearAsync(
+        Guid studentId,
+        SchoolManagement.Application.Students.DTOs.WithdrawFromCurrentYearRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"api/v1/students/{studentId}/withdraw-current-year", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Students.WithdrawalReasonsDto> GetWithdrawalReasonsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Students.WithdrawalReasonsDto>(
+            "api/v1/students/withdrawal-reasons", cancellationToken);
+
+    public Task ExcludeFromCurrentYearAsync(Guid studentId, CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"api/v1/students/{studentId}/exclude-current-year", new { }, cancellationToken);
+
     public Task ArchiveAsync(Guid studentId, CancellationToken cancellationToken = default) =>
         DeleteAsync($"api/v1/students/{studentId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Students.DTOs.StudentDossierFileDto>> ListDossierFilesAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Students.DTOs.StudentDossierFileDto>>(
+            $"api/v1/students/{studentId}/dossier-files", cancellationToken);
 }
 
 public sealed class PaymentApiService : ApiServiceBase, IPaymentApiService
@@ -663,6 +747,21 @@ public sealed class AdminApiService : ApiServiceBase, IAdminApiService
         SchoolManagement.Application.Admin.DTOs.SetUserRolesRequest request,
         CancellationToken cancellationToken = default) =>
         PutAsync<SchoolManagement.Application.Admin.DTOs.UserAccountDto>($"api/v1/admin/users/{userId}/roles", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>> GetTeachersAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>>("api/v1/admin/teachers", cancellationToken);
+
+    public Task<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto> CreateTeacherAsync(
+        SchoolManagement.Application.Admin.DTOs.CreateTeacherAdminRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>("api/v1/admin/teachers", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto> UpdateTeacherAsync(
+        Guid teacherId,
+        SchoolManagement.Application.Admin.DTOs.UpdateTeacherAdminRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>($"api/v1/admin/teachers/{teacherId}", request, cancellationToken);
 }
 
 public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWizardApiService
@@ -683,10 +782,51 @@ public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWiza
 
     public Task<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentStudentSearchResultDto>> SearchStudentsAsync(
         string search,
+        bool forReinscription = false,
         CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentStudentSearchResultDto>>(
-            $"api/v1/enrollment-wizard/search-students?search={Uri.EscapeDataString(search)}",
+            $"api/v1/enrollment-wizard/search-students?search={Uri.EscapeDataString(search)}&forReinscription={(forReinscription ? "true" : "false")}",
             cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentGuardianSearchResultDto>> SearchGuardiansAsync(
+        string search,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentGuardianSearchResultDto>>(
+            $"api/v1/enrollment-wizard/search-guardians?search={Uri.EscapeDataString(search)}",
+            cancellationToken);
+
+    public async Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel,
+        string documentType,
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        await using var stream = File.OpenRead(filePath);
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent(lastName), "lastName" },
+            { new StringContent(firstName), "firstName" },
+            { new StringContent(registrationNumber), "registrationNumber" },
+            { new StringContent(academicYearLabel), "academicYearLabel" },
+            { new StringContent(documentType), "documentType" },
+            { new StreamContent(stream), "file", Path.GetFileName(filePath) }
+        };
+
+        var response = await client.PostAsync("api/v1/enrollment-wizard/store-file", content, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: cancellationToken);
+            throw new HttpRequestException(error?.Message ?? $"Erreur API ({(int)response.StatusCode})");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<SchoolManagement.Application.EnrollmentWizard.DTOs.StoredEnrollmentFileDto>>(
+            cancellationToken: cancellationToken);
+        return body?.Data ?? throw new InvalidOperationException("Réponse API invalide.");
+    }
 
     public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentStructureOptionsDto> GetStructureOptionsAsync(
         CancellationToken cancellationToken = default) =>
@@ -702,9 +842,26 @@ public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWiza
             cancellationToken);
 
     public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFeeSummaryDto> CalculateFeesAsync(
-        CancellationToken cancellationToken = default) =>
-        GetAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFeeSummaryDto>(
-            "api/v1/enrollment-wizard/fees", cancellationToken);
+        Guid? pedagogicalClassId = null,
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (pedagogicalClassId.HasValue)
+        {
+            query.Add($"pedagogicalClassId={pedagogicalClassId.Value}");
+        }
+
+        if (academicYearId.HasValue)
+        {
+            query.Add($"academicYearId={academicYearId.Value}");
+        }
+
+        var suffix = query.Count > 0 ? "?" + string.Join("&", query) : string.Empty;
+        return GetAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFeeSummaryDto>(
+            $"api/v1/enrollment-wizard/fees{suffix}",
+            cancellationToken);
+    }
 
     public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentValidationResultDto> ValidateAsync(
         SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
@@ -717,4 +874,537 @@ public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWiza
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentResultDto>(
             "api/v1/enrollment-wizard/complete", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFormDocumentDto> GetEnrollmentFormAsync(
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentFormDocumentDto>(
+            $"api/v1/enrollment-wizard/fiche-inscription/{enrollmentId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StudentDossierEditDto> GetStudentDossierForEditAsync(
+        Guid studentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.StudentDossierEditDto>(
+            $"api/v1/enrollment-wizard/student-dossier/{studentId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentValidationResultDto> ValidateStudentDossierUpdateAsync(
+        Guid enrollmentId,
+        SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.EnrollmentValidationResultDto>(
+            $"api/v1/enrollment-wizard/student-dossier/{enrollmentId}/validate",
+            request,
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.EnrollmentWizard.DTOs.UpdateStudentDossierResultDto> UpdateStudentDossierAsync(
+        Guid enrollmentId,
+        SchoolManagement.Application.EnrollmentWizard.DTOs.CompleteEnrollmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.EnrollmentWizard.DTOs.UpdateStudentDossierResultDto>(
+            $"api/v1/enrollment-wizard/student-dossier/{enrollmentId}",
+            request,
+            cancellationToken);
+}
+
+public sealed class GeographyApiService : ApiServiceBase, IGeographyApiService
+{
+    public GeographyApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCountriesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            "api/v1/geography/countries", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetProvincesAsync(
+        Guid countryId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/provinces?countryId={countryId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCitiesAsync(
+        Guid provinceId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/cities?provinceId={provinceId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCommunesAsync(
+        Guid cityId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/communes?cityId={cityId}", cancellationToken);
+
+    public async Task<SchoolManagement.Application.Geography.DTOs.AddressDto?> GetAddressAsync(
+        Guid addressId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await GetAsync<SchoolManagement.Application.Geography.DTOs.AddressDto>(
+                $"api/v1/geography/addresses/{addressId}", cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+}
+
+public sealed class GeographyAdminApiService : ApiServiceBase, IGeographyAdminApiService
+{
+    public GeographyAdminApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCountriesAsync(
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/admin/countries?includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetProvincesAsync(
+        Guid countryId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/admin/provinces?countryId={countryId}&includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCitiesAsync(
+        Guid provinceId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/admin/cities?provinceId={provinceId}&includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>> GetCommunesAsync(
+        Guid cityId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>>(
+            $"api/v1/geography/admin/communes?cityId={cityId}&includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCountryAsync(
+        SchoolManagement.Application.Geography.DTOs.UpsertGeographyItemRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default) =>
+        id.HasValue
+            ? PutAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                $"api/v1/geography/admin/countries/{id.Value}", request, cancellationToken)
+            : PostAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                "api/v1/geography/admin/countries", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveProvinceAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateProvinceRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default) =>
+        id.HasValue
+            ? PutAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                $"api/v1/geography/admin/provinces/{id.Value}", request, cancellationToken)
+            : PostAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                "api/v1/geography/admin/provinces", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCityAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateCityRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default) =>
+        id.HasValue
+            ? PutAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                $"api/v1/geography/admin/cities/{id.Value}", request, cancellationToken)
+            : PostAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                "api/v1/geography/admin/cities", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Geography.DTOs.GeographyItemDto> SaveCommuneAsync(
+        SchoolManagement.Application.Geography.DTOs.CreateCommuneRequest request,
+        Guid? id = null,
+        CancellationToken cancellationToken = default) =>
+        id.HasValue
+            ? PutAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                $"api/v1/geography/admin/communes/{id.Value}", request, cancellationToken)
+            : PostAsync<SchoolManagement.Application.Geography.DTOs.GeographyItemDto>(
+                "api/v1/geography/admin/communes", request, cancellationToken);
+
+    public Task DeactivateCountryAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/geography/admin/countries/{id}", cancellationToken);
+
+    public Task DeactivateProvinceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/geography/admin/provinces/{id}", cancellationToken);
+
+    public Task DeactivateCityAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/geography/admin/cities/{id}", cancellationToken);
+
+    public Task DeactivateCommuneAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/geography/admin/communes/{id}", cancellationToken);
+
+    public async Task<byte[]> DownloadImportTemplateAsync(CancellationToken cancellationToken = default)
+    {
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.GetAsync("api/v1/geography/admin/import/template", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: cancellationToken);
+            throw new HttpRequestException(error?.Message ?? $"Erreur API ({(int)response.StatusCode})");
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task<SchoolManagement.Application.Geography.DTOs.GeographyImportResultDto> ImportExcelAsync(
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        await using var stream = File.OpenRead(filePath);
+        using var content = new MultipartFormDataContent
+        {
+            { new StreamContent(stream), "file", Path.GetFileName(filePath) }
+        };
+
+        var response = await client.PostAsync("api/v1/geography/admin/import", content, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: cancellationToken);
+            throw new HttpRequestException(error?.Message ?? $"Erreur API ({(int)response.StatusCode})");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<SchoolManagement.Application.Geography.DTOs.GeographyImportResultDto>>(
+            cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Réponse API invalide.");
+        return body.Data ?? throw new InvalidOperationException(body.Message ?? "Données absentes.");
+    }
+}
+
+public sealed class DocumentBrandingApiService : ApiServiceBase, IDocumentBrandingApiService
+{
+    public DocumentBrandingApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingConfigurationDto> GetConfigurationAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingConfigurationDto>(
+            "api/v1/document-branding/configuration", cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingLookupDto> GetLookupsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingLookupDto>(
+            "api/v1/document-branding/lookups", cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto> CreateLogoAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolLogoRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default) =>
+        PostMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto>(
+            "api/v1/document-branding/logos",
+            BuildLogoForm(request, imagePath),
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto> UpdateLogoAsync(
+        Guid logoId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolLogoRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default) =>
+        PutMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolLogoDto>(
+            $"api/v1/document-branding/logos/{logoId}",
+            BuildLogoForm(request, imagePath),
+            cancellationToken);
+
+    public Task DeleteLogoAsync(Guid logoId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/document-branding/logos/{logoId}", cancellationToken);
+
+    public Task SetPrimaryLogoAsync(Guid logoId, CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"api/v1/document-branding/logos/{logoId}/set-primary", new { }, cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto> CreateHeaderAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentHeaderRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default) =>
+        PostMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto>(
+            "api/v1/document-branding/headers",
+            BuildHeaderForm(request, imagePath),
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto> UpdateHeaderAsync(
+        Guid headerId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentHeaderRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default) =>
+        PutMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentHeaderDto>(
+            $"api/v1/document-branding/headers/{headerId}",
+            BuildHeaderForm(request, imagePath),
+            cancellationToken);
+
+    public Task DeleteHeaderAsync(Guid headerId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/document-branding/headers/{headerId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto> CreateSignatureAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolSignatureRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default) =>
+        PostMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto>(
+            "api/v1/document-branding/signatures",
+            BuildSignatureForm(request, imagePath),
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto> UpdateSignatureAsync(
+        Guid signatureId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolSignatureRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default) =>
+        PutMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolSignatureDto>(
+            $"api/v1/document-branding/signatures/{signatureId}",
+            BuildSignatureForm(request, imagePath),
+            cancellationToken);
+
+    public Task DeleteSignatureAsync(Guid signatureId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/document-branding/signatures/{signatureId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto> CreateStampAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolStampRequest request,
+        string imagePath,
+        CancellationToken cancellationToken = default) =>
+        PostMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto>(
+            "api/v1/document-branding/stamps",
+            BuildStampForm(request, imagePath),
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto> UpdateStampAsync(
+        Guid stampId,
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolStampRequest request,
+        string? imagePath,
+        CancellationToken cancellationToken = default) =>
+        PutMultipartAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolStampDto>(
+            $"api/v1/document-branding/stamps/{stampId}",
+            BuildStampForm(request, imagePath),
+            cancellationToken);
+
+    public Task DeleteStampAsync(Guid stampId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/document-branding/stamps/{stampId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentFooterDto> SaveFooterAsync(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentFooterRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.DocumentBranding.DTOs.SchoolDocumentFooterDto>(
+            "api/v1/document-branding/footer", request, cancellationToken);
+
+    private static MultipartFormDataContent BuildLogoForm(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolLogoRequest request,
+        string? imagePath)
+    {
+        var content = new MultipartFormDataContent
+        {
+            { new StringContent(request.Name), "Name" },
+            { new StringContent(request.IsPrimary.ToString()), "IsPrimary" },
+            { new StringContent(request.IsActive.ToString()), "IsActive" }
+        };
+        AddImage(content, imagePath);
+        return content;
+    }
+
+    private static MultipartFormDataContent BuildHeaderForm(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolDocumentHeaderRequest request,
+        string? imagePath)
+    {
+        var content = new MultipartFormDataContent
+        {
+            { new StringContent(request.Name), "Name" },
+            { new StringContent(((int)request.DocumentType).ToString()), "DocumentType" },
+            { new StringContent(((int)request.PrintMode).ToString()), "PrintMode" },
+            { new StringContent(request.IsActive.ToString()), "IsActive" }
+        };
+        if (request.WidthPx.HasValue) content.Add(new StringContent(request.WidthPx.Value.ToString()), "WidthPx");
+        if (request.HeightPx.HasValue) content.Add(new StringContent(request.HeightPx.Value.ToString()), "HeightPx");
+        if (request.ResolutionDpi.HasValue) content.Add(new StringContent(request.ResolutionDpi.Value.ToString()), "ResolutionDpi");
+        if (!string.IsNullOrWhiteSpace(request.ApplicableDocumentTypes))
+        {
+            content.Add(new StringContent(request.ApplicableDocumentTypes), "ApplicableDocumentTypes");
+        }
+        AddImage(content, imagePath);
+        return content;
+    }
+
+    private static MultipartFormDataContent BuildSignatureForm(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolSignatureRequest request,
+        string? imagePath)
+    {
+        var content = new MultipartFormDataContent
+        {
+            { new StringContent(request.SignatoryName), "SignatoryName" },
+            { new StringContent(request.Function), "Function" },
+            { new StringContent(((int)request.DocumentType).ToString()), "DocumentType" },
+            { new StringContent(request.IsActive.ToString()), "IsActive" }
+        };
+        if (!string.IsNullOrWhiteSpace(request.ApplicableDocumentTypes))
+        {
+            content.Add(new StringContent(request.ApplicableDocumentTypes), "ApplicableDocumentTypes");
+        }
+        AddImage(content, imagePath);
+        return content;
+    }
+
+    private static MultipartFormDataContent BuildStampForm(
+        SchoolManagement.Application.DocumentBranding.DTOs.SaveSchoolStampRequest request,
+        string? imagePath)
+    {
+        var content = new MultipartFormDataContent
+        {
+            { new StringContent(request.Name), "Name" },
+            { new StringContent(request.IsActive.ToString()), "IsActive" }
+        };
+        AddImage(content, imagePath);
+        return content;
+    }
+
+    private static void AddImage(MultipartFormDataContent content, string? imagePath)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+        {
+            return;
+        }
+
+        var stream = File.OpenRead(imagePath);
+        content.Add(new StreamContent(stream), "image", Path.GetFileName(imagePath));
+    }
+
+    private async Task<T> PostMultipartAsync<T>(string url, MultipartFormDataContent content, CancellationToken cancellationToken)
+    {
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.PostAsync(url, content, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: cancellationToken);
+            throw new HttpRequestException(error?.Message ?? $"Erreur API ({(int)response.StatusCode})");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<T>>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Réponse API invalide.");
+        return body.Data ?? throw new InvalidOperationException(body.Message ?? "Données absentes.");
+    }
+
+    private async Task<T> PutMultipartAsync<T>(string url, MultipartFormDataContent content, CancellationToken cancellationToken)
+    {
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.PutAsync(url, content, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiResponse<object>>(cancellationToken: cancellationToken);
+            throw new HttpRequestException(error?.Message ?? $"Erreur API ({(int)response.StatusCode})");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<T>>(cancellationToken: cancellationToken)
+            ?? throw new InvalidOperationException("Réponse API invalide.");
+        return body.Data ?? throw new InvalidOperationException(body.Message ?? "Données absentes.");
+    }
+}
+
+public sealed class SchoolFeeApiService : ApiServiceBase, ISchoolFeeApiService
+{
+    public SchoolFeeApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.SchoolFeeCatalogDto> GetCatalogAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.SchoolFees.DTOs.SchoolFeeCatalogDto>(
+            "api/v1/school-fees/catalog", cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto> CreateFeeTypeAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CreateFeeTypeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto>(
+            "api/v1/school-fees/fee-types", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto> UpdateFeeTypeAsync(
+        Guid feeTypeId,
+        SchoolManagement.Application.SchoolFees.DTOs.UpdateFeeTypeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeDto>(
+            $"api/v1/school-fees/fee-types/{feeTypeId}", request, cancellationToken);
+
+    public Task DeleteFeeTypeAsync(Guid feeTypeId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/school-fees/fee-types/{feeTypeId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto> CreatePricingCategoryAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CreateFeePricingCategoryRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto>(
+            "api/v1/school-fees/pricing-categories", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto> UpdatePricingCategoryAsync(
+        Guid categoryId,
+        SchoolManagement.Application.SchoolFees.DTOs.UpdateFeePricingCategoryRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.SchoolFees.DTOs.FeePricingCategoryDto>(
+            $"api/v1/school-fees/pricing-categories/{categoryId}", request, cancellationToken);
+
+    public Task DeletePricingCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/school-fees/pricing-categories/{categoryId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto> CreateInstallmentAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeInstallmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto>(
+            "api/v1/school-fees/installments", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto> UpdateInstallmentAsync(
+        Guid installmentId,
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeInstallmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.SchoolFees.DTOs.FeeInstallmentDto>(
+            $"api/v1/school-fees/installments/{installmentId}", request, cancellationToken);
+
+    public Task DeleteInstallmentAsync(Guid installmentId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/school-fees/installments/{installmentId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>> GetFeeTypeInstallmentsAsync(
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>>(
+            $"api/v1/school-fees/fee-types/{feeTypeId}/installments", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>> SaveFeeTypeInstallmentsAsync(
+        Guid feeTypeId,
+        SchoolManagement.Application.SchoolFees.DTOs.SaveFeeTypeInstallmentsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.FeeTypeInstallmentDto>>(
+            $"api/v1/school-fees/fee-types/{feeTypeId}/installments", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto> GetScheduleAsync(
+        Guid academicYearId,
+        Guid pedagogicalClassId,
+        Guid feePricingCategoryId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto>(
+            $"api/v1/school-fees/schedule?academicYearId={academicYearId}&pedagogicalClassId={pedagogicalClassId}&feePricingCategoryId={feePricingCategoryId}&feeTypeId={feeTypeId}",
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleSignatureDto>> GetScheduleSignaturesAsync(
+        Guid academicYearId,
+        Guid feePricingCategoryId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleSignatureDto>>(
+            $"api/v1/school-fees/schedule/signatures?academicYearId={academicYearId}&feePricingCategoryId={feePricingCategoryId}&feeTypeId={feeTypeId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto> SaveScheduleAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.SchoolFees.DTOs.ClassFeeScheduleDto>(
+            "api/v1/school-fees/schedule", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleBulkResult> SaveScheduleBulkAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleBulkRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.SchoolFees.DTOs.SaveClassFeeScheduleBulkResult>(
+            "api/v1/school-fees/schedule/bulk", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleResult> CopyScheduleFromPreviousAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleResult>(
+            "api/v1/school-fees/schedule/copy-from-previous", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkResult> CopyScheduleFromPreviousBulkAsync(
+        SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkResult>(
+            "api/v1/school-fees/schedule/copy-from-previous/bulk", request, cancellationToken);
 }

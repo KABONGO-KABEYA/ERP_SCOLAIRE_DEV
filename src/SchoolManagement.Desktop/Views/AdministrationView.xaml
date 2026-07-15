@@ -12,8 +12,11 @@
             <TextBlock Style="{StaticResource MaterialDesignHeadline5TextBlock}" Text="Administration système" />
             <Button DockPanel.Dock="Right" Command="{Binding LoadCommand}" Content="Actualiser" Style="{StaticResource MaterialDesignOutlinedButton}" />
         </DockPanel>
-        <DataGrid Grid.Row="1" Margin="0,12,0,8" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                  ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}">
+        <DataGrid Grid.Row="1"
+                  Margin="0,12,0,8"
+                  Style="{StaticResource ErpDataGrid}"
+                  ItemsSource="{Binding Users}"
+                  SelectedItem="{Binding SelectedUser}">
             <DataGrid.Columns>
                 <DataGridTextColumn Binding="{Binding UserName}" Header="Identifiant" Width="120" />
                 <DataGridTextColumn Binding="{Binding FullName}" Header="Nom complet" Width="*" />

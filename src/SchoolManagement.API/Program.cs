@@ -4,8 +4,11 @@ using FluentValidation.AspNetCore;
 using Microsoft.OpenApi.Models;
 using SchoolManagement.API.Extensions;
 using SchoolManagement.API.Middleware;
+using SchoolManagement.Application.Configuration.Database;
+using SchoolManagement.Application.Configuration.FileStorage;
 using SchoolManagement.Application.DependencyInjection;
 using SchoolManagement.Infrastructure.DependencyInjection;
+using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Infrastructure.Seeding;
 using Serilog;
 
@@ -18,8 +21,54 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.Console()
     .WriteTo.File("logs/api-.log", rollingInterval: RollingInterval.Day));
 
+var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory);
+var (_, sqlConnectionString, databaseTestResult) = await databaseBootstrap.LoadValidateAndTestAsync();
+if (!databaseTestResult.IsSuccess)
+{
+    Log.Fatal(
+        "Connexion SQL Server impossible. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
+        DatabaseConfigurationManager.FileName,
+        Environment.NewLine,
+        databaseTestResult.Message);
+    return;
+}
+
+Log.Information("Connexion SQL Server validée via {ConfigFile}.", DatabaseConfigurationManager.FileName);
+
+var fileStorageManager = new FileStorageConfigurationManager(AppContext.BaseDirectory);
+fileStorageManager.EnsureDefaultFileExists();
+var fileStorageConfiguration = fileStorageManager.LoadConfiguration();
+var fileStorageValidation = fileStorageManager.Validate(fileStorageConfiguration);
+if (!fileStorageValidation.IsValid)
+{
+    Log.Fatal(
+        "Configuration fichiers invalide. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
+        FileStorageConfigurationManager.FileName,
+        Environment.NewLine,
+        string.Join(Environment.NewLine, fileStorageValidation.FieldErrors.Values));
+    return;
+}
+
+var fileStorageTestResult = new FileStoragePathTester().TestConfiguration(
+    fileStorageConfiguration,
+    AppContext.BaseDirectory,
+    requireWriteAccess: true);
+if (!fileStorageTestResult.IsSuccess)
+{
+    Log.Fatal(
+        "Dossier partagé inaccessible. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
+        FileStorageConfigurationManager.FileName,
+        Environment.NewLine,
+        fileStorageTestResult.Message);
+    return;
+}
+
+Log.Information("Dossier partagé validé via {ConfigFile}.", FileStorageConfigurationManager.FileName);
+
+builder.Services.AddSingleton(databaseBootstrap.ConfigurationManager);
+builder.Services.AddSingleton(fileStorageManager);
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, sqlConnectionString);
 builder.Services.AddPermissionPolicies();
 
 builder.Services.AddControllers();
@@ -109,6 +158,36 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
+    var brandingSchema = new DocumentBrandingSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<DocumentBrandingSchemaInitializer>>());
+    await brandingSchema.EnsureCreatedAsync();
+
+    var enrollmentGuardianSchema = new EnrollmentGuardianSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<EnrollmentGuardianSchemaInitializer>>());
+    await enrollmentGuardianSchema.EnsureCreatedAsync();
+
+    var geographySchema = new GeographySchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<GeographySchemaInitializer>>());
+    await geographySchema.EnsureCreatedAsync();
+
+    var classRoomSchema = new ClassRoomSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<ClassRoomSchemaInitializer>>());
+    await classRoomSchema.EnsureUpdatedAsync();
+
+    var attendanceSchema = new AttendanceSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<AttendanceSchemaInitializer>>());
+    await attendanceSchema.EnsureUpdatedAsync();
+
+    var schoolFeeSchema = new SchoolFeeSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<SchoolFeeSchemaInitializer>>());
+    await schoolFeeSchema.EnsureCreatedAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }

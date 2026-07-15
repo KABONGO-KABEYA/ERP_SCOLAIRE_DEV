@@ -6,6 +6,8 @@ import '../../features/auth/auth_repository.dart';
 import '../../features/parent/parent_repository.dart';
 import '../../features/teacher/teacher_repository.dart';
 import '../../features/direction/direction_repository.dart';
+import '../../features/enrollment/enrollment_repository.dart';
+import '../../features/enrollment/geography_repository.dart';
 
 final authRepositoryProvider = Provider((ref) => AuthRepository());
 final apiClientProvider = Provider((ref) => ApiClient());
@@ -15,6 +17,10 @@ final teacherRepositoryProvider =
     Provider((ref) => TeacherRepository(ref.watch(apiClientProvider)));
 final directionRepositoryProvider =
     Provider((ref) => DirectionRepository(ref.watch(apiClientProvider)));
+final enrollmentRepositoryProvider =
+    Provider((ref) => EnrollmentRepository(ref.watch(apiClientProvider)));
+final geographyRepositoryProvider =
+    Provider((ref) => GeographyRepository(ref.watch(apiClientProvider)));
 
 final authStateProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) => AuthNotifier());

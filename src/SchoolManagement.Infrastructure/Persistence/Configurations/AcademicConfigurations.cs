@@ -14,6 +14,7 @@ public class TeacherConfiguration : AuditableEntityConfiguration<Teacher>
         builder.Property(t => t.FirstName).HasMaxLength(100).IsRequired();
         builder.Property(t => t.LastName).HasMaxLength(100).IsRequired();
         builder.HasIndex(t => new { t.SchoolId, t.EmployeeNumber }).IsUnique();
+        builder.HasOne(t => t.ResidenceAddress).WithMany().HasForeignKey(t => t.AddressId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

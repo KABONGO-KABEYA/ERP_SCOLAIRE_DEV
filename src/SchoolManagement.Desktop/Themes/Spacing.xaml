@@ -12,16 +12,18 @@
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpNavItemHeight">48</sys:Double>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpButtonHeight">42</sys:Double>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpInputHeight">46</sys:Double>
-    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthMatricule">200</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthMatricule">220</sys:Double>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthStandard">260</sys:Double>
-    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthGender">180</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthGender">220</sys:Double>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthDate">220</sys:Double>
-    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthCountry">200</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFieldWidthCountry">220</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpWizardSidebarWidth">300</sys:Double>
+    <GridLength x:Key="ErpGridSidebarWidth">1*</GridLength>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFormColumnGap">20</sys:Double>
     <sys:Double xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:Key="ErpFormRowGap">18</sys:Double>
     <Thickness x:Key="ErpFieldLabelSpacing">0,0,0,6</Thickness>
     <Thickness x:Key="ErpFormCellMargin">0,0,20,18</Thickness>
-    <Thickness x:Key="ErpFormGroupSpacing">0,32,0,0</Thickness>
+    <Thickness x:Key="ErpFormGroupSpacing">0,30,0,0</Thickness>
     <Thickness x:Key="ErpInputPadding">14,0,14,0</Thickness>
 
 </ResourceDictionary>

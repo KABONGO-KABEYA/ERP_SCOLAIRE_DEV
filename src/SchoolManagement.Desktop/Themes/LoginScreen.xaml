@@ -1,0 +1,372 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:fa="clr-namespace:FontAwesome.Sharp;assembly=FontAwesome.Sharp">
+
+    <!-- Couleurs maquette -->
+    <Color x:Key="LoginNavyColor">#0B1F47</Color>
+    <Color x:Key="LoginBlueColor">#1D4ED8</Color>
+    <Color x:Key="LoginAccentColor">#2563EB</Color>
+    <Color x:Key="LoginGlowColor">#60A5FA</Color>
+    <Color x:Key="LoginTextDarkColor">#0F172A</Color>
+    <Color x:Key="LoginTextMutedColor">#64748B</Color>
+    <Color x:Key="LoginBorderColor">#E2E8F0</Color>
+    <Color x:Key="LoginSuccessColor">#22C55E</Color>
+
+    <SolidColorBrush x:Key="LoginNavyBrush" Color="{StaticResource LoginNavyColor}" />
+    <SolidColorBrush x:Key="LoginBlueBrush" Color="{StaticResource LoginBlueColor}" />
+    <SolidColorBrush x:Key="LoginAccentBrush" Color="{StaticResource LoginAccentColor}" />
+    <SolidColorBrush x:Key="LoginGlowBrush" Color="{StaticResource LoginGlowColor}" />
+    <SolidColorBrush x:Key="LoginTextDarkBrush" Color="{StaticResource LoginTextDarkColor}" />
+    <SolidColorBrush x:Key="LoginTextMutedBrush" Color="{StaticResource LoginTextMutedColor}" />
+    <SolidColorBrush x:Key="LoginBorderBrush" Color="{StaticResource LoginBorderColor}" />
+    <SolidColorBrush x:Key="LoginSuccessBrush" Color="{StaticResource LoginSuccessColor}" />
+
+    <LinearGradientBrush x:Key="LoginLeftGradientBrush" StartPoint="0.5,1" EndPoint="0.5,0">
+        <GradientStop Color="{StaticResource LoginNavyColor}" Offset="0" />
+        <GradientStop Color="{StaticResource LoginBlueColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="LoginPrimaryButtonGradientBrush" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#1D4ED8" Offset="0" />
+        <GradientStop Color="#2563EB" Offset="0.5" />
+        <GradientStop Color="#3B82F6" Offset="1" />
+    </LinearGradientBrush>
+
+    <FontFamily x:Key="LoginFontFamily">Segoe UI</FontFamily>
+
+    <!-- Courbe de séparation (panneau droit) -->
+    <PathGeometry x:Key="LoginRightPanelClipGeometry">
+        <PathFigure IsClosed="True" StartPoint="56,0">
+            <BezierSegment Point1="0,140" Point2="0,340" Point3="56,480" />
+            <BezierSegment Point1="112,620" Point2="112,760" Point3="56,900" />
+            <LineSegment Point="2000,900" />
+            <LineSegment Point="2000,0" />
+        </PathFigure>
+    </PathGeometry>
+
+    <PathGeometry x:Key="LoginCurveGlowGeometry">
+        <PathFigure StartPoint="56,0">
+            <BezierSegment Point1="0,140" Point2="0,340" Point3="56,480" />
+            <BezierSegment Point1="112,620" Point2="112,760" Point3="56,900" />
+        </PathFigure>
+    </PathGeometry>
+
+    <!-- Animations -->
+    <Storyboard x:Key="LoginLeftFadeInStoryboard">
+        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                         From="0"
+                         To="1"
+                         Duration="0:0:0.7">
+            <DoubleAnimation.EasingFunction>
+                <CubicEase EasingMode="EaseOut" />
+            </DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+    </Storyboard>
+
+    <Storyboard x:Key="LoginRightSlideInStoryboard">
+        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                         From="0"
+                         To="1"
+                         BeginTime="0:0:0.15"
+                         Duration="0:0:0.55">
+            <DoubleAnimation.EasingFunction>
+                <CubicEase EasingMode="EaseOut" />
+            </DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                         From="36"
+                         To="0"
+                         BeginTime="0:0:0.15"
+                         Duration="0:0:0.55">
+            <DoubleAnimation.EasingFunction>
+                <CubicEase EasingMode="EaseOut" />
+            </DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+    </Storyboard>
+
+    <!-- Chrome fenêtre -->
+    <Style x:Key="LoginChromeButton" TargetType="Button">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Margin" Value="2,0,0,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="#64748B" />
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#F1F5F9" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LoginCloseChromeButton" TargetType="Button" BasedOn="{StaticResource LoginChromeButton}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Background" Value="#EF4444" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Feature item (panneau gauche) -->
+    <Style x:Key="LoginFeatureItem" TargetType="StackPanel">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="Margin" Value="0,0,0,14" />
+    </Style>
+
+    <Style x:Key="LoginFeatureIconHost" TargetType="Border">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="CornerRadius" Value="17" />
+        <Setter Property="Background" Value="#1FFFFFFF" />
+        <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+
+    <Style x:Key="LoginFeatureText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#E2E8F0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="LoginFooterMetaText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="#94A3B8" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Labels champs -->
+    <Style x:Key="LoginFieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- TextBox connexion -->
+    <Style x:Key="LoginInputTextBox" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="44,0,14,0" />
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Border"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource LoginAccentBrush}" />
+                            <Setter TargetName="Border" Property="Background" Value="#F8FAFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- PasswordBox connexion -->
+    <Style x:Key="LoginInputPasswordBox" TargetType="PasswordBox">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="44,0,44,0" />
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Border"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource LoginAccentBrush}" />
+                            <Setter TargetName="Border" Property="Background" Value="#F8FAFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Bouton principal -->
+    <Style x:Key="LoginPrimaryButton" TargetType="Button">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="MinHeight" Value="52" />
+        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1" ScaleY="1" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            Background="{StaticResource LoginPrimaryButtonGradientBrush}"
+                            CornerRadius="16">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18"
+                                              Direction="270"
+                                              Opacity="0.28"
+                                              ShadowDepth="4"
+                                              Color="#1D4ED8" />
+                        </Border.Effect>
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.95" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.6" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1.02"
+                                             Duration="0:0:0.15" />
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1.02"
+                                             Duration="0:0:0.15" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1"
+                                             Duration="0:0:0.15" />
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1"
+                                             Duration="0:0:0.15" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="LoginLinkButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource LoginAccentBrush}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LoginCheckBox" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource LoginTextMutedBrush}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="2,0,0,0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    </Style>
+
+    <Style x:Key="LoginGhostIconButton" TargetType="Button">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#F1F5F9" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

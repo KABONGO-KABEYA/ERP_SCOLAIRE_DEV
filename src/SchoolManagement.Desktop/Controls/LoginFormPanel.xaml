@@ -1,0 +1,265 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.LoginFormPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="clr-namespace:FontAwesome.Sharp;assembly=FontAwesome.Sharp"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="48,0,48,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Stretch">
+            <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="42"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource LoginTextDarkBrush}"
+                       Text="Connexion" />
+            <TextBlock Margin="0,6,0,26"
+                       FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="15"
+                       Foreground="{StaticResource LoginTextMutedBrush}"
+                       Text="Accédez à votre espace de gestion" />
+
+            <TextBlock Style="{StaticResource LoginFieldLabel}" Text="Nom d'utilisateur" />
+            <Grid Margin="0,0,0,16" MinHeight="48">
+                <TextBox x:Name="UserNameBox"
+                         Style="{StaticResource LoginInputTextBox}"
+                         Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}" />
+                <fa:IconImage Icon="{x:Static fa:IconChar.User}"
+                              Foreground="{StaticResource LoginTextMutedBrush}"
+                              Height="16"
+                              Width="16"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              Margin="16,0,0,0"
+                              IsHitTestVisible="False" />
+            </Grid>
+
+            <TextBlock Style="{StaticResource LoginFieldLabel}" Text="Mot de passe" />
+            <Grid Margin="0,0,0,16" MinHeight="48">
+                <PasswordBox x:Name="PasswordBox"
+                             Style="{StaticResource LoginInputPasswordBox}"
+                             PasswordChanged="PasswordBox_OnPasswordChanged"
+                             Visibility="{Binding IsPasswordVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                <TextBox Style="{StaticResource LoginInputTextBox}"
+                         Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding IsPasswordVisible, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <fa:IconImage Icon="{x:Static fa:IconChar.Lock}"
+                              Foreground="{StaticResource LoginTextMutedBrush}"
+                              Height="16"
+                              Width="16"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              Margin="16,0,0,0"
+                              IsHitTestVisible="False" />
+                <Button HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,6,0"
+                        Command="{Binding TogglePasswordVisibilityCommand}"
+                        Style="{StaticResource LoginGhostIconButton}">
+                    <fa:IconImage Foreground="{StaticResource LoginTextMutedBrush}"
+                                  Height="16"
+                                  Width="16">
+                        <fa:IconImage.Style>
+                            <Style TargetType="fa:IconImage">
+                                <Setter Property="Icon" Value="{x:Static fa:IconChar.Eye}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPasswordVisible}" Value="True">
+                                        <Setter Property="Icon" Value="{x:Static fa:IconChar.EyeSlash}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </fa:IconImage.Style>
+                    </fa:IconImage>
+                </Button>
+            </Grid>
+
+            <Grid Margin="0,2,0,12" MinHeight="32">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0"
+                          Style="{StaticResource LoginCheckBox}"
+                          VerticalAlignment="Center"
+                          Content="Se souvenir de moi"
+                          IsChecked="{Binding RememberMe}" />
+                <Button Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Command="{Binding ForgotPasswordCommand}"
+                        Content="Mot de passe oublié ?"
+                        Style="{StaticResource LoginLinkButton}" />
+            </Grid>
+
+            <TextBlock Margin="0,0,0,8"
+                       Foreground="#EF4444"
+                       FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="13"
+                       Text="{Binding ErrorMessage}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+
+            <Button Margin="0,8,0,0"
+                    Command="{Binding LoginCommand}"
+                    Style="{StaticResource LoginPrimaryButton}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Se connecter" VerticalAlignment="Center" />
+                    <fa:IconImage Icon="{x:Static fa:IconChar.ArrowRightLong}"
+                                  Foreground="White"
+                                  Height="16"
+                                  Width="16"
+                                  VerticalAlignment="Center"
+                                  Margin="10,0,0,0" />
+                </StackPanel>
+            </Button>
+
+            <ProgressBar Margin="0,14,0,0"
+                         Height="3"
+                         Foreground="{StaticResource LoginAccentBrush}"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+            <Grid Margin="0,20,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Height="1" Background="#E2E8F0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Margin="12,0"
+                           FontFamily="{StaticResource LoginFontFamily}"
+                           FontSize="12"
+                           Foreground="{StaticResource LoginTextMutedBrush}"
+                           VerticalAlignment="Center"
+                           Text="ou" />
+                <Border Grid.Column="2" Height="1" Background="#E2E8F0" VerticalAlignment="Center" />
+            </Grid>
+
+            <Button Margin="0,14,0,0"
+                    HorizontalAlignment="Center"
+                    Command="{Binding ChangeSchoolCommand}"
+                    Style="{StaticResource LoginLinkButton}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <fa:IconImage Icon="{x:Static fa:IconChar.Building}"
+                                  Foreground="{StaticResource LoginAccentBrush}"
+                                  Height="14"
+                                  Width="14"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,8,0" />
+                    <TextBlock Text="Changer d'établissement" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Carte statut serveur -->
+        <Border Grid.Row="1"
+                Margin="0,12,0,12"
+                Padding="16,12"
+                Background="#F8FAFC"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                CornerRadius="14"
+                HorizontalAlignment="Stretch">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <Ellipse Width="10"
+                             Height="10"
+                             Fill="{StaticResource LoginSuccessBrush}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,8,0" />
+                    <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                               FontSize="12"
+                               Foreground="{StaticResource LoginTextMutedBrush}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap">
+                        <Run Text="Serveur : " />
+                        <Run FontWeight="SemiBold"
+                             Foreground="{StaticResource LoginTextDarkBrush}"
+                             Text="{Binding ServerName}" />
+                    </TextBlock>
+                </StackPanel>
+                <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                           FontSize="12"
+                           Foreground="{StaticResource LoginTextMutedBrush}"
+                           Margin="18,0,0,6"
+                           TextWrapping="Wrap">
+                    <Run Text="Base : " />
+                    <Run FontWeight="SemiBold"
+                         Foreground="{StaticResource LoginTextDarkBrush}"
+                         Text="{Binding DatabaseName}" />
+                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                        <fa:IconImage Icon="{x:Static fa:IconChar.CalendarDays}"
+                                      Foreground="{StaticResource LoginTextMutedBrush}"
+                                      Height="13"
+                                      Width="13"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,6,0" />
+                        <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource LoginTextMutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding CurrentDate}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <fa:IconImage Icon="{x:Static fa:IconChar.Clock}"
+                                      Foreground="{StaticResource LoginTextMutedBrush}"
+                                      Height="13"
+                                      Width="13"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,6,0" />
+                        <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource LoginTextMutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding CurrentTime}" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center">
+            <StackPanel Margin="0,0,20,0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <fa:IconImage Icon="{x:Static fa:IconChar.Lock}"
+                              Foreground="{StaticResource LoginTextMutedBrush}"
+                              Height="12"
+                              Width="12"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,0" />
+                <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                           FontSize="11"
+                           Foreground="{StaticResource LoginTextMutedBrush}"
+                           VerticalAlignment="Center"
+                           Text="Connexion sécurisée" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <fa:IconImage Icon="{x:Static fa:IconChar.Headset}"
+                              Foreground="{StaticResource LoginTextMutedBrush}"
+                              Height="12"
+                              Width="12"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,0" />
+                <TextBlock FontFamily="{StaticResource LoginFontFamily}"
+                           FontSize="11"
+                           Foreground="{StaticResource LoginTextMutedBrush}"
+                           VerticalAlignment="Center"
+                           Text="Support technique" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

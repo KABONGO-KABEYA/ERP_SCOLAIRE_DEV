@@ -13,6 +13,7 @@ public static class ApiRoutes
     public const string Teacher = $"{Base}/teacher";
     public const string Parent = $"{Base}/parent";
     public const string Documents = $"{Base}/documents";
+    public const string DocumentBranding = $"{Base}/document-branding";
     public const string Admin = $"{Base}/admin";
 }
 

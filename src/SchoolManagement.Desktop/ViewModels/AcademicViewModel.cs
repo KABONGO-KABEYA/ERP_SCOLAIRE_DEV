@@ -58,7 +58,9 @@ public partial class AcademicViewModel : ViewModelBase
             SelectedYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
             SelectedSection = Sections.FirstOrDefault();
 
-            var students = await _studentApiService.SearchAsync(new StudentSearchRequest(null, null, 1, 200));
+            var students = await _studentApiService.SearchAsync(new StudentSearchRequest(
+                null, null, null, null, null, null,
+                ApplyFilters: false, IncludeAll: true, Page: 1, PageSize: 200));
             Students.Clear();
             foreach (var s in students.Items) Students.Add(s);
             SelectedStudent = Students.FirstOrDefault();

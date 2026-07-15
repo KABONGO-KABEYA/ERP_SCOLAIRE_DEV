@@ -18,7 +18,8 @@ public partial class ErpTextField : UserControl
             new PropertyMetadata(MaterialDesignThemes.Wpf.PackIconKind.None));
 
     public static readonly DependencyProperty FieldWidthProperty =
-        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpTextField), new PropertyMetadata(260d));
+        DependencyProperty.Register(nameof(FieldWidth), typeof(double), typeof(ErpTextField),
+            new PropertyMetadata(260d, OnLayoutPropertyChanged));
 
     public static readonly DependencyProperty IsReadOnlyProperty =
         DependencyProperty.Register(nameof(IsReadOnly), typeof(bool), typeof(ErpTextField),
@@ -62,7 +63,34 @@ public partial class ErpTextField : UserControl
     public ErpTextField()
     {
         InitializeComponent();
-        Loaded += (_, _) => RefreshValidation();
+        Loaded += (_, _) =>
+        {
+            UpdateLayoutSizing();
+            RefreshValidation();
+        };
+    }
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.Property == HorizontalAlignmentProperty)
+        {
+            UpdateLayoutSizing();
+        }
+    }
+
+    private static void OnLayoutPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpTextField field)
+        {
+            field.UpdateLayoutSizing();
+        }
+    }
+
+    private void UpdateLayoutSizing()
+    {
+        ErpFieldLayout.ApplyResponsiveWidth(this, FieldWidth);
     }
 
     private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

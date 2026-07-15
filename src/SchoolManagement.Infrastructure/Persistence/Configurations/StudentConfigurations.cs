@@ -14,6 +14,7 @@ public class StudentConfiguration : AuditableEntityConfiguration<Student>
         builder.Property(s => s.FirstName).HasMaxLength(100).IsRequired();
         builder.Property(s => s.LastName).HasMaxLength(100).IsRequired();
         builder.Property(s => s.Gender).HasConversion<int>();
+        builder.HasOne(s => s.ResidenceAddress).WithMany().HasForeignKey(s => s.AddressId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(s => new { s.SchoolId, s.RegistrationNumber }).IsUnique();
         builder.HasIndex(s => new { s.LastName, s.FirstName });
     }
@@ -27,6 +28,8 @@ public class GuardianConfiguration : AuditableEntityConfiguration<Guardian>
         builder.ToTable("Guardians");
         builder.Property(g => g.FirstName).HasMaxLength(100).IsRequired();
         builder.Property(g => g.LastName).HasMaxLength(100).IsRequired();
+        builder.Property(g => g.Gender).HasConversion<int>();
+        builder.HasOne(g => g.ResidenceAddress).WithMany().HasForeignKey(g => g.AddressId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(g => new { g.SchoolId, g.LastName, g.FirstName });
     }
 }

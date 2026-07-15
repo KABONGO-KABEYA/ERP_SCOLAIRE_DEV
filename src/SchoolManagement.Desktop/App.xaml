@@ -23,6 +23,9 @@
                 <ResourceDictionary Source="Themes/Navigation.xaml" />
                 <ResourceDictionary Source="Themes/StructureWizard.xaml" />
                 <ResourceDictionary Source="Themes/EnrollmentWizard.xaml" />
+                <ResourceDictionary Source="Themes/InscriptionEleveV2.xaml" />
+                <ResourceDictionary Source="Themes/LoginScreen.xaml" />
+                <ResourceDictionary Source="Themes/SchoolFeeConfiguration.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />

@@ -5,133 +5,70 @@
              xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels"
              xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
              xmlns:dto="clr-namespace:SchoolManagement.Application.EnrollmentWizard.DTOs;assembly=SchoolManagement.Application">
-    <Grid>
+    <Grid Margin="20,0,20,0">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0" Style="{StaticResource ErpPageHost}">
-        <Grid Margin="0,0,0,8" Style="{StaticResource ErpFadeIn}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <!-- En-tête -->
+        <StackPanel Grid.Row="0" Margin="0,20,0,0" Style="{StaticResource ErpFadeIn}">
+            <TextBlock Style="{StaticResource ErpPageTitle}" Text="{Binding PageTitle}" />
+            <TextBlock Margin="0,4,0,0"
+                       Style="{StaticResource ErpBodySecondary}"
+                       Text="{Binding PageSubtitle}" />
+        </StackPanel>
 
-            <!-- En-tête -->
-            <StackPanel Grid.Row="0">
-                <TextBlock Style="{StaticResource ErpPageTitle}" Text="{Binding PageTitle}" />
-                <TextBlock Margin="0,4,0,0"
-                           Style="{StaticResource ErpBodySecondary}"
-                           Text="{Binding PageSubtitle}" />
-            </StackPanel>
-
-            <!-- Prérequis -->
-            <Border Grid.Row="1"
-                    Margin="0,16,0,0"
-                    Padding="20"
-                    Background="#FFF4E5"
-                    BorderBrush="#F59E0B"
-                    BorderThickness="1"
-                    CornerRadius="16"
-                    Visibility="{Binding ShowPrerequisiteBlock, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <StackPanel>
-                    <TextBlock FontWeight="SemiBold" Foreground="#92400E" Text="Configuration requise avant inscription" />
-                    <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding PrerequisiteIssues}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1"
-                                            Margin="12,0,0,0"
-                                            Command="{Binding DataContext.ConfigurePrerequisiteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Content="{Binding ActionLabel}"
-                                            Style="{StaticResource ErpPrimaryButton}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
-
-            <!-- Stepper -->
-            <Border Grid.Row="2"
-                    Margin="0,16,0,0"
-                    Style="{StaticResource ErpCard}"
-                    Visibility="{Binding PrerequisitesReady, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding WizardSteps}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <UniformGrid Columns="6" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
+        <!-- Prérequis -->
+        <Border Grid.Row="1"
+                Margin="0,16,0,0"
+                Padding="20"
+                Background="#FFF4E5"
+                BorderBrush="#F59E0B"
+                BorderThickness="1"
+                CornerRadius="16"
+                Visibility="{Binding ShowPrerequisiteBlock, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Foreground="#92400E" Text="Configuration requise avant inscription" />
+                <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding PrerequisiteIssues}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:EnrollmentWizardStepItem}">
-                            <StackPanel HorizontalAlignment="Center">
-                                <Border Style="{StaticResource ErpWizardStepCircle}">
-                                    <Border.RenderTransform>
-                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                    </Border.RenderTransform>
-                                    <Grid>
-                                        <TextBlock HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{Binding State, Converter={StaticResource WizardStepStateToForegroundConverter}}"
-                                                   Text="{Binding Number}"
-                                                   Visibility="{Binding State, Converter={StaticResource WizardStepStateToVisibilityConverter}, ConverterParameter=number}" />
-                                        <materialDesign:PackIcon Width="16"
-                                                                 Height="16"
-                                                                 HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 Foreground="White"
-                                                                 Kind="Check"
-                                                                 Visibility="{Binding State, Converter={StaticResource WizardStepStateToVisibilityConverter}, ConverterParameter=check}" />
-                                    </Grid>
-                                </Border>
-                                <TextBlock Margin="0,8,0,0"
-                                           HorizontalAlignment="Center"
-                                           FontSize="11"
-                                           Text="{Binding Title}"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource ErpTextSecondaryBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding State}" Value="Active">
-                                                    <Setter Property="Foreground" Value="{StaticResource ErpPrimaryBrush}" />
-                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding State}" Value="Completed">
-                                                    <Setter Property="Foreground" Value="{StaticResource ErpSuccessBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <Button Grid.Column="1"
+                                        Margin="12,0,0,0"
+                                        Command="{Binding DataContext.ConfigurePrerequisiteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Content="{Binding ActionLabel}"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                            </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </Border>
+            </StackPanel>
+        </Border>
 
-            <!-- Corps + sidebar -->
-            <Grid Grid.Row="3" Margin="0,16,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="340" />
-                </Grid.ColumnDefinitions>
+        <!-- Corps scrollable + sidebar fixe -->
+        <Grid Grid.Row="2"
+              Margin="0,16,0,16"
+              Style="{StaticResource ErpFadeIn}"
+              Visibility="{Binding PrerequisitesReady, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" MinWidth="520" />
+                <ColumnDefinition Width="*" MaxWidth="300" />
+            </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Margin="0,0,16,0" Style="{StaticResource ErpCard}">
-                    <ScrollViewer MaxHeight="680" VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
+            <ScrollViewer Grid.Column="0"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,16,0"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel>
                             <!-- Message d'accompagnement -->
                             <Border Style="{StaticResource ErpWizardGuidance}">
                                 <StackPanel Orientation="Horizontal">
@@ -221,159 +158,290 @@
 
                             <!-- Identité (nouvelle inscription) -->
                             <StackPanel Visibility="{Binding ShowIdentityStep, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Style="{StaticResource ErpSubtitle}" Text="{Binding CurrentStepDetailName}" />
+                                <TextBlock Margin="0,0,0,16"
+                                           Style="{StaticResource ErpSubtitle}"
+                                           Text="{Binding CurrentStepDetailName}" />
 
-                                <!-- Carte compacte : photo + identité -->
+                                <!-- Carte Identité : photo + champs -->
                                 <Border Style="{StaticResource ErpWizardSubCard}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" Margin="0,0,20,0" Width="148">
-                                            <StackPanel Margin="{StaticResource ErpFieldLabelSpacing}" Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="Camera" Style="{StaticResource ErpFieldIcon}" />
-                                                <TextBlock Style="{StaticResource ErpFieldLabel}" Text="Photo" />
-                                            </StackPanel>
-                                            <Border Width="128"
-                                                    Height="128"
-                                                    Background="{StaticResource ErpPageBackgroundBrush}"
-                                                    CornerRadius="12">
-                                                <Grid>
-                                                    <Image Source="{Binding PhotoPath, Converter={StaticResource PathToImageSourceConverter}}"
-                                                           Stretch="UniformToFill" />
-                                                    <materialDesign:PackIcon Width="40"
-                                                                             Height="40"
-                                                                             HorizontalAlignment="Center"
-                                                                             VerticalAlignment="Center"
-                                                                             Foreground="{StaticResource ErpPrimaryBrush}"
-                                                                             Kind="AccountCircle" />
-                                                </Grid>
-                                            </Border>
-                                            <WrapPanel Margin="0,10,0,0">
-                                                <Button Command="{Binding ImportPhotoCommand}" Content="Importer" Style="{StaticResource ErpPrimaryButton}" />
-                                                <Button Margin="6,0,0,0" Command="{Binding RemovePhotoCommand}" Content="Suppr." Style="{StaticResource ErpSecondaryButton}" />
-                                            </WrapPanel>
+                                    <StackPanel>
+                                        <StackPanel Style="{StaticResource ErpWizardCardHeader}">
+                                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                     Kind="BadgeAccount" />
+                                            <TextBlock FontWeight="SemiBold" Text="Identité" />
                                         </StackPanel>
+                                        <Border Margin="0,0,0,12"
+                                                BorderBrush="#E5E7EB"
+                                                BorderThickness="0,0,0,1" />
 
-                                        <Grid Grid.Column="1">
+                                        <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthMatricule}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="*" MinWidth="{StaticResource ErpFieldWidthStandard}" />
+                                                <ColumnDefinition Width="Auto" MaxWidth="170" />
+                                                <ColumnDefinition Width="*" MinWidth="200" />
+                                                <ColumnDefinition Width="*" MinWidth="200" />
+                                                <ColumnDefinition Width="*" MinWidth="200" />
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
 
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="0"
-                                                              Margin="{StaticResource ErpFormCellMargin}"
-                                                              FieldWidth="{StaticResource ErpFieldWidthMatricule}"
-                                                              IconKind="CardAccountDetails"
-                                                              IsReadOnly="True"
-                                                              Label="Matricule"
-                                                              Text="{Binding RegistrationNumber, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="1"
+                                            <!-- Photo — occupe les 3 lignes -->
+                                            <StackPanel Grid.Row="0"
+                                                        Grid.Column="0"
+                                                        Grid.RowSpan="3"
+                                                        MaxWidth="170"
+                                                        Margin="0,0,16,0">
+                                                <StackPanel Margin="{StaticResource ErpFieldLabelSpacing}" Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Camera" Style="{StaticResource ErpFieldIcon}" />
+                                                    <TextBlock Style="{StaticResource ErpFieldLabel}" Text="Photo" />
+                                                </StackPanel>
+                                                <Border Width="140"
+                                                        Height="180"
+                                                        HorizontalAlignment="Left"
+                                                        Background="{StaticResource ErpPageBackgroundBrush}"
+                                                        CornerRadius="12">
+                                                    <Grid>
+                                                        <Image Source="{Binding PhotoPath, Converter={StaticResource PathToImageSourceConverter}}"
+                                                               Stretch="UniformToFill" />
+                                                        <materialDesign:PackIcon Width="40"
+                                                                                 Height="40"
+                                                                                 HorizontalAlignment="Center"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                 Kind="AccountCircle" />
+                                                    </Grid>
+                                                </Border>
+                                                <Button Margin="0,10,0,0"
+                                                        Command="{Binding ImportPhotoCommand}"
+                                                        Content="Importer"
+                                                        Style="{StaticResource ErpWizardPhotoButton}" />
+                                                <Button Command="{Binding TakePhotoCommand}"
+                                                        Content="Prendre une photo"
+                                                        Style="{StaticResource ErpWizardPhotoButton}" />
+                                                <Button Command="{Binding RemovePhotoCommand}"
+                                                        Content="Supprimer"
+                                                        Style="{StaticResource ErpWizardPhotoButton}" />
+                                            </StackPanel>
+
+                                            <!-- Ligne 1 : Nom | Postnom | Prénom -->
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="1"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Account"
                                                               IsRequired="True"
                                                               Label="Nom"
                                                               Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="2"
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="2"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="AccountOutline"
                                                               Label="Postnom"
                                                               Text="{Binding MiddleName, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="3"
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="3"
                                                               Margin="0,0,0,18"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
-                                                              HorizontalAlignment="Left"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Account"
                                                               IsRequired="True"
                                                               Label="Prénom"
                                                               Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" />
 
-                                            <erp:ErpComboField Grid.Row="1" Grid.Column="0"
+                                            <!-- Ligne 2 : Matricule | Sexe | Date -->
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="1"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              FieldWidth="{StaticResource ErpFieldWidthMatricule}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="CardAccountDetails"
+                                                              IsReadOnly="True"
+                                                              Label="Matricule"
+                                                              Text="{Binding RegistrationNumber, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpComboField Grid.Row="1"
+                                                               Grid.Column="2"
                                                                Margin="{StaticResource ErpFormCellMargin}"
                                                                FieldWidth="{StaticResource ErpFieldWidthGender}"
+                                                               HorizontalAlignment="Stretch"
                                                                IconKind="GenderMaleFemale"
                                                                IsRequired="True"
                                                                ItemsSource="{Binding Genders}"
                                                                Label="Sexe"
                                                                SelectedItem="{Binding Gender, Mode=TwoWay}" />
                                             <erp:ErpDateField Grid.Row="1"
-                                                              Grid.Column="1"
-                                                              Grid.ColumnSpan="3"
+                                                              Grid.Column="3"
                                                               Margin="0,0,0,18"
-                                                              HorizontalAlignment="Left"
                                                               CompatibilityMessage="{Binding AgeCompatibilityMessage}"
-                                                              FieldWidth="520"
+                                                              FieldWidth="{StaticResource ErpFieldWidthDate}"
+                                                              HorizontalAlignment="Stretch"
                                                               IsCompatibilityOk="{Binding AgeCompatibilityOk}"
                                                               IsRequired="True"
                                                               Label="Date de naissance"
-                                                              SelectedDate="{Binding DateOfBirth, Mode=TwoWay}" />
+                                                              SelectedDate="{Binding DateOfBirth, Mode=TwoWay}"
+                                                              ShowBadges="False" />
+
+                                            <!-- Ligne 3 : badges regroupés -->
+                                            <StackPanel Grid.Row="2"
+                                                        Grid.Column="1"
+                                                        Grid.ColumnSpan="3"
+                                                        Margin="0,0,0,4"
+                                                        Orientation="Horizontal">
+                                                <Border>
+                                                    <Border.Style>
+                                                        <Style BasedOn="{StaticResource ErpBadgeSuccess}" TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Age}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="8" Height="8" Fill="#22C55E" Margin="0,0,6,0" />
+                                                        <TextBlock Style="{StaticResource ErpBadgeSuccessText}"
+                                                                   Text="{Binding Age, StringFormat={}{0} ans}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Margin="8,0,0,0">
+                                                    <Border.Style>
+                                                        <Style BasedOn="{StaticResource ErpBadgePurple}" TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Age}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="8" Height="8" Fill="#7C3AED" Margin="0,0,6,0" />
+                                                        <TextBlock Style="{StaticResource ErpBadgePurpleText}"
+                                                                   Text="{Binding AgeCategory}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Margin="8,0,0,0">
+                                                    <Border.Style>
+                                                        <Style BasedOn="{StaticResource ErpBadgeSuccess}" TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AgeCompatibilityOk}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Age}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="8" Height="8" Fill="#22C55E" Margin="0,0,6,0" />
+                                                        <TextBlock Style="{StaticResource ErpBadgeSuccessText}" Text="Compatible" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Margin="8,0,0,0">
+                                                    <Border.Style>
+                                                        <Style BasedOn="{StaticResource ErpBadgeWarning}" TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AgeCompatibilityOk}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Ellipse Width="8" Height="8" Fill="#F59E0B" Margin="0,0,6,0" />
+                                                        <TextBlock MaxWidth="280"
+                                                                   Style="{StaticResource ErpBadgeWarningText}"
+                                                                   Text="{Binding AgeCompatibilityMessage}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTip="{Binding AgeCompatibilityMessage}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
                                         </Grid>
-                                    </Grid>
+                                    </StackPanel>
                                 </Border>
 
                                 <!-- Carte Origine -->
-                                <Border Margin="{StaticResource ErpFormGroupSpacing}" Style="{StaticResource ErpWizardSubCard}">
+                                <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Margin="0,0,8,0" Foreground="{StaticResource ErpPrimaryBrush}" Kind="Earth" />
+                                        <StackPanel Style="{StaticResource ErpWizardCardHeader}">
+                                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                     Kind="Earth" />
                                             <TextBlock FontWeight="SemiBold" Text="Origine" />
                                         </StackPanel>
-                                        <Grid Margin="0,12,0,0">
+                                        <Border Margin="0,0,0,16"
+                                                BorderBrush="#E5E7EB"
+                                                BorderThickness="0,0,0,1" />
+
+                                        <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthCountry}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="*" MinWidth="{StaticResource ErpFieldWidthStandard}" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="0"
+
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="0"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthCountry}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Earth"
                                                               Label="Pays"
                                                               Text="{Binding Country, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="1"
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="1"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="MapMarker"
                                                               Label="Province"
                                                               Text="{Binding Province, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="2"
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="2"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="MapMarkerRadius"
                                                               Label="Territoire"
                                                               Text="{Binding Territory, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="0" Grid.Column="3"
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="3"
                                                               Margin="0,0,0,18"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
-                                                              HorizontalAlignment="Left"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="CityVariant"
                                                               Label="Ville"
                                                               Text="{Binding City, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="1" Grid.Column="0"
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="0"
+                                                              Grid.ColumnSpan="2"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="MapMarker"
                                                               Label="Lieu de naissance"
                                                               Text="{Binding PlaceOfBirth, UpdateSourceTrigger=PropertyChanged}" />
-                                            <erp:ErpTextField Grid.Row="1" Grid.Column="1"
-                                                              Margin="0,0,20,18"
-                                                              FieldWidth="{StaticResource ErpFieldWidthStandard}"
-                                                              HorizontalAlignment="Left"
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="2"
+                                                              Grid.ColumnSpan="2"
+                                                              Margin="0,0,0,18"
+                                                              FieldWidth="{StaticResource ErpFieldWidthCountry}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Earth"
                                                               Label="Nationalité"
                                                               Text="{Binding Nationality, UpdateSourceTrigger=PropertyChanged}" />
@@ -384,32 +452,41 @@
                                 <!-- Carte Compléments -->
                                 <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Margin="0,0,8,0" Foreground="{StaticResource ErpPrimaryBrush}" Kind="CardTextOutline" />
+                                        <StackPanel Style="{StaticResource ErpWizardCardHeader}">
+                                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                     Kind="CardTextOutline" />
                                             <TextBlock FontWeight="SemiBold" Text="Informations complémentaires" />
                                         </StackPanel>
-                                        <Grid Margin="0,12,0,0">
+                                        <Border Margin="0,0,0,16"
+                                                BorderBrush="#E5E7EB"
+                                                BorderThickness="0,0,0,1" />
+
+                                        <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
-                                                <ColumnDefinition Width="{StaticResource ErpFieldWidthStandard}" />
+                                                <ColumnDefinition Width="2*" MinWidth="260" />
+                                                <ColumnDefinition Width="2*" MinWidth="260" />
+                                                <ColumnDefinition Width="3*" MinWidth="260" />
                                             </Grid.ColumnDefinitions>
+
                                             <erp:ErpTextField Grid.Column="0"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Church"
                                                               Label="Religion"
                                                               Text="{Binding Religion, UpdateSourceTrigger=PropertyChanged}" />
                                             <erp:ErpTextField Grid.Column="1"
                                                               Margin="{StaticResource ErpFormCellMargin}"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Translate"
                                                               Label="Langue"
                                                               Text="{Binding Language, UpdateSourceTrigger=PropertyChanged}" />
                                             <erp:ErpTextField Grid.Column="2"
                                                               Margin="0,0,0,18"
                                                               FieldWidth="{StaticResource ErpFieldWidthStandard}"
-                                                              HorizontalAlignment="Left"
+                                                              HorizontalAlignment="Stretch"
                                                               IconKind="Identifier"
                                                               Label="N° permanent"
                                                               Text="{Binding PermanentNumber, UpdateSourceTrigger=PropertyChanged}" />
@@ -429,6 +506,7 @@
                                         <ComboBox Width="360"
                                                   Margin="0,12,0,0"
                                                   DisplayMemberPath="Name"
+                                                  IsEnabled="{Binding CanEditClassAssignment}"
                                                   ItemsSource="{Binding Sections}"
                                                   SelectedValue="{Binding SelectedSectionId}"
                                                   SelectedValuePath="Id"
@@ -436,39 +514,21 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Style="{StaticResource ErpWizardSubCard}" Visibility="{Binding ShowOptionPicker, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="2. Choisir une option" />
-                                        <ComboBox Width="360"
-                                                  Margin="0,12,0,0"
-                                                  ItemsSource="{Binding StudyOptions}"
-                                                  SelectedItem="{Binding SelectedStudyOption}"
-                                                  Style="{StaticResource ErpComboBox}" />
-                                    </StackPanel>
-                                </Border>
-
                                 <Border Style="{StaticResource ErpWizardSubCard}" Visibility="{Binding ShowClassPicker, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="3. Choisir une classe" />
+                                        <TextBlock FontWeight="SemiBold" Text="2. Choisir une classe" />
                                         <ComboBox Width="360"
                                                   Margin="0,12,0,0"
-                                                  DisplayMemberPath="DisplayName"
-                                                  ItemsSource="{Binding PedagogicalClassOptions}"
-                                                  SelectedValue="{Binding SelectedPedagogicalClassId}"
-                                                  SelectedValuePath="Id"
-                                                  Style="{StaticResource ErpComboBox}" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource ErpWizardSubCard}" Visibility="{Binding ShowLocalPicker, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="4. Choisir un local disponible" />
-                                        <ComboBox Width="360"
-                                                  Margin="0,12,0,0"
-                                                  DisplayMemberPath="LocalName"
+                                                  DisplayMemberPath="FullDisplayName"
+                                                  IsEnabled="{Binding CanEditClassAssignment}"
                                                   ItemsSource="{Binding AvailableLocals}"
                                                   SelectedItem="{Binding SelectedClass}"
                                                   Style="{StaticResource ErpComboBox}" />
+                                        <TextBlock Margin="0,10,0,0"
+                                                   Foreground="#B45309"
+                                                   Text="{Binding ClassChangeBlockedReason}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding CanEditClassAssignment, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
                                         <TextBlock Margin="0,10,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding ClassCapacityInfo}" />
                                     </StackPanel>
                                 </Border>
@@ -638,23 +698,71 @@
                                        Text="{Binding ValidationMessage}"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding ValidationMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
+                </StackPanel>
+            </ScrollViewer>
 
-                <!-- Sidebar récapitulative -->
-                <Border Grid.Column="1" Style="{StaticResource ErpWizardSummaryCard}">
-                    <StackPanel>
-                        <Border Width="88"
-                                Height="88"
-                                Margin="0,0,0,12"
+            <!-- Sidebar : stepper compact + résumé fixe -->
+            <Border Grid.Column="1"
+                    MaxWidth="{StaticResource ErpWizardSidebarWidth}"
+                    Style="{StaticResource ErpWizardSummaryCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Stepper 2 lignes × 3 colonnes -->
+                    <ItemsControl Grid.Row="0" ItemsSource="{Binding WizardSteps}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="3" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:EnrollmentWizardStepItem}">
+                                <StackPanel Margin="0,0,4,8" HorizontalAlignment="Center">
+                                    <Border Style="{StaticResource ErpWizardCompactStepCircle}">
+                                        <Grid>
+                                            <TextBlock HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{Binding State, Converter={StaticResource WizardStepStateToForegroundConverter}}"
+                                                       Text="{Binding Number}"
+                                                       Visibility="{Binding State, Converter={StaticResource WizardStepStateToVisibilityConverter}, ConverterParameter=number}" />
+                                            <materialDesign:PackIcon Width="11"
+                                                                     Height="11"
+                                                                     HorizontalAlignment="Center"
+                                                                     VerticalAlignment="Center"
+                                                                     Foreground="White"
+                                                                     Kind="Check"
+                                                                     Visibility="{Binding State, Converter={StaticResource WizardStepStateToVisibilityConverter}, ConverterParameter=check}" />
+                                        </Grid>
+                                    </Border>
+                                    <TextBlock Margin="0,2,0,0"
+                                               Style="{StaticResource ErpWizardCompactStepTitle}"
+                                               Text="{Binding Title}" />
+                                    <TextBlock Style="{StaticResource ErpWizardCompactStepSubtitle}"
+                                               Text="{Binding Subtitle}"
+                                               Visibility="{Binding Subtitle, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Résumé élève -->
+                    <StackPanel Grid.Row="1" Margin="0,4,0,0">
+                        <Separator Margin="0,0,0,12" />
+                        <Border Width="72"
+                                Height="72"
+                                Margin="0,0,0,10"
                                 HorizontalAlignment="Center"
                                 Background="{StaticResource ErpPageBackgroundBrush}"
-                                CornerRadius="44">
+                                CornerRadius="36">
                             <Grid>
                                 <Image Source="{Binding PhotoPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="UniformToFill" />
-                                <materialDesign:PackIcon Width="40"
-                                                         Height="40"
+                                <materialDesign:PackIcon Width="32"
+                                                         Height="32"
                                                          HorizontalAlignment="Center"
                                                          VerticalAlignment="Center"
                                                          Foreground="{StaticResource ErpPrimaryBrush}"
@@ -662,44 +770,44 @@
                             </Grid>
                         </Border>
                         <TextBlock HorizontalAlignment="Center"
-                                   FontSize="18"
+                                   FontSize="15"
                                    FontWeight="SemiBold"
                                    Text="{Binding FullDisplayName}"
-                                   TextAlignment="Center" />
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
                         <TextBlock Margin="0,4,0,0"
                                    HorizontalAlignment="Center"
                                    Style="{StaticResource ErpBodySecondary}"
                                    Text="{Binding Age, StringFormat=Âge : {0} ans}" />
-                        <Separator Margin="0,16" />
-                        <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding SummarySection, StringFormat=Section : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryOption, StringFormat=Option : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryPedagogicalClass, StringFormat=Classe : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryLocal, StringFormat=Local : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding AcademicYearLabel, StringFormat=Année : {0}}" />
-                        <Separator Margin="0,16" />
-                        <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryGuardian, StringFormat=Responsable : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryPhone, StringFormat=Tél. : {0}}" />
-                        <Separator Margin="0,16" />
-                        <TextBlock FontWeight="SemiBold" Text="{Binding ProgressStepLabel}" />
-                        <ProgressBar Height="8"
-                                     Margin="0,8,0,4"
+                        <Separator Margin="0,12" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummarySection, StringFormat=Section : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryOption, StringFormat=Option : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryPedagogicalClass, StringFormat=Classe : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryLocal, StringFormat=Local : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding AcademicYearLabel, StringFormat=Année : {0}}" />
+                        <Separator Margin="0,12" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryGuardian, StringFormat=Responsable : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryPhone, StringFormat=Téléphone : {0}}" />
+                        <Separator Margin="0,12" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Progression" />
+                        <ProgressBar Height="6"
+                                     Margin="0,6,0,4"
                                      Maximum="100"
                                      Value="{Binding ProgressPercent}" />
-                        <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding ProgressPercent, StringFormat={}{0} %}" />
-                        <TextBlock Margin="0,4,0,0" FontWeight="Medium" Text="{Binding CurrentStepDetailName}" />
-                        <Separator Margin="0,16" />
-                        <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding DocumentsProgressLabel, StringFormat=Documents déposés : {0}}" />
-                        <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding SummaryFeesStatus, StringFormat=Frais scolaires : {0}}" />
-                        <TextBlock Margin="0,8,0,0" FontWeight="SemiBold" Text="{Binding WizardStatus, StringFormat=Statut : {0}}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding ProgressStepLabel}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding ProgressPercent, StringFormat={}{0} %}" />
+                        <TextBlock Style="{StaticResource ErpWizardSummaryLine}" Text="{Binding SummaryFeesStatus, StringFormat=Paiement : {0}}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding WizardStatus, StringFormat=Statut : {0}}" />
                     </StackPanel>
-                </Border>
-            </Grid>
+                </Grid>
+            </Border>
         </Grid>
-        </ScrollViewer>
 
         <!-- Barre d'actions fixe -->
-        <Border Grid.Row="1"
-                Margin="20,0,20,20"
+        <Border Grid.Row="3"
+                Margin="0,0,0,20"
                 Padding="20"
                 Background="#FFFFFF"
                 BorderBrush="#E5E7EB"

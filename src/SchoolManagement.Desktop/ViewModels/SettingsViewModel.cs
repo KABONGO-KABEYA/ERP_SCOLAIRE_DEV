@@ -5,6 +5,7 @@ using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Admin.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
@@ -14,15 +15,28 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly ISchoolApiService _schoolApiService;
     private readonly IAcademicApiService _academicApiService;
     private readonly IAdminApiService _adminApiService;
+    private readonly IGeographyApiService _geographyApiService;
 
     public SettingsViewModel(
         ISchoolApiService schoolApiService,
         IAcademicApiService academicApiService,
-        IAdminApiService adminApiService)
+        IAdminApiService adminApiService,
+        IGeographyApiService geographyApiService,
+        DocumentBrandingViewModel documentBranding,
+        GeographyAdminViewModel geographyAdmin,
+        SchoolFeeConfigurationViewModel schoolFeeConfiguration)
     {
         _schoolApiService = schoolApiService;
         _academicApiService = academicApiService;
         _adminApiService = adminApiService;
+        _geographyApiService = geographyApiService;
+        DocumentBranding = documentBranding;
+        GeographyAdmin = geographyAdmin;
+        SchoolFeeConfiguration = schoolFeeConfiguration;
+        NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
+        SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
+        NewTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
+        SelectedTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
         ProgramFilters =
         [
             new ProgramFilterItem(null, "Tous les programmes"),
@@ -48,12 +62,14 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Années scolaires", "CalendarRange", SettingsSection.AnneesScolaires),
                     new SettingsNodeViewModel("Frais scolaires", "CashMultiple", SettingsSection.FraisScolaires),
                     new SettingsNodeViewModel("Matières", "BookEducation", SettingsSection.Matieres),
-                    new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs)
+                    new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
+                    new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
+                    new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants)
                 ])
         ];
 
         SelectedSettingsNode = SettingsNodes[0].Children
-            .FirstOrDefault(node => node.Section == SettingsSection.StructurePedagogique)
+            .FirstOrDefault(node => node.Section == SettingsSection.Etablissement)
             ?? SettingsNodes[0].Children.FirstOrDefault();
 
         _ = LoadAsync();
@@ -159,6 +175,54 @@ public partial class SettingsViewModel : ViewModelBase
     private string _newAdminLastName = string.Empty;
 
     [ObservableProperty]
+    private TeacherAdminDto? _selectedAdminTeacher;
+
+    [ObservableProperty]
+    private string _newTeacherEmployeeNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _newTeacherFirstName = string.Empty;
+
+    [ObservableProperty]
+    private string _newTeacherLastName = string.Empty;
+
+    [ObservableProperty]
+    private string _newTeacherPhone = string.Empty;
+
+    [ObservableProperty]
+    private string _newTeacherEmail = string.Empty;
+
+    [ObservableProperty]
+    private string _newTeacherSpecialization = string.Empty;
+
+    [ObservableProperty]
+    private DateTime? _newTeacherHireDate = DateTime.Today;
+
+    [ObservableProperty]
+    private string _editTeacherEmployeeNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _editTeacherFirstName = string.Empty;
+
+    [ObservableProperty]
+    private string _editTeacherLastName = string.Empty;
+
+    [ObservableProperty]
+    private string _editTeacherPhone = string.Empty;
+
+    [ObservableProperty]
+    private string _editTeacherEmail = string.Empty;
+
+    [ObservableProperty]
+    private string _editTeacherSpecialization = string.Empty;
+
+    [ObservableProperty]
+    private DateTime? _editTeacherHireDate;
+
+    [ObservableProperty]
+    private bool _editTeacherIsActive = true;
+
+    [ObservableProperty]
     private string _newAcademicYearLabel = string.Empty;
 
     [ObservableProperty]
@@ -182,9 +246,25 @@ public partial class SettingsViewModel : ViewModelBase
 
     public ObservableCollection<RoleDto> AdminRoles { get; } = [];
 
+    public ObservableCollection<TeacherAdminDto> AdminTeachers { get; } = [];
+
+    public AddressEditorViewModel NewAdminUserAddressEditor { get; }
+
+    public AddressEditorViewModel SelectedAdminUserAddressEditor { get; }
+
+    public AddressEditorViewModel NewTeacherAddressEditor { get; }
+
+    public AddressEditorViewModel SelectedTeacherAddressEditor { get; }
+
     public IReadOnlyList<ProgramFilterItem> ProgramFilters { get; }
 
     public IReadOnlyList<SettingsNodeViewModel> SettingsNodes { get; }
+
+    public DocumentBrandingViewModel DocumentBranding { get; }
+
+    public GeographyAdminViewModel GeographyAdmin { get; }
+
+    public SchoolFeeConfigurationViewModel SchoolFeeConfiguration { get; }
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
 
@@ -196,25 +276,88 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsFraisScolairesSelected => SelectedSettingsNode?.Section == SettingsSection.FraisScolaires;
 
+    public bool IsScrollableSettingsContent => !IsStructurePedagogiqueSelected && !IsFraisScolairesSelected;
+
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
 
+    public bool IsGeographieSelected => SelectedSettingsNode?.Section == SettingsSection.Geographie;
+
     public bool IsUtilisateursSelected => SelectedSettingsNode?.Section == SettingsSection.Utilisateurs;
+
+    public bool IsEnseignantsSelected => SelectedSettingsNode?.Section == SettingsSection.Enseignants;
 
     public bool IsReglementSelected => SelectedSettingsNode?.Section == SettingsSection.Reglement;
 
     public bool IsPlaceholderSectionSelected => false;
 
-    public string SelectedSectionTitle => SelectedSettingsNode?.Title ?? "Paramètres";
+    public string? ActiveNavKey { get; private set; }
 
-    public string SelectedSectionDescription => SelectedSettingsNode?.Section switch
+    public string? ActiveNavTitle { get; private set; }
+
+    public string SelectedSectionTitle => ActiveNavTitle ?? SelectedSettingsNode?.Title ?? "Paramètres";
+
+    public string SelectedSectionDescription => ActiveNavKey switch
     {
-        SettingsSection.Etablissement => "Informations générales de l'établissement.",
-        SettingsSection.Reglement => "Rédigez et enregistrez le règlement d'ordre intérieur de l'établissement.",
-        SettingsSection.StructurePedagogique => "Activez uniquement les classes réellement organisées dans l'établissement. Toute la structure officielle RDC est déjà présente dans le système.",
-        SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
-        SettingsSection.FraisScolaires => "Consultez les types de frais disponibles dans le système pour les paiements scolaires.",
-        SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
-        SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
+        "frais-scolaires" => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
+        _ => SelectedSettingsNode?.Section switch
+        {
+            SettingsSection.Etablissement => "Informations générales, logos, en-têtes, signatures et identité documentaire de l'établissement.",
+            SettingsSection.Reglement => "Rédigez et enregistrez le règlement d'ordre intérieur de l'établissement.",
+            SettingsSection.StructurePedagogique => "Activez uniquement les classes réellement organisées dans l'établissement. Toute la structure officielle RDC est déjà présente dans le système.",
+            SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
+            SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
+            SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
+            SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
+            SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
+            SettingsSection.Enseignants => "Gérez le personnel enseignant et leurs adresses.",
+            _ => itemPlaceholderDescription(ActiveNavKey)
+        }
+    };
+
+    public void ApplyNavigation(SettingsNavItem item)
+    {
+        ActiveNavKey = item.Key;
+        ActiveNavTitle = item.Title;
+
+        if (item.Section is SettingsSection section)
+        {
+            var node = SettingsNodes
+                .SelectMany(group => group.Children)
+                .FirstOrDefault(node => node.Section == section);
+
+            if (node is not null)
+            {
+                SelectedSettingsNode = node;
+            }
+        }
+        else
+        {
+            SelectedSettingsNode = null;
+        }
+
+        if (item.Key == "frais-scolaires")
+        {
+            SchoolFeeConfiguration.LoadCommand.Execute(null);
+        }
+
+        OnPropertyChanged(nameof(ActiveNavKey));
+        OnPropertyChanged(nameof(ActiveNavTitle));
+        OnPropertyChanged(nameof(SelectedSectionTitle));
+        OnPropertyChanged(nameof(SelectedSectionDescription));
+        OnPropertyChanged(nameof(IsFraisScolairesSelected));
+        OnPropertyChanged(nameof(IsScrollableSettingsContent));
+    }
+
+    private static string itemPlaceholderDescription(string? key) => key switch
+    {
+        "calendrier" => "Planification des périodes, vacances et événements scolaires.",
+        "types-evaluations" => "Définition des types d'évaluations utilisés dans le système de notes.",
+        "coefficients" => "Gestion des coefficients par matière et par niveau.",
+        "sauvegarde" => "Sauvegarde et restauration des données de l'établissement.",
+        "journal" => "Consultation du journal d'activités du système.",
+        "parametres-systeme" => "Paramètres techniques et configuration système.",
+        "personnalisation" => "Personnalisation de l'expérience utilisateur.",
+        "design" => "Thème, couleurs et apparence de l'interface ERP.",
         _ => "Sélectionnez une rubrique."
     };
 
@@ -235,6 +378,10 @@ public partial class SettingsViewModel : ViewModelBase
     {
         _ = LoadLocalsAsync();
         _ = LoadSubjectClassesAsync();
+        if (IsStructurePedagogiqueSelected)
+        {
+            _ = LoadStructureAsync();
+        }
     }
 
     partial void OnSelectedLocalChanged(ClassLocalDto? value)
@@ -262,8 +409,11 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsStructurePedagogiqueSelected));
         OnPropertyChanged(nameof(IsAnneesScolairesSelected));
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
+        OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
+        OnPropertyChanged(nameof(IsGeographieSelected));
         OnPropertyChanged(nameof(IsUtilisateursSelected));
+        OnPropertyChanged(nameof(IsEnseignantsSelected));
         OnPropertyChanged(nameof(IsReglementSelected));
         OnPropertyChanged(nameof(IsPlaceholderSectionSelected));
         OnPropertyChanged(nameof(SelectedSectionTitle));
@@ -271,11 +421,8 @@ public partial class SettingsViewModel : ViewModelBase
 
         if (value?.Section == SettingsSection.StructurePedagogique)
         {
+            _ = EnsureCurrentAcademicYearForStructureAsync();
             _ = LoadStructureAsync();
-        }
-        else if (value?.Section == SettingsSection.FraisScolaires)
-        {
-            _ = LoadFeeTypesAsync();
         }
         else if (value?.Section == SettingsSection.Reglement)
         {
@@ -285,13 +432,25 @@ public partial class SettingsViewModel : ViewModelBase
         {
             _ = LoadSubjectClassesAsync();
         }
+        else if (value?.Section == SettingsSection.Geographie)
+        {
+            GeographyAdmin.LoadCommand.Execute(null);
+        }
         else if (value?.Section == SettingsSection.Utilisateurs)
         {
             _ = LoadUsersAsync();
         }
+        else if (value?.Section == SettingsSection.Enseignants)
+        {
+            _ = LoadTeachersAsync();
+        }
         else if (value?.Section == SettingsSection.AnneesScolaires)
         {
             _ = LoadAcademicYearsAsync();
+        }
+        else if (value?.Section == SettingsSection.Etablissement)
+        {
+            DocumentBranding.LoadCommand.Execute(null);
         }
     }
 
@@ -384,11 +543,12 @@ public partial class SettingsViewModel : ViewModelBase
         IsBusy = true;
         try
         {
+            var setAsCurrent = NewAcademicYearSetAsCurrent;
             var year = await _schoolApiService.CreateAcademicYearAsync(new CreateAcademicYearRequest(
                 NewAcademicYearLabel.Trim(),
                 DateOnly.FromDateTime(NewAcademicYearStartDate.Value),
                 DateOnly.FromDateTime(NewAcademicYearEndDate.Value),
-                NewAcademicYearSetAsCurrent));
+                setAsCurrent));
 
             NewAcademicYearLabel = string.Empty;
             NewAcademicYearStartDate = DateTime.Today;
@@ -397,6 +557,10 @@ public partial class SettingsViewModel : ViewModelBase
             StatusMessage = "Année scolaire créée.";
             await LoadAcademicYearsAsync();
             SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.Id == year.Id) ?? SelectedAcademicYear;
+            if (setAsCurrent || year.IsCurrent)
+            {
+                AcademicYearRefreshBridge.NotifyCurrentYearChanged();
+            }
         }
         catch (Exception ex)
         {
@@ -423,6 +587,7 @@ public partial class SettingsViewModel : ViewModelBase
             await _schoolApiService.SetCurrentAcademicYearAsync(SelectedAcademicYear.Id);
             StatusMessage = "Année courante mise à jour.";
             await LoadAcademicYearsAsync();
+            AcademicYearRefreshBridge.NotifyCurrentYearChanged();
         }
         catch (Exception ex)
         {
@@ -751,10 +916,254 @@ public partial class SettingsViewModel : ViewModelBase
 
             SelectedAdminRole ??= AdminRoles.FirstOrDefault();
             SelectedAdminUser ??= AdminUsers.FirstOrDefault();
+            await LoadSelectedAdminUserAddressAsync();
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+        }
+    }
+
+    partial void OnSelectedAdminUserChanged(UserAccountDto? value) =>
+        _ = LoadSelectedAdminUserAddressAsync();
+
+    private async Task LoadSelectedAdminUserAddressAsync()
+    {
+        SelectedAdminUserAddressEditor.Reset();
+        if (SelectedAdminUser?.AddressId is not Guid addressId)
+        {
+            return;
+        }
+
+        try
+        {
+            var address = await _geographyApiService.GetAddressAsync(addressId);
+            await SelectedAdminUserAddressEditor.LoadFromDtoAsync(address);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveSelectedAdminUserAsync()
+    {
+        if (SelectedAdminUser is null)
+        {
+            return;
+        }
+
+        var parts = SelectedAdminUser.FullName.Split(' ', 2);
+        IsBusy = true;
+        try
+        {
+            await _adminApiService.UpdateUserAsync(SelectedAdminUser.Id, new UpdateUserRequest(
+                SelectedAdminUser.Email,
+                parts.Length > 1 ? parts[1] : parts[0],
+                parts[0],
+                SelectedAdminUser.IsActive,
+                SelectedAdminUserAddressEditor.ToInputDto(),
+                UpdateAddress: true));
+
+            StatusMessage = "Utilisateur mis à jour.";
+            await LoadUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadTeachersAsync()
+    {
+        try
+        {
+            var teachers = await _adminApiService.GetTeachersAsync();
+            AdminTeachers.Clear();
+            foreach (var teacher in teachers)
+            {
+                AdminTeachers.Add(teacher);
+            }
+
+            SelectedAdminTeacher ??= AdminTeachers.FirstOrDefault();
+            await LoadSelectedTeacherFormAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    partial void OnSelectedAdminTeacherChanged(TeacherAdminDto? value) =>
+        _ = LoadSelectedTeacherFormAsync();
+
+    private async Task LoadSelectedTeacherFormAsync()
+    {
+        SelectedTeacherAddressEditor.Reset();
+        if (SelectedAdminTeacher is null)
+        {
+            EditTeacherEmployeeNumber = string.Empty;
+            EditTeacherFirstName = string.Empty;
+            EditTeacherLastName = string.Empty;
+            EditTeacherPhone = string.Empty;
+            EditTeacherEmail = string.Empty;
+            EditTeacherSpecialization = string.Empty;
+            EditTeacherHireDate = null;
+            EditTeacherIsActive = true;
+            return;
+        }
+
+        EditTeacherEmployeeNumber = SelectedAdminTeacher.EmployeeNumber;
+        EditTeacherFirstName = SelectedAdminTeacher.FirstName;
+        EditTeacherLastName = SelectedAdminTeacher.LastName;
+        EditTeacherPhone = SelectedAdminTeacher.Phone ?? string.Empty;
+        EditTeacherEmail = SelectedAdminTeacher.Email ?? string.Empty;
+        EditTeacherSpecialization = SelectedAdminTeacher.Specialization ?? string.Empty;
+        EditTeacherHireDate = SelectedAdminTeacher.HireDate?.ToDateTime(TimeOnly.MinValue);
+        EditTeacherIsActive = SelectedAdminTeacher.IsActive;
+
+        if (SelectedAdminTeacher.AddressId is Guid addressId)
+        {
+            try
+            {
+                var address = await _geographyApiService.GetAddressAsync(addressId);
+                await SelectedTeacherAddressEditor.LoadFromDtoAsync(address);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = ex.Message;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task CreateAdminTeacherAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewTeacherEmployeeNumber)
+            || string.IsNullOrWhiteSpace(NewTeacherFirstName)
+            || string.IsNullOrWhiteSpace(NewTeacherLastName))
+        {
+            StatusMessage = "Complétez le matricule, le nom et le postnom de l'enseignant.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _adminApiService.CreateTeacherAsync(new CreateTeacherAdminRequest(
+                NewTeacherEmployeeNumber.Trim(),
+                NewTeacherFirstName.Trim(),
+                NewTeacherLastName.Trim(),
+                string.IsNullOrWhiteSpace(NewTeacherPhone) ? null : NewTeacherPhone.Trim(),
+                string.IsNullOrWhiteSpace(NewTeacherEmail) ? null : NewTeacherEmail.Trim(),
+                string.IsNullOrWhiteSpace(NewTeacherSpecialization) ? null : NewTeacherSpecialization.Trim(),
+                NewTeacherHireDate.HasValue ? DateOnly.FromDateTime(NewTeacherHireDate.Value) : null,
+                NewTeacherAddressEditor.HasContent() ? NewTeacherAddressEditor.ToInputDto() : null));
+
+            NewTeacherEmployeeNumber = string.Empty;
+            NewTeacherFirstName = string.Empty;
+            NewTeacherLastName = string.Empty;
+            NewTeacherPhone = string.Empty;
+            NewTeacherEmail = string.Empty;
+            NewTeacherSpecialization = string.Empty;
+            NewTeacherHireDate = DateTime.Today;
+            NewTeacherAddressEditor.Reset();
+            StatusMessage = "Enseignant créé.";
+            await LoadTeachersAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveSelectedAdminTeacherAsync()
+    {
+        if (SelectedAdminTeacher is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(EditTeacherEmployeeNumber)
+            || string.IsNullOrWhiteSpace(EditTeacherFirstName)
+            || string.IsNullOrWhiteSpace(EditTeacherLastName))
+        {
+            StatusMessage = "Complétez le matricule, le nom et le postnom de l'enseignant.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _adminApiService.UpdateTeacherAsync(SelectedAdminTeacher.Id, new UpdateTeacherAdminRequest(
+                EditTeacherEmployeeNumber.Trim(),
+                EditTeacherFirstName.Trim(),
+                EditTeacherLastName.Trim(),
+                string.IsNullOrWhiteSpace(EditTeacherPhone) ? null : EditTeacherPhone.Trim(),
+                string.IsNullOrWhiteSpace(EditTeacherEmail) ? null : EditTeacherEmail.Trim(),
+                string.IsNullOrWhiteSpace(EditTeacherSpecialization) ? null : EditTeacherSpecialization.Trim(),
+                EditTeacherHireDate.HasValue ? DateOnly.FromDateTime(EditTeacherHireDate.Value) : null,
+                EditTeacherIsActive,
+                SelectedTeacherAddressEditor.ToInputDto(),
+                UpdateAddress: true));
+
+            StatusMessage = "Enseignant mis à jour.";
+            await LoadTeachersAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleAdminTeacherActiveAsync()
+    {
+        if (SelectedAdminTeacher is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _adminApiService.UpdateTeacherAsync(SelectedAdminTeacher.Id, new UpdateTeacherAdminRequest(
+                SelectedAdminTeacher.EmployeeNumber,
+                SelectedAdminTeacher.FirstName,
+                SelectedAdminTeacher.LastName,
+                SelectedAdminTeacher.Phone,
+                SelectedAdminTeacher.Email,
+                SelectedAdminTeacher.Specialization,
+                SelectedAdminTeacher.HireDate,
+                !SelectedAdminTeacher.IsActive,
+                null,
+                UpdateAddress: false));
+
+            StatusMessage = SelectedAdminTeacher.IsActive ? "Enseignant désactivé." : "Enseignant activé.";
+            await LoadTeachersAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -780,13 +1189,15 @@ public partial class SettingsViewModel : ViewModelBase
                 NewAdminPassword,
                 NewAdminFirstName.Trim(),
                 NewAdminLastName.Trim(),
-                roleIds));
+                roleIds,
+                NewAdminUserAddressEditor.HasContent() ? NewAdminUserAddressEditor.ToInputDto() : null));
 
             NewAdminUserName = string.Empty;
             NewAdminEmail = string.Empty;
             NewAdminPassword = string.Empty;
             NewAdminFirstName = string.Empty;
             NewAdminLastName = string.Empty;
+            NewAdminUserAddressEditor.Reset();
             StatusMessage = "Utilisateur créé.";
             await LoadUsersAsync();
         }
@@ -857,13 +1268,26 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    private async Task EnsureCurrentAcademicYearForStructureAsync()
+    {
+        if (AcademicYears.Count == 0)
+        {
+            await LoadAcademicYearsAsync();
+        }
+
+        SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? SelectedAcademicYear;
+    }
+
     private async Task LoadStructureAsync()
     {
         try
         {
+            await EnsureCurrentAcademicYearForStructureAsync();
+
             var classes = await _schoolApiService.GetPedagogicalClassesAsync(
                 string.IsNullOrWhiteSpace(ClassSearch) ? null : ClassSearch.Trim(),
-                SelectedProgramFilter?.Program);
+                SelectedProgramFilter?.Program,
+                academicYearId: SelectedAcademicYear?.Id);
 
             ApplyClasses(classes);
             await RefreshSummaryAsync();
@@ -901,8 +1325,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     private async Task RefreshSummaryAsync()
     {
-        var summary = await _schoolApiService.GetPedagogicalSummaryAsync();
-        StructureSummary = $"{summary.EnabledClasses} / {summary.TotalClasses} classes actives — {summary.TotalLocals} locaux configurés";
+        var summary = await _schoolApiService.GetPedagogicalSummaryAsync(SelectedAcademicYear?.Id);
+        var yearLabel = SelectedAcademicYear?.Label ?? "année courante";
+        StructureSummary = $"{summary.EnabledClasses} / {summary.TotalClasses} classes actives — {summary.TotalLocals} locaux ({yearLabel})";
     }
 
     private void ApplyClasses(IReadOnlyList<PedagogicalClassDto> classes)
@@ -937,7 +1362,9 @@ public enum SettingsSection
     AnneesScolaires = 4,
     FraisScolaires = 5,
     Matieres = 6,
-    Utilisateurs = 7
+    Geographie = 9,
+    Utilisateurs = 7,
+    Enseignants = 8
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

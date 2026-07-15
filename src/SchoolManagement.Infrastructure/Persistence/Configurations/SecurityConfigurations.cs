@@ -17,6 +17,7 @@ public class UserAccountConfiguration : AuditableEntityConfiguration<UserAccount
         builder.Property(u => u.LastName).HasMaxLength(100).IsRequired();
         builder.HasIndex(u => new { u.SchoolId, u.UserName }).IsUnique();
         builder.HasIndex(u => new { u.SchoolId, u.Email }).IsUnique();
+        builder.HasOne(u => u.ResidenceAddress).WithMany().HasForeignKey(u => u.AddressId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

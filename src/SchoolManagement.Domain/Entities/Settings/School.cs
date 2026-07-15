@@ -211,15 +211,96 @@ public class FeeType : AuditableEntity, IAggregateRoot
 
     public string Name { get; set; } = string.Empty;
 
-    public decimal DefaultAmount { get; set; }
-
     public Currency Currency { get; set; } = Currency.CDF;
 
     public bool IsMandatory { get; set; }
 
-    public bool IsRecurring { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public School School { get; set; } = null!;
+}
+
+/// <summary>Tranche affectée à un type de frais, avec ordre propre au type.</summary>
+public class FeeTypeInstallment : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid FeeTypeId { get; set; }
+
+    public Guid FeeInstallmentId { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public School School { get; set; } = null!;
+
+    public FeeType FeeType { get; set; } = null!;
+
+    public FeeInstallment FeeInstallment { get; set; } = null!;
+}
+
+/// <summary>Tranche de paiement définie librement par l'établissement (1ère tranche, Inscription…).</summary>
+public class FeeInstallment : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public int SortOrder { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+/// <summary>Catégorie tarifaire configurable par l'établissement (Général, Boursier…).</summary>
+public class FeePricingCategory : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Code { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public string? Description { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+}
+
+/// <summary>Montant d'un type de frais pour une année, une classe, une catégorie et une tranche.</summary>
+public class ClassFeeAmount : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid AcademicYearId { get; set; }
+
+    public Guid PedagogicalClassId { get; set; }
+
+    public Guid FeePricingCategoryId { get; set; }
+
+    public Guid FeeTypeId { get; set; }
+
+    public Guid FeeInstallmentId { get; set; }
+
+    public decimal Amount { get; set; }
+
+    public DateOnly? DueDate { get; set; }
+
+    /// <summary>Ordre de priorité de la tranche pour ce type de frais (1, 2, 3…).</summary>
+    public int SortOrder { get; set; }
+
+    public School School { get; set; } = null!;
+
+    public AcademicYear AcademicYear { get; set; } = null!;
+
+    public PedagogicalClass PedagogicalClass { get; set; } = null!;
+
+    public FeePricingCategory FeePricingCategory { get; set; } = null!;
+
+    public FeeType FeeType { get; set; } = null!;
+
+    public FeeInstallment FeeInstallment { get; set; } = null!;
 }
 
 public class Bank : AuditableEntity, IAggregateRoot

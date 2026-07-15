@@ -1,0 +1,416 @@
+<Window x:Class="SchoolManagement.Desktop.Views.StudentDossierEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+        xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels"
+        xmlns:dto="clr-namespace:SchoolManagement.Application.EnrollmentWizard.DTOs;assembly=SchoolManagement.Application"
+        xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+        Title="Modifier le dossier élève"
+        Width="980"
+        Height="760"
+        MinWidth="860"
+        MinHeight="640"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F7FB">
+    <Window.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.RowSpan="4"
+                Background="#CCFFFFFF"
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <ProgressBar Width="220"
+                             Height="4"
+                             IsIndeterminate="True" />
+                <TextBlock Margin="0,12,0,0"
+                           HorizontalAlignment="Center"
+                           Foreground="#6B7280"
+                           Text="Chargement du dossier élève..." />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Modifier le dossier élève" />
+            <TextBlock Margin="0,4,0,0" Foreground="#6B7280" TextWrapping="Wrap">
+                <Run Text="Matricule " />
+                <Run FontWeight="SemiBold" Text="{Binding RegistrationNumber, Mode=OneWay}" />
+                <Run Text=" — " />
+                <Run Text="{Binding AcademicYearLabel, Mode=OneWay}" />
+            </TextBlock>
+            <TextBlock Margin="0,6,0,0"
+                       Foreground="#6B7280"
+                       Text="Mettez à jour l'identité, la scolarité, les responsables, les informations médicales et les pièces jointes."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Style="{StaticResource ErpTabControl}">
+            <TabItem Header="Identité">
+                <ScrollViewer Padding="8" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Border Style="{StaticResource ErpV2FormCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,20,0" MaxWidth="170">
+                                    <TextBlock FontWeight="SemiBold" Text="Photo" />
+                                    <Border Width="140"
+                                            Height="180"
+                                            Margin="0,10,0,0"
+                                            Background="#F8FAFC"
+                                            CornerRadius="12">
+                                        <Image Source="{Binding PhotoDisplayPath, Converter={StaticResource PathToImageSourceConverter}}"
+                                               Stretch="UniformToFill" />
+                                    </Border>
+                                    <Button Margin="0,8,0,0"
+                                            Command="{Binding ImportPhotoCommand}"
+                                            Content="Importer"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <Button Margin="0,6,0,0"
+                                            Command="{Binding TakePhotoCommand}"
+                                            Content="Prendre une photo"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <Button Margin="0,6,0,0"
+                                            Command="{Binding RemovePhotoCommand}"
+                                            Content="Supprimer"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                </StackPanel>
+                                <Grid Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Nom" Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" Label="Postnom" Text="{Binding MiddleName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Prénom" Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpComboField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" ItemsSource="{Binding Genders}" Label="Sexe" SelectedItem="{Binding Gender, Mode=TwoWay}" />
+                                    <erp:ErpDateField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Date de naissance" SelectedDate="{Binding DateOfBirth, Mode=TwoWay}" ShowBadges="False" />
+                                    <erp:ErpTextField Grid.Row="2" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Lieu de naissance" Text="{Binding PlaceOfBirth, UpdateSourceTrigger=PropertyChanged}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <Border Margin="0,12,0,0" Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Adresse de résidence" />
+                                <erp:ErpAddressControl Margin="0,12,0,0" Editor="{Binding StudentAddressEditor}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="0,12,0,0" Style="{StaticResource ErpV2FormCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Langue" Text="{Binding Language, UpdateSourceTrigger=PropertyChanged}" />
+                                <erp:ErpTextField Grid.Column="1" HorizontalAlignment="Stretch" Label="Religion" Text="{Binding Religion, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Scolarité">
+                <ScrollViewer Padding="8" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Margin="0,0,0,12"
+                                   Foreground="#B45309"
+                                   Text="{Binding ClassChangeBlockedReason}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding CanEditClassAssignment, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                        <Border Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <erp:ErpComboField DisplayMemberPath="Name"
+                                                   HorizontalAlignment="Stretch"
+                                                   IsEnabled="{Binding CanEditClassAssignment}"
+                                                   IsRequired="True"
+                                                   ItemsSource="{Binding Sections}"
+                                                   Label="Section"
+                                                   SelectedValue="{Binding SelectedSectionId, Mode=TwoWay}"
+                                                   SelectedValuePath="Id" />
+                                <erp:ErpComboField Margin="0,12,0,0"
+                                                   DisplayMemberPath="FullDisplayName"
+                                                   HorizontalAlignment="Stretch"
+                                                   IsEnabled="{Binding CanEditClassAssignment}"
+                                                   IsRequired="True"
+                                                   ItemsSource="{Binding AvailableLocals}"
+                                                   Label="Classe"
+                                                   SelectedItem="{Binding SelectedClass, Mode=TwoWay}" />
+                                <TextBlock Margin="0,8,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding ClassCapacityInfo}" />
+                            </StackPanel>
+                        </Border>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="N° ordre" Text="{Binding OrderNumber, TargetNullValue=''}" />
+                            <erp:ErpDateField Grid.Column="1"
+                                              HorizontalAlignment="Stretch"
+                                              DateValidationMode="EnrollmentDate"
+                                              Label="Date d'inscription"
+                                              SelectedDate="{Binding EnrollmentDate, Mode=TwoWay}"
+                                              ShowBadges="False" />
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Responsables">
+                <ScrollViewer Padding="8" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Rechercher un responsable existant" />
+                                <erp:ErpSearchField Margin="0,10,0,0"
+                                                    HorizontalAlignment="Stretch"
+                                                    Placeholder="Nom, téléphone, e-mail..."
+                                                    Text="{Binding GuardianSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Margin="0,10,0,0"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding SearchGuardiansCommand}"
+                                        Content="Rechercher"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                                <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding GuardianSearchResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type dto:EnrollmentGuardianSearchResultDto}">
+                                            <Border Margin="0,0,0,8" Padding="12" Background="#F8FAFC" CornerRadius="8">
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding FullName}" />
+                                                    <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding Phone, StringFormat=Tél. {0}}" />
+                                                    <WrapPanel Margin="0,8,0,0">
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsFatherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Père" Style="{StaticResource ErpSecondaryButton}" />
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsMotherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Mère" Style="{StaticResource ErpSecondaryButton}" />
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsContact1Command, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Contact 1" Style="{StaticResource ErpSecondaryButton}" />
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsContact2Command, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Contact 2" Style="{StaticResource ErpSecondaryButton}" />
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Père" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Nom" Text="{Binding FatherLastName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" Label="Prénom" Text="{Binding FatherFirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Téléphone" Text="{Binding FatherPhone, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Phone" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="E-mail" Text="{Binding FatherEmail, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Email" />
+                                    <erp:ErpTextField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Profession" Text="{Binding FatherProfession, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpCheckField Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsChecked="{Binding FatherSameAddressAsStudent}" Label="Habite à la même adresse que l'élève" />
+                                    <erp:ErpAddressControl Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Editor="{Binding FatherAddressEditor}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Mère" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Nom" Text="{Binding MotherLastName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" Label="Prénom" Text="{Binding MotherFirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Téléphone" Text="{Binding MotherPhone, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Phone" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="E-mail" Text="{Binding MotherEmail, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Email" />
+                                    <erp:ErpTextField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Profession" Text="{Binding MotherProfession, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpCheckField Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsChecked="{Binding MotherSameAddressAsStudent}" Label="Habite à la même adresse que l'élève" />
+                                    <erp:ErpAddressControl Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Editor="{Binding MotherAddressEditor}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Personne à contacter 1 (facultatif)" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Nom" Text="{Binding Contact1LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Prénom" Text="{Binding Contact1FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Téléphone" Text="{Binding Contact1Phone, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Phone" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="E-mail" Text="{Binding Contact1Email, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Email" />
+                                    <erp:ErpComboField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="{Binding IsContact1Filled}" ItemsSource="{Binding Genders}" Label="Sexe" SelectedItem="{Binding Contact1Gender, Mode=TwoWay}" />
+                                    <erp:ErpTextField Grid.Row="2" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Lien / relation" Text="{Binding Contact1Relationship, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpCheckField Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsChecked="{Binding Contact1SameAddressAsStudent}" Label="Habite à la même adresse que l'élève" />
+                                    <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Contact1SameAddressAsStudent}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <erp:ErpAddressControl Editor="{Binding Contact1AddressEditor}" />
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource ErpV2FormCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="Personne à contacter 2 (facultatif)" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Nom" Text="{Binding Contact2LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Prénom" Text="{Binding Contact2FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="Téléphone" Text="{Binding Contact2Phone, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Phone" />
+                                    <erp:ErpTextField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="E-mail" Text="{Binding Contact2Email, UpdateSourceTrigger=PropertyChanged}" ValidationMode="Email" />
+                                    <erp:ErpComboField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="{Binding IsContact2Filled}" ItemsSource="{Binding Genders}" Label="Sexe" SelectedItem="{Binding Contact2Gender, Mode=TwoWay}" />
+                                    <erp:ErpTextField Grid.Row="2" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Lien / relation" Text="{Binding Contact2Relationship, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpCheckField Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" IsChecked="{Binding Contact2SameAddressAsStudent}" Label="Habite à la même adresse que l'élève" />
+                                    <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Contact2SameAddressAsStudent}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <erp:ErpAddressControl Editor="{Binding Contact2AddressEditor}" />
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Santé">
+                <ScrollViewer Padding="8" VerticalScrollBarVisibility="Auto">
+                    <Border Style="{StaticResource ErpV2FormCard}">
+                        <WrapPanel>
+                            <erp:ErpTextField Width="140" Margin="0,0,12,12" Label="Groupe sanguin" Text="{Binding BloodGroup, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="240" Margin="0,0,12,12" Label="Allergies" Text="{Binding Allergies, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="240" Margin="0,0,12,12" Label="Maladies chroniques" Text="{Binding ChronicDiseases, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="240" Margin="0,0,12,12" Label="Traitement" Text="{Binding Treatment, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="200" Margin="0,0,12,12" Label="Médecin" Text="{Binding DoctorName, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="200" Margin="0,0,12,12" Label="Centre médical" Text="{Binding MedicalCenter, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextField Width="240" Margin="0,0,12,12" Label="Handicap" Text="{Binding Disability, UpdateSourceTrigger=PropertyChanged}" />
+                            <erp:ErpTextAreaField Width="480" Margin="0,0,12,12" Label="Observations" Text="{Binding MedicalObservations, UpdateSourceTrigger=PropertyChanged}" />
+                            <CheckBox Margin="0,0,12,12" Content="Urgence médicale" IsChecked="{Binding MedicalEmergency}" />
+                        </WrapPanel>
+                    </Border>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Documents">
+                <ScrollViewer Padding="8" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Documents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:EnrollmentDocumentItemViewModel}">
+                                <Border Margin="0,0,0,10" Padding="14" Background="#F8FAFC" CornerRadius="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding DocumentType}" />
+                                            <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding Status}" />
+                                            <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding FileName}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Command="{Binding DataContext.ImportDocumentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Content="Importer / remplacer"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <CheckBox Grid.Row="2"
+                  Margin="0,12,0,0"
+                  Content="Je confirme l'exactitude des informations modifiées"
+                  IsChecked="{Binding ConfirmAccuracy}" />
+
+        <TextBlock Grid.Row="2"
+                   Margin="0,36,0,0"
+                   Foreground="{StaticResource ErpDangerBrush}"
+                   Text="{Binding ValidationMessage}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ValidationMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+
+        <StackPanel Grid.Row="3"
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button Margin="0,0,8,0"
+                    Command="{Binding CancelCommand}"
+                    Content="Annuler"
+                    Style="{StaticResource ErpSecondaryButton}" />
+            <Button Command="{Binding SaveCommand}"
+                    Content="Enregistrer les modifications"
+                    Style="{StaticResource ErpPrimaryButton}" />
+        </StackPanel>
+    </Grid>
+</Window>

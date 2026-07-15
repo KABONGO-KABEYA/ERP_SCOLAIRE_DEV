@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -20,6 +21,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
     private string _searchText = string.Empty;
     private readonly Dictionary<string, Border> _sectionCards = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Border> _optionCards = new(StringComparer.Ordinal);
+    private readonly Dictionary<Guid, Border> _classRowCards = new();
 
     public PedagogicalStructureWizardControl()
     {
@@ -32,8 +34,18 @@ public partial class PedagogicalStructureWizardControl : UserControl
     {
         AttachViewModel();
         FilterAllChip.IsChecked = true;
+        PreventAutoScroll(SectionsScrollViewer);
+        PreventAutoScroll(MiddleScrollViewer);
+        PreventAutoScroll(RightScrollViewer);
+        PreventAutoScroll(LocalsListBox);
         EnsureAllClassesLoaded();
         RefreshAll();
+    }
+
+    private static void PreventAutoScroll(FrameworkElement element)
+    {
+        element.AddHandler(FrameworkElement.RequestBringIntoViewEvent,
+            new RequestBringIntoViewEventHandler((_, args) => args.Handled = true));
     }
 
     private void AttachViewModel()
@@ -41,6 +53,8 @@ public partial class PedagogicalStructureWizardControl : UserControl
         if (_viewModel is not null)
         {
             _viewModel.PedagogicalClasses.CollectionChanged -= OnClassesChanged;
+            _viewModel.ClassLocals.CollectionChanged -= OnClassLocalsChanged;
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
         _viewModel = DataContext as SettingsViewModel;
@@ -50,21 +64,39 @@ public partial class PedagogicalStructureWizardControl : UserControl
         }
 
         _viewModel.PedagogicalClasses.CollectionChanged += OnClassesChanged;
-        _viewModel.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName is nameof(SettingsViewModel.SelectedPedagogicalClass)
-                or nameof(SettingsViewModel.ClassLocals)
-                or nameof(SettingsViewModel.StructureSummary))
-            {
-                RenderRightPanel();
-            }
-        };
+        _viewModel.ClassLocals.CollectionChanged += OnClassLocalsChanged;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        _searchText = _viewModel.ClassSearch?.Trim() ?? string.Empty;
 
         EnsureAllClassesLoaded();
         RefreshAll();
     }
 
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is nameof(SettingsViewModel.SelectedPedagogicalClass))
+        {
+            UpdateClassRowHighlights();
+            UpdateRightPanel();
+            return;
+        }
+
+        if (args.PropertyName is nameof(SettingsViewModel.ClassSearch))
+        {
+            _searchText = _viewModel?.ClassSearch?.Trim() ?? string.Empty;
+            var sectionsOffset = SectionsScrollViewer.VerticalOffset;
+            RenderSections();
+            SectionsScrollViewer.ScrollToVerticalOffset(sectionsOffset);
+
+            var middleOffset = MiddleScrollViewer.VerticalOffset;
+            RenderMiddlePanel();
+            MiddleScrollViewer.ScrollToVerticalOffset(middleOffset);
+        }
+    }
+
     private void OnClassesChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshAll();
+
+    private void OnClassLocalsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateRightPanel();
 
     private void EnsureAllClassesLoaded()
     {
@@ -91,8 +123,9 @@ public partial class PedagogicalStructureWizardControl : UserControl
         RenderStats();
         RenderSections();
         RenderMiddlePanel();
-        RenderRightPanel();
+        UpdateRightPanel();
     }
+
 
     private void RenderStats()
     {
@@ -146,6 +179,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
 
     private void RenderSections()
     {
+        var scrollOffset = SectionsScrollViewer.VerticalOffset;
         SectionsPanel.Children.Clear();
         _sectionCards.Clear();
 
@@ -165,6 +199,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
         }
 
         HighlightSectionCard(_selectedSectionKey);
+        SectionsScrollViewer.ScrollToVerticalOffset(scrollOffset);
     }
 
     private Border CreateSectionCard(StructureUiSection section, int totalClasses, int enabledClasses)
@@ -178,7 +213,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
             BorderThickness = new Thickness(1),
             BorderBrush = new SolidColorBrush(Color.FromRgb(229, 231, 235)),
             Background = Brushes.White,
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = Cursors.Hand
         };
 
         var grid = new Grid();
@@ -251,8 +286,11 @@ public partial class PedagogicalStructureWizardControl : UserControl
         _selectedOptionKey = null;
         _viewModel!.SelectedPedagogicalClass = null;
         HighlightSectionCard(sectionKey);
+
+        var middleOffset = MiddleScrollViewer.VerticalOffset;
         RenderMiddlePanel();
-        RenderRightPanel();
+        MiddleScrollViewer.ScrollToVerticalOffset(middleOffset);
+        UpdateRightPanel();
     }
 
     private void HighlightSectionCard(string? sectionKey)
@@ -270,19 +308,23 @@ public partial class PedagogicalStructureWizardControl : UserControl
 
     private void RenderMiddlePanel()
     {
+        var scrollOffset = MiddleScrollViewer.VerticalOffset;
         MiddlePanel.Children.Clear();
         _optionCards.Clear();
+        _classRowCards.Clear();
 
         if (_viewModel is null || string.IsNullOrWhiteSpace(_selectedSectionKey))
         {
             MiddleTitleText.Text = "Options et classes";
             MiddleSubtitleText.Text = "Sélectionnez une section pour commencer.";
+            MiddleScrollViewer.ScrollToVerticalOffset(scrollOffset);
             return;
         }
 
         var section = StructureUiCatalog.FindSection(_selectedSectionKey);
         if (section is null)
         {
+            MiddleScrollViewer.ScrollToVerticalOffset(scrollOffset);
             return;
         }
 
@@ -331,6 +373,8 @@ public partial class PedagogicalStructureWizardControl : UserControl
         }
 
         HighlightOptionCard(_selectedOptionKey);
+        UpdateClassRowHighlights();
+        MiddleScrollViewer.ScrollToVerticalOffset(scrollOffset);
     }
 
     private void SelectOption(string optionKey)
@@ -343,11 +387,40 @@ public partial class PedagogicalStructureWizardControl : UserControl
             return;
         }
 
+        var scrollOffset = MiddleScrollViewer.VerticalOffset;
         var classes = ApplyDisplayFilter(GetSectionClasses(_selectedSectionKey))
             .Where(c => (string.IsNullOrWhiteSpace(c.StudyOption) ? "Général" : c.StudyOption) == optionKey)
             .ToList();
 
+        RemoveClassRowsFromMiddlePanel();
         RenderClassesForOption(classes);
+        UpdateClassRowHighlights();
+        MiddleScrollViewer.ScrollToVerticalOffset(scrollOffset);
+    }
+
+    private void RemoveClassRowsFromMiddlePanel()
+    {
+        var rowsToRemove = MiddlePanel.Children
+            .OfType<Border>()
+            .Where(b => b.Tag is PedagogicalClassItemViewModel)
+            .ToList();
+
+        foreach (var row in rowsToRemove)
+        {
+            MiddlePanel.Children.Remove(row);
+        }
+
+        var separatorsToRemove = MiddlePanel.Children
+            .OfType<Border>()
+            .Where(b => b.Height == 1)
+            .ToList();
+
+        foreach (var separator in separatorsToRemove)
+        {
+            MiddlePanel.Children.Remove(separator);
+        }
+
+        _classRowCards.Clear();
     }
 
     private Border CreateOptionCard(StructureUiSection section, string optionName, IReadOnlyList<PedagogicalClassItemViewModel> classes)
@@ -362,7 +435,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
             BorderThickness = new Thickness(1),
             BorderBrush = new SolidColorBrush(Color.FromRgb(229, 231, 235)),
             Background = new SolidColorBrush(Color.FromRgb(249, 250, 251)),
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = Cursors.Hand
         };
 
         var dock = new DockPanel();
@@ -422,7 +495,9 @@ public partial class PedagogicalStructureWizardControl : UserControl
 
         foreach (var item in list)
         {
-            MiddlePanel.Children.Add(CreateClassRow(item));
+            var row = CreateClassRow(item);
+            MiddlePanel.Children.Add(row);
+            _classRowCards[item.Id] = row;
         }
     }
 
@@ -430,24 +505,24 @@ public partial class PedagogicalStructureWizardControl : UserControl
     {
         var row = new Border
         {
+            Tag = item,
             Margin = new Thickness(0, 0, 0, 8),
             Padding = new Thickness(12, 10, 12, 10),
             CornerRadius = new CornerRadius(10),
             BorderThickness = new Thickness(1),
-            BorderBrush = _viewModel?.SelectedPedagogicalClass?.Id == item.Id
-                ? new SolidColorBrush(Color.FromRgb(30, 94, 255))
-                : new SolidColorBrush(Color.FromRgb(229, 231, 235)),
-            Background = _viewModel?.SelectedPedagogicalClass?.Id == item.Id
-                ? new SolidColorBrush(Color.FromRgb(232, 239, 255))
-                : Brushes.White,
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = Cursors.Hand
         };
+
+        ApplyClassRowHighlight(row, _viewModel?.SelectedPedagogicalClass?.Id == item.Id);
 
         row.MouseLeftButtonUp += (_, _) =>
         {
-            _viewModel!.SelectedPedagogicalClass = item;
-            RenderMiddlePanel();
-            RenderRightPanel();
+            if (_viewModel is null)
+            {
+                return;
+            }
+
+            _viewModel.SelectedPedagogicalClass = item;
         };
 
         var grid = new Grid();
@@ -489,6 +564,25 @@ public partial class PedagogicalStructureWizardControl : UserControl
         return row;
     }
 
+    private void UpdateClassRowHighlights()
+    {
+        var selectedId = _viewModel?.SelectedPedagogicalClass?.Id;
+        foreach (var pair in _classRowCards)
+        {
+            ApplyClassRowHighlight(pair.Value, pair.Key == selectedId);
+        }
+    }
+
+    private static void ApplyClassRowHighlight(Border row, bool isSelected)
+    {
+        row.BorderBrush = isSelected
+            ? new SolidColorBrush(Color.FromRgb(30, 94, 255))
+            : new SolidColorBrush(Color.FromRgb(229, 231, 235));
+        row.Background = isSelected
+            ? new SolidColorBrush(Color.FromRgb(232, 239, 255))
+            : Brushes.White;
+    }
+
     private ToggleButton CreateSectionMasterToggle(IReadOnlyList<PedagogicalClassItemViewModel> classes, string label)
     {
         var toggle = new ToggleButton { Style = (Style)FindResource("ErpToggleSwitch") };
@@ -518,164 +612,24 @@ public partial class PedagogicalStructureWizardControl : UserControl
         }
     }
 
-    private void RenderRightPanel()
+    private void UpdateRightPanel()
     {
-        RightPanel.Children.Clear();
         var selectedClass = _viewModel?.SelectedPedagogicalClass;
         if (selectedClass is null)
         {
             RightTitleText.Text = "Locaux";
             RightSubtitleText.Text = "Sélectionnez une classe pour gérer ses locaux.";
+            RightEmptyText.Visibility = Visibility.Collapsed;
+            LocalFormCard.Visibility = Visibility.Collapsed;
             return;
         }
 
         RightTitleText.Text = selectedClass.DisplayName;
         RightSubtitleText.Text = "Créez les locaux A, B, C, Salle 1… pour cette classe.";
-
-        if (_viewModel!.ClassLocals.Count == 0)
-        {
-            RightPanel.Children.Add(new TextBlock
-            {
-                Margin = new Thickness(0, 0, 0, 12),
-                Text = "Aucun local configuré pour cette classe.",
-                Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128)),
-                TextWrapping = TextWrapping.Wrap
-            });
-        }
-        else
-        {
-            foreach (var local in _viewModel.ClassLocals)
-            {
-                RightPanel.Children.Add(CreateLocalCard(local));
-            }
-        }
-
-        RightPanel.Children.Add(CreateLocalForm());
-    }
-
-    private Border CreateLocalCard(SchoolManagement.Application.Schools.DTOs.ClassLocalDto local)
-    {
-        var card = new Border
-        {
-            Margin = new Thickness(0, 0, 0, 8),
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(10),
-            BorderBrush = _viewModel?.SelectedLocal?.Id == local.Id
-                ? new SolidColorBrush(Color.FromRgb(30, 94, 255))
-                : new SolidColorBrush(Color.FromRgb(229, 231, 235)),
-            BorderThickness = new Thickness(1),
-            Background = _viewModel?.SelectedLocal?.Id == local.Id
-                ? new SolidColorBrush(Color.FromRgb(232, 239, 255))
-                : new SolidColorBrush(Color.FromRgb(249, 250, 251)),
-            Cursor = System.Windows.Input.Cursors.Hand
-        };
-
-        card.MouseLeftButtonUp += (_, _) => _viewModel!.SelectedLocal = local;
-
-        var stack = new StackPanel();
-        stack.Children.Add(new TextBlock
-        {
-            Text = local.LocalName,
-            FontWeight = FontWeights.SemiBold,
-            FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 14
-        });
-        stack.Children.Add(new TextBlock
-        {
-            Margin = new Thickness(0, 2, 0, 0),
-            Text = local.MaxCapacity.HasValue ? $"{local.MaxCapacity} élèves" : "Capacité non définie",
-            FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128))
-        });
-        stack.Children.Add(new TextBlock
-        {
-            Margin = new Thickness(0, 4, 0, 0),
-            Text = local.IsActive ? "✔ Actif" : "Inactif",
-            FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 12,
-            Foreground = new SolidColorBrush(local.IsActive ? Color.FromRgb(34, 197, 94) : Color.FromRgb(239, 68, 68))
-        });
-        card.Child = stack;
-        return card;
-    }
-
-    private UIElement CreateLocalForm()
-    {
-        var host = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
-
-        var nameBox = new TextBox
-        {
-            Style = (Style)FindResource("ErpTextBox"),
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-        MaterialDesignThemes.Wpf.HintAssist.SetHint(nameBox, "Nom du local (A, B, Salle 1…)");
-        nameBox.SetBinding(TextBox.TextProperty, new Binding(nameof(SettingsViewModel.LocalName))
-        {
-            Source = _viewModel,
-            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
-        });
-
-        var capacityBox = new TextBox
-        {
-            Style = (Style)FindResource("ErpTextBox"),
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-        MaterialDesignThemes.Wpf.HintAssist.SetHint(capacityBox, "Capacité");
-        capacityBox.SetBinding(TextBox.TextProperty, new Binding(nameof(SettingsViewModel.LocalCapacityText))
-        {
-            Source = _viewModel,
-            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
-        });
-
-        var notesBox = new TextBox
-        {
-            Style = (Style)FindResource("ErpTextBox"),
-            Margin = new Thickness(0, 0, 0, 8),
-            AcceptsReturn = true,
-            MinHeight = 56,
-            TextWrapping = TextWrapping.Wrap
-        };
-        MaterialDesignThemes.Wpf.HintAssist.SetHint(notesBox, "Observations");
-        notesBox.SetBinding(TextBox.TextProperty, new Binding(nameof(SettingsViewModel.LocalObservations))
-        {
-            Source = _viewModel,
-            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
-        });
-
-        var activeCheck = new CheckBox
-        {
-            Content = "Local actif",
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-        activeCheck.SetBinding(CheckBox.IsCheckedProperty, new Binding(nameof(SettingsViewModel.LocalIsActive))
-        {
-            Source = _viewModel
-        });
-
-        var buttons = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
-        buttons.Children.Add(CreateCommandButton("Nouveau", _viewModel!.NewLocalCommand));
-        buttons.Children.Add(CreateCommandButton("Ajouter", _viewModel.AddLocalCommand, true));
-        buttons.Children.Add(CreateCommandButton("Modifier", _viewModel.UpdateLocalCommand));
-        buttons.Children.Add(CreateCommandButton("Supprimer", _viewModel.DeleteLocalCommand));
-
-        host.Children.Add(nameBox);
-        host.Children.Add(capacityBox);
-        host.Children.Add(notesBox);
-        host.Children.Add(activeCheck);
-        host.Children.Add(buttons);
-        return host;
-    }
-
-    private static Button CreateCommandButton(string content, ICommand command, bool primary = false)
-    {
-        return new Button
-        {
-            Margin = new Thickness(0, 0, 8, 0),
-            Content = content,
-            Command = command,
-            Style = (Style)System.Windows.Application.Current.FindResource(primary ? "ErpPrimaryButton" : "ErpSecondaryButton")
-        };
+        LocalFormCard.Visibility = Visibility.Visible;
+        RightEmptyText.Visibility = _viewModel!.ClassLocals.Count == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private IEnumerable<PedagogicalClassItemViewModel> GetSectionClasses(string sectionKey)
@@ -717,22 +671,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
             || (c.HumanitiesSection?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
     }
 
-    private static bool MatchesSearch(string optionName, IEnumerable<PedagogicalClassItemViewModel> classes)
-    {
-        return true;
-    }
-
-    private void SearchBox_OnTextChanged(object sender, TextChangedEventArgs e)
-    {
-        _searchText = SearchBox.Text?.Trim() ?? string.Empty;
-        if (_viewModel is not null)
-        {
-            _viewModel.ClassSearch = _searchText;
-        }
-
-        RenderSections();
-        RenderMiddlePanel();
-    }
+    private static bool MatchesSearch(string optionName, IEnumerable<PedagogicalClassItemViewModel> classes) => true;
 
     private void FilterChip_OnChecked(object sender, RoutedEventArgs e)
     {
@@ -768,7 +707,9 @@ public partial class PedagogicalStructureWizardControl : UserControl
             chip.IsChecked = false;
         }
 
+        var middleOffset = MiddleScrollViewer.VerticalOffset;
         RenderMiddlePanel();
+        MiddleScrollViewer.ScrollToVerticalOffset(middleOffset);
     }
 
     private static PackIconKind ParseIcon(string iconKind) =>

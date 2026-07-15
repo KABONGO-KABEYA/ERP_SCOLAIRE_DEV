@@ -1,0 +1,141 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.LoginBrandPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="clr-namespace:FontAwesome.Sharp;assembly=FontAwesome.Sharp">
+    <Grid Margin="40,36,24,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
+            <Image Source="/Assets/icone.png"
+                   Width="160"
+                   Height="160"
+                   HorizontalAlignment="Center"
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   Stretch="Uniform" />
+
+            <TextBlock Margin="0,28,0,0"
+                       FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="48"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       Text="ERP SCOLAIRE RDC"
+                       TextAlignment="Center" />
+
+            <TextBlock Margin="0,10,0,0"
+                       FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="#BFDBFE"
+                       HorizontalAlignment="Center"
+                       Text="Administration scolaire moderne"
+                       TextAlignment="Center" />
+
+            <TextBlock Margin="0,16,0,28"
+                       FontFamily="{StaticResource LoginFontFamily}"
+                       FontSize="14"
+                       Foreground="#CBD5E1"
+                       HorizontalAlignment="Center"
+                       LineHeight="22"
+                       Text="Une solution complète pour la gestion efficace des établissements scolaires en RDC."
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <Grid Margin="0,4,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.UserGraduate}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Gestion des élèves" />
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.ChalkboardTeacher}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Gestion des enseignants" />
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.ClipboardList}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Notes &amp; Bulletins" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.MoneyBillWave}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Gestion des paiements" />
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.CalendarCheck}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Gestion des présences" />
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource LoginFeatureItem}">
+                        <Border Style="{StaticResource LoginFeatureIconHost}">
+                            <fa:IconImage Icon="{x:Static fa:IconChar.ChartPie}"
+                                          Foreground="White"
+                                          Height="15"
+                                          Width="15" />
+                        </Border>
+                        <TextBlock Style="{StaticResource LoginFeatureText}" Text="Rapports &amp; Statistiques" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <WrapPanel Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   Margin="0,16,0,0">
+            <StackPanel Margin="0,0,18,8" Orientation="Horizontal">
+                <fa:IconImage Icon="{x:Static fa:IconChar.ShieldHalved}" Foreground="#94A3B8" Height="12" Width="12" Margin="0,0,6,0" />
+                <TextBlock Style="{StaticResource LoginFooterMetaText}" Text="{Binding AppVersion, StringFormat=Version {0} © 2026 ERP Scolaire RDC}" />
+            </StackPanel>
+            <StackPanel Margin="0,0,18,8" Orientation="Horizontal">
+                <fa:IconImage Icon="{x:Static fa:IconChar.CircleCheck}" Foreground="#94A3B8" Height="12" Width="12" Margin="0,0,6,0" />
+                <TextBlock Style="{StaticResource LoginFooterMetaText}" Text="Conforme EPSP" />
+            </StackPanel>
+            <StackPanel Margin="0,0,18,8" Orientation="Horizontal">
+                <fa:IconImage Icon="{x:Static fa:IconChar.Database}" Foreground="#94A3B8" Height="12" Width="12" Margin="0,0,6,0" />
+                <TextBlock Style="{StaticResource LoginFooterMetaText}" Text="SQL Server" />
+            </StackPanel>
+            <StackPanel Margin="0,0,18,8" Orientation="Horizontal">
+                <fa:IconImage Icon="{x:Static fa:IconChar.CloudArrowUp}" Foreground="#94A3B8" Height="12" Width="12" Margin="0,0,6,0" />
+                <TextBlock Style="{StaticResource LoginFooterMetaText}" Text="Sauvegarde automatique" />
+            </StackPanel>
+            <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                <fa:IconImage Icon="{x:Static fa:IconChar.NetworkWired}" Foreground="#94A3B8" Height="12" Width="12" Margin="0,0,6,0" />
+                <TextBlock Style="{StaticResource LoginFooterMetaText}" Text="Support réseau" />
+            </StackPanel>
+        </WrapPanel>
+    </Grid>
+</UserControl>

@@ -101,7 +101,13 @@ public sealed class PathToImageSourceConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not string path || string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        if (value is not string path || string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var absolutePath = ResolveAbsolutePath(path);
+        if (absolutePath is null)
         {
             return null;
         }
@@ -111,7 +117,7 @@ public sealed class PathToImageSourceConverter : IValueConverter
             var image = new BitmapImage();
             image.BeginInit();
             image.CacheOption = BitmapCacheOption.OnLoad;
-            image.UriSource = new Uri(Path.GetFullPath(path));
+            image.UriSource = new Uri(absolutePath);
             image.EndInit();
             image.Freeze();
             return image;
@@ -120,6 +126,17 @@ public sealed class PathToImageSourceConverter : IValueConverter
         {
             return null;
         }
+    }
+
+    private static string? ResolveAbsolutePath(string path)
+    {
+        if (Path.IsPathRooted(path) && File.Exists(path))
+        {
+            return path;
+        }
+
+        var resolver = App.Services?.GetService(typeof(Services.IStudentDossierPathResolver)) as Services.IStudentDossierPathResolver;
+        return resolver?.ResolveAbsolutePath(path);
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

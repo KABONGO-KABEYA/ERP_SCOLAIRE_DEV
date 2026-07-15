@@ -43,11 +43,23 @@ public sealed class ExceptionHandlingMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
-        var response = ApiResponse<object>.Fail(
-            statusCode == HttpStatusCode.InternalServerError
-                ? "Une erreur interne est survenue."
-                : exception.Message);
+        var response = ApiResponse<object>.Fail(ResolveClientMessage(exception, statusCode));
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+
+    private static string ResolveClientMessage(Exception exception, HttpStatusCode statusCode)
+    {
+        if (statusCode != HttpStatusCode.InternalServerError)
+        {
+            return exception.Message;
+        }
+
+        return exception switch
+        {
+            Microsoft.EntityFrameworkCore.DbUpdateException dbUpdate when dbUpdate.InnerException?.Message is { Length: > 0 } sqlMessage
+                => $"Erreur base de données : {sqlMessage}",
+            _ => "Une erreur interne est survenue."
+        };
     }
 }

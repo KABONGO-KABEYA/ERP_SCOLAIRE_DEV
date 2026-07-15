@@ -30,10 +30,17 @@ BEGIN
         (NEWID(), @SchoolId, N'SEC-SCI', N'Secondaire Scientifique', 2, SYSUTCDATETIME(), 0),
         (NEWID(), @SchoolId, N'SEC-LIT', N'Secondaire Littéraire', 2, SYSUTCDATETIME(), 0);
 
-    INSERT INTO FeeTypes (Id, SchoolId, Code, Name, DefaultAmount, Currency, IsMandatory, IsRecurring, CreatedAt, IsDeleted)
+    INSERT INTO FeeTypes (Id, SchoolId, Code, Name, Currency, IsMandatory, IsActive, CreatedAt, IsDeleted)
     VALUES
-        (NEWID(), @SchoolId, N'INSCR', N'Frais d''inscription', 50000, 1, 1, 0, SYSUTCDATETIME(), 0),
-        (NEWID(), @SchoolId, N'MINVAL', N'Minerval', 150000, 1, 1, 1, SYSUTCDATETIME(), 0);
+        (NEWID(), @SchoolId, N'INSCR', N'Frais d''inscription', 1, 1, 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'MINVAL', N'Minerval', 1, 1, 1, SYSUTCDATETIME(), 0);
+
+    INSERT INTO FeeInstallments (Id, SchoolId, Name, SortOrder, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (NEWID(), @SchoolId, N'Inscription', 1, 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'1ère tranche', 2, 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'2ème tranche', 3, 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'3ème tranche', 4, 1, SYSUTCDATETIME(), 0);
 
     INSERT INTO CashRegisters (Id, SchoolId, Code, Name, Currency, IsActive, CreatedAt, IsDeleted)
     VALUES (NEWID(), @SchoolId, N'CAISSE1', N'Caisse principale', 1, 1, SYSUTCDATETIME(), 0);
