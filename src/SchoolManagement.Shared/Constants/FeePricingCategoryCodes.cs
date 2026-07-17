@@ -1,12 +1,10 @@
 namespace SchoolManagement.Shared.Constants;
 
 /// <summary>
-/// Codes recommandés pour les catégories tarifaires.
-/// Aucune catégorie n'est créée automatiquement en base — ces constantes préparent l'intégration future
-/// (inscription, facturation) sans codage en dur des libellés.
+/// Codes standards pour les catégories tarifaires.
 /// </summary>
 public static class FeePricingCategoryCodes
 {
-    /// <summary>Code suggéré pour la catégorie par défaut à créer manuellement par l'établissement.</summary>
+    /// <summary>Catégorie par défaut créée et assignée à chaque nouvelle inscription.</summary>
     public const string General = "GENERAL";
 }

@@ -60,6 +60,14 @@ class AuthStorage {
     return userRoles.any((r) => r.toUpperCase().contains('DIRECTION'));
   }
 
+  static Future<bool> get isPromoteur async {
+    final userRoles = await roles;
+    return userRoles.any((r) {
+      final upper = r.toUpperCase();
+      return upper.contains('PROMOTEUR') || upper.contains('PROPRIETAIRE');
+    });
+  }
+
   static Future<bool> get canManageEnrollments async {
     final perms = await permissions;
     if (perms.contains('admin.full') || perms.contains('students.create')) {
@@ -75,7 +83,7 @@ class AuthStorage {
   static Future<String> get homeRoute async {
     if (await isTeacher) return '/teacher/assignments';
     if (await canManageEnrollments) return '/secretary/home';
-    if (await isDirection) return '/direction/dashboard';
+    if (await isPromoteur || await isDirection) return '/promoteur/dashboard';
     return '/children';
   }
 

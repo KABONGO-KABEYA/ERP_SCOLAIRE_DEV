@@ -24,33 +24,27 @@
                        Visibility="{Binding IsRequired, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </StackPanel>
 
-        <Border x:Name="InputBorder"
-                Grid.Row="1"
-                HorizontalAlignment="Stretch"
-                Style="{StaticResource ErpInputBorder}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <DatePicker x:Name="InputDatePicker"
-                            Grid.Column="0"
-                            HorizontalAlignment="Stretch"
-                            SelectedDate="{Binding SelectedDate, ElementName=Root, Mode=TwoWay}"
-                            Style="{StaticResource ErpInputDatePickerCore}" />
-                <materialDesign:PackIcon x:Name="SuccessIcon"
-                                         Grid.Column="1"
-                                         Margin="0,0,4,0"
-                                         Style="{StaticResource ErpValidationSuccessIcon}"
-                                         Visibility="Collapsed" />
-                <materialDesign:PackIcon x:Name="ErrorIcon"
-                                         Grid.Column="2"
-                                         Margin="0,0,10,0"
-                                         Style="{StaticResource ErpValidationErrorIcon}"
-                                         Visibility="Collapsed" />
-            </Grid>
-        </Border>
+        <Grid Grid.Row="1" HorizontalAlignment="Stretch">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <controls:ErpGridDatePicker x:Name="InputDatePicker"
+                                        Grid.Column="0"
+                                        HorizontalAlignment="Stretch"
+                                        SelectedDate="{Binding SelectedDate, ElementName=Root, Mode=TwoWay}" />
+            <materialDesign:PackIcon x:Name="SuccessIcon"
+                                     Grid.Column="1"
+                                     Margin="0,0,4,0"
+                                     Style="{StaticResource ErpValidationSuccessIcon}"
+                                     Visibility="Collapsed" />
+            <materialDesign:PackIcon x:Name="ErrorIcon"
+                                     Grid.Column="2"
+                                     Margin="0,0,10,0"
+                                     Style="{StaticResource ErpValidationErrorIcon}"
+                                     Visibility="Collapsed" />
+        </Grid>
 
         <WrapPanel Grid.Row="2" Margin="0,10,0,0">
             <Border x:Name="AgeBadge"

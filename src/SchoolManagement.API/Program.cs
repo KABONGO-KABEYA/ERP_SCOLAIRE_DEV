@@ -188,6 +188,36 @@ if (app.Environment.IsDevelopment())
         scope.ServiceProvider.GetRequiredService<ILogger<SchoolFeeSchemaInitializer>>());
     await schoolFeeSchema.EnsureCreatedAsync();
 
+    var revenueAllocationSchema = new RevenueAllocationSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<RevenueAllocationSchemaInitializer>>());
+    await revenueAllocationSchema.EnsureCreatedAsync();
+
+    var withholdingSchema = new WithholdingSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<WithholdingSchemaInitializer>>());
+    await withholdingSchema.EnsureCreatedAsync();
+
+    var enrollmentPricingSchema = new EnrollmentPricingSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<EnrollmentPricingSchemaInitializer>>());
+    await enrollmentPricingSchema.EnsureCreatedAsync();
+
+    var studentFeeBalanceSchema = new StudentFeeBalanceSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<StudentFeeBalanceSchemaInitializer>>());
+    await studentFeeBalanceSchema.EnsureCreatedAsync();
+
+    var paymentLineSchema = new PaymentLineSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<PaymentLineSchemaInitializer>>());
+    await paymentLineSchema.EnsureCreatedAsync();
+
+    var paymentCashRegisterSchema = new PaymentCashRegisterSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<PaymentCashRegisterSchemaInitializer>>());
+    await paymentCashRegisterSchema.EnsureCreatedAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }

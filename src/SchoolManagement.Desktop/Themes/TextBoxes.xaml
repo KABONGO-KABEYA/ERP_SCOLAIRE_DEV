@@ -60,7 +60,7 @@
 
     <Style x:Key="ERPComboBox" TargetType="ComboBox" BasedOn="{StaticResource ErpComboBox}" />
 
-    <Style x:Key="ErpDatePicker" TargetType="DatePicker" BasedOn="{StaticResource ErpInputDatePickerCore}">
+    <Style x:Key="ErpDatePicker" TargetType="DatePicker" BasedOn="{StaticResource ErpGridDatePicker}">
         <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
         <Setter Property="materialDesign:HintAssist.IsFloating" Value="False" />
     </Style>

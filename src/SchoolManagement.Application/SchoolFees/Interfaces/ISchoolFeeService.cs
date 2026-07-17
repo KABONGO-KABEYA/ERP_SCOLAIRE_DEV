@@ -22,6 +22,9 @@ public interface ISchoolFeeService
 
     Task DeletePricingCategoryAsync(Guid schoolId, Guid categoryId, CancellationToken cancellationToken = default);
 
+    /// <summary>Assure l'existence de la catégorie tarifaire GENERAL pour l'école.</summary>
+    Task<FeePricingCategoryDto> EnsureGeneralPricingCategoryAsync(Guid schoolId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<FeeInstallmentDto>> GetInstallmentsAsync(Guid schoolId, CancellationToken cancellationToken = default);
 
     Task<FeeInstallmentDto> CreateInstallmentAsync(Guid schoolId, SaveFeeInstallmentRequest request, CancellationToken cancellationToken = default);

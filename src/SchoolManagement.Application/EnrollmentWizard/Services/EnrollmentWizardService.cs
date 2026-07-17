@@ -33,6 +33,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
     private readonly IRepository<StudentStatusHistory> _statusHistoryRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
     private readonly ISchoolFeeService _schoolFeeService;
+    private readonly IStudentFeeBalanceProvisioner _feeBalanceProvisioner;
     private readonly IRepository<StudentFeeBalance> _feeBalanceRepository;
     private readonly IRepository<StudentDocument> _studentDocumentRepository;
     private readonly IRepository<GradeEntry> _gradeEntryRepository;
@@ -58,6 +59,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         IRepository<StudentStatusHistory> statusHistoryRepository,
         IRepository<FeeType> feeTypeRepository,
         ISchoolFeeService schoolFeeService,
+        IStudentFeeBalanceProvisioner feeBalanceProvisioner,
         IRepository<StudentFeeBalance> feeBalanceRepository,
         IRepository<StudentDocument> studentDocumentRepository,
         IRepository<GradeEntry> gradeEntryRepository,
@@ -82,6 +84,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         _statusHistoryRepository = statusHistoryRepository;
         _feeTypeRepository = feeTypeRepository;
         _schoolFeeService = schoolFeeService;
+        _feeBalanceProvisioner = feeBalanceProvisioner;
         _feeBalanceRepository = feeBalanceRepository;
         _studentDocumentRepository = studentDocumentRepository;
         _gradeEntryRepository = gradeEntryRepository;
@@ -667,11 +670,13 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             cancellationToken);
 
         var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
+        var generalCategory = await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
         var enrollment = new Enrollment
         {
             StudentId = student.Id,
             AcademicYearId = academicYearId,
             ClassRoomId = request.Scolarite.ClassRoomId,
+            FeePricingCategoryId = generalCategory.Id,
             EnrollmentDate = request.Scolarite.EnrollmentDate,
             Status = enrollmentStatus,
             IsActive = true,
@@ -690,25 +695,36 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             Reason = request.Scolarite.RegistrationKind.ToString()
         }, cancellationToken);
 
-        var feeSummary = request.FeeSummary;
-        var totalDue = 0m;
+        var pedagogicalClassId = classRoom.PedagogicalClassId ?? request.Scolarite.PedagogicalClassId;
+        var feeSummary = await ResolveEnrollmentFeeSummaryAsync(
+            schoolId,
+            academicYearId,
+            pedagogicalClassId,
+            request.FeeSummary,
+            cancellationToken);
 
-        if (feeSummary is { Lines.Count: > 0 })
+        if (!pedagogicalClassId.HasValue)
         {
-            totalDue = feeSummary.TotalDue;
-            foreach (var line in feeSummary.Lines)
-            {
-                await _feeBalanceRepository.AddAsync(new StudentFeeBalance
-                {
-                    StudentId = student.Id,
-                    AcademicYearId = academicYearId,
-                    FeeTypeId = line.FeeTypeId,
-                    AmountDue = line.NetAmount,
-                    AmountPaid = 0,
-                    Currency = feeSummary.Currency
-                }, cancellationToken);
-            }
+            throw new DomainException("La classe pédagogique est obligatoire pour initialiser les frais scolaires.");
         }
+
+        var currency = feeSummary?.Currency
+            ?? (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
+                .FirstOrDefault()?.Currency
+            ?? Currency.CDF;
+
+        var totalDue = await _feeBalanceProvisioner.ProvisionForStudentAsync(
+            schoolId,
+            student.Id,
+            academicYearId,
+            pedagogicalClassId.Value,
+            generalCategory.Id,
+            currency,
+            cancellationToken);
+
+        var balanceLineCount = (await _feeBalanceRepository.FindAsync(
+            b => b.StudentId == student.Id,
+            cancellationToken)).Count;
 
         await PersistDocumentsAsync(
             student.Id,
@@ -723,9 +739,9 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             $"Matricule définitif : {student.RegistrationNumber}",
             "Dossier scolaire et inscription enregistrés",
             "Affectation classe et local confirmée",
-            feeSummary is null
-                ? "Frais scolaires : à traiter séparément (module Paiements)"
-                : "Dossier financier initialisé (frais d'inscription)",
+            balanceLineCount > 0
+                ? $"Dossier financier initialisé ({balanceLineCount} solde(s), dû {totalDue:N2} {currency})"
+                : "Frais scolaires : aucun tarif applicable pour la classe (soldes non créés)",
             "Dossier de présence prêt",
             "Dossier d'examens prêt",
             "Dossier de bulletins prêt",
@@ -759,6 +775,10 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             ? $"{pc.DisplayName} {classRoom.Name}"
             : classRoom.Name;
 
+        var financialMessage = balanceLineCount > 0
+            ? $"Inscription validée. Dossier financier initialisé (dû {totalDue:N2} {currency})."
+            : "Inscription validée. Aucun tarif applicable pour cette classe — configurez les frais scolaires (catégorie GENERAL) pour cette classe.";
+
         return new CompleteEnrollmentResultDto(
             student.Id,
             enrollment.Id,
@@ -766,10 +786,31 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             $"{student.LastName} {student.FirstName}",
             className,
             totalDue,
-            (feeSummary is null
-                ? "Dossier élève enregistré. Les frais scolaires seront traités séparément dans le module Paiements."
-                : "Inscription validée. Dossiers scolaire, financier, présence, examens, bulletins et disciplinaire initialisés.")
-            + ficheMessage);
+            financialMessage + ficheMessage);
+    }
+
+    private async Task<EnrollmentFeeSummaryDto?> ResolveEnrollmentFeeSummaryAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        Guid? pedagogicalClassId,
+        EnrollmentFeeSummaryDto? requestedSummary,
+        CancellationToken cancellationToken)
+    {
+        if (requestedSummary is { Lines.Count: > 0 })
+        {
+            return requestedSummary;
+        }
+
+        if (!pedagogicalClassId.HasValue)
+        {
+            return null;
+        }
+
+        return await CalculateFeesAsync(
+            schoolId,
+            pedagogicalClassId,
+            academicYearId,
+            cancellationToken: cancellationToken);
     }
 
     private async Task PersistDocumentsAsync(

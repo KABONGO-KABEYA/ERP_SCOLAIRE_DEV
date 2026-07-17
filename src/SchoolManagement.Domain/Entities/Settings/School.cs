@@ -320,6 +320,10 @@ public class Bank : AuditableEntity, IAggregateRoot
     public School School { get; set; } = null!;
 }
 
+/// <summary>
+/// Caisse — table dépréciée / non utilisée par le produit (historique uniquement).
+/// Les encaissements n'écrivent plus de CashRegisterId.
+/// </summary>
 public class CashRegister : AuditableEntity, IAggregateRoot
 {
     public Guid SchoolId { get; set; }

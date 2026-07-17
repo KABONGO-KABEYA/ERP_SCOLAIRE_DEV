@@ -114,6 +114,20 @@ public enum PaymentStatus
     Rembourse = 4
 }
 
+/// <summary>Mode de calcul d'une ligne de clé de répartition des recettes.</summary>
+public enum AllocationCalculationType
+{
+    Pourcentage = 1,
+    MontantFixe = 2
+}
+
+/// <summary>Mode de calcul d'une retenue sur encaissement.</summary>
+public enum WithholdingCalculationMode
+{
+    Pourcentage = 1,
+    MontantFixe = 2
+}
+
 public enum AcademicPeriodType
 {
     Trimestre = 1,

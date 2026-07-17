@@ -179,4 +179,9 @@ public partial class ErpGridDatePicker
         OpenCalendarButton.IsEnabled = !IsReadOnly;
         HostBorder.Opacity = IsReadOnly ? 0.75 : 1;
     }
+
+    public void ApplyBorderBrush(System.Windows.Media.Brush brush)
+    {
+        HostBorder.BorderBrush = brush;
+    }
 }

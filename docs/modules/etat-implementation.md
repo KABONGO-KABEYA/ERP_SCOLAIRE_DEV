@@ -152,7 +152,7 @@ Gérer le cycle de vie des élèves : inscription, réinscription, modification 
 
 | Élément | Statut |
 |---------|--------|
-| Frais à l'inscription dans le wizard Desktop | API OK, UI envoie `FeeSummary: null` |
+| Frais à l'inscription dans le wizard Desktop | ✅ Soldes créés automatiquement à la validation (`StudentFeeBalance`) |
 | Archivage élève | API + VM présents, pas de bouton UI |
 | Brouillon wizard | Message local uniquement, pas de persistance serveur |
 | `StudentEditWindow` | Legacy, remplacé par `StudentDossierEditWindow` |
@@ -595,9 +595,10 @@ concaténées, ordonnées par `SortOrder`.
 
 ### 6.9 Intégration inscription
 
-- **`CalculateFeesAsync`** — somme tranches par type actif pour la classe
-- **`CompleteAsync`** — crée `StudentFeeBalance` par type (si `FeeSummary` fourni)
-- Desktop wizard : envoie `FeeSummary: null` (module Paiements à brancher)
+- **`CalculateFeesAsync`** — somme des tranches par type actif pour la classe (catégorie tarifaire `GENERAL` si présente, sinon 1re catégorie active)
+- **`CompleteAsync`** — calcule les frais côté serveur si `FeeSummary` absente, puis crée/met à jour les `StudentFeeBalance` (dû = net, payé = 0)
+- Desktop wizard : appelle `CalculateFees` avant validation ; le mobile et tout client sans `FeeSummary` restent couverts par le serveur
+- Prérequis : grilles tarifaires configurées pour la classe et l'année courante (module Frais scolaires)
 
 ### 6.10 Données initiales (seed)
 

@@ -63,7 +63,7 @@ public partial class ShellViewModel : ViewModelBase
             new ModuleNavItem("Élèves", "AccountGroup", typeof(StudentsViewModel)),
             new ModuleNavItem("Académique", "School", typeof(AcademicViewModel)),
             new ModuleNavItem("Notes", "ClipboardText", typeof(GradesViewModel)),
-            new ModuleNavItem("Financier", "Cash", typeof(PaymentsViewModel)),
+            new ModuleNavItem("Financier", "Cash", typeof(FinanceHubViewModel)),
             new ModuleNavItem("Documents", "FileDocument", typeof(DocumentsViewModel)),
             new ModuleNavItem("Statistiques", "ChartBar", typeof(StatisticsViewModel))
         ];

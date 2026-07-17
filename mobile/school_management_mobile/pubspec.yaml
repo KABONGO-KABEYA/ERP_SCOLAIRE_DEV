@@ -1,5 +1,5 @@
 name: school_management_mobile
-description: Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction, Secrétariat).
+description: Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction, Promoteur, Secrétariat).
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  fl_chart: ^0.69.2
   intl: any
   flutter_riverpod: ^2.6.1
   riverpod_annotation: ^2.6.1

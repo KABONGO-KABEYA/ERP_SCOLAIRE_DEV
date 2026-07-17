@@ -36,8 +36,21 @@ public partial class LoginWindow : Window
         LoginRootGrid.SizeChanged += (_, _) => UpdateRightPanelClip();
         RightPanelHost.SizeChanged += (_, _) => UpdateRightPanelClip();
 
-        LeftPanelHost.BeginStoryboard((Storyboard)FindResource("LoginLeftFadeInStoryboard"), HandoffBehavior.SnapshotAndReplace);
-        RightPanelHost.BeginStoryboard((Storyboard)FindResource("LoginRightSlideInStoryboard"), HandoffBehavior.SnapshotAndReplace);
+        try
+        {
+            LeftPanelHost.BeginStoryboard((Storyboard)FindResource("LoginLeftFadeInStoryboard"), HandoffBehavior.SnapshotAndReplace);
+            RightPanelHost.BeginStoryboard((Storyboard)FindResource("LoginRightSlideInStoryboard"), HandoffBehavior.SnapshotAndReplace);
+        }
+        catch
+        {
+            // Préserve le design visible si l'animation échoue.
+            LeftPanelHost.Opacity = 1;
+            RightPanelHost.Opacity = 1;
+            if (RightPanelHost.RenderTransform is TranslateTransform slide)
+            {
+                slide.X = 0;
+            }
+        }
     }
 
     private void UpdateRightPanelClip()

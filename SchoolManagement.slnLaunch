@@ -1,0 +1,33 @@
+[
+  {
+    "Name": "API + Desktop",
+    "Projects": [
+      {
+        "Path": "src\\SchoolManagement.API\\SchoolManagement.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\SchoolManagement.Desktop\\SchoolManagement.Desktop.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "API seule",
+    "Projects": [
+      {
+        "Path": "src\\SchoolManagement.API\\SchoolManagement.API.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "Desktop seul",
+    "Projects": [
+      {
+        "Path": "src\\SchoolManagement.Desktop\\SchoolManagement.Desktop.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

@@ -24,6 +24,7 @@ public sealed class ReportService : IReportService
     private readonly IRepository<AcademicPeriod> _periodRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<StudentFeeBalance> _balanceRepository;
+    private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
 
     public ReportService(
         IRepository<Student> studentRepository,
@@ -36,7 +37,8 @@ public sealed class ReportService : IReportService
         IRepository<PeriodResult> periodResultRepository,
         IRepository<AcademicPeriod> periodRepository,
         IRepository<AcademicYear> yearRepository,
-        IRepository<StudentFeeBalance> balanceRepository)
+        IRepository<StudentFeeBalance> balanceRepository,
+        IRepository<ClassFeeAmount> classFeeAmountRepository)
     {
         _studentRepository = studentRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -49,6 +51,7 @@ public sealed class ReportService : IReportService
         _periodRepository = periodRepository;
         _yearRepository = yearRepository;
         _balanceRepository = balanceRepository;
+        _classFeeAmountRepository = classFeeAmountRepository;
     }
 
     public async Task<DashboardStatsDto> GetDashboardAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -179,16 +182,31 @@ public sealed class ReportService : IReportService
         var balances = await _balanceRepository.FindAsync(_ => true, cancellationToken);
         if (academicYearId.HasValue)
         {
-            balances = balances.Where(b => b.AcademicYearId == academicYearId.Value).ToList();
+            var yearTariffIds = (await _classFeeAmountRepository.FindAsync(
+                a => a.AcademicYearId == academicYearId.Value,
+                cancellationToken)).Select(a => a.Id).ToHashSet();
+            balances = balances.Where(b => yearTariffIds.Contains(b.ClassFeeAmountId)).ToList();
         }
 
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
         var studentIds = students.Select(s => s.Id).ToHashSet();
         balances = balances.Where(b => studentIds.Contains(b.StudentId)).ToList();
 
-        var debtorCount = balances.Count(b => b.AmountPaid < b.AmountDue);
-        var upToDateCount = balances.Count(b => b.AmountPaid >= b.AmountDue && b.AmountDue > 0);
-        var partialCount = balances.Count(b => b.AmountPaid > 0 && b.AmountPaid < b.AmountDue);
+        // Agrège par élève pour les compteurs (un élève = un statut global sur l'année).
+        var byStudent = balances.GroupBy(b => b.StudentId).ToList();
+        var debtorCount = byStudent.Count(g => g.Sum(b => b.AmountPaid) < g.Sum(b => b.AmountDue));
+        var upToDateCount = byStudent.Count(g =>
+        {
+            var due = g.Sum(b => b.AmountDue);
+            var paid = g.Sum(b => b.AmountPaid);
+            return paid >= due && due > 0;
+        });
+        var partialCount = byStudent.Count(g =>
+        {
+            var due = g.Sum(b => b.AmountDue);
+            var paid = g.Sum(b => b.AmountPaid);
+            return paid > 0 && paid < due;
+        });
 
         return new FinancialSummaryDto(
             validated.Sum(p => p.TotalAmount),

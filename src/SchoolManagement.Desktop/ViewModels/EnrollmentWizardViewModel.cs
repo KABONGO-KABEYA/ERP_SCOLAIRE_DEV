@@ -936,7 +936,8 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
             }
 
             await UploadPendingFilesAsync();
-            var request = BuildRequest();
+            var feeSummary = await TryLoadEnrollmentFeeSummaryAsync();
+            var request = BuildRequest(feeSummary);
 
             if (IsModificationMode)
             {
@@ -1865,7 +1866,25 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
         }
     }
 
-    private CompleteEnrollmentRequest BuildRequest()
+    private async Task<EnrollmentFeeSummaryDto?> TryLoadEnrollmentFeeSummaryAsync()
+    {
+        if (SelectedClass?.PedagogicalClassId is not Guid pedagogicalClassId)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _wizardApi.CalculateFeesAsync(pedagogicalClassId, AcademicYearId);
+        }
+        catch
+        {
+            // Le serveur recalcule aussi à la validation — ne pas bloquer l'inscription.
+            return null;
+        }
+    }
+
+    private CompleteEnrollmentRequest BuildRequest(EnrollmentFeeSummaryDto? feeSummary = null)
     {
         var guardians = BuildGuardians();
         var docs = Documents.Select(d => new EnrollmentDocumentStatusDto(
@@ -1904,7 +1923,7 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
                 string.IsNullOrWhiteSpace(PermanentNumber) ? null : PermanentNumber.Trim()),
             guardians,
             docs,
-            null,
+            feeSummary,
             ConfirmAccuracy);
     }
 

@@ -24,7 +24,9 @@ public partial class SettingsViewModel : ViewModelBase
         IGeographyApiService geographyApiService,
         DocumentBrandingViewModel documentBranding,
         GeographyAdminViewModel geographyAdmin,
-        SchoolFeeConfigurationViewModel schoolFeeConfiguration)
+        SchoolFeeConfigurationViewModel schoolFeeConfiguration,
+        RevenueAllocationConfigViewModel revenueAllocationConfig,
+        WithholdingConfigViewModel withholdingConfig)
     {
         _schoolApiService = schoolApiService;
         _academicApiService = academicApiService;
@@ -33,6 +35,8 @@ public partial class SettingsViewModel : ViewModelBase
         DocumentBranding = documentBranding;
         GeographyAdmin = geographyAdmin;
         SchoolFeeConfiguration = schoolFeeConfiguration;
+        RevenueAllocationConfig = revenueAllocationConfig;
+        WithholdingConfig = withholdingConfig;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         NewTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
@@ -61,6 +65,8 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Structure pédagogique / Classes", "GoogleClassroom", SettingsSection.StructurePedagogique),
                     new SettingsNodeViewModel("Années scolaires", "CalendarRange", SettingsSection.AnneesScolaires),
                     new SettingsNodeViewModel("Frais scolaires", "CashMultiple", SettingsSection.FraisScolaires),
+                    new SettingsNodeViewModel("Répartition des recettes", "ChartPie", SettingsSection.RepartitionRecettes),
+                    new SettingsNodeViewModel("Retenues", "PercentOutline", SettingsSection.Retenues),
                     new SettingsNodeViewModel("Matières", "BookEducation", SettingsSection.Matieres),
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
@@ -266,6 +272,10 @@ public partial class SettingsViewModel : ViewModelBase
 
     public SchoolFeeConfigurationViewModel SchoolFeeConfiguration { get; }
 
+    public RevenueAllocationConfigViewModel RevenueAllocationConfig { get; }
+
+    public WithholdingConfigViewModel WithholdingConfig { get; }
+
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
 
     public bool IsEtablissementSelected => SelectedSettingsNode?.Section == SettingsSection.Etablissement;
@@ -276,7 +286,15 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsFraisScolairesSelected => SelectedSettingsNode?.Section == SettingsSection.FraisScolaires;
 
-    public bool IsScrollableSettingsContent => !IsStructurePedagogiqueSelected && !IsFraisScolairesSelected;
+    public bool IsRepartitionRecettesSelected => SelectedSettingsNode?.Section == SettingsSection.RepartitionRecettes;
+
+    public bool IsRetenuesSelected => SelectedSettingsNode?.Section == SettingsSection.Retenues;
+
+    public bool IsScrollableSettingsContent =>
+        !IsStructurePedagogiqueSelected
+        && !IsFraisScolairesSelected
+        && !IsRepartitionRecettesSelected
+        && !IsRetenuesSelected;
 
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
 
@@ -299,6 +317,8 @@ public partial class SettingsViewModel : ViewModelBase
     public string SelectedSectionDescription => ActiveNavKey switch
     {
         "frais-scolaires" => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
+        "repartition-recettes" => "Destinations financières et clés de répartition par année scolaire.",
+        "retenues" => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
         _ => SelectedSettingsNode?.Section switch
         {
             SettingsSection.Etablissement => "Informations générales, logos, en-têtes, signatures et identité documentaire de l'établissement.",
@@ -306,6 +326,8 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.StructurePedagogique => "Activez uniquement les classes réellement organisées dans l'établissement. Toute la structure officielle RDC est déjà présente dans le système.",
             SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
             SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
+            SettingsSection.RepartitionRecettes => "Destinations financières et clés de répartition par année scolaire.",
+            SettingsSection.Retenues => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
             SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
             SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
@@ -316,6 +338,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     public void ApplyNavigation(SettingsNavItem item)
     {
+        var isSameSection = string.Equals(ActiveNavKey, item.Key, StringComparison.Ordinal);
         ActiveNavKey = item.Key;
         ActiveNavTitle = item.Title;
 
@@ -335,9 +358,21 @@ public partial class SettingsViewModel : ViewModelBase
             SelectedSettingsNode = null;
         }
 
-        if (item.Key == "frais-scolaires")
+        // Évite le double chargement (Shell Apply + SettingsView via bridge.Select).
+        if (!isSameSection)
         {
-            SchoolFeeConfiguration.LoadCommand.Execute(null);
+            if (item.Key == "frais-scolaires")
+            {
+                SchoolFeeConfiguration.LoadCommand.Execute(null);
+            }
+            else if (item.Key == "repartition-recettes")
+            {
+                RevenueAllocationConfig.LoadCommand.Execute(null);
+            }
+            else if (item.Key == "retenues")
+            {
+                WithholdingConfig.LoadCommand.Execute(null);
+            }
         }
 
         OnPropertyChanged(nameof(ActiveNavKey));
@@ -345,6 +380,8 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedSectionTitle));
         OnPropertyChanged(nameof(SelectedSectionDescription));
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
+        OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
+        OnPropertyChanged(nameof(IsRetenuesSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
 
@@ -409,6 +446,8 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsStructurePedagogiqueSelected));
         OnPropertyChanged(nameof(IsAnneesScolairesSelected));
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
+        OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
+        OnPropertyChanged(nameof(IsRetenuesSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsGeographieSelected));
@@ -1364,7 +1403,9 @@ public enum SettingsSection
     Matieres = 6,
     Geographie = 9,
     Utilisateurs = 7,
-    Enseignants = 8
+    Enseignants = 8,
+    RepartitionRecettes = 10,
+    Retenues = 11
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

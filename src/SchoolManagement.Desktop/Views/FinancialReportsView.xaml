@@ -1,0 +1,27 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.FinancialReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Grid Margin="0" Style="{StaticResource ErpFadeIn}">
+        <Border Padding="32"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12"
+                VerticalAlignment="Top">
+            <StackPanel HorizontalAlignment="Center" MaxWidth="520">
+                <materialDesign:PackIcon Width="48"
+                                         Height="48"
+                                         HorizontalAlignment="Center"
+                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                         Kind="FileChartOutline" />
+                <TextBlock Margin="0,16,0,0"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource ErpBodySecondary}"
+                           Text="{Binding StatusMessage}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

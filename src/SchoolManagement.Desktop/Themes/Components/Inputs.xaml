@@ -70,17 +70,7 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
-    <Style x:Key="ErpInputDatePickerCore" TargetType="DatePicker">
-        <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="Height" Value="{StaticResource ErpInputHeight}" />
-        <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
+    <Style x:Key="ErpInputDatePickerCore" TargetType="DatePicker" BasedOn="{StaticResource ErpGridDatePicker}" />
 
     <Style x:Key="ErpValidationSuccessIcon" TargetType="materialDesign:PackIcon">
         <Setter Property="Kind" Value="CheckCircle" />

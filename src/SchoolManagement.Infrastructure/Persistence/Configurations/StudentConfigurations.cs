@@ -69,10 +69,12 @@ public class EnrollmentConfiguration : AuditableEntityConfiguration<Enrollment>
         builder.HasOne(e => e.Student).WithMany(s => s.Enrollments).HasForeignKey(e => e.StudentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.AcademicYear).WithMany().HasForeignKey(e => e.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.ClassRoom).WithMany().HasForeignKey(e => e.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.FeePricingCategory).WithMany().HasForeignKey(e => e.FeePricingCategoryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(e => new { e.StudentId, e.AcademicYearId, e.IsActive })
             .IsUnique()
             .HasFilter("[IsActive] = 1 AND [IsDeleted] = 0");
         builder.HasIndex(e => new { e.AcademicYearId, e.ClassRoomId });
+        builder.HasIndex(e => new { e.AcademicYearId, e.FeePricingCategoryId });
     }
 }
 

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Design system ERP Scolaire RDC — aligné sur le Desktop WPF.
 abstract final class ErpColors {
-  static const primary = Color(0xFF1E5EFF);
+  static const navy = Color(0xFF0B1F47);
+  static const primary = Color(0xFF1D4ED8);
+  static const primaryLegacy = Color(0xFF1E5EFF);
   static const sidebar = Color(0xFF0F1F3D);
   static const pageBackground = Color(0xFFF5F7FB);
   static const card = Color(0xFFFFFFFF);

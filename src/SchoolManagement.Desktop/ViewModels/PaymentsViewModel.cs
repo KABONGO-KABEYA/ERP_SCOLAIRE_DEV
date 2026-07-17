@@ -41,7 +41,6 @@ public partial class PaymentsViewModel : ViewModelBase
         }
     }
 
-    [ObservableProperty] private CashRegisterLookupDto? _selectedCashRegister;
     [ObservableProperty] private AcademicYearDto? _selectedYear;
     [ObservableProperty] private decimal _amount;
     [ObservableProperty] private Currency _currency = Currency.CDF;
@@ -56,7 +55,6 @@ public partial class PaymentsViewModel : ViewModelBase
         {
             Lookups = await _schoolApiService.GetLookupsAsync();
             SelectedYear = Lookups.AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? Lookups.AcademicYears.FirstOrDefault();
-            SelectedCashRegister = Lookups.CashRegisters.FirstOrDefault();
             SelectedFeeType = Lookups.FeeTypes.FirstOrDefault();
 
             var students = await _studentApiService.SearchAsync(new StudentSearchRequest(
@@ -89,7 +87,7 @@ public partial class PaymentsViewModel : ViewModelBase
     [RelayCommand]
     private async Task RecordPaymentAsync()
     {
-        if (SelectedStudent is null || SelectedFeeType is null || SelectedCashRegister is null || SelectedYear is null || Amount <= 0)
+        if (SelectedStudent is null || SelectedFeeType is null || SelectedYear is null || Amount <= 0)
         {
             StatusMessage = "Complétez tous les champs du paiement.";
             return;
@@ -101,10 +99,8 @@ public partial class PaymentsViewModel : ViewModelBase
             await _paymentApiService.CreateAsync(new CreatePaymentRequest(
                 SelectedStudent.Id,
                 SelectedYear.Id,
-                SelectedCashRegister.Id,
                 null,
                 Currency,
-                "Cash",
                 null,
                 [new PaymentLineRequest(SelectedFeeType.Id, Amount, Currency, SelectedFeeType.Name)]));
 

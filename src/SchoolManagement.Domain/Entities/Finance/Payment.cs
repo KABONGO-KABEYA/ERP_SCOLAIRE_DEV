@@ -13,7 +13,8 @@ public class Payment : AuditableEntity, IAggregateRoot
 
     public Guid AcademicYearId { get; set; }
 
-    public Guid CashRegisterId { get; set; }
+    /// <summary>Deprecated — caisse non gérée ; rester nullable pour l'historique.</summary>
+    public Guid? CashRegisterId { get; set; }
 
     public Guid? BankId { get; set; }
 
@@ -27,7 +28,8 @@ public class Payment : AuditableEntity, IAggregateRoot
 
     public PaymentStatus Status { get; set; } = PaymentStatus.Complet;
 
-    public string PaymentMethod { get; set; } = "Cash";
+    /// <summary>Deprecated — mode de paiement retiré du produit ; nullable pour l'historique.</summary>
+    public string? PaymentMethod { get; set; }
 
     public string? Notes { get; set; }
 
@@ -37,7 +39,7 @@ public class Payment : AuditableEntity, IAggregateRoot
 
     public AcademicYear AcademicYear { get; set; } = null!;
 
-    public CashRegister CashRegister { get; set; } = null!;
+    public CashRegister? CashRegister { get; set; }
 
     public Bank? Bank { get; set; }
 
@@ -52,15 +54,21 @@ public class PaymentLine : AuditableEntity
 
     public Guid FeeTypeId { get; set; }
 
+    public Guid? FeeInstallmentId { get; set; }
+
     public decimal Amount { get; set; }
 
     public Currency Currency { get; set; } = Currency.CDF;
 
     public string? Description { get; set; }
 
+    public string? PhysicalReceiptNumber { get; set; }
+
     public Payment Payment { get; set; } = null!;
 
     public FeeType FeeType { get; set; } = null!;
+
+    public FeeInstallment? FeeInstallment { get; set; }
 }
 
 public class PaymentReversal : AuditableEntity, IAggregateRoot
@@ -82,7 +90,8 @@ public class PaymentReversal : AuditableEntity, IAggregateRoot
 
 public class CashMovement : AuditableEntity, IAggregateRoot
 {
-    public Guid CashRegisterId { get; set; }
+    /// <summary>Deprecated — mouvements caisse non créés sans registre ; nullable pour l'historique.</summary>
+    public Guid? CashRegisterId { get; set; }
 
     public Guid? PaymentId { get; set; }
 
@@ -100,19 +109,23 @@ public class CashMovement : AuditableEntity, IAggregateRoot
 
     public Guid? UserId { get; set; }
 
-    public CashRegister CashRegister { get; set; } = null!;
+    public CashRegister? CashRegister { get; set; }
 
     public Payment? Payment { get; set; }
 }
 
+/// <summary>
+/// État financier d'un élève pour une ligne de tarif configurée (<see cref="ClassFeeAmount"/>).
+/// <see cref="AmountDue"/> est figé à la création (historique) et ne doit plus suivre les changements de tarif.
+/// </summary>
 public class StudentFeeBalance : AuditableEntity, IAggregateRoot
 {
     public Guid StudentId { get; set; }
 
-    public Guid AcademicYearId { get; set; }
+    /// <summary>Référence principale vers la configuration officielle (année, classe, catégorie, type, tranche).</summary>
+    public Guid ClassFeeAmountId { get; set; }
 
-    public Guid FeeTypeId { get; set; }
-
+    /// <summary>Montant attendu figé à la génération du solde (copie historique du tarif).</summary>
     public decimal AmountDue { get; set; }
 
     public decimal AmountPaid { get; set; }
@@ -121,5 +134,5 @@ public class StudentFeeBalance : AuditableEntity, IAggregateRoot
 
     public Student Student { get; set; } = null!;
 
-    public FeeType FeeType { get; set; } = null!;
+    public ClassFeeAmount ClassFeeAmount { get; set; } = null!;
 }

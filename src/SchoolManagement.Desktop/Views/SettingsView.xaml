@@ -144,10 +144,12 @@
                                     <DatePicker Width="150"
                                                 Margin="4"
                                                 SelectedDate="{Binding NewAcademicYearStartDate}"
+                                                Style="{StaticResource ErpDatePicker}"
                                                 materialDesign:HintAssist.Hint="Date de début" />
                                     <DatePicker Width="150"
                                                 Margin="4"
                                                 SelectedDate="{Binding NewAcademicYearEndDate}"
+                                                Style="{StaticResource ErpDatePicker}"
                                                 materialDesign:HintAssist.Hint="Date de fin" />
                                     <CheckBox Margin="8,8,8,0"
                                               VerticalAlignment="Center"
@@ -517,6 +519,22 @@
             <controls:SchoolFeeConfigurationControl HorizontalAlignment="Stretch"
                                                       VerticalAlignment="Stretch"
                                                       DataContext="{Binding SchoolFeeConfiguration}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsRepartitionRecettesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:RevenueAllocationConfigControl HorizontalAlignment="Stretch"
+                                                       VerticalAlignment="Stretch"
+                                                       DataContext="{Binding RevenueAllocationConfig}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsRetenuesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:WithholdingConfigControl HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Stretch"
+                                               DataContext="{Binding WithholdingConfig}" />
         </Grid>
 
         <views:PedagogicalStructureWizardControl Grid.Row="0"

@@ -1,0 +1,28 @@
+namespace SchoolManagement.Application.Finance.Interfaces;
+
+using SchoolManagement.Application.Finance.DTOs;
+
+public interface IFinanceOperationService
+{
+    Task<StudentPaymentSituationSearchResultDto> SearchPaymentSituationsAsync(
+        Guid schoolId,
+        StudentPaymentSituationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentInstallmentPaymentPlanDto> GetInstallmentPaymentPlanAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentPricingAssignmentSearchResultDto> SearchPricingAssignmentsAsync(
+        Guid schoolId,
+        StudentPricingAssignmentSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentPricingAssignmentDto> UpdateEnrollmentPricingCategoryAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        UpdateEnrollmentPricingCategoryRequest request,
+        CancellationToken cancellationToken = default);
+}

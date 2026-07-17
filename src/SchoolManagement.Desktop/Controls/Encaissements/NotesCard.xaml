@@ -1,0 +1,20 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.Encaissements.NotesCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Border Style="{StaticResource ErpCard}" Padding="20">
+        <StackPanel>
+            <TextBlock Margin="0,0,0,10"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       Text="Notes (optionnel)" />
+            <TextBox MinHeight="100"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     materialDesign:HintAssist.Hint="Ajouter une remarque si nécessaire..."
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                     Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+    </Border>
+</UserControl>

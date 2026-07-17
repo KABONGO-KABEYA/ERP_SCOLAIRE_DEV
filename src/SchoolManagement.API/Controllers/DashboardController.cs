@@ -1,0 +1,113 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Dashboard.DTOs;
+using SchoolManagement.Application.Dashboard.Interfaces;
+using SchoolManagement.Shared.Constants;
+using SchoolManagement.Shared.Models;
+
+namespace SchoolManagement.API.Controllers;
+
+[ApiController]
+[Authorize]
+[Route(ApiRoutes.Dashboard)]
+public sealed class DashboardController : ControllerBase
+{
+    private readonly IPromoterDashboardService _dashboard;
+    private readonly ICurrentUserService _currentUser;
+
+    public DashboardController(IPromoterDashboardService dashboard, ICurrentUserService currentUser)
+    {
+        _dashboard = dashboard;
+        _currentUser = currentUser;
+    }
+
+    [HttpGet("overview")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<PromoterDashboardOverviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOverview(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        [FromQuery] RevenueGranularity granularity = RevenueGranularity.Daily,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetOverviewAsync(schoolId, period, granularity, cancellationToken);
+        return Ok(ApiResponse<PromoterDashboardOverviewDto>.Ok(data));
+    }
+
+    [HttpGet("summary")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<PromoterFinancialSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSummary(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetSummaryAsync(schoolId, period, cancellationToken);
+        return Ok(ApiResponse<PromoterFinancialSummaryDto>.Ok(data));
+    }
+
+    [HttpGet("revenue")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RevenuePointDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRevenue(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        [FromQuery] RevenueGranularity granularity = RevenueGranularity.Daily,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetRevenueSeriesAsync(schoolId, period, granularity, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<RevenuePointDto>>.Ok(data));
+    }
+
+    [HttpGet("repartition")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<NamedAmountShareDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRepartition(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetFeeTypeRepartitionAsync(schoolId, period, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<NamedAmountShareDto>>.Ok(data));
+    }
+
+    [HttpGet("distribution")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<FundAllocationShareDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDistribution(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetFundDistributionAsync(schoolId, period, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<FundAllocationShareDto>>.Ok(data));
+    }
+
+    [HttpGet("activities")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardActivityDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetActivities(
+        [FromQuery] int take = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetActivitiesAsync(schoolId, take, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardActivityDto>>.Ok(data));
+    }
+
+    [HttpGet("alerts")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardAlertDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAlerts(
+        [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetAlertsAsync(schoolId, period, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardAlertDto>>.Ok(data));
+    }
+
+    private Guid RequireSchoolId() =>
+        _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+}

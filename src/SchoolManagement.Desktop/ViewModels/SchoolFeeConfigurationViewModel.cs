@@ -255,16 +255,16 @@ public partial class SchoolFeeConfigurationViewModel : ViewModelBase
         {
             await ReloadCatalogAsync(reloadSchedule: false);
 
+            var selectedYearId = SelectedAcademicYear?.Id;
             AcademicYears.Clear();
-            var years = await _schoolApiService.GetAcademicYearsAsync();
-            foreach (var year in years
-                         .GroupBy(y => y.Id)
-                         .Select(g => g.First())
-                         .OrderByDescending(y => y.StartDate))
+            foreach (var year in DistinctAcademicYears(await _schoolApiService.GetAcademicYearsAsync()))
             {
                 AcademicYears.Add(year);
             }
 
+            SelectedAcademicYear = selectedYearId.HasValue
+                ? AcademicYears.FirstOrDefault(y => y.Id == selectedYearId.Value)
+                : null;
             SelectedAcademicYear ??= AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
 
             _allPedagogicalClasses.Clear();
@@ -469,16 +469,26 @@ public partial class SchoolFeeConfigurationViewModel : ViewModelBase
             return;
         }
 
-        var selectedClassIds = FilteredClasses.Where(c => c.IsSelected).Select(c => c.Id).ToList();
-        if (selectedClassIds.Count == 0)
+        var previousYear = GetPreviousAcademicYear();
+        if (previousYear is null)
         {
-            StatusMessage = "Sélectionnez au moins une classe.";
+            StatusMessage = "Aucune année scolaire précédente disponible.";
             return;
         }
 
         IsBusy = true;
         try
         {
+            var previousSignatures = await FetchScheduleSignaturesForYearAsync(previousYear.Id);
+            var adjustedSelection = EnforceCompatibleClassSelectionForSignatures(previousSignatures);
+
+            var selectedClassIds = FilteredClasses.Where(c => c.IsSelected).Select(c => c.Id).ToList();
+            if (selectedClassIds.Count == 0)
+            {
+                StatusMessage = "Sélectionnez au moins une classe partageant la même configuration tarifaire que l'année précédente.";
+                return;
+            }
+
             if (selectedClassIds.Count == 1)
             {
                 var result = await _schoolFeeApi.CopyScheduleFromPreviousAsync(new CopyClassFeeScheduleRequest(
@@ -498,6 +508,13 @@ public partial class SchoolFeeConfigurationViewModel : ViewModelBase
                     SelectedFeeType.Id));
 
                 StatusMessage = $"{result.CopiedCount} montant(s) reporté(s) pour {result.ClassCount} classe(s) depuis {result.SourceYearLabel}.";
+            }
+
+            if (adjustedSelection)
+            {
+                SetStatus(
+                    $"{StatusMessage} Seules les classes partageant la même configuration tarifaire ({previousYear.Label}) ont été conservées.",
+                    FeeStatusMessageKind.Info);
             }
 
             await RefreshScheduleSignaturesAndLoadAsync();
@@ -1029,6 +1046,80 @@ public partial class SchoolFeeConfigurationViewModel : ViewModelBase
         NotifyClassSelectionChanged();
         UpdateClassSelectionCompatibility();
         _ = LoadScheduleAsync();
+    }
+
+    private static IEnumerable<AcademicYearDto> DistinctAcademicYears(IEnumerable<AcademicYearDto> years) =>
+        years
+            .GroupBy(y => y.Id)
+            .Select(g => g.First())
+            .GroupBy(y => y.Label.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(y => y.IsCurrent).ThenByDescending(y => y.StartDate).First())
+            .OrderByDescending(y => y.StartDate);
+
+    private AcademicYearDto? GetPreviousAcademicYear()
+    {
+        if (SelectedAcademicYear is null)
+        {
+            return null;
+        }
+
+        return AcademicYears
+            .Where(y => y.Id != SelectedAcademicYear.Id && y.StartDate < SelectedAcademicYear.StartDate)
+            .OrderByDescending(y => y.StartDate)
+            .FirstOrDefault();
+    }
+
+    private async Task<Dictionary<Guid, ClassScheduleSignatureInfo>> FetchScheduleSignaturesForYearAsync(Guid academicYearId)
+    {
+        var signatures = new Dictionary<Guid, ClassScheduleSignatureInfo>();
+
+        if (SelectedFeeType is null || SelectedPricingCategory is null)
+        {
+            return signatures;
+        }
+
+        var items = await _schoolFeeApi.GetScheduleSignaturesAsync(
+            academicYearId,
+            SelectedPricingCategory.Id,
+            SelectedFeeType.Id);
+
+        foreach (var item in items)
+        {
+            signatures[item.PedagogicalClassId] = new ClassScheduleSignatureInfo(
+                item.Signature,
+                item.IsConfigured);
+        }
+
+        return signatures;
+    }
+
+    private bool EnforceCompatibleClassSelectionForSignatures(IReadOnlyDictionary<Guid, ClassScheduleSignatureInfo> signatures)
+    {
+        var selected = FilteredClasses.Where(c => c.IsSelected).ToList();
+        if (selected.Count <= 1)
+        {
+            return false;
+        }
+
+        static string GetSignature(IReadOnlyDictionary<Guid, ClassScheduleSignatureInfo> map, Guid classId) =>
+            map.TryGetValue(classId, out var info) ? info.Signature : string.Empty;
+
+        var anchorSignature = GetSignature(signatures, selected[0].Id);
+        var adjusted = false;
+        _isRefreshingClassSelection = true;
+        foreach (var item in selected.Skip(1))
+        {
+            if (!string.Equals(GetSignature(signatures, item.Id), anchorSignature, StringComparison.Ordinal))
+            {
+                item.IsSelected = false;
+                adjusted = true;
+            }
+        }
+
+        _isRefreshingClassSelection = false;
+        NotifyClassSelectionChanged();
+        UpdateClassSelectionCompatibility();
+        return adjusted;
     }
 
     private async Task RefreshScheduleSignaturesAndLoadAsync()

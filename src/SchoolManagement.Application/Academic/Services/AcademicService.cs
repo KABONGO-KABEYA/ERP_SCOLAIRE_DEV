@@ -3,6 +3,7 @@ namespace SchoolManagement.Application.Academic.Services;
 using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Academic.Interfaces;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -18,6 +19,8 @@ public sealed class AcademicService : IAcademicService
     private readonly IRepository<Course> _courseRepository;
     private readonly IRepository<Enrollment> _enrollmentRepository;
     private readonly IRepository<Student> _studentRepository;
+    private readonly ISchoolFeeService _schoolFeeService;
+    private readonly IStudentFeeBalanceProvisioner _feeBalanceProvisioner;
     private readonly IUnitOfWork _unitOfWork;
 
     public AcademicService(
@@ -28,6 +31,8 @@ public sealed class AcademicService : IAcademicService
         IRepository<Course> courseRepository,
         IRepository<Enrollment> enrollmentRepository,
         IRepository<Student> studentRepository,
+        ISchoolFeeService schoolFeeService,
+        IStudentFeeBalanceProvisioner feeBalanceProvisioner,
         IUnitOfWork unitOfWork)
     {
         _sectionRepository = sectionRepository;
@@ -37,6 +42,8 @@ public sealed class AcademicService : IAcademicService
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
         _studentRepository = studentRepository;
+        _schoolFeeService = schoolFeeService;
+        _feeBalanceProvisioner = feeBalanceProvisioner;
         _unitOfWork = unitOfWork;
     }
 
@@ -239,17 +246,35 @@ public sealed class AcademicService : IAcademicService
             throw new DomainException("Cet élève est déjà inscrit pour cette année scolaire.");
         }
 
+        var generalCategory = await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
+
         var enrollment = new Enrollment
         {
             StudentId = request.StudentId,
             AcademicYearId = request.AcademicYearId,
             ClassRoomId = request.ClassRoomId,
+            FeePricingCategoryId = generalCategory.Id,
             EnrollmentDate = request.EnrollmentDate,
             Status = EnrollmentStatus.Inscrit,
             IsActive = true
         };
 
         await _enrollmentRepository.AddAsync(enrollment, cancellationToken);
+
+        if (!classRoom.PedagogicalClassId.HasValue)
+        {
+            throw new DomainException("La classe pédagogique est obligatoire pour initialiser les frais scolaires.");
+        }
+
+        await _feeBalanceProvisioner.ProvisionForStudentAsync(
+            schoolId,
+            request.StudentId,
+            request.AcademicYearId,
+            classRoom.PedagogicalClassId.Value,
+            generalCategory.Id,
+            Currency.CDF,
+            cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var pedagogicalMap = ClassRoomAvailability.BuildMap(

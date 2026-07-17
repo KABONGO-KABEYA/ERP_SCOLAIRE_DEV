@@ -121,6 +121,9 @@ public class Enrollment : AuditableEntity, IAggregateRoot
 
     public Guid ClassRoomId { get; set; }
 
+    /// <summary>Catégorie tarifaire de l'élève pour cette année scolaire (détermine les montants de frais).</summary>
+    public Guid FeePricingCategoryId { get; set; }
+
     public EnrollmentStatus Status { get; set; } = EnrollmentStatus.Inscrit;
 
     public DateOnly EnrollmentDate { get; set; }
@@ -136,6 +139,8 @@ public class Enrollment : AuditableEntity, IAggregateRoot
     public Entities.Settings.AcademicYear AcademicYear { get; set; } = null!;
 
     public Entities.Settings.ClassRoom ClassRoom { get; set; } = null!;
+
+    public Entities.Settings.FeePricingCategory FeePricingCategory { get; set; } = null!;
 }
 
 public class StudentStatusHistory : AuditableEntity, IAggregateRoot

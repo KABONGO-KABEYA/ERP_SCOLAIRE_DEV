@@ -88,11 +88,14 @@ SELECT
     s.RegistrationNumber,
     s.LastName,
     s.FirstName,
-    sfb.AcademicYearId,
+    cfa.AcademicYearId,
     ay.Label AS AcademicYearLabel,
-    sfb.FeeTypeId,
+    cfa.FeeTypeId,
     ft.Code AS FeeTypeCode,
     ft.Name AS FeeTypeName,
+    cfa.FeeInstallmentId,
+    fi.Name AS FeeInstallmentName,
+    sfb.ClassFeeAmountId,
     sfb.Currency,
     sfb.AmountDue,
     sfb.AmountPaid,
@@ -104,8 +107,10 @@ SELECT
     END AS PaymentStatus
 FROM StudentFeeBalances sfb
 INNER JOIN Students s ON s.Id = sfb.StudentId AND s.IsDeleted = 0
-INNER JOIN AcademicYears ay ON ay.Id = sfb.AcademicYearId AND ay.IsDeleted = 0
-INNER JOIN FeeTypes ft ON ft.Id = sfb.FeeTypeId AND ft.IsDeleted = 0
+INNER JOIN ClassFeeAmounts cfa ON cfa.Id = sfb.ClassFeeAmountId AND cfa.IsDeleted = 0
+INNER JOIN AcademicYears ay ON ay.Id = cfa.AcademicYearId AND ay.IsDeleted = 0
+INNER JOIN FeeTypes ft ON ft.Id = cfa.FeeTypeId AND ft.IsDeleted = 0
+LEFT JOIN FeeInstallments fi ON fi.Id = cfa.FeeInstallmentId AND fi.IsDeleted = 0
 WHERE sfb.IsDeleted = 0;
 GO
 

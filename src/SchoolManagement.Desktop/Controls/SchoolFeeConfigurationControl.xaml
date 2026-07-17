@@ -94,7 +94,8 @@
                                                            IconKind="CalendarRange"
                                                            ItemsSource="{Binding AcademicYears}"
                                                            Label="Année scolaire"
-                                                           SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
+                                                           SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}"
+                                                           SelectedValuePath="Id" />
                                         <erp:ErpComboField Margin="0,0,8,0"
                                                            DisplayMemberPath="Name"
                                                            FieldWidth="200"
@@ -578,22 +579,25 @@
                                         <TextBlock Margin="0,0,0,12"
                                                    Style="{StaticResource SchoolFeeSectionSubtitle}"
                                                    Text="Fiche type de frais" />
-                                        <TextBox HorizontalAlignment="Stretch"
-                                                 IsReadOnly="True"
-                                                 Style="{StaticResource ErpTextBox}"
-                                                 Text="{Binding FeeTypeCode}"
-                                                 Visibility="{Binding IsEditingFeeType, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                 materialDesign:HintAssist.Hint="Code généré" />
-                                        <TextBox Margin="0,8,0,0"
-                                                 HorizontalAlignment="Stretch"
-                                                 Style="{StaticResource ErpTextBox}"
-                                                 Text="{Binding FeeTypeName, UpdateSourceTrigger=PropertyChanged}"
-                                                 materialDesign:HintAssist.Hint="Libellé" />
-                                        <ComboBox Margin="0,8,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  ItemsSource="{Binding Currencies}"
-                                                  SelectedItem="{Binding FeeTypeCurrency}"
-                                                  Style="{StaticResource ErpComboBox}" />
+                                        <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                          IconKind="Barcode"
+                                                          IsReadOnly="True"
+                                                          Label="Code généré"
+                                                          Text="{Binding FeeTypeCode}"
+                                                          Visibility="{Binding IsEditingFeeType, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <erp:ErpTextField Margin="0,8,0,0"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="TagOutline"
+                                                          IsRequired="True"
+                                                          Label="Libellé"
+                                                          Text="{Binding FeeTypeName, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpComboField Margin="0,8,0,0"
+                                                           FieldWidth="200"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="CurrencyUsd"
+                                                           ItemsSource="{Binding Currencies}"
+                                                           Label="Devise"
+                                                           SelectedItem="{Binding FeeTypeCurrency, Mode=TwoWay}" />
                                         <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
                                             <CheckBox Margin="0,0,16,0" Content="Obligatoire" IsChecked="{Binding FeeTypeIsMandatory}" />
                                             <CheckBox Content="Actif" IsChecked="{Binding FeeTypeIsActive}" />
@@ -693,25 +697,24 @@
                                         <TextBlock Margin="0,0,0,12"
                                                    Style="{StaticResource SchoolFeeSectionSubtitle}"
                                                    Text="Fiche catégorie" />
-                                        <TextBox HorizontalAlignment="Stretch"
-                                                 Style="{StaticResource ErpTextBox}"
-                                                 Text="{Binding PricingCategoryCode, UpdateSourceTrigger=PropertyChanged}"
-                                                 Visibility="{Binding IsEditingPricingCategory, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                 materialDesign:HintAssist.Hint="Code" />
-                                        <TextBox Margin="0,8,0,0"
-                                                 HorizontalAlignment="Stretch"
-                                                 Style="{StaticResource ErpTextBox}"
-                                                 Text="{Binding PricingCategoryName, UpdateSourceTrigger=PropertyChanged}"
-                                                 materialDesign:HintAssist.Hint="Libellé (ex. Général, Boursier…)" />
-                                        <TextBox Margin="0,8,0,0"
-                                                 HorizontalAlignment="Stretch"
-                                                 AcceptsReturn="True"
-                                                 MinHeight="72"
-                                                 Style="{StaticResource ErpTextBox}"
-                                                 Text="{Binding PricingCategoryDescription, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap"
-                                                 VerticalScrollBarVisibility="Auto"
-                                                 materialDesign:HintAssist.Hint="Description (optionnelle)" />
+                                        <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                          IconKind="Barcode"
+                                                          IsRequired="True"
+                                                          Label="Code"
+                                                          Text="{Binding PricingCategoryCode, UpdateSourceTrigger=PropertyChanged}"
+                                                          Visibility="{Binding IsEditingPricingCategory, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <erp:ErpTextField Margin="0,8,0,0"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="TagOutline"
+                                                          IsRequired="True"
+                                                          Label="Libellé"
+                                                          Text="{Binding PricingCategoryName, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextAreaField Margin="0,8,0,0"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="TextBoxOutline"
+                                                              Label="Description"
+                                                              MinLines="3"
+                                                              Text="{Binding PricingCategoryDescription, UpdateSourceTrigger=PropertyChanged}" />
                                         <CheckBox Margin="0,8,0,0" Content="Actif" IsChecked="{Binding PricingCategoryIsActive}" />
                                         <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                                             <Button Command="{Binding NewPricingCategoryCommand}" Content="Nouvelle" Style="{StaticResource ErpSecondaryButton}" />
@@ -807,15 +810,16 @@
                                     <TextBlock Margin="0,0,0,12"
                                                Style="{StaticResource SchoolFeeSectionSubtitle}"
                                                Text="Fiche tranche" />
-                                    <TextBox HorizontalAlignment="Stretch"
-                                             Style="{StaticResource ErpTextBox}"
-                                             Text="{Binding InstallmentName, UpdateSourceTrigger=PropertyChanged}"
-                                             materialDesign:HintAssist.Hint="Libellé (ex. 1ère tranche)" />
-                                    <TextBox Margin="0,8,0,0"
-                                             HorizontalAlignment="Stretch"
-                                             Style="{StaticResource ErpTextBox}"
-                                             Text="{Binding InstallmentSortOrder, UpdateSourceTrigger=PropertyChanged}"
-                                             materialDesign:HintAssist.Hint="Ordre d'affichage" />
+                                    <erp:ErpTextField HorizontalAlignment="Stretch"
+                                                      IconKind="TagOutline"
+                                                      IsRequired="True"
+                                                      Label="Libellé"
+                                                      Text="{Binding InstallmentName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Margin="0,8,0,0"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="SortNumericAscending"
+                                                      Label="Ordre d'affichage"
+                                                      Text="{Binding InstallmentSortOrder, UpdateSourceTrigger=PropertyChanged}" />
                                     <CheckBox Margin="0,8,0,0" Content="Actif" IsChecked="{Binding InstallmentIsActive}" />
                                     <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                                         <Button Command="{Binding NewInstallmentCommand}" Content="Nouvelle" Style="{StaticResource ErpSecondaryButton}" />

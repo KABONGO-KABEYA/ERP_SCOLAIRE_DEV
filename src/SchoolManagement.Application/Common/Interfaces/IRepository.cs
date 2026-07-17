@@ -45,7 +45,12 @@ public interface ICurrentUserService
 
     IReadOnlyList<string> Permissions { get; }
 
+    IReadOnlyList<string> Roles { get; }
+
     bool HasPermission(string permission);
+
+    /// <summary>True si rôle ADMIN ou permission admin.full.</summary>
+    bool IsAdministrator { get; }
 }
 
 public interface IDateTimeProvider

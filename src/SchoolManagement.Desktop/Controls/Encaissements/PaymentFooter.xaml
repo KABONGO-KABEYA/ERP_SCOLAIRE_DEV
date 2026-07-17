@@ -1,0 +1,84 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.Encaissements.PaymentFooter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <DockPanel LastChildFill="False">
+        <StackPanel DockPanel.Dock="Top"
+                    Margin="0,0,0,6">
+            <TextBlock Foreground="{StaticResource ErpDangerBrush}"
+                       TextWrapping="Wrap"
+                       FontSize="12"
+                       Text="{Binding ErrorMessage}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ErrorMessage}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock TextWrapping="Wrap"
+                       FontSize="12"
+                       Foreground="#64748B"
+                       Text="{Binding StatusMessage}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding StatusMessage}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding StatusMessage}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center">
+            <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                <TextBlock Margin="0,0,0,4"
+                           FontSize="10"
+                           Foreground="#64748B"
+                           Text="Date du paiement" />
+                <erp:ErpGridDatePicker Width="150"
+                                       SelectedDate="{Binding PaymentDate, Mode=TwoWay}" />
+            </StackPanel>
+
+            <Button MinWidth="100"
+                    Height="36"
+                    Margin="0,0,8,0"
+                    Padding="16,6"
+                    Command="{Binding CancelCommand}"
+                    Content="Annuler"
+                    Style="{StaticResource ErpSecondaryButton}" />
+            <Button MinWidth="200"
+                    Height="36"
+                    Padding="16,6"
+                    Command="{Binding SubmitCommand}"
+                    IsEnabled="{Binding CanSubmit}"
+                    Style="{StaticResource ErpPrimaryButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Width="18"
+                                             Height="18"
+                                             Margin="0,0,8,0"
+                                             VerticalAlignment="Center"
+                                             Kind="Check" />
+                    <TextBlock VerticalAlignment="Center" Text="Encaisser le paiement" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </DockPanel>
+</UserControl>

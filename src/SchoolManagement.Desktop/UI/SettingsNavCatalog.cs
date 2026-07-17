@@ -45,7 +45,9 @@ public static class SettingsNavCatalog
             Title = "Configuration financière",
             Items =
             [
-                new SettingsNavItem { Key = "frais-scolaires", Title = "Frais scolaires", IconKind = "CashMultiple", Section = SettingsSection.FraisScolaires }
+                new SettingsNavItem { Key = "frais-scolaires", Title = "Frais scolaires", IconKind = "CashMultiple", Section = SettingsSection.FraisScolaires },
+                new SettingsNavItem { Key = "repartition-recettes", Title = "Répartition des recettes", IconKind = "ChartPie", Section = SettingsSection.RepartitionRecettes },
+                new SettingsNavItem { Key = "retenues", Title = "Retenues", IconKind = "PercentOutline", Section = SettingsSection.Retenues }
             ]
         },
         new SettingsNavGroup

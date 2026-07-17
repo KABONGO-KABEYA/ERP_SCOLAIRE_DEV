@@ -122,6 +122,14 @@
         <Setter Property="Background" Value="#FEE2E2" />
     </Style>
 
+    <Style x:Key="ErpTableStatusBadgeWarning" TargetType="Border" BasedOn="{StaticResource ErpTableStatusBadge}">
+        <Setter Property="Background" Value="#FEF3C7" />
+    </Style>
+
+    <Style x:Key="ErpTableStatusBadgeCredit" TargetType="Border" BasedOn="{StaticResource ErpTableStatusBadge}">
+        <Setter Property="Background" Value="#DBEAFE" />
+    </Style>
+
     <Style x:Key="ErpStudentsGridActionButton" TargetType="Button">
         <Setter Property="Width" Value="34" />
         <Setter Property="Height" Value="34" />

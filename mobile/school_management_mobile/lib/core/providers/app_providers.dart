@@ -6,6 +6,7 @@ import '../../features/auth/auth_repository.dart';
 import '../../features/parent/parent_repository.dart';
 import '../../features/teacher/teacher_repository.dart';
 import '../../features/direction/direction_repository.dart';
+import '../../features/promoteur/promoteur_dashboard_repository.dart';
 import '../../features/enrollment/enrollment_repository.dart';
 import '../../features/enrollment/geography_repository.dart';
 
@@ -17,6 +18,8 @@ final teacherRepositoryProvider =
     Provider((ref) => TeacherRepository(ref.watch(apiClientProvider)));
 final directionRepositoryProvider =
     Provider((ref) => DirectionRepository(ref.watch(apiClientProvider)));
+final promoteurDashboardRepositoryProvider =
+    Provider((ref) => PromoteurDashboardRepository(ref.watch(apiClientProvider)));
 final enrollmentRepositoryProvider =
     Provider((ref) => EnrollmentRepository(ref.watch(apiClientProvider)));
 final geographyRepositoryProvider =

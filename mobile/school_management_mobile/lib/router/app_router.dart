@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_storage.dart';
 import '../core/providers/app_providers.dart';
-import '../features/auth/auth_repository.dart';
 import '../features/auth/login_screen.dart';
 import '../features/parent/children_screen.dart';
 import '../features/parent/child_detail_screen.dart';
@@ -13,6 +12,7 @@ import '../features/teacher/class_screen.dart';
 import '../features/teacher/evaluations_screen.dart';
 import '../features/teacher/grade_entry_screen.dart';
 import '../features/direction/dashboard_screen.dart';
+import '../features/promoteur/dashboard_screen.dart';
 import '../features/enrollment/enrollment_wizard_screen.dart';
 import '../features/secretary/secretary_home_screen.dart';
 
@@ -47,6 +47,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
+      GoRoute(path: '/promoteur/dashboard', builder: (_, __) => const PromoteurDashboardScreen()),
       GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
       GoRoute(
         path: '/secretary/enrollment',

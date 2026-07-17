@@ -23,6 +23,7 @@ public partial class StudentsViewModel : ViewModelBase
     private readonly IStudentListPrintService _studentListPrintService;
     private readonly List<EnrollmentClassOptionDto> _structureClassRooms = [];
     private readonly List<ClassRoomLookupDto> _lookupClassRooms = [];
+    private CancellationTokenSource? _searchCts;
 
     public StudentsViewModel(
         IStudentApiService studentApiService,
@@ -106,6 +107,8 @@ public partial class StudentsViewModel : ViewModelBase
     }
 
     partial void OnStudentsFoundCountChanged(int value) => OnPropertyChanged(nameof(FiltersHeaderText));
+
+    partial void OnSearchTextChanged(string value) => QueueSearch();
 
     [RelayCommand]
     private void ToggleFilters() => IsFiltersExpanded = !IsFiltersExpanded;
@@ -197,12 +200,39 @@ public partial class StudentsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task ApplyFiltersAsync()
+    private async Task ApplyFiltersAsync() => await ExecuteSearchAsync();
+
+    private void QueueSearch()
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+        _ = DebouncedSearchAsync(token);
+    }
+
+    private async Task DebouncedSearchAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(350, token);
+            if (!token.IsCancellationRequested)
+            {
+                await ExecuteSearchAsync();
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // ignore
+        }
+    }
+
+    private async Task ExecuteSearchAsync()
     {
         if (!IncludeInscrits && !IncludeExcluded && !IncludeAbandoned)
         {
             StatusMessage = "Sélectionnez au moins un type d'élève à afficher (inscrits, exclus ou abandonnés).";
             Students.Clear();
+            StudentsFoundCount = 0;
             return;
         }
 
@@ -217,6 +247,7 @@ public partial class StudentsViewModel : ViewModelBase
         {
             StatusMessage = "Sélectionnez au moins un filtre, un critère de recherche ou cochez « Exclus » / « Abandonnés ».";
             Students.Clear();
+            StudentsFoundCount = 0;
             return;
         }
 
@@ -271,6 +302,8 @@ public partial class StudentsViewModel : ViewModelBase
     [RelayCommand]
     private void ClearFilters()
     {
+        _searchCts?.Cancel();
+        _searchCts = null;
         SearchText = string.Empty;
         SelectedSection = null;
         SelectedPedagogicalClass = null;

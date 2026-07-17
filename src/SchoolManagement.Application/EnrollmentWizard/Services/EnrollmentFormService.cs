@@ -23,6 +23,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
     private readonly IRepository<StudentGuardian> _studentGuardianRepository;
     private readonly IRepository<Guardian> _guardianRepository;
     private readonly IRepository<StudentFeeBalance> _feeBalanceRepository;
+    private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
     private readonly IRepository<StudentStatusHistory> _statusHistoryRepository;
     private readonly IRepository<StudentDocument> _studentDocumentRepository;
     private readonly IDocumentPrintBrandingResolver _brandingResolver;
@@ -41,6 +42,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         IRepository<StudentGuardian> studentGuardianRepository,
         IRepository<Guardian> guardianRepository,
         IRepository<StudentFeeBalance> feeBalanceRepository,
+        IRepository<ClassFeeAmount> classFeeAmountRepository,
         IRepository<StudentStatusHistory> statusHistoryRepository,
         IRepository<StudentDocument> studentDocumentRepository,
         IDocumentPrintBrandingResolver brandingResolver,
@@ -58,6 +60,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         _studentGuardianRepository = studentGuardianRepository;
         _guardianRepository = guardianRepository;
         _feeBalanceRepository = feeBalanceRepository;
+        _classFeeAmountRepository = classFeeAmountRepository;
         _statusHistoryRepository = statusHistoryRepository;
         _studentDocumentRepository = studentDocumentRepository;
         _brandingResolver = brandingResolver;
@@ -105,9 +108,12 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         var legalGuardian = guardians.FirstOrDefault(g => g.IsPrimary)
             ?? guardians.FirstOrDefault(g => !IsParent(g));
 
-        var feeBalances = await _feeBalanceRepository.FindAsync(
-            f => f.StudentId == student.Id && f.AcademicYearId == enrollment.AcademicYearId,
-            cancellationToken);
+        var yearTariffIds = (await _classFeeAmountRepository.FindAsync(
+            a => a.AcademicYearId == enrollment.AcademicYearId,
+            cancellationToken)).Select(a => a.Id).ToHashSet();
+        var feeBalances = (await _feeBalanceRepository.FindAsync(
+            f => f.StudentId == student.Id && yearTariffIds.Contains(f.ClassFeeAmountId),
+            cancellationToken)).ToList();
         var registrationFee = feeBalances.Sum(f => f.AmountDue);
         var currency = feeBalances.FirstOrDefault()?.Currency;
 

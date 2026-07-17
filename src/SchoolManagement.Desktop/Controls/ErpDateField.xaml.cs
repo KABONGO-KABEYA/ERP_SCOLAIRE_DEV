@@ -60,7 +60,9 @@ public partial class ErpDateField : UserControl
         {
             UpdateLayoutSizing();
             UpdateDerivedValues();
+            InputDatePicker.IsReadOnly = !IsEnabled;
         };
+        IsEnabledChanged += (_, _) => InputDatePicker.IsReadOnly = !IsEnabled;
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -204,9 +206,12 @@ public partial class ErpDateField : UserControl
         {
             ApplyVisualState(ShowValidation ? "Error" : "Normal");
             ErrorMessage = ShowValidation
-                ? DateValidationMode == ErpDateValidationMode.EnrollmentDate
-                    ? "La date d'inscription est obligatoire."
-                    : "La date de naissance est obligatoire."
+                ? DateValidationMode switch
+                {
+                    ErpDateValidationMode.EnrollmentDate => "La date d'inscription est obligatoire.",
+                    ErpDateValidationMode.BirthDate => "La date de naissance est obligatoire.",
+                    _ => $"Le champ « {Label} » est obligatoire."
+                }
                 : string.Empty;
             return;
         }
@@ -237,12 +242,12 @@ public partial class ErpDateField : UserControl
         SuccessIcon.Visibility = state == "Valid" ? Visibility.Visible : Visibility.Collapsed;
         ErrorIcon.Visibility = state == "Error" ? Visibility.Visible : Visibility.Collapsed;
         ErrorText.Visibility = state == "Error" ? Visibility.Visible : Visibility.Collapsed;
-        InputBorder.BorderBrush = state switch
+        InputDatePicker.ApplyBorderBrush(state switch
         {
             "Error" => ErpFieldValidation.GetBrush("ErpInputErrorBrush"),
             "Valid" => ErpFieldValidation.GetBrush("ErpSuccessBrush"),
             _ => ErpFieldValidation.GetBrush("ErpInputBorderBrush")
-        };
+        });
     }
 
     private static int CalculateAge(DateOnly birth, DateOnly reference)

@@ -8,7 +8,11 @@ public static class ApiRoutes
     public const string Students = $"{Base}/students";
     public const string Grades = $"{Base}/grades";
     public const string Payments = $"{Base}/payments";
+    public const string RevenueAllocation = $"{Base}/revenue-allocation";
+    public const string Withholdings = $"{Base}/withholdings";
+    public const string Finance = $"{Base}/finance";
     public const string Reports = $"{Base}/reports";
+    public const string Dashboard = $"{Base}/dashboard";
     public const string Academic = $"{Base}/academic";
     public const string Teacher = $"{Base}/teacher";
     public const string Parent = $"{Base}/parent";

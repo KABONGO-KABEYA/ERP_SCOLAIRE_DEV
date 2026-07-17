@@ -1,0 +1,49 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.Encaissements.PaymentHeader"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel VerticalAlignment="Center">
+            <TextBlock FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="#0F172A"
+                       Text="Encaisser un paiement" />
+            <TextBlock Margin="0,6,0,0"
+                       Style="{StaticResource ErpBodySecondary}"
+                       Text="{Binding HeaderSubtitle}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border Grid.Column="1"
+                MinWidth="200"
+                Padding="16,12"
+                Background="#FFFFFF"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="14"
+                Effect="{StaticResource ErpCardShadow}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <materialDesign:PackIcon Width="28"
+                                         Height="28"
+                                         Margin="0,0,12,0"
+                                         VerticalAlignment="Center"
+                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                         Kind="CalendarMonth" />
+                <StackPanel>
+                    <TextBlock FontSize="12"
+                               Foreground="#64748B"
+                               Text="Date du paiement" />
+                    <TextBlock Margin="0,2,0,0"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Text="{Binding PaymentDateDisplay}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

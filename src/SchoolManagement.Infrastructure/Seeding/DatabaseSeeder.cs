@@ -322,11 +322,13 @@ public sealed class DatabaseSeeder
         if (student is not null && !await _context.Enrollments.AnyAsync(
                 e => e.StudentId == student.Id && e.AcademicYearId == year.Id && e.IsActive, cancellationToken))
         {
+            var generalCategory = await EnsureGeneralPricingCategoryAsync(school.Id, cancellationToken);
             _context.Enrollments.Add(new Enrollment
             {
                 StudentId = student.Id,
                 AcademicYearId = year.Id,
                 ClassRoomId = classRoom.Id,
+                FeePricingCategoryId = generalCategory.Id,
                 EnrollmentDate = DateOnly.FromDateTime(DateTime.UtcNow),
                 Status = EnrollmentStatus.Inscrit,
                 IsActive = true
@@ -334,6 +336,40 @@ public sealed class DatabaseSeeder
             await _context.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Inscription démo créée pour {Matricule} en {Classe}.", student.RegistrationNumber, classRoom.Name);
         }
+    }
+
+    private async Task<FeePricingCategory> EnsureGeneralPricingCategoryAsync(
+        Guid schoolId,
+        CancellationToken cancellationToken)
+    {
+        var categories = await _context.FeePricingCategories
+            .Where(c => c.SchoolId == schoolId)
+            .ToListAsync(cancellationToken);
+        var general = categories.FirstOrDefault(c =>
+            string.Equals(c.Code, FeePricingCategoryCodes.General, StringComparison.OrdinalIgnoreCase));
+
+        if (general is not null)
+        {
+            if (!general.IsActive)
+            {
+                general.IsActive = true;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            return general;
+        }
+
+        general = new FeePricingCategory
+        {
+            SchoolId = schoolId,
+            Code = FeePricingCategoryCodes.General,
+            Name = "Générale",
+            Description = "Catégorie tarifaire par défaut (inscription)",
+            IsActive = true
+        };
+        _context.FeePricingCategories.Add(general);
+        await _context.SaveChangesAsync(cancellationToken);
+        return general;
     }
 
     private async Task EnsurePedagogicalStructureAsync(Guid schoolId, CancellationToken cancellationToken)

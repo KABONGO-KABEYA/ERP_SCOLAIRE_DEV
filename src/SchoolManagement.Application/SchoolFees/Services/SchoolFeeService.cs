@@ -2,12 +2,15 @@ namespace SchoolManagement.Application.SchoolFees.Services;
 
 using Mapster;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Payments.Services;
 using SchoolManagement.Application.SchoolFees;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Exceptions;
+using SchoolManagement.Shared.Constants;
 
 public sealed class SchoolFeeService : ISchoolFeeService
 {
@@ -16,8 +19,10 @@ public sealed class SchoolFeeService : ISchoolFeeService
     private readonly IRepository<FeeInstallment> _installmentRepository;
     private readonly IRepository<FeeTypeInstallment> _feeTypeInstallmentRepository;
     private readonly IRepository<ClassFeeAmount> _amountRepository;
+    private readonly IRepository<StudentFeeBalance> _balanceRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<PedagogicalClass> _classRepository;
+    private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
 
     public SchoolFeeService(
@@ -26,8 +31,10 @@ public sealed class SchoolFeeService : ISchoolFeeService
         IRepository<FeeInstallment> installmentRepository,
         IRepository<FeeTypeInstallment> feeTypeInstallmentRepository,
         IRepository<ClassFeeAmount> amountRepository,
+        IRepository<StudentFeeBalance> balanceRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<PedagogicalClass> classRepository,
+        ICurrentUserService currentUser,
         IUnitOfWork unitOfWork)
     {
         _feeTypeRepository = feeTypeRepository;
@@ -35,17 +42,21 @@ public sealed class SchoolFeeService : ISchoolFeeService
         _installmentRepository = installmentRepository;
         _feeTypeInstallmentRepository = feeTypeInstallmentRepository;
         _amountRepository = amountRepository;
+        _balanceRepository = balanceRepository;
         _yearRepository = yearRepository;
         _classRepository = classRepository;
+        _currentUser = currentUser;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<SchoolFeeCatalogDto> GetCatalogAsync(Guid schoolId, CancellationToken cancellationToken = default) =>
-        new(
+    public async Task<SchoolFeeCatalogDto> GetCatalogAsync(Guid schoolId, CancellationToken cancellationToken = default)
+    {
+        await EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
+        return new(
             await GetFeeTypesAsync(schoolId, cancellationToken),
             await GetInstallmentsAsync(schoolId, cancellationToken),
             await GetPricingCategoriesAsync(schoolId, cancellationToken));
-
+    }
     public async Task<IReadOnlyList<FeeTypeDto>> GetFeeTypesAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var items = await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken);
@@ -105,6 +116,7 @@ public sealed class SchoolFeeService : ISchoolFeeService
         Guid schoolId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
         var items = await _pricingCategoryRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
         return items.OrderBy(c => c.Name).Adapt<List<FeePricingCategoryDto>>();
     }
@@ -176,6 +188,39 @@ public sealed class SchoolFeeService : ISchoolFeeService
         entity.IsActive = false;
         await _pricingCategoryRepository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<FeePricingCategoryDto> EnsureGeneralPricingCategoryAsync(
+        Guid schoolId,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = (await _pricingCategoryRepository.FindAsync(
+            c => c.SchoolId == schoolId, cancellationToken)).ToList();
+        var general = existing.FirstOrDefault(c =>
+            string.Equals(c.Code, FeePricingCategoryCodes.General, StringComparison.OrdinalIgnoreCase));
+        if (general is not null)
+        {
+            if (!general.IsActive)
+            {
+                general.IsActive = true;
+                await _pricingCategoryRepository.UpdateAsync(general, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
+            return general.Adapt<FeePricingCategoryDto>();
+        }
+
+        var entity = new FeePricingCategory
+        {
+            SchoolId = schoolId,
+            Code = FeePricingCategoryCodes.General,
+            Name = "Générale",
+            Description = "Catégorie tarifaire par défaut (inscription)",
+            IsActive = true
+        };
+        await _pricingCategoryRepository.AddAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return entity.Adapt<FeePricingCategoryDto>();
     }
 
     public async Task<IReadOnlyList<FeeInstallmentDto>> GetInstallmentsAsync(
@@ -526,14 +571,45 @@ public sealed class SchoolFeeService : ISchoolFeeService
         Guid feeTypeId,
         CancellationToken cancellationToken = default)
     {
-        var rows = await _amountRepository.FindAsync(
+        var rows = (await _amountRepository.FindAsync(
             a => a.SchoolId == schoolId
                 && a.AcademicYearId == academicYearId
                 && a.PedagogicalClassId == pedagogicalClassId
                 && a.FeeTypeId == feeTypeId,
+            cancellationToken)).ToList();
+
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        var categories = await _pricingCategoryRepository.FindAsync(
+            c => c.SchoolId == schoolId && c.IsActive,
             cancellationToken);
 
-        return rows.Sum(a => a.Amount);
+        var preferredCategory = categories
+            .FirstOrDefault(c => string.Equals(
+                c.Code,
+                SchoolManagement.Shared.Constants.FeePricingCategoryCodes.General,
+                StringComparison.OrdinalIgnoreCase))
+            ?? categories.OrderBy(c => c.Name).FirstOrDefault();
+
+        if (preferredCategory is not null)
+        {
+            var forCategory = rows.Where(a => a.FeePricingCategoryId == preferredCategory.Id).ToList();
+            if (forCategory.Count > 0)
+            {
+                return forCategory.Sum(a => a.Amount);
+            }
+        }
+
+        // Évite de sommer plusieurs catégories distinctes : prend le groupe le plus complet.
+        return rows
+            .GroupBy(a => a.FeePricingCategoryId)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .First()
+            .Sum(a => a.Amount);
     }
 
     private static ClassFeeScheduleDto BuildScheduleDto(
@@ -683,6 +759,7 @@ public sealed class SchoolFeeService : ISchoolFeeService
             cancellationToken)).ToDictionary(a => a.FeeInstallmentId);
 
         var requestedIds = lines.Select(l => l.FeeInstallmentId).ToHashSet();
+        await EnsurePaidInstallmentScheduleRulesAsync(existing.Values.ToList(), lines, requestedIds, cancellationToken);
 
         foreach (var line in lines)
         {
@@ -737,6 +814,77 @@ public sealed class SchoolFeeService : ISchoolFeeService
             row.IsDeleted = true;
             row.DeletedAt = DateTime.UtcNow;
             await _amountRepository.UpdateAsync(row, cancellationToken);
+        }
+    }
+
+    private async Task EnsurePaidInstallmentScheduleRulesAsync(
+        IReadOnlyList<ClassFeeAmount> existingRows,
+        IReadOnlyList<SaveClassFeeScheduleLineRequest> lines,
+        HashSet<Guid> requestedIds,
+        CancellationToken cancellationToken)
+    {
+        if (existingRows.Count == 0)
+        {
+            return;
+        }
+
+        var amountIds = existingRows.Select(r => r.Id).ToList();
+        var balances = await _balanceRepository.FindAsync(
+            b => amountIds.Contains(b.ClassFeeAmountId),
+            cancellationToken);
+        var paidByAmountId = balances
+            .GroupBy(b => b.ClassFeeAmountId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
+
+        var paidByInstallment = existingRows
+            .Select(r => (
+                SortOrder: r.SortOrder,
+                AmountPaid: paidByAmountId.GetValueOrDefault(r.Id),
+                InstallmentId: r.FeeInstallmentId,
+                Row: r))
+            .ToList();
+
+        foreach (var line in lines)
+        {
+            var row = existingRows.FirstOrDefault(r => r.FeeInstallmentId == line.FeeInstallmentId);
+            if (row is null)
+            {
+                continue;
+            }
+
+            var paid = paidByAmountId.GetValueOrDefault(row.Id);
+            var amountChanged = row.Amount != line.Amount || row.SortOrder != line.SortOrder;
+            if (!amountChanged)
+            {
+                continue;
+            }
+
+            if (paid > 0)
+            {
+                PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+            }
+
+            PaymentMutationPolicy.EnsureScheduleInstallmentEditable(
+                row.SortOrder,
+                paidByInstallment.Select(x => (x.SortOrder, x.AmountPaid)).ToList());
+        }
+
+        foreach (var row in existingRows)
+        {
+            if (requestedIds.Contains(row.FeeInstallmentId) || row.IsDeleted)
+            {
+                continue;
+            }
+
+            var paid = paidByAmountId.GetValueOrDefault(row.Id);
+            if (paid > 0)
+            {
+                PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+            }
+
+            PaymentMutationPolicy.EnsureScheduleInstallmentEditable(
+                row.SortOrder,
+                paidByInstallment.Select(x => (x.SortOrder, x.AmountPaid)).ToList());
         }
     }
 

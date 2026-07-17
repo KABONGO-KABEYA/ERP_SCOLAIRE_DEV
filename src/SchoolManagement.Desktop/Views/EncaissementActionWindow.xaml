@@ -1,0 +1,396 @@
+<Window x:Class="SchoolManagement.Desktop.Views.EncaissementActionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Encaissement"
+        Height="620"
+        Width="720"
+        MinHeight="480"
+        MinWidth="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource ErpPageBackgroundBrush}"
+        FontFamily="{StaticResource ErpFontFamily}"
+        Loaded="Window_OnLoaded">
+    <DockPanel Margin="20">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock x:Name="TitleText"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       Text="Action" />
+            <TextBlock x:Name="SubtitleText"
+                       Margin="0,4,0,0"
+                       Style="{StaticResource ErpBodySecondary}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <TextBlock x:Name="ErrorText"
+                       Margin="0,0,0,8"
+                       Foreground="{StaticResource ErpDangerBrush}"
+                       TextWrapping="Wrap" />
+            <TextBlock x:Name="StatusText"
+                       Margin="0,0,0,8"
+                       Style="{StaticResource ErpBodySecondary}"
+                       TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="ExportPdfButton"
+                        Padding="16,8"
+                        Margin="0,0,10,0"
+                        Content="Exporter PDF"
+                        Click="ExportPdfButton_OnClick"
+                        Visibility="Collapsed"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button x:Name="SecondaryButton"
+                        Padding="16,8"
+                        Margin="0,0,10,0"
+                        Click="SecondaryButton_OnClick"
+                        Content="Fermer"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button x:Name="PrimaryButton"
+                        Padding="16,8"
+                        Click="PrimaryButton_OnClick"
+                        Content="Confirmer"
+                        Style="{StaticResource ErpPrimaryButton}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Collect -->
+        <Border x:Name="CollectPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBlock x:Name="CollectHeaderText"
+                               FontWeight="SemiBold"
+                               FontSize="15"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="CollectBalanceText"
+                               Margin="0,4,0,0"
+                               Style="{StaticResource ErpBodySecondary}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                    <TextBlock x:Name="CollectTotalsText"
+                               Margin="0,0,0,12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Notes (optionnel)" />
+                    <TextBox x:Name="CollectNotesBox"
+                             AcceptsReturn="True"
+                             MaxHeight="80"
+                             TextWrapping="Wrap"
+                             materialDesign:HintAssist.Hint="Notes"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                </StackPanel>
+
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Montant à répartir" />
+                        <TextBox x:Name="TotalToDistributeBox"
+                                 materialDesign:HintAssist.Hint="Saisir un montant à répartir automatiquement"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 TextChanged="TotalToDistributeBox_OnTextChanged" />
+                        <TextBlock x:Name="CollectNoInstallmentsText"
+                                   Margin="0,8,0,0"
+                                   Foreground="{StaticResource ErpDangerBrush}"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   Text="Aucune tranche configurée pour cette classe / catégorie / type de frais" />
+                    </StackPanel>
+
+                    <DataGrid x:Name="InstallmentsGrid"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              SelectionMode="Single"
+                              GridLinesVisibility="Horizontal"
+                              RowHeight="36">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Name}"
+                                                Header="Tranche"
+                                                Width="*"
+                                                MinWidth="120"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding Expected, StringFormat=N0}"
+                                                Header="Montant prévu"
+                                                Width="110"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding Paid, StringFormat=N0}"
+                                                Header="Montant payé"
+                                                Width="110"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding Remaining, StringFormat=N0}"
+                                                Header="Reste à payer"
+                                                Width="110"
+                                                IsReadOnly="True" />
+                            <DataGridTemplateColumn Header="Versement du jour" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding TodayPaymentText, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding CanEditTodayPayment}"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 Padding="4,2"
+                                                 VerticalContentAlignment="Center"
+                                                 LostFocus="TodayPaymentBox_OnLostFocus"
+                                                 TextChanged="TodayPaymentBox_OnTextChanged" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Numéro physique" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding PhysicalNumber, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding CanEditPhysicalNumber}"
+                                                 MaxLength="50"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 Padding="4,2"
+                                                 VerticalContentAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- History / pick payment -->
+        <Border x:Name="HistoryPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="12"
+                Visibility="Collapsed">
+            <DockPanel>
+                <CheckBox x:Name="HideCancelledCheck"
+                          DockPanel.Dock="Top"
+                          Margin="0,0,0,8"
+                          Content="Masquer les paiements annulés"
+                          IsChecked="True"
+                          Checked="HideCancelledCheck_OnChanged"
+                          Unchecked="HideCancelledCheck_OnChanged" />
+                <StackPanel x:Name="HistoryActionsPanel"
+                            DockPanel.Dock="Bottom"
+                            Margin="0,10,0,0"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <Button x:Name="HistoryReprintBtn"
+                            Margin="0,0,8,0"
+                            Padding="12,6"
+                            Click="HistoryReprintBtn_OnClick"
+                            Content="Réimprimer"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button x:Name="HistoryEditBtn"
+                            Margin="0,0,8,0"
+                            Padding="12,6"
+                            Click="HistoryEditBtn_OnClick"
+                            Content="Modifier le montant"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button x:Name="HistoryCancelBtn"
+                            Padding="12,6"
+                            Click="HistoryCancelBtn_OnClick"
+                            Content="Annuler le paiement"
+                            Style="{StaticResource ErpDangerButton}" />
+                </StackPanel>
+                <DataGrid x:Name="PaymentsGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          SelectionChanged="PaymentsGrid_OnSelectionChanged">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding ReceiptNumber}" Header="Reçu" Width="*" MinWidth="120" />
+                        <DataGridTextColumn Binding="{Binding PaymentDate, StringFormat=dd/MM/yyyy HH:mm}" Header="Date" Width="140" />
+                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N0}" Header="Montant" Width="100" />
+                        <DataGridTextColumn Binding="{Binding Currency}" Header="Dev." Width="50" />
+                        <DataGridTextColumn Binding="{Binding StatusLabel}" Header="Statut" Width="90" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+
+        <!-- Financial situation -->
+        <Border x:Name="SituationPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Type de frais sélectionné" />
+                    <TextBlock x:Name="SituationFeeTypeText" Margin="0,4,0,12" Style="{StaticResource ErpBodySecondary}" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Payé" Style="{StaticResource ErpBodySecondary}" />
+                            <TextBlock x:Name="SituationPaidText" FontSize="16" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                            <TextBlock Text="Attendu" Style="{StaticResource ErpBodySecondary}" />
+                            <TextBlock x:Name="SituationExpectedText" FontSize="16" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                            <TextBlock Text="Solde" Style="{StaticResource ErpBodySecondary}" />
+                            <TextBlock x:Name="SituationBalanceText" FontSize="16" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="Statut" Style="{StaticResource ErpBodySecondary}" />
+                            <TextBlock x:Name="SituationStatusText" FontSize="16" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock FontWeight="SemiBold" Text="Synthèse annuelle (tous frais)" />
+                    <TextBlock x:Name="SummaryTotalsText"
+                               Margin="0,8,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Allocations -->
+        <Border x:Name="AllocationsPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="12"
+                Visibility="Collapsed">
+            <DataGrid x:Name="AllocationsGrid"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      HeadersVisibility="Column"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding ReceiptNumber}" Header="Reçu" Width="120" />
+                    <DataGridTextColumn Binding="{Binding DestinationName}" Header="Destination" Width="*" MinWidth="140" />
+                    <DataGridTextColumn Binding="{Binding AllocatedAmount, StringFormat=N0}" Header="Montant" Width="100" />
+                    <DataGridTextColumn Binding="{Binding FeeTypeName}" Header="Frais" Width="120" />
+                    <DataGridTextColumn Binding="{Binding AllocatedAt, StringFormat=dd/MM/yyyy}" Header="Date" Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- Withholdings -->
+        <Border x:Name="WithholdingsPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBlock x:Name="WithholdingTotalsText" TextWrapping="Wrap" FontWeight="SemiBold" />
+                </StackPanel>
+                <DataGrid x:Name="WithholdingsGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding WithholdingTypeName}" Header="Retenue" Width="*" MinWidth="140" />
+                        <DataGridTextColumn Binding="{Binding WithholdingTypeCode}" Header="Code" Width="100" />
+                        <DataGridTextColumn Binding="{Binding CalculationMode}" Header="Mode" Width="100" />
+                        <DataGridTextColumn Binding="{Binding ConfiguredValue, StringFormat=N2}" Header="Valeur" Width="80" />
+                        <DataGridTextColumn Binding="{Binding WithheldAmount, StringFormat=N0}" Header="Montant" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+
+        <!-- Reprint -->
+        <Border x:Name="ReprintPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock x:Name="ReceiptPreviewText"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Edit amount -->
+        <Border x:Name="EditPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Margin="0,0,0,6"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="#6B7280"
+                           Text="Dernier montant versé" />
+                <TextBlock x:Name="EditLastAmountText"
+                           Margin="0,0,0,4"
+                           FontSize="28"
+                           FontWeight="Bold"
+                           Foreground="#0B1F47"
+                           Text="—" />
+                <TextBlock x:Name="EditPaymentInfoText"
+                           Margin="0,0,0,16"
+                           Style="{StaticResource ErpBodySecondary}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Nouveau montant" />
+                <TextBox x:Name="EditAmountBox"
+                         Margin="0,0,0,16"
+                         FontSize="18"
+                         FontWeight="SemiBold"
+                         materialDesign:HintAssist.Hint="Saisir le nouveau montant"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Notes (facultatif)" />
+                <TextBox x:Name="EditNotesBox"
+                         AcceptsReturn="True"
+                         Height="80"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         materialDesign:HintAssist.Hint="Notes du paiement"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Cancel -->
+        <Border x:Name="CancelPanel"
+                Style="{StaticResource ErpCard}"
+                Padding="16"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Margin="0,0,0,6"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="#6B7280"
+                           Text="Dernier montant versé" />
+                <TextBlock x:Name="CancelLastAmountText"
+                           Margin="0,0,0,4"
+                           FontSize="28"
+                           FontWeight="Bold"
+                           Foreground="#EF4444"
+                           Text="—" />
+                <TextBlock x:Name="CancelPaymentInfoText"
+                           Margin="0,0,0,16"
+                           Style="{StaticResource ErpBodySecondary}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Motif d'annulation" />
+                <TextBox x:Name="CancelReasonBox"
+                         AcceptsReturn="True"
+                         Height="80"
+                         TextWrapping="Wrap"
+                         materialDesign:HintAssist.Hint="Motif (facultatif — un motif par défaut sera utilisé)"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+            </StackPanel>
+        </Border>
+    </DockPanel>
+</Window>

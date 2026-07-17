@@ -17,19 +17,11 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="280" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0">
-            <TextBlock Style="{StaticResource ErpPageTitle}" Text="Gestion des élèves" />
-            <TextBlock Margin="0,4,0,0"
-                       Style="{StaticResource ErpBodySecondary}"
-                       Text="Recherche, inscription et suivi des élèves de l'établissement" />
-        </StackPanel>
-
-        <Border Grid.Row="1"
-                Margin="0,14,0,8"
+        <Border Grid.Row="0"
+                Margin="0,0,0,8"
                 Padding="12,10"
                 Background="White"
                 BorderBrush="#E5E7EB"
@@ -106,10 +98,6 @@
                                            ItemsSource="{Binding ClassRooms}"
                                            Label="Locale"
                                            SelectedItem="{Binding SelectedClassRoom, Mode=TwoWay}" />
-                        <erp:ErpSearchField Margin="0,0,0,0"
-                                            HorizontalAlignment="Stretch"
-                                            Placeholder="Matricule, nom ou prénom…"
-                                            Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
                     </UniformGrid>
 
                     <TextBlock Margin="0,0,0,6"
@@ -148,32 +136,39 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 Margin="0,0,0,8"
                 Padding="10,8"
                 Background="White"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"
                 CornerRadius="10">
-            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button Padding="14,6"
-                        Command="{Binding PrintListCommand}"
-                        Content="Imprimer la liste"
-                        Style="{StaticResource ErpSecondaryButton}" />
-                <Button Margin="8,0,0,0"
-                        Padding="14,6"
-                        Command="{Binding OpenEnrollmentWizardCommand}"
-                        Content="Nouvelle inscription"
-                        Style="{StaticResource ErpSuccessButton}" />
-                <Button Margin="8,0,0,0"
-                        Padding="14,6"
-                        Command="{Binding OpenReinscriptionWizardCommand}"
-                        Content="Réinscription"
-                        Style="{StaticResource ErpPrimaryButton}" />
-            </StackPanel>
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Padding="14,6"
+                            Command="{Binding PrintListCommand}"
+                            Content="Imprimer la liste"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding OpenEnrollmentWizardCommand}"
+                            Content="Nouvelle inscription"
+                            Style="{StaticResource ErpSuccessButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding OpenReinscriptionWizardCommand}"
+                            Content="Réinscription"
+                            Style="{StaticResource ErpPrimaryButton}" />
+                </StackPanel>
+                <erp:ErpSearchField DockPanel.Dock="Left"
+                                    Width="320"
+                                    HorizontalAlignment="Left"
+                                    Placeholder="Matricule, nom ou prénom…"
+                                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            </DockPanel>
         </Border>
 
-        <Border Grid.Row="3"
+        <Border Grid.Row="2"
                 Background="White"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"

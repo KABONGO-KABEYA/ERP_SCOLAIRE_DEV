@@ -2,7 +2,6 @@ namespace SchoolManagement.Application.Schools.Services;
 
 using Mapster;
 using SchoolManagement.Application.Common.Interfaces;
-using SchoolManagement.Application.SchoolFees;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Schools.Interfaces;
@@ -18,8 +17,6 @@ public sealed class SchoolService : ISchoolService
     private readonly IRepository<PedagogicalClass> _pedagogicalClassRepository;
     private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
-    private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
-    private readonly IRepository<FeeInstallment> _feeInstallmentRepository;
     private readonly IRepository<Course> _courseRepository;
     private readonly IRepository<CashRegister> _cashRegisterRepository;
     private readonly IRepository<AppConfiguration> _appConfigurationRepository;
@@ -34,8 +31,6 @@ public sealed class SchoolService : ISchoolService
         IRepository<Section> sectionRepository,
         IRepository<Course> courseRepository,
         IRepository<FeeType> feeTypeRepository,
-        IRepository<ClassFeeAmount> classFeeAmountRepository,
-        IRepository<FeeInstallment> feeInstallmentRepository,
         IRepository<CashRegister> cashRegisterRepository,
         IRepository<AppConfiguration> appConfigurationRepository,
         IUnitOfWork unitOfWork)
@@ -48,8 +43,6 @@ public sealed class SchoolService : ISchoolService
         _sectionRepository = sectionRepository;
         _courseRepository = courseRepository;
         _feeTypeRepository = feeTypeRepository;
-        _classFeeAmountRepository = classFeeAmountRepository;
-        _feeInstallmentRepository = feeInstallmentRepository;
         _cashRegisterRepository = cashRegisterRepository;
         _appConfigurationRepository = appConfigurationRepository;
         _unitOfWork = unitOfWork;
@@ -75,7 +68,14 @@ public sealed class SchoolService : ISchoolService
     public async Task<IReadOnlyList<AcademicYearDto>> GetAcademicYearsAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var years = await _yearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken);
-        return years.OrderByDescending(y => y.StartDate).Adapt<List<AcademicYearDto>>();
+        return years
+            .Adapt<List<AcademicYearDto>>()
+            .GroupBy(y => y.Id)
+            .Select(g => g.First())
+            .GroupBy(y => y.Label.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(y => y.IsCurrent).ThenByDescending(y => y.StartDate).First())
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
     }
 
     public async Task<AcademicYearDto> CreateAcademicYearAsync(Guid schoolId, CreateAcademicYearRequest request, CancellationToken cancellationToken = default)
@@ -114,18 +114,6 @@ public sealed class SchoolService : ISchoolService
                 _yearRepository,
                 _unitOfWork,
                 cancellationToken);
-
-            await ClassFeeScheduleProvisioner.ProvisionForYearAsync(
-                schoolId,
-                academicYear.Id,
-                previousCurrentYearId,
-                _classFeeAmountRepository,
-                _feeTypeRepository,
-                _pedagogicalClassRepository,
-                _feeInstallmentRepository,
-                _yearRepository,
-                _unitOfWork,
-                cancellationToken);
         }
 
         return academicYear.Adapt<AcademicYearDto>();
@@ -157,18 +145,6 @@ public sealed class SchoolService : ISchoolService
             _yearRepository,
             _unitOfWork,
             cancellationToken);
-
-        await ClassFeeScheduleProvisioner.ProvisionForYearAsync(
-            schoolId,
-            academicYearId,
-            previousCurrentYearId,
-            _classFeeAmountRepository,
-            _feeTypeRepository,
-            _pedagogicalClassRepository,
-            _feeInstallmentRepository,
-            _yearRepository,
-            _unitOfWork,
-            cancellationToken);
     }
 
     public async Task<SchoolLookupsDto> GetLookupsAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -183,7 +159,9 @@ public sealed class SchoolService : ISchoolService
         classes = classes.Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap)).ToList();
         var courses = await _courseRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
         var feeTypes = await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken);
-        var cashRegisters = await _cashRegisterRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
+        // CashRegisters : table dépréciée — plus exposée aux écrans d'encaissement.
+        _ = _cashRegisterRepository;
+        IReadOnlyList<CashRegisterLookupDto> cashRegisters = [];
 
         return new SchoolLookupsDto(
             years,
@@ -198,7 +176,7 @@ public sealed class SchoolService : ISchoolService
             }).ToList(),
             courses.Select(c => new CourseLookupDto(c.Id, c.Code, c.Name, c.ClassRoomId)).ToList(),
             feeTypes.Select(f => new FeeTypeLookupDto(f.Id, f.Code, f.Name, f.Currency)).ToList(),
-            cashRegisters.Select(c => new CashRegisterLookupDto(c.Id, c.Code, c.Name, c.Currency)).ToList());
+            cashRegisters);
     }
 
     public async Task<SchoolRegulationDto> GetRegulationAsync(Guid schoolId, CancellationToken cancellationToken = default)

@@ -52,12 +52,6 @@
                                   SelectedItem="{Binding SelectedFeeType}"
                                   Style="{StaticResource ErpComboBox}"
                                   materialDesign:HintAssist.Hint="Type de frais" />
-                        <ComboBox Width="180" Margin="0,0,12,12"
-                                  DisplayMemberPath="Name"
-                                  ItemsSource="{Binding Lookups.CashRegisters}"
-                                  SelectedItem="{Binding SelectedCashRegister}"
-                                  Style="{StaticResource ErpComboBox}"
-                                  materialDesign:HintAssist.Hint="Caisse" />
                         <TextBox Width="140" Margin="0,0,12,12"
                                  materialDesign:HintAssist.Hint="Montant"
                                  Style="{StaticResource ErpTextBox}"

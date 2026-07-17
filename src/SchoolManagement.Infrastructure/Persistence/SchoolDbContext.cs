@@ -170,6 +170,18 @@ public class SchoolDbContext : DbContext
 
     public DbSet<StudentFeeBalance> StudentFeeBalances => Set<StudentFeeBalance>();
 
+    public DbSet<RevenueAllocationDestination> RevenueAllocationDestinations => Set<RevenueAllocationDestination>();
+
+    public DbSet<RevenueAllocationKey> RevenueAllocationKeys => Set<RevenueAllocationKey>();
+
+    public DbSet<RevenueAllocationKeyDetail> RevenueAllocationKeyDetails => Set<RevenueAllocationKeyDetail>();
+
+    public DbSet<RevenueAllocationEntry> RevenueAllocationEntries => Set<RevenueAllocationEntry>();
+
+    public DbSet<WithholdingType> WithholdingTypes => Set<WithholdingType>();
+
+    public DbSet<WithholdingConfiguration> WithholdingConfigurations => Set<WithholdingConfiguration>();
+
 
 
     // Sécurité

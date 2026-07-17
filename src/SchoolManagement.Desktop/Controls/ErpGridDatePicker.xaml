@@ -5,7 +5,7 @@
              x:Name="Root"
              FocusVisualStyle="{x:Null}">
     <Border x:Name="HostBorder"
-            Style="{StaticResource SchoolFeeGridDateCellBorder}">
+            Style="{StaticResource ErpGridDateCellBorder}">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -22,7 +22,7 @@
             <Button x:Name="OpenCalendarButton"
                     Grid.Column="1"
                     Click="OpenCalendarButton_OnClick"
-                    Style="{StaticResource SchoolFeeGridDatePickerButton}">
+                    Style="{StaticResource ErpGridDatePickerButton}">
                 <materialDesign:PackIcon Width="16"
                                          Height="16"
                                          Foreground="{StaticResource ErpPrimaryBrush}"

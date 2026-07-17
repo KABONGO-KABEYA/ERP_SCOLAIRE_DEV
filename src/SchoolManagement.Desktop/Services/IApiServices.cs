@@ -12,6 +12,9 @@ public interface IAuthSessionService
 
     bool IsAuthenticated { get; }
 
+    /// <summary>Administrateur (rôle ADMIN ou permission admin.full).</summary>
+    bool IsAdministrator { get; }
+
     void SetSession(AuthResponse response);
 
     void Clear();
@@ -93,6 +96,171 @@ public interface IPaymentApiService
 
     Task<SchoolManagement.Application.Payments.DTOs.PaymentDto> CreateAsync(
         SchoolManagement.Application.Payments.DTOs.CreatePaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.PaymentDetailDto> GetByIdAsync(
+        Guid paymentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.FeeTypeStatementDto> GetFeeTypeStatementAsync(
+        Guid paymentId,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.FeeTypeStatementDto> GetFeeTypeStatementForStudentAsync(
+        Guid studentId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportFeeTypeStatementPdfAsync(
+        Guid paymentId,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportFeeTypeStatementPdfForStudentAsync(
+        Guid studentId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.StudentFinancialSummaryDto> GetStudentFinancialSummaryAsync(
+        Guid studentId,
+        Guid academicYearId,
+        CancellationToken cancellationToken = default);
+
+    Task CancelAsync(
+        Guid paymentId,
+        SchoolManagement.Application.Payments.DTOs.CancelPaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.PaymentDetailDto> UpdateNotesAsync(
+        Guid paymentId,
+        SchoolManagement.Application.Payments.DTOs.UpdatePaymentNotesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Payments.DTOs.PaymentDetailDto> UpdateAmountAsync(
+        Guid paymentId,
+        SchoolManagement.Application.Payments.DTOs.UpdatePaymentAmountRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IRevenueAllocationApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueDestinationDto>> GetDestinationsAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueDestinationDto> CreateDestinationAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.SaveRevenueDestinationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueDestinationDto> UpdateDestinationAsync(
+        Guid id,
+        SchoolManagement.Application.RevenueAllocation.DTOs.SaveRevenueDestinationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateDestinationAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationKeyDto>> GetKeysAsync(
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationKeyDto> CreateKeyAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.CreateRevenueAllocationKeyRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationKeyDto> UpdateKeyAsync(
+        Guid id,
+        SchoolManagement.Application.RevenueAllocation.DTOs.UpdateRevenueAllocationKeyRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ActivateKeyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task CloseKeyAsync(Guid id, DateOnly? endDate = null, CancellationToken cancellationToken = default);
+
+    Task DeactivateKeyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeleteKeyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchResultDto> SearchEntriesAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportExcelAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPdfAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IWithholdingApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Withholdings.DTOs.WithholdingTypeDto>> GetTypesAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingTypeDto> CreateTypeAsync(
+        SchoolManagement.Application.Withholdings.DTOs.SaveWithholdingTypeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingTypeDto> UpdateTypeAsync(
+        Guid id,
+        SchoolManagement.Application.Withholdings.DTOs.SaveWithholdingTypeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateTypeAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationSearchResultDto> SearchConfigurationsAsync(
+        SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationDto> CreateConfigurationAsync(
+        SchoolManagement.Application.Withholdings.DTOs.SaveWithholdingConfigurationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationDto> UpdateConfigurationAsync(
+        Guid id,
+        SchoolManagement.Application.Withholdings.DTOs.SaveWithholdingConfigurationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateConfigurationAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeleteConfigurationAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Withholdings.DTOs.WithholdingCalculationResult> CalculateAsync(
+        SchoolManagement.Application.Withholdings.DTOs.WithholdingCalculateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportExcelAsync(
+        SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPdfAsync(
+        SchoolManagement.Application.Withholdings.DTOs.WithholdingConfigurationSearchRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IFinanceApiService
+{
+    Task<SchoolManagement.Application.Finance.DTOs.StudentPaymentSituationSearchResultDto> SearchPaymentSituationsAsync(
+        SchoolManagement.Application.Finance.DTOs.StudentPaymentSituationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Finance.DTOs.StudentInstallmentPaymentPlanDto> GetInstallmentPaymentPlanAsync(
+        Guid enrollmentId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Finance.DTOs.StudentPricingAssignmentSearchResultDto> SearchPricingAssignmentsAsync(
+        SchoolManagement.Application.Finance.DTOs.StudentPricingAssignmentSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Finance.DTOs.StudentPricingAssignmentDto> UpdatePricingAssignmentAsync(
+        Guid enrollmentId,
+        SchoolManagement.Application.Finance.DTOs.UpdateEnrollmentPricingCategoryRequest request,
         CancellationToken cancellationToken = default);
 }
 
