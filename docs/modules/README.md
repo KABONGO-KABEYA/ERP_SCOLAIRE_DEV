@@ -10,7 +10,7 @@
 | Années scolaires | [etat-implementation.md §5](etat-implementation.md#5-années-scolaires) | ✅ Desktop + API |
 | Frais scolaires | [etat-implementation.md §6](etat-implementation.md#6-frais-scolaires) | ✅ Desktop + API |
 | Académique | — | ✅ Desktop + API |
-| Notes | — | ✅ Desktop + API + Mobile enseignant |
+| Notes | [notes-handoff.md](notes-handoff.md) | ✅ Base existante — branche `feature/notes` |
 | Financier | — | ✅ Desktop + API + Mobile parent |
 | Documents | — | ✅ Desktop + API |
 | Statistiques | — | ✅ Desktop + API + Mobile direction |
