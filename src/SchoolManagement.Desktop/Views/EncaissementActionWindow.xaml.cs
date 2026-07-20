@@ -39,9 +39,12 @@ public partial class EncaissementActionWindow : Window
     private readonly bool _canMutatePaidPayments;
 
     private readonly List<PaymentListItem> _allPayments = [];
+    private readonly List<PaymentLineListItem> _feePaymentLines = [];
     private readonly ObservableCollection<InstallmentCollectRow> _installmentRows = [];
+    private readonly ObservableCollection<PaymentDetailEditRow> _paymentEditRows = [];
     private PaymentDto? _selectedPayment;
     private decimal _editFeeAmountBaseline;
+    private PaymentMutationGateDto? _mutationGate;
     private FeeTypeStatementDto? _receiptStatement;
     private bool _busy;
     private bool _suppressDistribute;
@@ -145,6 +148,10 @@ public partial class EncaissementActionWindow : Window
             case EncaissementActionMode.EditPayment:
                 Title = "Modifier un paiement";
                 TitleText.Text = "Modifier le dernier versement";
+                Width = 980;
+                Height = 760;
+                MinWidth = 820;
+                MinHeight = 600;
                 HistoryPanel.Visibility = Visibility.Collapsed;
                 EditPanel.Visibility = Visibility.Visible;
                 HistoryActionsPanel.Visibility = Visibility.Collapsed;
@@ -157,6 +164,10 @@ public partial class EncaissementActionWindow : Window
             case EncaissementActionMode.CancelPayment:
                 Title = "Annuler un paiement";
                 TitleText.Text = "Annuler le dernier versement";
+                Width = 980;
+                Height = 760;
+                MinWidth = 820;
+                MinHeight = 600;
                 HistoryPanel.Visibility = Visibility.Collapsed;
                 CancelPanel.Visibility = Visibility.Visible;
                 HistoryActionsPanel.Visibility = Visibility.Collapsed;
@@ -378,13 +389,29 @@ public partial class EncaissementActionWindow : Window
     {
         var result = await _paymentApi.SearchAsync(new PaymentSearchRequest(_situation.StudentId, null, null, 1, 200));
         _allPayments.Clear();
+        _feePaymentLines.Clear();
+        _mutationGate = null;
 
         var feeTypeId = _situation.FeeTypeId;
         var filterByFeeType = feeTypeId.HasValue
             && _mode is EncaissementActionMode.EditPayment or EncaissementActionMode.CancelPayment;
 
+        if (filterByFeeType)
+        {
+            try
+            {
+                _mutationGate = await _paymentApi.GetMutationGateAsync(
+                    _situation.AcademicYearId,
+                    feeTypeId!.Value);
+            }
+            catch
+            {
+                _mutationGate = null;
+            }
+        }
+
         foreach (var p in result.Items
-                     .OrderByDescending(x => x.PaymentDate)
+                     .OrderByDescending(x => x.CreatedAt ?? x.PaymentDate)
                      .ThenByDescending(x => x.Id))
         {
             if (!filterByFeeType)
@@ -396,13 +423,53 @@ public partial class EncaissementActionWindow : Window
             try
             {
                 var detail = await _paymentApi.GetByIdAsync(p.Id);
-                var feeLines = detail.Lines.Where(l => l.FeeTypeId == feeTypeId!.Value).ToList();
+                if (detail.AcademicYearId != _situation.AcademicYearId)
+                {
+                    continue;
+                }
+
+                if (detail.Status != PaymentStatus.Complet)
+                {
+                    continue;
+                }
+
+                var feeLines = detail.Lines
+                    .Where(l => l.FeeTypeId == feeTypeId!.Value && l.Amount > 0)
+                    .OrderByDescending(l => l.Id)
+                    .ToList();
                 if (feeLines.Count == 0)
                 {
                     continue;
                 }
 
-                _allPayments.Add(new PaymentListItem(p, feeLines.Sum(l => l.Amount)));
+                var paymentCreatedAt = detail.CreatedAt ?? p.CreatedAt ?? p.PaymentDate;
+                var physical = string.Join(
+                    ", ",
+                    feeLines
+                        .Select(l => l.PhysicalReceiptNumber?.Trim())
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Cast<string>()
+                        .Distinct(StringComparer.OrdinalIgnoreCase));
+
+                _allPayments.Add(new PaymentListItem(
+                    p,
+                    feeLines.Sum(l => l.Amount),
+                    physical,
+                    paymentCreatedAt));
+
+                foreach (var line in feeLines)
+                {
+                    _feePaymentLines.Add(new PaymentLineListItem(
+                        p,
+                        line.Id,
+                        p.ReceiptNumber,
+                        p.PaymentDate,
+                        paymentCreatedAt,
+                        line.Amount,
+                        line.PhysicalReceiptNumber,
+                        detail.Status,
+                        detail.Currency));
+                }
             }
             catch
             {
@@ -417,10 +484,10 @@ public partial class EncaissementActionWindow : Window
         {
             if (latestCompleted is null)
             {
-                CancelLastAmountText.Text = "Aucun versement";
-                CancelPaymentInfoText.Text = "Aucun versement complet à annuler pour ce type de frais.";
+                CancelPaymentsGrid.ItemsSource = null;
                 PrimaryButton.IsEnabled = false;
                 StatusText.Text = "Aucun versement complet à annuler.";
+                LoadCancelPaymentHistory();
             }
             else
             {
@@ -434,15 +501,13 @@ public partial class EncaissementActionWindow : Window
         {
             if (latestCompleted is null)
             {
-                EditLastAmountText.Text = "Aucun versement";
-                EditPaymentInfoText.Text = "Aucun versement complet à modifier pour ce type de frais.";
-                EditAmountBox.Text = string.Empty;
+                EditPaymentsGrid.ItemsSource = null;
                 PrimaryButton.IsEnabled = false;
                 StatusText.Text = "Aucun versement complet à modifier.";
             }
             else
             {
-                ShowEditPanel(latestCompleted.Dto, latestCompleted.DisplayAmount);
+                await ShowEditPanelAsync(latestCompleted.Dto, latestCompleted.DisplayAmount);
             }
 
             return;
@@ -466,17 +531,94 @@ public partial class EncaissementActionWindow : Window
         }
     }
 
-    private PaymentListItem? GetLatestCompletedPayment() =>
-        _allPayments
+    private PaymentListItem? GetLatestCompletedPayment()
+    {
+        // Verrou global : seul le dernier encaissement du type de frais (tous élèves) est mutable.
+        if (_mutationGate?.LatestPaymentId is Guid gateId)
+        {
+            return _allPayments.FirstOrDefault(p =>
+                p.Dto.Id == gateId && p.Status == PaymentStatus.Complet);
+        }
+
+        return _allPayments
             .Where(p => p.Status == PaymentStatus.Complet)
-            .OrderByDescending(p => p.Dto.PaymentDate)
+            .OrderByDescending(p => p.PaymentDate)
+            .ThenByDescending(p => p.CreatedAt)
             .ThenByDescending(p => p.Dto.Id)
             .FirstOrDefault();
+    }
 
     private bool IsLatestCompletedPayment(PaymentDto payment)
     {
+        if (_mutationGate?.LatestPaymentId is Guid gateId)
+        {
+            return payment.Id == gateId;
+        }
+
         var latest = GetLatestCompletedPayment();
         return latest is not null && latest.Dto.Id == payment.Id;
+    }
+
+    private bool IsSchoolWideMutablePayment(Guid paymentId) =>
+        _canMutatePaidPayments
+        && _mutationGate?.LatestPaymentId is Guid gateId
+        && gateId == paymentId;
+
+    private string RetrogradeBlockedMessage(bool forCancel)
+    {
+        var action = forCancel ? "annuler" : "modifier";
+        if (_mutationGate?.LatestPaymentDate is DateTime gateDate)
+        {
+            var who = string.IsNullOrWhiteSpace(_mutationGate.LatestStudentName)
+                ? "un autre élève"
+                : _mutationGate.LatestStudentName;
+            var receipt = string.IsNullOrWhiteSpace(_mutationGate.LatestReceiptNumber)
+                ? string.Empty
+                : $" ({_mutationGate.LatestReceiptNumber})";
+            return
+                $"Impossible de {action} : un encaissement plus récent existe déjà pour ce type de frais " +
+                $"le {gateDate:dd/MM/yyyy} — {who}{receipt}. " +
+                "Traitez d'abord ce versement (ordre rétrograde, tous élèves confondus).";
+        }
+
+        return forCancel
+            ? "Impossible d'annuler : un encaissement à une date plus récente existe déjà pour ce type de frais. " +
+              "Annulez d'abord le versement le plus récent."
+            : "Impossible de modifier : un encaissement à une date plus récente existe déjà pour ce type de frais. " +
+              "Modifiez ou annulez d'abord le versement le plus récent.";
+    }
+
+    private IReadOnlyList<PaymentLineListItem> GetOrderedFeePaymentLines() =>
+        _feePaymentLines
+            .OrderByDescending(l => l.PaymentDate)
+            .ThenByDescending(l => l.PaymentCreatedAt)
+            .ThenByDescending(l => l.LineId)
+            .ToList();
+
+    private void PopulateMutationHistoryRows()
+    {
+        _paymentEditRows.Clear();
+        var ordered = GetOrderedFeePaymentLines();
+        var number = 1;
+
+        foreach (var item in ordered)
+        {
+            var canAct = IsSchoolWideMutablePayment(item.PaymentId)
+                && item.Status == PaymentStatus.Complet;
+
+            _paymentEditRows.Add(new PaymentDetailEditRow(
+                item.PaymentId,
+                item.LineId,
+                number++,
+                item.ReceiptNumber,
+                item.PaymentDate,
+                item.PaymentCreatedAt,
+                item.Amount,
+                item.Currency,
+                item.Status,
+                item.PhysicalReceiptNumber,
+                canAct));
+        }
     }
 
     private void RefreshPaymentsGrid()
@@ -515,8 +657,8 @@ public partial class EncaissementActionWindow : Window
             null,
             null,
             _situation.FeeTypeId,
-            1,
-            100));
+            Page: 1,
+            PageSize: 100));
         AllocationsGrid.ItemsSource = result.Items;
         StatusText.Text = result.TotalCount == 0
             ? "Aucune répartition trouvée."
@@ -589,7 +731,7 @@ public partial class EncaissementActionWindow : Window
         else if (_mode == EncaissementActionMode.EditPayment)
         {
             var amount = item.DisplayAmount;
-            ShowEditPanel(item.Dto, amount);
+            await ShowEditPanelAsync(item.Dto, amount);
         }
         else if (_mode == EncaissementActionMode.CancelPayment)
         {
@@ -622,49 +764,104 @@ public partial class EncaissementActionWindow : Window
         }
     }
 
-    private void ShowEditPanel(PaymentDto payment, decimal? displayAmount = null)
+    private async Task ShowEditPanelAsync(PaymentDto payment, decimal? displayAmount = null)
     {
         if (!_canMutatePaidPayments)
         {
             ErrorText.Text = "Seul l'administrateur peut modifier un frais déjà payé.";
             PrimaryButton.IsEnabled = false;
-            return;
         }
 
-        if (payment.Status == PaymentStatus.Annule)
-        {
-            ErrorText.Text = "Impossible de modifier un paiement annulé.";
-            PrimaryButton.IsEnabled = false;
-            return;
-        }
-
-        if (!IsLatestCompletedPayment(payment))
-        {
-            ErrorText.Text =
-                "Seul le dernier versement de ce type de frais peut être modifié. " +
-                "Traitez d'abord les versements plus récents (ordre rétrograde).";
-            PrimaryButton.IsEnabled = false;
-            HistoryPanel.Visibility = Visibility.Visible;
-            EditPanel.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var amount = displayAmount ?? ResolveDisplayAmount(payment.Id) ?? payment.TotalAmount;
         ErrorText.Text = string.Empty;
         HistoryPanel.Visibility = Visibility.Collapsed;
         EditPanel.Visibility = Visibility.Visible;
-        _selectedPayment = payment;
-        _editFeeAmountBaseline = amount;
-        EditLastAmountText.Text = $"{amount:N0} {payment.Currency}";
-        EditPaymentInfoText.Text =
-            $"Reçu {payment.ReceiptNumber} · {payment.PaymentDate:dd/MM/yyyy HH:mm} · {FormatStatus(payment.Status)}";
-        // Préremplir avec le montant réel du dernier versement (pas un autre solde / tranche).
-        EditAmountBox.Text = amount.ToString("0.##", CultureInfo.CurrentCulture);
-        EditNotesBox.Text = payment.Notes ?? string.Empty;
-        PrimaryButton.Content = "Enregistrer le nouveau montant";
-        PrimaryButton.IsEnabled = true;
-        TitleText.Text = "Modifier le montant du dernier versement";
+        TitleText.Text = "Modifier le paiement";
+        PrimaryButton.Content = "Enregistrer les modifications";
+
+        LoadEditPaymentHistory(payment, displayAmount);
+        await Task.CompletedTask;
     }
+
+    private void LoadEditPaymentHistory(PaymentDto? preferredPayment = null, decimal? preferredDisplayAmount = null)
+    {
+        EditPaymentsGrid.ItemsSource = null;
+        EditPaymentsTotalText.Text = "0";
+        PopulateMutationHistoryRows();
+        EditPaymentsGrid.ItemsSource = _paymentEditRows.ToList();
+        UpdateEditPaymentTotals();
+
+        var editable = _paymentEditRows.Where(r => r.CanEdit).ToList();
+        if (editable.Count > 0)
+        {
+            var source = _allPayments.First(p => p.Dto.Id == editable[0].PaymentId);
+            _selectedPayment = source.Dto;
+            _editFeeAmountBaseline = preferredPayment?.Id == editable[0].PaymentId
+                && preferredDisplayAmount.HasValue
+                    ? preferredDisplayAmount.Value
+                    : source.DisplayAmount;
+            PrimaryButton.IsEnabled = true;
+            ErrorText.Text = string.Empty;
+            return;
+        }
+
+        _selectedPayment = preferredPayment ?? GetOrderedFeePaymentLines().FirstOrDefault()?.Dto;
+        _editFeeAmountBaseline = preferredDisplayAmount ?? 0;
+        PrimaryButton.IsEnabled = false;
+
+        if (!_canMutatePaidPayments)
+        {
+            ErrorText.Text = "Seul l'administrateur peut modifier un frais déjà payé.";
+        }
+        else if (_paymentEditRows.Count > 0)
+        {
+            ErrorText.Text = RetrogradeBlockedMessage(forCancel: false);
+        }
+        else
+        {
+            ErrorText.Text = "Aucun détail de versement pour ce type de frais / année scolaire.";
+        }
+    }
+
+    private void UpdateEditPaymentTotals()
+    {
+        var currency = _situation.Currency.ToString();
+        EditPaymentsTotalText.Text = $"{_paymentEditRows.Sum(r => r.Amount):N0} {currency}";
+    }
+
+    private void EditPaymentAmountBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: PaymentDetailEditRow row } || !row.CanEdit)
+        {
+            return;
+        }
+
+        if (!InstallmentPaymentCascade.TryParseDecimal(row.AmountText, out var amount) || amount < 0)
+        {
+            amount = 0;
+        }
+
+        row.SetAmount(amount, suppressNotify: true);
+        UpdateEditPaymentTotals();
+    }
+
+    private void EditPaymentAmountBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: PaymentDetailEditRow row } || !row.CanEdit)
+        {
+            return;
+        }
+
+        if (!InstallmentPaymentCascade.TryParseDecimal(row.AmountText, out var amount) || amount < 0)
+        {
+            amount = 0;
+        }
+
+        row.SetAmount(amount, suppressNotify: false);
+        UpdateEditPaymentTotals();
+    }
+
+    private void ShowEditPanel(PaymentDto payment, decimal? displayAmount = null) =>
+        _ = ShowEditPanelAsync(payment, displayAmount);
 
     private void ShowCancelPanel(PaymentDto payment, decimal? displayAmount = null)
     {
@@ -672,45 +869,63 @@ public partial class EncaissementActionWindow : Window
         {
             ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
             PrimaryButton.IsEnabled = false;
-            return;
         }
 
-        if (payment.Status != PaymentStatus.Complet)
-        {
-            ErrorText.Text = "Seuls les paiements complets peuvent être annulés.";
-            PrimaryButton.IsEnabled = false;
-            CancelPanel.Visibility = Visibility.Collapsed;
-            HistoryPanel.Visibility = Visibility.Visible;
-            return;
-        }
-
-        if (!IsLatestCompletedPayment(payment))
-        {
-            ErrorText.Text =
-                "Seul le dernier versement de ce type de frais peut être annulé. " +
-                "Annulez d'abord les versements plus récents (ordre rétrograde).";
-            PrimaryButton.IsEnabled = false;
-            CancelPanel.Visibility = Visibility.Collapsed;
-            HistoryPanel.Visibility = Visibility.Visible;
-            return;
-        }
-
-        var amount = displayAmount ?? ResolveDisplayAmount(payment.Id) ?? payment.TotalAmount;
         ErrorText.Text = string.Empty;
         HistoryPanel.Visibility = Visibility.Collapsed;
+        EditPanel.Visibility = Visibility.Collapsed;
         CancelPanel.Visibility = Visibility.Visible;
-        _selectedPayment = payment;
-        CancelLastAmountText.Text = $"{amount:N0} {payment.Currency}";
-        CancelPaymentInfoText.Text =
-            $"Reçu {payment.ReceiptNumber} · {payment.PaymentDate:dd/MM/yyyy HH:mm}\n" +
-            "Cette action annule immédiatement ce versement et met à jour les soldes.";
+        TitleText.Text = "Annuler le paiement";
+        PrimaryButton.Content = "Confirmer l'annulation";
+        PrimaryButton.Style = (Style)FindResource("ErpDangerButton");
+
         if (string.IsNullOrWhiteSpace(CancelReasonBox.Text))
         {
             CancelReasonBox.Text = "Annulation du dernier versement";
         }
 
-        PrimaryButton.IsEnabled = true;
-        TitleText.Text = "Confirmer l'annulation";
+        LoadCancelPaymentHistory(payment, displayAmount);
+    }
+
+    private void LoadCancelPaymentHistory(PaymentDto? preferredPayment = null, decimal? preferredDisplayAmount = null)
+    {
+        CancelPaymentsGrid.ItemsSource = null;
+        CancelPaymentsTotalText.Text = "0";
+        PopulateMutationHistoryRows();
+        CancelPaymentsGrid.ItemsSource = _paymentEditRows.ToList();
+
+        var currency = _situation.Currency.ToString();
+        CancelPaymentsTotalText.Text = $"{_paymentEditRows.Sum(r => r.Amount):N0} {currency}";
+
+        var targetRows = _paymentEditRows.Where(r => r.CanEdit).ToList();
+        if (targetRows.Count > 0)
+        {
+            var source = _allPayments.First(p => p.Dto.Id == targetRows[0].PaymentId);
+            _selectedPayment = source.Dto;
+            CancelPaymentsGrid.SelectedItem = targetRows[0];
+            PrimaryButton.IsEnabled = true;
+            ErrorText.Text = string.Empty;
+            _ = preferredDisplayAmount;
+            return;
+        }
+
+        _selectedPayment = preferredPayment ?? GetOrderedFeePaymentLines().FirstOrDefault()?.Dto;
+        PrimaryButton.IsEnabled = false;
+
+        if (!_canMutatePaidPayments)
+        {
+            ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
+        }
+        else if (_paymentEditRows.Count > 0)
+        {
+            ErrorText.Text = RetrogradeBlockedMessage(forCancel: true);
+        }
+        else
+        {
+            ErrorText.Text = "Aucun détail de versement pour ce type de frais / année scolaire.";
+        }
+
+        _ = preferredDisplayAmount;
     }
 
     private decimal? ResolveDisplayAmount(Guid paymentId) =>
@@ -731,7 +946,7 @@ public partial class EncaissementActionWindow : Window
         HistoryActionsPanel.Visibility = Visibility.Collapsed;
     }
 
-    private void HistoryEditBtn_OnClick(object sender, RoutedEventArgs e)
+    private async void HistoryEditBtn_OnClick(object sender, RoutedEventArgs e)
     {
         if (_selectedPayment is null)
         {
@@ -739,7 +954,7 @@ public partial class EncaissementActionWindow : Window
             return;
         }
 
-        ShowEditPanel(_selectedPayment);
+        await ShowEditPanelAsync(_selectedPayment);
         PrimaryButton.Content = "Enregistrer le nouveau montant";
         PrimaryButton.Visibility = Visibility.Visible;
         HistoryActionsPanel.Visibility = Visibility.Collapsed;
@@ -900,39 +1115,51 @@ public partial class EncaissementActionWindow : Window
 
     private async Task SubmitEditNotesAsync()
     {
-        if (_selectedPayment is null)
+        var editableRows = _paymentEditRows.Where(r => r.CanEdit).ToList();
+        if (editableRows.Count == 0)
         {
-            ErrorText.Text = "Aucun paiement sélectionné.";
+            ErrorText.Text = "Aucun paiement modifiable.";
             return;
         }
 
-        if (!decimal.TryParse(
-                EditAmountBox.Text.Replace(" ", string.Empty),
-                NumberStyles.Number,
-                CultureInfo.CurrentCulture,
-                out var newAmount)
-            && !decimal.TryParse(
-                EditAmountBox.Text.Replace(" ", string.Empty).Replace(',', '.'),
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out newAmount))
+        var paymentId = editableRows[0].PaymentId;
+        var source = _allPayments.FirstOrDefault(p => p.Dto.Id == paymentId);
+        if (source is null)
         {
-            ErrorText.Text = "Saisissez un montant valide.";
+            ErrorText.Text = "Paiement introuvable.";
             return;
         }
 
-        if (newAmount <= 0)
+        _selectedPayment = source.Dto;
+
+        if (!IsLatestCompletedPayment(_selectedPayment))
+        {
+            ErrorText.Text = RetrogradeBlockedMessage(forCancel: false);
+            return;
+        }
+
+        foreach (var row in editableRows)
+        {
+            if (!InstallmentPaymentCascade.TryParseDecimal(row.AmountText, out var parsed) || parsed < 0)
+            {
+                parsed = 0;
+            }
+
+            row.SetAmount(parsed, suppressNotify: false);
+        }
+
+        var newFeeAmount = editableRows.Sum(r => r.Amount);
+        if (newFeeAmount <= 0)
         {
             ErrorText.Text = "Le nouveau montant doit être supérieur à zéro.";
             return;
         }
 
-        // Si l'UI édite le montant du type de frais (pas le total multi-frais), recalculer le total reçu.
-        var amountForApi = newAmount;
+        var amountForApi = newFeeAmount;
         if (_editFeeAmountBaseline > 0
             && _selectedPayment.TotalAmount != _editFeeAmountBaseline)
         {
-            amountForApi = _selectedPayment.TotalAmount - _editFeeAmountBaseline + newAmount;
+            amountForApi = _selectedPayment.TotalAmount - _editFeeAmountBaseline + newFeeAmount;
             if (amountForApi <= 0)
             {
                 ErrorText.Text = "Le nouveau montant est invalide pour ce reçu.";
@@ -940,14 +1167,19 @@ public partial class EncaissementActionWindow : Window
             }
         }
 
-        SetBusy(true, "Enregistrement du montant…");
+        var lineUpdates = editableRows
+            .Select(r => new UpdatePaymentLineAmountRequest(
+                r.LineId,
+                r.Amount,
+                r.PhysicalNumber.Trim()))
+            .ToList();
+
+        SetBusy(true, "Enregistrement des modifications…");
         try
         {
             await _paymentApi.UpdateAmountAsync(
                 _selectedPayment.Id,
-                new UpdatePaymentAmountRequest(
-                    amountForApi,
-                    string.IsNullOrWhiteSpace(EditNotesBox.Text) ? null : EditNotesBox.Text.Trim()));
+                new UpdatePaymentAmountRequest(amountForApi, null, null, lineUpdates));
 
             NeedsRefresh = true;
             if (_mode == EncaissementActionMode.EditPayment)
@@ -957,7 +1189,7 @@ public partial class EncaissementActionWindow : Window
             }
             else
             {
-                StatusText.Text = "Montant mis à jour.";
+                StatusText.Text = "Paiement mis à jour.";
                 await LoadPaymentsAsync();
                 HideAllPanels();
                 HistoryPanel.Visibility = Visibility.Visible;
@@ -974,9 +1206,37 @@ public partial class EncaissementActionWindow : Window
 
     private async Task SubmitCancelAsync()
     {
+        var target = _paymentEditRows.FirstOrDefault(r => r.CanEdit);
+        if (target is not null)
+        {
+            var source = _allPayments.FirstOrDefault(p => p.Dto.Id == target.PaymentId);
+            if (source is not null)
+            {
+                _selectedPayment = source.Dto;
+            }
+        }
+
         if (_selectedPayment is null)
         {
             ErrorText.Text = "Aucun paiement sélectionné.";
+            return;
+        }
+
+        if (!_canMutatePaidPayments)
+        {
+            ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
+            return;
+        }
+
+        if (_selectedPayment.Status != PaymentStatus.Complet)
+        {
+            ErrorText.Text = "Seuls les paiements complets peuvent être annulés.";
+            return;
+        }
+
+        if (!IsLatestCompletedPayment(_selectedPayment))
+        {
+            ErrorText.Text = RetrogradeBlockedMessage(forCancel: true);
             return;
         }
 
@@ -1166,28 +1426,73 @@ public partial class EncaissementActionWindow : Window
         }
     }
 
+    private sealed class PaymentLineListItem
+    {
+        public PaymentLineListItem(
+            PaymentDto dto,
+            Guid lineId,
+            string receiptNumber,
+            DateTime paymentDate,
+            DateTime paymentCreatedAt,
+            decimal amount,
+            string? physicalReceiptNumber,
+            PaymentStatus status,
+            Currency currency)
+        {
+            Dto = dto;
+            PaymentId = dto.Id;
+            LineId = lineId;
+            ReceiptNumber = receiptNumber;
+            PaymentDate = paymentDate;
+            PaymentCreatedAt = paymentCreatedAt;
+            Amount = amount;
+            PhysicalReceiptNumber = physicalReceiptNumber;
+            Status = status;
+            Currency = currency;
+        }
+
+        public PaymentDto Dto { get; }
+        public Guid PaymentId { get; }
+        public Guid LineId { get; }
+        public string ReceiptNumber { get; }
+        public DateTime PaymentDate { get; }
+        public DateTime PaymentCreatedAt { get; }
+        public decimal Amount { get; }
+        public string? PhysicalReceiptNumber { get; }
+        public PaymentStatus Status { get; }
+        public Currency Currency { get; }
+    }
+
     private sealed class PaymentListItem
     {
-        public PaymentListItem(PaymentDto dto, decimal? displayAmount = null)
+        public PaymentListItem(
+            PaymentDto dto,
+            decimal? displayAmount = null,
+            string? physicalReceiptNumber = null,
+            DateTime? createdAt = null)
         {
             Dto = dto;
             ReceiptNumber = dto.ReceiptNumber;
             PaymentDate = dto.PaymentDate;
+            CreatedAt = createdAt ?? dto.CreatedAt ?? dto.PaymentDate;
             DisplayAmount = displayAmount ?? dto.TotalAmount;
             TotalAmount = DisplayAmount;
             Currency = dto.Currency.ToString();
             Status = dto.Status;
             StatusLabel = FormatStatus(dto.Status);
+            PhysicalReceiptNumber = physicalReceiptNumber;
         }
 
         public PaymentDto Dto { get; }
         public string ReceiptNumber { get; }
         public DateTime PaymentDate { get; }
+        public DateTime CreatedAt { get; }
         /// <summary>Montant affiché (somme des lignes du type de frais courant, sinon total reçu).</summary>
         public decimal DisplayAmount { get; }
         public decimal TotalAmount { get; }
         public string Currency { get; }
         public PaymentStatus Status { get; }
         public string StatusLabel { get; }
+        public string? PhysicalReceiptNumber { get; }
     }
 }

@@ -41,6 +41,8 @@ public partial class SettingsViewModel : ViewModelBase
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         NewTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
+        Currencies = [Currency.CDF, Currency.USD];
+
         ProgramFilters =
         [
             new ProgramFilterItem(null, "Tous les programmes"),
@@ -101,6 +103,12 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private Currency _defaultCurrency = Currency.CDF;
+
+    [ObservableProperty]
+    private bool _isGeneralInfoExpanded = true;
+
+    [ObservableProperty]
+    private bool _isDocumentBrandingExpanded = true;
 
     [ObservableProperty]
     private string? _statusMessage;
@@ -278,6 +286,18 @@ public partial class SettingsViewModel : ViewModelBase
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
 
+    public IReadOnlyList<Currency> Currencies { get; }
+
+    public string GeneralInfoSectionHeaderText => "Informations générales";
+
+    public string DocumentBrandingSectionHeaderText => "En-têtes et logos des documents";
+
+    public string GeneralInfoToggleLabel =>
+        IsGeneralInfoExpanded ? "Masquer les informations générales" : "Afficher les informations générales";
+
+    public string DocumentBrandingToggleLabel =>
+        IsDocumentBrandingExpanded ? "Masquer l'identité documentaire" : "Afficher l'identité documentaire";
+
     public bool IsEtablissementSelected => SelectedSettingsNode?.Section == SettingsSection.Etablissement;
 
     public bool IsStructurePedagogiqueSelected => SelectedSettingsNode?.Section == SettingsSection.StructurePedagogique;
@@ -291,7 +311,8 @@ public partial class SettingsViewModel : ViewModelBase
     public bool IsRetenuesSelected => SelectedSettingsNode?.Section == SettingsSection.Retenues;
 
     public bool IsScrollableSettingsContent =>
-        !IsStructurePedagogiqueSelected
+        !IsEtablissementSelected
+        && !IsStructurePedagogiqueSelected
         && !IsFraisScolairesSelected
         && !IsRepartitionRecettesSelected
         && !IsRetenuesSelected;
@@ -379,11 +400,24 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(ActiveNavTitle));
         OnPropertyChanged(nameof(SelectedSectionTitle));
         OnPropertyChanged(nameof(SelectedSectionDescription));
+        OnPropertyChanged(nameof(IsEtablissementSelected));
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
         OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
         OnPropertyChanged(nameof(IsRetenuesSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
+
+    partial void OnIsGeneralInfoExpandedChanged(bool value) =>
+        OnPropertyChanged(nameof(GeneralInfoToggleLabel));
+
+    partial void OnIsDocumentBrandingExpandedChanged(bool value) =>
+        OnPropertyChanged(nameof(DocumentBrandingToggleLabel));
+
+    [RelayCommand]
+    private void ToggleGeneralInfo() => IsGeneralInfoExpanded = !IsGeneralInfoExpanded;
+
+    [RelayCommand]
+    private void ToggleDocumentBranding() => IsDocumentBrandingExpanded = !IsDocumentBrandingExpanded;
 
     private static string itemPlaceholderDescription(string? key) => key switch
     {

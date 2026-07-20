@@ -61,4 +61,72 @@ public class ReportsController : ControllerBase
         var data = await _reportService.GetFinancialSummaryAsync(schoolId, academicYearId, cancellationToken);
         return Ok(ApiResponse<FinancialSummaryDto>.Ok(data));
     }
+
+    [HttpGet("financial-realized-receipts")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<RealizedReceiptsResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRealizedReceipts(
+        [FromQuery] DateOnly fromDate,
+        [FromQuery] DateOnly toDate,
+        [FromQuery] Guid? academicYearId,
+        [FromQuery] Guid? feeTypeId,
+        [FromQuery] Guid? classRoomId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 500,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var data = await _reportService.GetRealizedReceiptsAsync(
+            schoolId,
+            new RealizedReceiptsRequest(
+                fromDate,
+                toDate,
+                academicYearId,
+                feeTypeId,
+                classRoomId,
+                sectionId,
+                page,
+                pageSize),
+            cancellationToken);
+        return Ok(ApiResponse<RealizedReceiptsResultDto>.Ok(data));
+    }
+
+    [HttpGet("financial-realized-receipts/export/pdf")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    public async Task<IActionResult> ExportRealizedReceiptsPdf(
+        [FromQuery] DateOnly fromDate,
+        [FromQuery] DateOnly toDate,
+        [FromQuery] Guid? academicYearId,
+        [FromQuery] Guid? feeTypeId,
+        [FromQuery] Guid? classRoomId,
+        [FromQuery] Guid? sectionId,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var bytes = await _reportService.ExportRealizedReceiptsPdfAsync(
+            schoolId,
+            new RealizedReceiptsRequest(fromDate, toDate, academicYearId, feeTypeId, classRoomId, sectionId),
+            cancellationToken);
+        return File(bytes, "application/pdf", "recettes-realisees.pdf");
+    }
+
+    [HttpGet("financial-realized-receipts/export/excel")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    public async Task<IActionResult> ExportRealizedReceiptsExcel(
+        [FromQuery] DateOnly fromDate,
+        [FromQuery] DateOnly toDate,
+        [FromQuery] Guid? academicYearId,
+        [FromQuery] Guid? feeTypeId,
+        [FromQuery] Guid? classRoomId,
+        [FromQuery] Guid? sectionId,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var bytes = await _reportService.ExportRealizedReceiptsExcelAsync(
+            schoolId,
+            new RealizedReceiptsRequest(fromDate, toDate, academicYearId, feeTypeId, classRoomId, sectionId),
+            cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "recettes-realisees.xlsx");
+    }
 }

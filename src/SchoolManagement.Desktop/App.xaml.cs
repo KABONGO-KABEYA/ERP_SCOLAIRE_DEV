@@ -131,6 +131,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IDocumentBrandingApiService, DocumentBrandingApiService>();
         services.AddTransient<ISchoolFeeApiService, SchoolFeeApiService>();
         services.AddTransient<IReportApiService, ReportApiService>();
+        services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
 
         services.AddHttpClient("SchoolApi", client =>
@@ -174,6 +175,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<EncaissementsViewModel>();
         services.AddTransient<PricingCategoryAssignmentViewModel>();
         services.AddTransient<FinancialReportsViewModel>();
+        services.AddTransient<ExpenseRequestsViewModel>();
+        services.AddTransient<ExpensePaymentsViewModel>();
         services.AddTransient<FinanceHubViewModel>();
         services.AddTransient<GradesViewModel>();
         services.AddTransient<AcademicViewModel>();

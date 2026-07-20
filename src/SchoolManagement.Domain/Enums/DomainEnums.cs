@@ -128,6 +128,16 @@ public enum WithholdingCalculationMode
     MontantFixe = 2
 }
 
+/// <summary>Statut d'une demande de paiement comptable.</summary>
+public enum ExpenseRequestStatus
+{
+    Brouillon = 1,
+    Soumise = 2,
+    Approuvee = 3,
+    Payee = 4,
+    Annulee = 5
+}
+
 public enum AcademicPeriodType
 {
     Trimestre = 1,

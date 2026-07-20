@@ -92,6 +92,8 @@ public sealed record RevenueAllocationSearchRequest(
     Guid? PaymentId,
     Guid? DestinationId,
     Guid? FeeTypeId,
+    Guid? SectionId = null,
+    Guid? ClassRoomId = null,
     int Page = 1,
     int PageSize = 50);
 
@@ -110,6 +112,43 @@ public sealed record RevenueAllocationSearchResultDto(
     int PageSize,
     int TotalCount,
     RevenueAllocationTotalsDto Totals);
+
+/// <summary>Ligne agrégée : compte bénéficiaire pour un type de frais.</summary>
+public sealed record FeeTypeAllocationDestinationSummaryDto(
+    Guid DestinationId,
+    string DestinationCode,
+    string DestinationName,
+    decimal Percentage,
+    decimal AllocatedAmount);
+
+/// <summary>Groupe de répartition par type de frais (montants globaux).</summary>
+public sealed record FeeTypeAllocationSummaryGroupDto(
+    Guid FeeTypeId,
+    string FeeTypeCode,
+    string FeeTypeName,
+    decimal FeeTypeTotal,
+    IReadOnlyList<FeeTypeAllocationDestinationSummaryDto> Destinations);
+
+/// <summary>Solde d'un compte bénéficiaire (J-1, encaissements, dépenses, solde période).</summary>
+public sealed record AllocationCashFlowRowDto(
+    Guid DestinationId,
+    string DestinationCode,
+    string DestinationName,
+    decimal PeriodJ1,
+    decimal Encaissement,
+    decimal DepenseP,
+    decimal PeriodeP);
+
+/// <summary>Groupe journalier de répartition comptable.</summary>
+public sealed record AllocationCashFlowDailyGroupDto(
+    DateOnly Date,
+    IReadOnlyList<AllocationCashFlowRowDto> Rows);
+
+/// <summary>Résultat global + journalier des répartitions comptables.</summary>
+public sealed record AllocationCashFlowResultDto(
+    IReadOnlyList<AllocationCashFlowRowDto> GlobalRows,
+    IReadOnlyList<AllocationCashFlowDailyGroupDto> DailyGroups,
+    AllocationCashFlowRowDto Totals);
 
 /// <summary>Ligne calculée (réutilisable Comptabilité / Budget / Caisse).</summary>
 public sealed record CalculatedAllocationLine(

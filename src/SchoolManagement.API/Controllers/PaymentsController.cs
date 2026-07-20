@@ -114,6 +114,20 @@ public class PaymentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = payment.Id }, ApiResponse<PaymentDto>.Ok(payment, "Paiement enregistré."));
     }
 
+    [HttpGet("mutation-gate")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<PaymentMutationGateDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMutationGate(
+        [FromQuery] Guid academicYearId,
+        [FromQuery] Guid feeTypeId,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var gate = await _paymentService.GetMutationGateAsync(
+            schoolId, academicYearId, feeTypeId, cancellationToken);
+        return Ok(ApiResponse<PaymentMutationGateDto>.Ok(gate));
+    }
+
     [HttpGet("student/{studentId:guid}/summary")]
     [Authorize(Policy = Permissions.PaymentsRead)]
     [ProducesResponseType(typeof(ApiResponse<StudentFinancialSummaryDto>), StatusCodes.Status200OK)]

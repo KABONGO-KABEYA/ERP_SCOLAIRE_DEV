@@ -10,6 +10,7 @@ public static class ApiRoutes
     public const string Payments = $"{Base}/payments";
     public const string RevenueAllocation = $"{Base}/revenue-allocation";
     public const string Withholdings = $"{Base}/withholdings";
+    public const string Accounting = $"{Base}/accounting";
     public const string Finance = $"{Base}/finance";
     public const string Reports = $"{Base}/reports";
     public const string Dashboard = $"{Base}/dashboard";

@@ -36,6 +36,10 @@ public partial class ErpComboField : UserControl
     public static readonly DependencyProperty RefreshOnDropDownOpenProperty =
         DependencyProperty.Register(nameof(RefreshOnDropDownOpen), typeof(bool), typeof(ErpComboField), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty MaxDropDownHeightProperty =
+        DependencyProperty.Register(nameof(MaxDropDownHeight), typeof(double), typeof(ErpComboField),
+            new PropertyMetadata(double.NaN, OnMaxDropDownHeightChanged));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
     public MaterialDesignThemes.Wpf.PackIconKind IconKind { get => (MaterialDesignThemes.Wpf.PackIconKind)GetValue(IconKindProperty); set => SetValue(IconKindProperty, value); }
@@ -48,6 +52,7 @@ public partial class ErpComboField : UserControl
     public string DisplayMemberPath { get => (string)GetValue(DisplayMemberPathProperty); set => SetValue(DisplayMemberPathProperty, value); }
     public string SelectedValuePath { get => (string)GetValue(SelectedValuePathProperty); set => SetValue(SelectedValuePathProperty, value); }
     public bool RefreshOnDropDownOpen { get => (bool)GetValue(RefreshOnDropDownOpenProperty); set => SetValue(RefreshOnDropDownOpenProperty, value); }
+    public double MaxDropDownHeight { get => (double)GetValue(MaxDropDownHeightProperty); set => SetValue(MaxDropDownHeightProperty, value); }
 
     public event EventHandler? DropDownOpened;
     public event Func<EventArgs, Task>? PreparingDropDownAsync;
@@ -58,8 +63,33 @@ public partial class ErpComboField : UserControl
         Loaded += (_, _) =>
         {
             UpdateLayoutSizing();
+            ApplyMaxDropDownHeight();
             RefreshValidation();
         };
+    }
+
+    private static void OnMaxDropDownHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpComboField field)
+        {
+            field.ApplyMaxDropDownHeight();
+        }
+    }
+
+    private void ApplyMaxDropDownHeight()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        if (double.IsNaN(MaxDropDownHeight) || MaxDropDownHeight <= 0)
+        {
+            InputComboBox.ClearValue(ComboBox.MaxDropDownHeightProperty);
+            return;
+        }
+
+        InputComboBox.MaxDropDownHeight = MaxDropDownHeight;
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)

@@ -193,6 +193,11 @@ if (app.Environment.IsDevelopment())
         scope.ServiceProvider.GetRequiredService<ILogger<RevenueAllocationSchemaInitializer>>());
     await revenueAllocationSchema.EnsureCreatedAsync();
 
+    var accountingSchema = new AccountingSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<AccountingSchemaInitializer>>());
+    await accountingSchema.EnsureCreatedAsync();
+
     var withholdingSchema = new WithholdingSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<WithholdingSchemaInitializer>>());

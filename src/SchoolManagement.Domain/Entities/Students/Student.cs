@@ -143,6 +143,28 @@ public class Enrollment : AuditableEntity, IAggregateRoot
     public Entities.Settings.FeePricingCategory FeePricingCategory { get; set; } = null!;
 }
 
+/// <summary>Historique des attributions de catégorie tarifaire sur une inscription.</summary>
+public class EnrollmentPricingCategoryHistory : AuditableEntity, IAggregateRoot
+{
+    public Guid EnrollmentId { get; set; }
+
+    public Guid? PreviousFeePricingCategoryId { get; set; }
+
+    public Guid NewFeePricingCategoryId { get; set; }
+
+    public DateTime ChangedAt { get; set; }
+
+    public Guid? ChangedByUserId { get; set; }
+
+    public string? Notes { get; set; }
+
+    public Enrollment Enrollment { get; set; } = null!;
+
+    public Entities.Settings.FeePricingCategory? PreviousFeePricingCategory { get; set; }
+
+    public Entities.Settings.FeePricingCategory NewFeePricingCategory { get; set; } = null!;
+}
+
 public class StudentStatusHistory : AuditableEntity, IAggregateRoot
 {
     public Guid StudentId { get; set; }

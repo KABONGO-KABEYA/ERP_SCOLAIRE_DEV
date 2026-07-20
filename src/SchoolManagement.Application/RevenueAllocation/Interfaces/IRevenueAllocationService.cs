@@ -52,6 +52,16 @@ public interface IRevenueAllocationService
         RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<FeeTypeAllocationSummaryGroupDto>> GetAllocationSummaryByFeeTypeAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<AllocationCashFlowResultDto> GetAllocationCashFlowAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<byte[]> ExportAllocationsExcelAsync(
         Guid schoolId,
         RevenueAllocationSearchRequest request,

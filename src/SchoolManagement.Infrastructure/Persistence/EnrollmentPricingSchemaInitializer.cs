@@ -33,8 +33,7 @@ public sealed class EnrollmentPricingSchemaInitializer
         }
 
         _logger.LogInformation(
-            "Schéma inscription / catégorie tarifaire vérifié (Enrollments.FeePricingCategoryId, catégorie {Code}).",
-            FeePricingCategoryCodes.General);
+            "Schéma inscription / catégorie tarifaire vérifié (FeePricingCategoryId, historique).");
     }
 
     private static readonly string[] Scripts =
@@ -136,6 +135,38 @@ public sealed class EnrollmentPricingSchemaInitializer
                   AND object_id = OBJECT_ID(N'Enrollments'))
                 CREATE INDEX [IX_Enrollments_AcademicYearId_FeePricingCategoryId]
                     ON [Enrollments] ([AcademicYearId], [FeePricingCategoryId]);
+        END
+        """,
+        // 5) Historique des changements de catégorie tarifaire.
+        """
+        IF OBJECT_ID(N'EnrollmentPricingCategoryHistory', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [EnrollmentPricingCategoryHistory] (
+                [Id] uniqueidentifier NOT NULL,
+                [EnrollmentId] uniqueidentifier NOT NULL,
+                [PreviousFeePricingCategoryId] uniqueidentifier NULL,
+                [NewFeePricingCategoryId] uniqueidentifier NOT NULL,
+                [ChangedAt] datetime2 NOT NULL,
+                [ChangedByUserId] uniqueidentifier NULL,
+                [Notes] nvarchar(500) NULL,
+                [CreatedAt] datetime2 NOT NULL,
+                [CreatedBy] nvarchar(256) NULL,
+                [UpdatedAt] datetime2 NULL,
+                [UpdatedBy] nvarchar(256) NULL,
+                [IsDeleted] bit NOT NULL CONSTRAINT [DF_EnrollmentPricingCategoryHistory_IsDeleted] DEFAULT (0),
+                [DeletedAt] datetime2 NULL,
+                [DeletedBy] nvarchar(256) NULL,
+                CONSTRAINT [PK_EnrollmentPricingCategoryHistory] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_EnrollmentPricingCategoryHistory_Enrollments]
+                    FOREIGN KEY ([EnrollmentId]) REFERENCES [Enrollments] ([Id]) ON DELETE CASCADE,
+                CONSTRAINT [FK_EnrollmentPricingCategoryHistory_PreviousCategory]
+                    FOREIGN KEY ([PreviousFeePricingCategoryId]) REFERENCES [FeePricingCategories] ([Id]),
+                CONSTRAINT [FK_EnrollmentPricingCategoryHistory_NewCategory]
+                    FOREIGN KEY ([NewFeePricingCategoryId]) REFERENCES [FeePricingCategories] ([Id])
+            );
+
+            CREATE INDEX [IX_EnrollmentPricingCategoryHistory_EnrollmentId_ChangedAt]
+                ON [EnrollmentPricingCategoryHistory] ([EnrollmentId], [ChangedAt]);
         END
         """
     ];

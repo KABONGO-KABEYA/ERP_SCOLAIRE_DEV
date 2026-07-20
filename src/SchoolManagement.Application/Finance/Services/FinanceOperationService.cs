@@ -3,6 +3,7 @@ namespace SchoolManagement.Application.Finance.Services;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Finance.DTOs;
 using SchoolManagement.Application.Finance.Interfaces;
+using SchoolManagement.Application.Payments.Services;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
@@ -24,9 +25,11 @@ public sealed class FinanceOperationService : IFinanceOperationService
     private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
     private readonly IRepository<Payment> _paymentRepository;
     private readonly IRepository<PaymentLine> _paymentLineRepository;
+    private readonly IRepository<EnrollmentPricingCategoryHistory> _pricingHistoryRepository;
     private readonly ISchoolFeeService _schoolFeeService;
     private readonly IStudentFeeBalanceProvisioner _feeBalanceProvisioner;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUserService _currentUser;
 
     public FinanceOperationService(
         IRepository<Enrollment> enrollmentRepository,
@@ -41,9 +44,11 @@ public sealed class FinanceOperationService : IFinanceOperationService
         IRepository<ClassFeeAmount> classFeeAmountRepository,
         IRepository<Payment> paymentRepository,
         IRepository<PaymentLine> paymentLineRepository,
+        IRepository<EnrollmentPricingCategoryHistory> pricingHistoryRepository,
         ISchoolFeeService schoolFeeService,
         IStudentFeeBalanceProvisioner feeBalanceProvisioner,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentUserService currentUser)
     {
         _enrollmentRepository = enrollmentRepository;
         _studentRepository = studentRepository;
@@ -57,9 +62,11 @@ public sealed class FinanceOperationService : IFinanceOperationService
         _classFeeAmountRepository = classFeeAmountRepository;
         _paymentRepository = paymentRepository;
         _paymentLineRepository = paymentLineRepository;
+        _pricingHistoryRepository = pricingHistoryRepository;
         _schoolFeeService = schoolFeeService;
         _feeBalanceProvisioner = feeBalanceProvisioner;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
 
     public async Task<StudentPaymentSituationSearchResultDto> SearchPaymentSituationsAsync(
@@ -363,7 +370,8 @@ public sealed class FinanceOperationService : IFinanceOperationService
                 string.IsNullOrWhiteSpace(category.Code) ? "—" : category.Code,
                 string.IsNullOrWhiteSpace(category.Name) ? "—" : category.Name,
                 assignedAt,
-                enrollment.UpdatedAt);
+                enrollment.UpdatedAt,
+                classInfo.PedagogicalClassId);
 
             if (!MatchesSearch(
                     request.Search,
@@ -392,6 +400,10 @@ public sealed class FinanceOperationService : IFinanceOperationService
         UpdateEnrollmentPricingCategoryRequest request,
         CancellationToken cancellationToken = default)
     {
+        PaymentMutationPolicy.EnsureAdministrator(
+            _currentUser,
+            "Seul l'administrateur peut attribuer ou modifier la catégorie tarifaire d'un élève.");
+
         await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
 
         var enrollment = (await _enrollmentRepository.FindAsync(
@@ -407,8 +419,25 @@ public sealed class FinanceOperationService : IFinanceOperationService
             cancellationToken)).FirstOrDefault()
             ?? throw new DomainException("Catégorie tarifaire introuvable ou inactive.");
 
+        var previousCategoryId = enrollment.FeePricingCategoryId;
+        if (previousCategoryId == category.Id)
+        {
+            throw new DomainException("L'élève est déjà affecté à cette catégorie tarifaire.");
+        }
+
         enrollment.FeePricingCategoryId = category.Id;
         await _enrollmentRepository.UpdateAsync(enrollment, cancellationToken);
+
+        var changedAt = DateTime.UtcNow;
+        await _pricingHistoryRepository.AddAsync(new EnrollmentPricingCategoryHistory
+        {
+            EnrollmentId = enrollment.Id,
+            PreviousFeePricingCategoryId = previousCategoryId,
+            NewFeePricingCategoryId = category.Id,
+            ChangedAt = changedAt,
+            ChangedByUserId = _currentUser.UserId,
+            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
+        }, cancellationToken);
 
         var classRooms = await LoadClassRoomDetailsAsync([enrollment.ClassRoomId], cancellationToken);
         classRooms.TryGetValue(enrollment.ClassRoomId, out var classInfo);
@@ -448,7 +477,145 @@ public sealed class FinanceOperationService : IFinanceOperationService
             enrollment.UpdatedAt.HasValue
                 ? DateOnly.FromDateTime(enrollment.UpdatedAt.Value)
                 : enrollment.EnrollmentDate,
-            enrollment.UpdatedAt);
+            enrollment.UpdatedAt,
+            classInfo.PedagogicalClassId);
+    }
+
+    public async Task<IReadOnlyList<PricingCategoryHistoryLineDto>> GetPricingCategoryHistoryAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var enrollment = (await _enrollmentRepository.FindAsync(
+            e => e.Id == enrollmentId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Inscription introuvable.");
+
+        var student = (await _studentRepository.FindAsync(
+            s => s.Id == enrollment.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Élève introuvable.");
+
+        var history = (await _pricingHistoryRepository.FindAsync(
+                h => h.EnrollmentId == enrollmentId, cancellationToken))
+            .OrderByDescending(h => h.ChangedAt)
+            .ThenByDescending(h => h.CreatedAt)
+            .ToList();
+
+        var categoryIds = history
+            .SelectMany(h => new[] { h.PreviousFeePricingCategoryId, h.NewFeePricingCategoryId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Append(enrollment.FeePricingCategoryId)
+            .Distinct()
+            .ToList();
+        var categories = await LoadCategoryLookupAsync(categoryIds, cancellationToken);
+
+        if (history.Count == 0)
+        {
+            var currentName = categories.TryGetValue(enrollment.FeePricingCategoryId, out var current)
+                ? (string.IsNullOrWhiteSpace(current.Name) ? "—" : current.Name)
+                : "—";
+            var assignedAt = enrollment.UpdatedAt ?? enrollment.CreatedAt;
+            return
+            [
+                new PricingCategoryHistoryLineDto(
+                    assignedAt,
+                    null,
+                    currentName,
+                    "Affectation actuelle (aucun changement enregistré)")
+            ];
+        }
+
+        return history.Select(h =>
+        {
+            string? previousName = null;
+            if (h.PreviousFeePricingCategoryId.HasValue
+                && categories.TryGetValue(h.PreviousFeePricingCategoryId.Value, out var prev)
+                && !string.IsNullOrWhiteSpace(prev.Name))
+            {
+                previousName = prev.Name;
+            }
+
+            var nextName = categories.TryGetValue(h.NewFeePricingCategoryId, out var next)
+                && !string.IsNullOrWhiteSpace(next.Name)
+                    ? next.Name
+                    : "—";
+            return new PricingCategoryHistoryLineDto(
+                h.ChangedAt,
+                previousName,
+                nextName,
+                h.Notes);
+        }).ToList();
+    }
+
+    public async Task<StudentApplicableFeesDto> GetApplicableFeesAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var enrollment = (await _enrollmentRepository.FindAsync(
+            e => e.Id == enrollmentId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Inscription introuvable.");
+
+        var student = (await _studentRepository.FindAsync(
+            s => s.Id == enrollment.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Élève introuvable.");
+
+        var year = await ResolveYearAsync(schoolId, enrollment.AcademicYearId, cancellationToken);
+        var classRooms = await LoadClassRoomDetailsAsync([enrollment.ClassRoomId], cancellationToken);
+        classRooms.TryGetValue(enrollment.ClassRoomId, out var classInfo);
+        if (!classInfo.PedagogicalClassId.HasValue)
+        {
+            throw new DomainException("La classe pédagogique est introuvable pour cet élève.");
+        }
+
+        var categories = await LoadCategoryLookupAsync([enrollment.FeePricingCategoryId], cancellationToken);
+        var categoryName = categories.TryGetValue(enrollment.FeePricingCategoryId, out var category)
+            && !string.IsNullOrWhiteSpace(category.Name)
+                ? category.Name
+                : "—";
+
+        var tariffs = (await _classFeeAmountRepository.FindAsync(
+            a => a.SchoolId == schoolId
+                 && a.AcademicYearId == enrollment.AcademicYearId
+                 && a.PedagogicalClassId == classInfo.PedagogicalClassId.Value
+                 && a.FeePricingCategoryId == enrollment.FeePricingCategoryId,
+            cancellationToken)).ToList();
+
+        var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(f => f.Id);
+        var installments = (await _schoolFeeService.GetInstallmentsAsync(schoolId, cancellationToken))
+            .ToDictionary(i => i.Id);
+
+        var lines = new List<StudentApplicableFeeLineDto>();
+        foreach (var tariff in tariffs.Where(t => t.Amount > 0))
+        {
+            feeTypes.TryGetValue(tariff.FeeTypeId, out var feeType);
+            installments.TryGetValue(tariff.FeeInstallmentId, out var installment);
+            var currency = feeType?.Currency.ToString() ?? Currency.CDF.ToString();
+            lines.Add(new StudentApplicableFeeLineDto(
+                feeType?.Name ?? "—",
+                installment?.Name ?? "—",
+                installment?.SortOrder ?? int.MaxValue,
+                tariff.Amount,
+                currency));
+        }
+
+        lines = lines
+            .OrderBy(l => l.FeeTypeName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(l => l.SortOrder)
+            .ThenBy(l => l.InstallmentName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var currencyLabel = lines.Select(l => l.Currency).Distinct().DefaultIfEmpty(Currency.CDF.ToString()).First();
+        return new StudentApplicableFeesDto(
+            enrollment.Id,
+            $"{student.LastName} {student.FirstName}".Trim(),
+            string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
+            categoryName,
+            year.Label,
+            lines,
+            lines.Sum(l => l.Amount),
+            currencyLabel);
     }
 
     private async Task<List<Enrollment>> LoadActiveEnrollmentsAsync(

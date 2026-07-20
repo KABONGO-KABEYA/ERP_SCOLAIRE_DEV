@@ -12,18 +12,22 @@ using SchoolManagement.Domain.Exceptions;
 /// </summary>
 public static class PaymentMutationPolicy
 {
-    public static void EnsureAdministrator(ICurrentUserService currentUser)
+    public static void EnsureAdministrator(ICurrentUserService currentUser) =>
+        EnsureAdministrator(
+            currentUser,
+            "Seul l'administrateur peut modifier ou supprimer un frais déjà payé.");
+
+    public static void EnsureAdministrator(ICurrentUserService currentUser, string deniedMessage)
     {
         if (!currentUser.IsAdministrator)
         {
-            throw new DomainException(
-                "Seul l'administrateur peut modifier ou supprimer un frais déjà payé.");
+            throw new DomainException(deniedMessage);
         }
     }
 
     /// <summary>
-    /// Le paiement ciblé doit être le dernier versement complet (date puis création)
-    /// pour l'élève / année scolaire.
+    /// Le paiement ciblé doit être le dernier versement complet du même type de frais :
+    /// date de paiement la plus récente, puis ordre d'enregistrement.
     /// </summary>
     public static void EnsureIsLatestCompletedPayment(
         Payment target,
@@ -34,20 +38,25 @@ public static class PaymentMutationPolicy
             throw new DomainException("Seuls les paiements complets peuvent être modifiés ou annulés.");
         }
 
-        var latest = studentYearPayments
-            .Where(p => p.Status == PaymentStatus.Complet)
-            .OrderByDescending(p => p.PaymentDate)
-            .ThenByDescending(p => p.CreatedAt)
-            .ThenByDescending(p => p.Id)
+        var latest = OrderByMutationPriority(
+                studentYearPayments.Where(p => p.Status == PaymentStatus.Complet))
             .FirstOrDefault();
 
         if (latest is null || latest.Id != target.Id)
         {
             throw new DomainException(
-                "Seul le dernier versement de ce type de frais peut être modifié ou annulé. " +
-                "Annulez ou modifiez d'abord les versements plus récents (ordre rétrograde).");
+                "Impossible : un encaissement plus récent existe déjà pour ce type de frais " +
+                "(y compris pour un autre élève). " +
+                "Modifiez ou annulez d'abord le versement à la date la plus récente.");
         }
     }
+
+    /// <summary>Priorité rétrograde : date de paiement DESC, puis enregistrement DESC.</summary>
+    public static IOrderedEnumerable<Payment> OrderByMutationPriority(IEnumerable<Payment> payments) =>
+        payments
+            .OrderByDescending(p => p.PaymentDate)
+            .ThenByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id);
 
     /// <summary>
     /// Interdit de modifier / annuler un versement qui touche une tranche

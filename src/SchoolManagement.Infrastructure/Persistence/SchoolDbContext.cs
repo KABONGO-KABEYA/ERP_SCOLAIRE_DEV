@@ -108,6 +108,8 @@ public class SchoolDbContext : DbContext
 
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
 
+    public DbSet<EnrollmentPricingCategoryHistory> EnrollmentPricingCategoryHistory => Set<EnrollmentPricingCategoryHistory>();
+
     public DbSet<StudentStatusHistory> StudentStatusHistory => Set<StudentStatusHistory>();
 
     public DbSet<Country> Countries => Set<Country>();
@@ -177,6 +179,10 @@ public class SchoolDbContext : DbContext
     public DbSet<RevenueAllocationKeyDetail> RevenueAllocationKeyDetails => Set<RevenueAllocationKeyDetail>();
 
     public DbSet<RevenueAllocationEntry> RevenueAllocationEntries => Set<RevenueAllocationEntry>();
+
+    public DbSet<ExpenseRequest> ExpenseRequests => Set<ExpenseRequest>();
+
+    public DbSet<ExpensePayment> ExpensePayments => Set<ExpensePayment>();
 
     public DbSet<WithholdingType> WithholdingTypes => Set<WithholdingType>();
 

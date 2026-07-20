@@ -25,4 +25,14 @@ public interface IFinanceOperationService
         Guid enrollmentId,
         UpdateEnrollmentPricingCategoryRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PricingCategoryHistoryLineDto>> GetPricingCategoryHistoryAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<StudentApplicableFeesDto> GetApplicableFeesAsync(
+        Guid schoolId,
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default);
 }

@@ -382,11 +382,6 @@ public sealed class PaymentService : IPaymentService
     {
         PaymentMutationPolicy.EnsureAdministrator(_currentUser);
 
-        if (request.NewAmount <= 0)
-        {
-            throw new DomainException("Le nouveau montant doit être supérieur à zéro.");
-        }
-
         var payment = (await _paymentRepository.FindAsync(
             p => p.Id == paymentId && p.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Paiement introuvable.");
@@ -406,14 +401,133 @@ public sealed class PaymentService : IPaymentService
             throw new DomainException("Ce paiement n'a aucune ligne à modifier.");
         }
 
+        var updatePhysical = request.PhysicalReceiptNumber is not null;
+        var physicalValue = updatePhysical
+            ? (string.IsNullOrWhiteSpace(request.PhysicalReceiptNumber)
+                ? null
+                : request.PhysicalReceiptNumber.Trim())
+            : null;
+
+        // Mise à jour explicite des lignes (détail versement) — prioritaire sur la redistribution globale.
+        if (request.Lines is { Count: > 0 })
+        {
+            var updates = request.Lines.ToDictionary(l => l.LineId);
+            foreach (var unknownId in updates.Keys.Where(id => lines.All(l => l.Id != id)))
+            {
+                throw new DomainException($"Ligne de paiement introuvable : {unknownId}.");
+            }
+
+            foreach (var line in lines)
+            {
+                if (!updates.TryGetValue(line.Id, out var update))
+                {
+                    if (updatePhysical)
+                    {
+                        line.PhysicalReceiptNumber = physicalValue;
+                        await _paymentLineRepository.UpdateAsync(line, cancellationToken);
+                    }
+
+                    continue;
+                }
+
+                var newLineAmount = decimal.Round(update.Amount, 2, MidpointRounding.AwayFromZero);
+                if (newLineAmount < 0)
+                {
+                    throw new DomainException("Le montant d'une ligne ne peut pas être négatif.");
+                }
+
+                var delta = newLineAmount - line.Amount;
+                if (delta != 0 && line.FeeInstallmentId.HasValue)
+                {
+                    await ApplyBalanceDeltaAsync(
+                        schoolId,
+                        payment.StudentId,
+                        payment.AcademicYearId,
+                        line.FeeTypeId,
+                        line.FeeInstallmentId.Value,
+                        delta,
+                        payment.Currency,
+                        cancellationToken);
+                }
+
+                line.Amount = newLineAmount;
+                if (update.PhysicalReceiptNumber is not null)
+                {
+                    line.PhysicalReceiptNumber = string.IsNullOrWhiteSpace(update.PhysicalReceiptNumber)
+                        ? null
+                        : update.PhysicalReceiptNumber.Trim();
+                }
+                else if (updatePhysical)
+                {
+                    line.PhysicalReceiptNumber = physicalValue;
+                }
+
+                await _paymentLineRepository.UpdateAsync(line, cancellationToken);
+            }
+
+            var newTotalFromLines = decimal.Round(lines.Sum(l => l.Amount), 2, MidpointRounding.AwayFromZero);
+            if (newTotalFromLines <= 0)
+            {
+                throw new DomainException("Le nouveau montant doit être supérieur à zéro.");
+            }
+
+            payment.TotalAmount = newTotalFromLines;
+            if (request.Notes is not null)
+            {
+                payment.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+            }
+
+            await _paymentRepository.UpdateAsync(payment, cancellationToken);
+
+            var existingEntriesForLines = await _allocationEntryRepository.FindAsync(
+                e => e.PaymentId == payment.Id, cancellationToken);
+            foreach (var entry in existingEntriesForLines)
+            {
+                await _allocationEntryRepository.DeleteAsync(entry, cancellationToken);
+            }
+
+            await _revenueAllocationService.ApplyAllocationForPaymentAsync(
+                schoolId,
+                payment,
+                lines,
+                userId,
+                cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return await MapDetailAsync(payment, cancellationToken);
+        }
+
+        if (request.NewAmount <= 0)
+        {
+            throw new DomainException("Le nouveau montant doit être supérieur à zéro.");
+        }
+
         var oldTotal = payment.TotalAmount;
         var newTotal = decimal.Round(request.NewAmount, 2, MidpointRounding.AwayFromZero);
+
         if (oldTotal == newTotal)
         {
+            var touched = false;
             if (request.Notes is not null)
             {
                 payment.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
                 await _paymentRepository.UpdateAsync(payment, cancellationToken);
+                touched = true;
+            }
+
+            if (updatePhysical)
+            {
+                foreach (var line in lines)
+                {
+                    line.PhysicalReceiptNumber = physicalValue;
+                    await _paymentLineRepository.UpdateAsync(line, cancellationToken);
+                }
+
+                touched = true;
+            }
+
+            if (touched)
+            {
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
@@ -442,6 +556,11 @@ public sealed class PaymentService : IPaymentService
             }
 
             line.Amount = newLineAmount;
+            if (updatePhysical)
+            {
+                line.PhysicalReceiptNumber = physicalValue;
+            }
+
             await _paymentLineRepository.UpdateAsync(line, cancellationToken);
         }
 
@@ -533,29 +652,25 @@ public sealed class PaymentService : IPaymentService
         Payment payment,
         CancellationToken cancellationToken)
     {
-        var siblingPayments = (await _paymentRepository.FindAsync(
-            p => p.SchoolId == schoolId
-                && p.StudentId == payment.StudentId
-                && p.AcademicYearId == payment.AcademicYearId,
-            cancellationToken)).ToList();
-
         var lines = (await _paymentLineRepository.FindAsync(l => l.PaymentId == payment.Id, cancellationToken)).ToList();
         var feeTypeIds = lines.Select(l => l.FeeTypeId).Distinct().ToHashSet();
 
-        var completedSiblings = siblingPayments
-            .Where(p => p.Status == PaymentStatus.Complet)
-            .ToList();
-        var completedIds = completedSiblings.Select(p => p.Id).ToHashSet();
+        // Verrou global (tous élèves) : date de paiement la plus récente pour ce type de frais / année.
+        var yearCompletedPayments = (await _paymentRepository.FindAsync(
+            p => p.SchoolId == schoolId
+                && p.AcademicYearId == payment.AcademicYearId
+                && p.Status == PaymentStatus.Complet,
+            cancellationToken)).ToList();
 
-        // Dernier versement = dernier paiement Complet du même type de frais (pas tous les frais).
-        IReadOnlyList<Payment> relevantForLatest = completedSiblings;
+        IReadOnlyList<Payment> relevantForLatest = yearCompletedPayments;
         if (feeTypeIds.Count > 0)
         {
+            var yearIds = yearCompletedPayments.Select(p => p.Id).ToHashSet();
             var relatedLines = await _paymentLineRepository.FindAsync(
-                l => completedIds.Contains(l.PaymentId) && feeTypeIds.Contains(l.FeeTypeId),
+                l => yearIds.Contains(l.PaymentId) && feeTypeIds.Contains(l.FeeTypeId),
                 cancellationToken);
             var relatedPaymentIds = relatedLines.Select(l => l.PaymentId).ToHashSet();
-            relevantForLatest = completedSiblings
+            relevantForLatest = yearCompletedPayments
                 .Where(p => relatedPaymentIds.Contains(p.Id))
                 .ToList();
         }
@@ -567,11 +682,17 @@ public sealed class PaymentService : IPaymentService
             return;
         }
 
-        var allLines = (await _paymentLineRepository.FindAsync(
-            l => completedIds.Contains(l.PaymentId) && feeTypeIds.Contains(l.FeeTypeId),
+        // Tranches suivantes : reste limité à l'élève concerné.
+        var studentCompletedIds = yearCompletedPayments
+            .Where(p => p.StudentId == payment.StudentId)
+            .Select(p => p.Id)
+            .ToHashSet();
+
+        var studentFeeLines = (await _paymentLineRepository.FindAsync(
+            l => studentCompletedIds.Contains(l.PaymentId) && feeTypeIds.Contains(l.FeeTypeId),
             cancellationToken)).ToList();
 
-        var otherPaidByInstallment = allLines
+        var otherPaidByInstallment = studentFeeLines
             .Where(l => l.PaymentId != payment.Id && l.FeeInstallmentId.HasValue)
             .GroupBy(l => l.FeeInstallmentId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
@@ -582,6 +703,49 @@ public sealed class PaymentService : IPaymentService
             .ToList();
 
         PaymentMutationPolicy.EnsureNoLaterInstallmentsPaid(lines, orders, otherPaidByInstallment);
+    }
+
+    public async Task<PaymentMutationGateDto> GetMutationGateAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default)
+    {
+        var yearCompleted = (await _paymentRepository.FindAsync(
+            p => p.SchoolId == schoolId
+                && p.AcademicYearId == academicYearId
+                && p.Status == PaymentStatus.Complet,
+            cancellationToken)).ToList();
+
+        if (yearCompleted.Count == 0)
+        {
+            return new PaymentMutationGateDto(null, null, null, null, null);
+        }
+
+        var paymentIds = yearCompleted.Select(p => p.Id).ToHashSet();
+        var feeLines = await _paymentLineRepository.FindAsync(
+            l => paymentIds.Contains(l.PaymentId) && l.FeeTypeId == feeTypeId,
+            cancellationToken);
+        var relatedIds = feeLines.Select(l => l.PaymentId).ToHashSet();
+        var latest = PaymentMutationPolicy.OrderByMutationPriority(
+                yearCompleted.Where(p => relatedIds.Contains(p.Id)))
+            .FirstOrDefault();
+
+        if (latest is null)
+        {
+            return new PaymentMutationGateDto(null, null, null, null, null);
+        }
+
+        var student = (await _studentRepository.FindAsync(
+            s => s.Id == latest.StudentId, cancellationToken)).FirstOrDefault();
+        var studentName = student is null ? null : $"{student.LastName} {student.FirstName}".Trim();
+
+        return new PaymentMutationGateDto(
+            latest.Id,
+            latest.PaymentDate,
+            latest.StudentId,
+            studentName,
+            latest.ReceiptNumber);
     }
 
     private async Task ReverseStudentBalanceAsync(
@@ -747,7 +911,8 @@ public sealed class PaymentService : IPaymentService
             payment.Currency,
             payment.Status,
             payment.Notes,
-            lineDtos);
+            lineDtos,
+            payment.CreatedAt);
     }
 
     private static PaymentDto MapPaymentDto(Payment payment, string studentName) =>
@@ -760,5 +925,7 @@ public sealed class PaymentService : IPaymentService
             payment.TotalAmount,
             payment.Currency,
             payment.Status,
-            payment.Notes);
+            payment.Notes,
+            null,
+            payment.CreatedAt);
 }

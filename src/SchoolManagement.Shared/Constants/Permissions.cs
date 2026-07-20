@@ -26,6 +26,9 @@ public static class Permissions
 
     public const string ReportsRead = "reports.read";
 
+    public const string AccountingRead = "accounting.read";
+    public const string AccountingManage = "accounting.update";
+
     public const string AdminFull = "admin.full";
 
     public static IReadOnlyList<string> All { get; } =
@@ -36,6 +39,7 @@ public static class Permissions
         RevenueAllocationRead, RevenueAllocationManage,
         WithholdingsRead, WithholdingsManage,
         GradesRead, GradesCreate, GradesUpdate,
-        ReportsRead, AdminFull
+        ReportsRead, AccountingRead, AccountingManage,
+        AdminFull
     ];
 }

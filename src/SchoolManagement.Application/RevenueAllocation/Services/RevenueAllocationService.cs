@@ -7,6 +7,7 @@ using QuestPDF.Infrastructure;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
+using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
@@ -20,8 +21,12 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
     private readonly IRepository<RevenueAllocationKey> _keyRepository;
     private readonly IRepository<RevenueAllocationKeyDetail> _detailRepository;
     private readonly IRepository<RevenueAllocationEntry> _entryRepository;
+    private readonly IRepository<ExpensePayment> _expensePaymentRepository;
     private readonly IRepository<Payment> _paymentRepository;
     private readonly IRepository<PaymentLine> _paymentLineRepository;
+    private readonly IRepository<Enrollment> _enrollmentRepository;
+    private readonly IRepository<ClassRoom> _classRoomRepository;
+    private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<Student> _studentRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
@@ -34,8 +39,12 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         IRepository<RevenueAllocationKey> keyRepository,
         IRepository<RevenueAllocationKeyDetail> detailRepository,
         IRepository<RevenueAllocationEntry> entryRepository,
+        IRepository<ExpensePayment> expensePaymentRepository,
         IRepository<Payment> paymentRepository,
         IRepository<PaymentLine> paymentLineRepository,
+        IRepository<Enrollment> enrollmentRepository,
+        IRepository<ClassRoom> classRoomRepository,
+        IRepository<Section> sectionRepository,
         IRepository<Student> studentRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<FeeType> feeTypeRepository,
@@ -47,8 +56,12 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         _keyRepository = keyRepository;
         _detailRepository = detailRepository;
         _entryRepository = entryRepository;
+        _expensePaymentRepository = expensePaymentRepository;
         _paymentRepository = paymentRepository;
         _paymentLineRepository = paymentLineRepository;
+        _enrollmentRepository = enrollmentRepository;
+        _classRoomRepository = classRoomRepository;
+        _sectionRepository = sectionRepository;
         _studentRepository = studentRepository;
         _yearRepository = yearRepository;
         _feeTypeRepository = feeTypeRepository;
@@ -455,6 +468,224 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         return new RevenueAllocationSearchResultDto(dtos, page, pageSize, filtered.Count, totals);
     }
 
+    public async Task<IReadOnlyList<FeeTypeAllocationSummaryGroupDto>> GetAllocationSummaryByFeeTypeAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var entries = await _entryRepository.FindAsync(e => e.SchoolId == schoolId, cancellationToken);
+        var filtered = await FilterEntriesAsync(schoolId, entries, request, cancellationToken);
+
+        var destinations = (await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(d => d.Id);
+        var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(f => f.Id);
+
+        return filtered
+            .Where(e => e.FeeTypeId.HasValue)
+            .GroupBy(e => e.FeeTypeId!.Value)
+            .Select(feeGroup =>
+            {
+                feeTypes.TryGetValue(feeGroup.Key, out var feeType);
+                var feeTotal = feeGroup.Sum(e => e.Amount);
+                var destinationRows = feeGroup
+                    .GroupBy(e => e.DestinationId)
+                    .Select(destGroup =>
+                    {
+                        destinations.TryGetValue(destGroup.Key, out var dest);
+                        var amount = destGroup.Sum(e => e.Amount);
+                        var withPercentage = destGroup.Where(e => e.AppliedPercentage.HasValue).ToList();
+                        var percentage = withPercentage.Count > 0
+                            ? withPercentage.Sum(e => e.AppliedPercentage!.Value * e.Amount) / amount
+                            : feeTotal > 0
+                                ? amount / feeTotal * 100m
+                                : 0m;
+
+                        return new FeeTypeAllocationDestinationSummaryDto(
+                            destGroup.Key,
+                            dest?.Code ?? "—",
+                            dest?.Name ?? "—",
+                            Math.Round(percentage, 2),
+                            amount);
+                    })
+                    .OrderByDescending(r => r.AllocatedAmount)
+                    .ThenBy(r => r.DestinationName)
+                    .ToList();
+
+                return new FeeTypeAllocationSummaryGroupDto(
+                    feeGroup.Key,
+                    feeType?.Code ?? "—",
+                    feeType?.Name ?? "—",
+                    feeTotal,
+                    destinationRows);
+            })
+            .OrderBy(g => g.FeeTypeName)
+            .ToList();
+    }
+
+    public async Task<AllocationCashFlowResultDto> GetAllocationCashFlowAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var fromDate = request.FromDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var toDate = request.ToDate ?? fromDate;
+        if (toDate < fromDate)
+        {
+            (fromDate, toDate) = (toDate, fromDate);
+        }
+
+        var entries = await _entryRepository.FindAsync(e => e.SchoolId == schoolId, cancellationToken);
+        var expenses = await _expensePaymentRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
+        var destinations = (await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(d => d.Id);
+
+        var scopedPaymentIds = await ResolveScopedPaymentIdsAsync(schoolId, request, cancellationToken);
+
+        IEnumerable<RevenueAllocationEntry> FilterEntries(IEnumerable<RevenueAllocationEntry> source, DateOnly? from, DateOnly? to)
+        {
+            var query = source;
+            if (request.AcademicYearId.HasValue)
+            {
+                query = query.Where(e => e.AcademicYearId == request.AcademicYearId);
+            }
+
+            if (request.FeeTypeId.HasValue)
+            {
+                query = query.Where(e => e.FeeTypeId == request.FeeTypeId);
+            }
+
+            if (request.DestinationId.HasValue)
+            {
+                query = query.Where(e => e.DestinationId == request.DestinationId);
+            }
+
+            if (scopedPaymentIds is not null)
+            {
+                query = query.Where(e => scopedPaymentIds.Contains(e.PaymentId));
+            }
+
+            if (from.HasValue)
+            {
+                query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) >= from);
+            }
+
+            if (to.HasValue)
+            {
+                query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) <= to);
+            }
+
+            return query;
+        }
+
+        IEnumerable<ExpensePayment> FilterExpenses(IEnumerable<ExpensePayment> source, DateOnly? from, DateOnly? to)
+        {
+            var query = source;
+            if (request.AcademicYearId.HasValue)
+            {
+                query = query.Where(p => p.AcademicYearId == request.AcademicYearId);
+            }
+
+            if (request.DestinationId.HasValue)
+            {
+                query = query.Where(p => p.DestinationId == request.DestinationId);
+            }
+
+            if (from.HasValue)
+            {
+                query = query.Where(p => p.ExpenseDate >= from);
+            }
+
+            if (to.HasValue)
+            {
+                query = query.Where(p => p.ExpenseDate <= to);
+            }
+
+            return query;
+        }
+
+        var periodEntries = FilterEntries(entries, fromDate, toDate).ToList();
+        var periodExpenses = FilterExpenses(expenses, fromDate, toDate).ToList();
+        var openingEntries = FilterEntries(entries, null, fromDate.AddDays(-1)).ToList();
+        var openingExpenses = FilterExpenses(expenses, null, fromDate.AddDays(-1)).ToList();
+
+        var destinationIds = periodEntries.Select(e => e.DestinationId)
+            .Concat(periodExpenses.Select(p => p.DestinationId))
+            .Concat(openingEntries.Select(e => e.DestinationId))
+            .Concat(openingExpenses.Select(p => p.DestinationId))
+            .Distinct()
+            .ToList();
+
+        if (request.DestinationId.HasValue && !destinationIds.Contains(request.DestinationId.Value))
+        {
+            destinationIds.Add(request.DestinationId.Value);
+        }
+
+        AllocationCashFlowRowDto BuildRow(Guid destinationId, decimal j1Enc, decimal j1Dep, decimal enc, decimal dep)
+        {
+            destinations.TryGetValue(destinationId, out var destination);
+            var periodJ1 = j1Enc - j1Dep;
+            return new AllocationCashFlowRowDto(
+                destinationId,
+                destination?.Code ?? "—",
+                destination?.Name ?? "—",
+                periodJ1,
+                enc,
+                dep,
+                periodJ1 + enc - dep);
+        }
+
+        var globalRows = destinationIds
+            .Select(id => BuildRow(
+                id,
+                openingEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
+                openingExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount),
+                periodEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
+                periodExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount)))
+            .OrderBy(r => r.DestinationName)
+            .ToList();
+
+        var totals = new AllocationCashFlowRowDto(
+            Guid.Empty,
+            "TOTAL",
+            "Total général",
+            globalRows.Sum(r => r.PeriodJ1),
+            globalRows.Sum(r => r.Encaissement),
+            globalRows.Sum(r => r.DepenseP),
+            globalRows.Sum(r => r.PeriodeP));
+
+        var dailyGroups = new List<AllocationCashFlowDailyGroupDto>();
+        for (var date = fromDate; date <= toDate; date = date.AddDays(1))
+        {
+            var dayEntries = FilterEntries(entries, date, date).ToList();
+            var dayExpenses = FilterExpenses(expenses, date, date).ToList();
+            var dayDestinationIds = dayEntries.Select(e => e.DestinationId)
+                .Concat(dayExpenses.Select(p => p.DestinationId))
+                .Distinct()
+                .ToList();
+
+            if (dayDestinationIds.Count == 0)
+            {
+                continue;
+            }
+
+            var dayBefore = date.AddDays(-1);
+            var rows = dayDestinationIds
+                .Select(id => BuildRow(
+                    id,
+                    FilterEntries(entries, null, dayBefore).Where(e => e.DestinationId == id).Sum(e => e.Amount),
+                    FilterExpenses(expenses, null, dayBefore).Where(p => p.DestinationId == id).Sum(p => p.Amount),
+                    dayEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
+                    dayExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount)))
+                .OrderBy(r => r.DestinationName)
+                .ToList();
+
+            dailyGroups.Add(new AllocationCashFlowDailyGroupDto(date, rows));
+        }
+
+        return new AllocationCashFlowResultDto(globalRows, dailyGroups, totals);
+    }
+
     private async Task<RevenueAllocationTotalsDto> BuildTotalsAsync(
         Guid schoolId,
         IReadOnlyList<RevenueAllocationEntry> entries,
@@ -634,7 +865,105 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             query = query.Where(e => paymentIds.Contains(e.PaymentId));
         }
 
+        var scopedPaymentIds = await ResolveScopedPaymentIdsAsync(schoolId, request, cancellationToken);
+        if (scopedPaymentIds is not null)
+        {
+            query = query.Where(e => scopedPaymentIds.Contains(e.PaymentId));
+        }
+
         return query.ToList();
+    }
+
+    /// <summary>Filtre section/classe aligné sur le rapport recettes réalisées.</summary>
+    private async Task<HashSet<Guid>?> ResolveScopedPaymentIdsAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!request.SectionId.HasValue && !request.ClassRoomId.HasValue)
+        {
+            return null;
+        }
+
+        var payments = (await _paymentRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken)).ToList();
+        if (payments.Count == 0)
+        {
+            return [];
+        }
+
+        if (request.AcademicYearId.HasValue)
+        {
+            payments = payments.Where(p => p.AcademicYearId == request.AcademicYearId.Value).ToList();
+        }
+
+        if (request.FeeTypeId.HasValue)
+        {
+            var paymentIdsWithFee = (await _paymentLineRepository.FindAsync(
+                    l => l.FeeTypeId == request.FeeTypeId.Value,
+                    cancellationToken))
+                .Select(l => l.PaymentId)
+                .ToHashSet();
+            payments = payments.Where(p => paymentIdsWithFee.Contains(p.Id)).ToList();
+        }
+
+        var studentIds = payments.Select(p => p.StudentId).Distinct().ToList();
+        var enrollments = studentIds.Count == 0
+            ? []
+            : await _enrollmentRepository.FindAsync(
+                e => e.IsActive && studentIds.Contains(e.StudentId),
+                cancellationToken);
+        var yearIds = payments.Select(p => p.AcademicYearId).Distinct().ToList();
+        if (yearIds.Count > 0)
+        {
+            enrollments = enrollments.Where(e => yearIds.Contains(e.AcademicYearId)).ToList();
+        }
+
+        var studentYearClass = enrollments
+            .GroupBy(e => (e.StudentId, e.AcademicYearId))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EnrollmentDate).First().ClassRoomId);
+
+        var classIds = studentYearClass.Values.Distinct().ToList();
+        var classes = classIds.Count == 0
+            ? []
+            : await _classRoomRepository.FindAsync(c => classIds.Contains(c.Id), cancellationToken);
+        var classMap = classes.ToDictionary(c => c.Id);
+
+        Guid? ResolveClassId(Payment p) =>
+            studentYearClass.TryGetValue((p.StudentId, p.AcademicYearId), out var classId) ? classId : null;
+
+        Guid? ResolveSectionId(Guid? classId) =>
+            classId.HasValue && classMap.TryGetValue(classId.Value, out var cr) ? cr.SectionId : null;
+
+        if (request.SectionId.HasValue)
+        {
+            var selectedSection = (await _sectionRepository.FindAsync(
+                    s => s.Id == request.SectionId.Value && s.SchoolId == schoolId,
+                    cancellationToken))
+                .FirstOrDefault();
+
+            if (selectedSection is not null)
+            {
+                var matchingSectionIds = (await _sectionRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken))
+                    .Where(s => string.Equals(s.Name.Trim(), selectedSection.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.Id)
+                    .ToHashSet();
+
+                payments = payments
+                    .Where(p =>
+                    {
+                        var sectionId = ResolveSectionId(ResolveClassId(p));
+                        return sectionId.HasValue && matchingSectionIds.Contains(sectionId.Value);
+                    })
+                    .ToList();
+            }
+        }
+
+        if (request.ClassRoomId.HasValue)
+        {
+            payments = payments.Where(p => ResolveClassId(p) == request.ClassRoomId.Value).ToList();
+        }
+
+        return payments.Select(p => p.Id).ToHashSet();
     }
 
     private async Task<IReadOnlyList<RevenueAllocationEntryDto>> MapEntriesAsync(

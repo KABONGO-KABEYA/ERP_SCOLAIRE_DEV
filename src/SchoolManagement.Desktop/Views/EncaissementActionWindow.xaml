@@ -323,74 +323,345 @@
             </ScrollViewer>
         </Border>
 
-        <!-- Edit amount -->
+        <!-- Edit amount : historique Payments (dernier enregistré en haut, éditable) -->
         <Border x:Name="EditPanel"
                 Style="{StaticResource ErpCard}"
-                Padding="16"
+                Padding="12"
                 Visibility="Collapsed">
-            <StackPanel>
-                <TextBlock Margin="0,0,0,6"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="#6B7280"
-                           Text="Dernier montant versé" />
-                <TextBlock x:Name="EditLastAmountText"
-                           Margin="0,0,0,4"
-                           FontSize="28"
-                           FontWeight="Bold"
-                           Foreground="#0B1F47"
-                           Text="—" />
-                <TextBlock x:Name="EditPaymentInfoText"
-                           Margin="0,0,0,16"
-                           Style="{StaticResource ErpBodySecondary}"
-                           TextWrapping="Wrap" />
-                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Nouveau montant" />
-                <TextBox x:Name="EditAmountBox"
-                         Margin="0,0,0,16"
-                         FontSize="18"
-                         FontWeight="SemiBold"
-                         materialDesign:HintAssist.Hint="Saisir le nouveau montant"
-                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
-                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Notes (facultatif)" />
-                <TextBox x:Name="EditNotesBox"
-                         AcceptsReturn="True"
-                         Height="80"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"
-                         materialDesign:HintAssist.Hint="Notes du paiement"
-                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
-            </StackPanel>
+            <Border Style="{StaticResource ErpCard}"
+                    Padding="8,12,8,8">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top" Margin="8,0,8,10">
+                        <TextBlock FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#0F172A"
+                                   Text="Détail des paiements" />
+                    </StackPanel>
+
+                    <Border DockPanel.Dock="Bottom"
+                            Margin="8,4,8,4"
+                            Padding="12,12"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,10,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#475569"
+                                       Text="Total affiché" />
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <TextBlock VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="#64748B"
+                                           Text="Montants : " />
+                                <TextBlock x:Name="EditPaymentsTotalText"
+                                           VerticalAlignment="Center"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           Foreground="#0B1F47"
+                                           Text="0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <DataGrid x:Name="EditPaymentsGrid"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              SelectionMode="Single"
+                              SelectionUnit="Cell"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#F1F5F9"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowBackground="Transparent"
+                              AlternatingRowBackground="#FAFBFC"
+                              RowHeight="46"
+                              MinHeight="220">
+                        <DataGrid.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                        </DataGrid.Resources>
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                <Setter Property="BorderBrush" Value="#E2E8F0" />
+                                <Setter Property="Padding" Value="12,10" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Foreground" Value="#64748B" />
+                                <Setter Property="FontSize" Value="12" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Padding" Value="8,0" />
+                                <Setter Property="Foreground" Value="#0F172A" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="DataGridCell">
+                                            <Border x:Name="CellBorder"
+                                                    Padding="{TemplateBinding Padding}"
+                                                    Background="Transparent">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="CellBorder" Property="Background" Value="#EEF2FF" />
+                                                    <Setter Property="Foreground" Value="#0F172A" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding ReceiptNumber}"
+                                                Header="Numéro"
+                                                Width="140"
+                                                MinWidth="110"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding PaymentDate, StringFormat=dd/MM/yyyy HH:mm}"
+                                                Header="Date paiement"
+                                                Width="150"
+                                                IsReadOnly="True" />
+                            <DataGridTemplateColumn Header="Montant payé" Width="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Padding="8,6"
+                                                 Background="#F8FAFC"
+                                                 BorderBrush="#E2E8F0"
+                                                 BorderThickness="1"
+                                                 Foreground="#0F172A"
+                                                 CaretBrush="#0F172A"
+                                                 SelectionBrush="#BFDBFE"
+                                                 IsEnabled="{Binding CanEdit}"
+                                                 Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextChanged="EditPaymentAmountBox_OnTextChanged"
+                                                 LostFocus="EditPaymentAmountBox_OnLostFocus">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Setter Property="Foreground" Value="#0F172A" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Foreground" Value="#94A3B8" />
+                                                            <Setter Property="Background" Value="#F1F5F9" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                            <Setter Property="Foreground" Value="#0F172A" />
+                                                            <Setter Property="Background" Value="#FFFFFF" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Numéro physique" Width="*" MinWidth="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Padding="8,6"
+                                                 Background="#F8FAFC"
+                                                 BorderBrush="#E2E8F0"
+                                                 BorderThickness="1"
+                                                 Foreground="#0F172A"
+                                                 CaretBrush="#0F172A"
+                                                 SelectionBrush="#BFDBFE"
+                                                 IsEnabled="{Binding CanEdit}"
+                                                 Text="{Binding PhysicalNumber, UpdateSourceTrigger=PropertyChanged}">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Setter Property="Foreground" Value="#0F172A" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Foreground" Value="#94A3B8" />
+                                                            <Setter Property="Background" Value="#F1F5F9" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                            <Setter Property="Foreground" Value="#0F172A" />
+                                                            <Setter Property="Background" Value="#FFFFFF" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
         </Border>
 
-        <!-- Cancel -->
+        <!-- Cancel : même historique Payments + motif d'annulation -->
         <Border x:Name="CancelPanel"
                 Style="{StaticResource ErpCard}"
-                Padding="16"
+                Padding="12"
                 Visibility="Collapsed">
-            <StackPanel>
-                <TextBlock Margin="0,0,0,6"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="#6B7280"
-                           Text="Dernier montant versé" />
-                <TextBlock x:Name="CancelLastAmountText"
-                           Margin="0,0,0,4"
-                           FontSize="28"
-                           FontWeight="Bold"
-                           Foreground="#EF4444"
-                           Text="—" />
-                <TextBlock x:Name="CancelPaymentInfoText"
-                           Margin="0,0,0,16"
-                           Style="{StaticResource ErpBodySecondary}"
-                           TextWrapping="Wrap" />
-                <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Motif d'annulation" />
-                <TextBox x:Name="CancelReasonBox"
-                         AcceptsReturn="True"
-                         Height="80"
-                         TextWrapping="Wrap"
-                         materialDesign:HintAssist.Hint="Motif (facultatif — un motif par défaut sera utilisé)"
-                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
-            </StackPanel>
+            <Border Style="{StaticResource ErpCard}"
+                    Padding="8,12,8,8">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top" Margin="8,0,8,10">
+                        <TextBlock FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#0F172A"
+                                   Text="Détail des paiements" />
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Bottom" Margin="8,10,8,4">
+                        <Border Margin="0,0,0,12"
+                                Padding="12,12"
+                                Background="#F8FAFC"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="0,1,0,0"
+                                CornerRadius="0,0,10,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#475569"
+                                           Text="Total affiché" />
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               Text="Montants : " />
+                                    <TextBlock x:Name="CancelPaymentsTotalText"
+                                               VerticalAlignment="Center"
+                                               FontSize="15"
+                                               FontWeight="Bold"
+                                               Foreground="#0B1F47"
+                                               Text="0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Margin="0,0,0,6"
+                                   FontWeight="SemiBold"
+                                   Foreground="#0F172A"
+                                   Text="Motif d'annulation" />
+                        <TextBox x:Name="CancelReasonBox"
+                                 AcceptsReturn="True"
+                                 Height="72"
+                                 TextWrapping="Wrap"
+                                 materialDesign:HintAssist.Hint="Motif (facultatif — un motif par défaut sera utilisé)"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                    </StackPanel>
+
+                    <DataGrid x:Name="CancelPaymentsGrid"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#F1F5F9"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowBackground="Transparent"
+                              AlternatingRowBackground="#FAFBFC"
+                              RowHeight="46"
+                              MinHeight="200">
+                        <DataGrid.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FEE2E2" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#FEF2F2" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                        </DataGrid.Resources>
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                <Setter Property="BorderBrush" Value="#E2E8F0" />
+                                <Setter Property="Padding" Value="12,10" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Foreground" Value="#64748B" />
+                                <Setter Property="FontSize" Value="12" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Padding" Value="8,0" />
+                                <Setter Property="Foreground" Value="#0F172A" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="DataGridCell">
+                                            <Border x:Name="CellBorder"
+                                                    Padding="{TemplateBinding Padding}"
+                                                    Background="Transparent">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="CellBorder" Property="Background" Value="#FEE2E2" />
+                                                    <Setter Property="Foreground" Value="#0F172A" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CanEdit}" Value="True">
+                                        <Setter Property="Background" Value="#FEF2F2" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding ReceiptNumber}"
+                                                Header="Numéro"
+                                                Width="140"
+                                                MinWidth="110"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding PaymentDate, StringFormat=dd/MM/yyyy HH:mm}"
+                                                Header="Date paiement"
+                                                Width="150"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding Amount, StringFormat=N0}"
+                                                Header="Montant payé"
+                                                Width="140"
+                                                IsReadOnly="True" />
+                            <DataGridTextColumn Binding="{Binding PhysicalNumber}"
+                                                Header="Numéro physique"
+                                                Width="*"
+                                                MinWidth="140"
+                                                IsReadOnly="True" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
         </Border>
     </DockPanel>
 </Window>

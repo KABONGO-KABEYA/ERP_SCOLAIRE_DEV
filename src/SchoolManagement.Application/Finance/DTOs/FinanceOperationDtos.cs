@@ -74,7 +74,8 @@ public sealed record StudentPricingAssignmentDto(
     string FeePricingCategoryCode,
     string FeePricingCategoryName,
     DateOnly AssignedAt,
-    DateTime? UpdatedAt)
+    DateTime? UpdatedAt,
+    Guid? PedagogicalClassId = null)
 {
     public string AssignedAtDisplay => AssignedAt.ToString("dd/MM/yyyy");
 
@@ -97,7 +98,30 @@ public sealed record StudentPricingAssignmentSearchResultDto(
     int PageSize,
     int TotalCount);
 
-public sealed record UpdateEnrollmentPricingCategoryRequest(Guid FeePricingCategoryId);
+public sealed record UpdateEnrollmentPricingCategoryRequest(Guid FeePricingCategoryId, string? Notes = null);
+
+public sealed record PricingCategoryHistoryLineDto(
+    DateTime ChangedAt,
+    string? PreviousCategoryName,
+    string NewCategoryName,
+    string? Notes);
+
+public sealed record StudentApplicableFeeLineDto(
+    string FeeTypeName,
+    string InstallmentName,
+    int SortOrder,
+    decimal Amount,
+    string Currency);
+
+public sealed record StudentApplicableFeesDto(
+    Guid EnrollmentId,
+    string StudentName,
+    string ClassName,
+    string PricingCategoryName,
+    string AcademicYearLabel,
+    IReadOnlyList<StudentApplicableFeeLineDto> Lines,
+    decimal TotalAmount,
+    string Currency);
 
 public sealed record InstallmentPaymentPlanLineDto(
     Guid FeeInstallmentId,

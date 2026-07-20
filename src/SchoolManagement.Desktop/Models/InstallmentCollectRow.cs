@@ -12,6 +12,9 @@ public sealed class InstallmentCollectRow : INotifyPropertyChanged
     private string _physicalNumber = string.Empty;
     private bool _canEditTodayPayment;
     private bool _canEditPhysicalNumber;
+    private decimal _lastPaymentAmount;
+    private string _lastPaymentAmountText = "0";
+    private bool _canEditLastPayment;
 
     public InstallmentCollectRow(
         Guid feeInstallmentId,
@@ -35,6 +38,59 @@ public sealed class InstallmentCollectRow : INotifyPropertyChanged
     public decimal Expected { get; }
     public decimal Paid { get; }
     public decimal Remaining { get; }
+
+    /// <summary>Montant du dernier versement affecté à cette tranche (écran modification).</summary>
+    public decimal LastPaymentAmount => _lastPaymentAmount;
+
+    public string LastPaymentAmountText
+    {
+        get => _lastPaymentAmountText;
+        set
+        {
+            if (_lastPaymentAmountText == value)
+            {
+                return;
+            }
+
+            _lastPaymentAmountText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool CanEditLastPayment
+    {
+        get => _canEditLastPayment;
+        set
+        {
+            if (_canEditLastPayment == value)
+            {
+                return;
+            }
+
+            _canEditLastPayment = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public void SetLastPaymentAmount(decimal amount, bool suppressNotify = false)
+    {
+        amount = Math.Max(0, amount);
+        _lastPaymentAmount = amount;
+        var text = amount.ToString("0.##", CultureInfo.InvariantCulture);
+        if (_lastPaymentAmountText != text)
+        {
+            _lastPaymentAmountText = text;
+            if (!suppressNotify)
+            {
+                OnPropertyChanged(nameof(LastPaymentAmountText));
+            }
+        }
+
+        if (!suppressNotify)
+        {
+            OnPropertyChanged(nameof(LastPaymentAmount));
+        }
+    }
 
     /// <summary>Icône MaterialDesign selon le type de tranche (affichage uniquement).</summary>
     public string IconKind

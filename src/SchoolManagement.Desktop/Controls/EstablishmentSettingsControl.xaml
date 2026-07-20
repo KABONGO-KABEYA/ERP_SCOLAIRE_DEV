@@ -1,0 +1,237 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.EstablishmentSettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid VerticalAlignment="Stretch" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Stretch">
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Style="{StaticResource ErpPageTitle}"
+                               Text="{Binding SelectedSectionTitle}" />
+                    <TextBlock Margin="0,6,0,0"
+                               Foreground="{StaticResource ErpTextSecondaryBrush}"
+                               Text="{Binding SelectedSectionDescription}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <!-- Informations générales -->
+                <Border HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStudentsLikePanel}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding ToggleGeneralInfoCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding GeneralInfoToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsGeneralInfoExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsGeneralInfoExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="Domain" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding GeneralInfoSectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding IsGeneralInfoExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Border Style="{StaticResource SchoolFeeSectionCard}">
+                                <StackPanel>
+                                    <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Margin="0,0,8,0"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{StaticResource ErpPrimaryBrush}"
+                                                               Kind="OfficeBuildingOutline" />
+                                        <TextBlock Style="{StaticResource SchoolFeeSectionTitle}"
+                                                   Text="Identité de l'établissement" />
+                                    </StackPanel>
+
+                                    <UniformGrid Columns="2">
+                                        <erp:ErpTextField Margin="0,0,8,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="School"
+                                                          IsRequired="True"
+                                                          Label="Nom de l'école"
+                                                          Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Margin="0,0,0,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="FileDocumentOutline"
+                                                          Label="Raison sociale"
+                                                          Text="{Binding LegalName, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Margin="0,0,8,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="CityVariantOutline"
+                                                          Label="Ville"
+                                                          Text="{Binding City, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Margin="0,0,0,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="MapMarkerOutline"
+                                                          Label="Province"
+                                                          Text="{Binding Province, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Margin="0,0,8,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="PhoneOutline"
+                                                          Label="Téléphone"
+                                                          Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Margin="0,0,0,8"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="EmailOutline"
+                                                          Label="Email"
+                                                          Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpComboField Margin="0,0,8,0"
+                                                           FieldWidth="220"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="CurrencyUsd"
+                                                           ItemsSource="{Binding Currencies}"
+                                                           Label="Devise par défaut"
+                                                           SelectedItem="{Binding DefaultCurrency, Mode=TwoWay}" />
+                                    </UniformGrid>
+
+                                    <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                        <Button Command="{Binding SaveCommand}"
+                                                Padding="16,7"
+                                                Style="{StaticResource ErpPrimaryButton}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="White"
+                                                                       Kind="ContentSaveOutline" />
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Foreground="White"
+                                                           Text="Enregistrer" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Margin="8,0,0,0"
+                                                Command="{Binding LoadCommand}"
+                                                Padding="14,7"
+                                                Style="{StaticResource ErpSecondaryButton}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Kind="Refresh" />
+                                                <TextBlock VerticalAlignment="Center" Text="Actualiser" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Identité documentaire -->
+                <Border Margin="0,10,0,0"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStackSection}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Button Command="{Binding ToggleDocumentBrandingCommand}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource SchoolFeePanelToggleButton}"
+                                    ToolTip="{Binding DocumentBrandingToggleLabel}"
+                                    ToolTipService.InitialShowDelay="200">
+                                <Grid Width="18" Height="18">
+                                    <materialDesign:PackIcon Kind="ChevronDown"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsDocumentBrandingExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                    <materialDesign:PackIcon Kind="ChevronUp"
+                                                             Width="18"
+                                                             Height="18"
+                                                             Visibility="{Binding IsDocumentBrandingExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                </Grid>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource ErpPrimaryBrush}"
+                                                       Kind="ImageOutline" />
+                                <TextBlock FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="{Binding DocumentBrandingSectionHeaderText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding IsDocumentBrandingExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Margin="0,0,0,10"
+                                       Style="{StaticResource SchoolFeeSectionSubtitle}"
+                                       Text="Configurez les éléments graphiques utilisés automatiquement sur tous les documents imprimés (bulletins, reçus, attestations, etc.)."
+                                       TextWrapping="Wrap" />
+
+                            <Border Style="{StaticResource SchoolFeeSectionCard}">
+                                <controls:DocumentBrandingControl DataContext="{Binding DocumentBranding}" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1"
+                Margin="0,8,0,0"
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}">
+            <Border Style="{StaticResource SchoolFeeNotificationInfo}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Margin="0,0,10,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource ErpPrimaryBrush}"
+                                           Kind="InformationOutline" />
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{StaticResource ErpTextPrimaryBrush}"
+                               Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <Border Grid.Row="0"
+                Grid.RowSpan="2"
+                Style="{StaticResource SchoolFeeLoadingOverlay}"
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar Width="180"
+                             Height="4"
+                             IsIndeterminate="True"
+                             Foreground="{StaticResource ErpPrimaryBrush}" />
+                <TextBlock Margin="0,10,0,0"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource ErpBodySecondary}"
+                           Text="Chargement en cours…" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

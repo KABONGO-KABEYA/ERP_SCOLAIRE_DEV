@@ -22,4 +22,14 @@ public interface IPaymentService
         Guid paymentId,
         UpdatePaymentAmountRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Dernier encaissement Complet du type de frais (tous élèves) pour l'année —
+    /// référence du verrou modification / annulation.
+    /// </summary>
+    Task<PaymentMutationGateDto> GetMutationGateAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
 }

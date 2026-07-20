@@ -36,8 +36,12 @@ public partial class PricingCategoryAssignmentView : UserControl
         }
 
         var menu = new ContextMenu { Style = (Style)FindResource("ErpStudentsContextMenu") };
-        menu.Items.Add(CreateMenuItem("Modifier la catégorie tarifaire", PackIconKind.TagOutline, BrushFrom(30, 94, 255),
-            (_, _) => vm.ChangePricingCategoryCommand.Execute(student)));
+        if (vm.CanAssignPricingCategory)
+        {
+            menu.Items.Add(CreateMenuItem("Modifier la catégorie tarifaire", PackIconKind.TagOutline, BrushFrom(30, 94, 255),
+                (_, _) => vm.ChangePricingCategoryCommand.Execute(student)));
+        }
+
         menu.Items.Add(CreateMenuItem("Consulter l'historique des changements", PackIconKind.History, BrushFrom(31, 41, 55),
             (_, _) => vm.ViewCategoryHistoryCommand.Execute(student)));
         menu.Items.Add(CreateMenuItem("Voir les frais applicables", PackIconKind.CashMultiple, BrushFrom(5, 150, 105),

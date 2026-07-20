@@ -1,0 +1,52 @@
+<Window x:Class="SchoolManagement.Desktop.Views.PricingCategoryHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Historique des catégories tarifaires"
+        Height="480"
+        Width="720"
+        MinHeight="360"
+        MinWidth="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource ErpPageBackgroundBrush}"
+        FontFamily="{StaticResource ErpFontFamily}">
+    <Border Margin="20" Style="{StaticResource ErpCard}">
+        <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Historique des changements" />
+                <TextBlock x:Name="StudentInfoText"
+                           Margin="0,4,0,0"
+                           Style="{StaticResource ErpBodySecondary}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+            <Button DockPanel.Dock="Bottom"
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Right"
+                    Padding="16,8"
+                    Click="CloseButton_OnClick"
+                    Content="Fermer"
+                    Style="{StaticResource ErpSecondaryButton}" />
+            <DataGrid x:Name="HistoryGrid"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      IsReadOnly="True"
+                      Style="{StaticResource ErpStudentsDataGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding ChangedAt, StringFormat=dd/MM/yyyy HH:mm}"
+                                        Header="Date"
+                                        Width="140" />
+                    <DataGridTextColumn Binding="{Binding PreviousCategoryName}"
+                                        Header="Ancienne catégorie"
+                                        Width="*" />
+                    <DataGridTextColumn Binding="{Binding NewCategoryName}"
+                                        Header="Nouvelle catégorie"
+                                        Width="*" />
+                    <DataGridTextColumn Binding="{Binding Notes}"
+                                        Header="Note"
+                                        Width="180" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+    </Border>
+</Window>

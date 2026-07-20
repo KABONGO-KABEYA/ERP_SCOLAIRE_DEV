@@ -61,7 +61,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpPut("pricing-assignments/{enrollmentId:guid}")]
-    [Authorize(Policy = Permissions.PaymentsCreate)]
+    [Authorize(Policy = Permissions.AdminFull)]
     [ProducesResponseType(typeof(ApiResponse<StudentPricingAssignmentDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdatePricingAssignment(
         Guid enrollmentId,
@@ -74,6 +74,30 @@ public sealed class FinanceController : ControllerBase
             request,
             cancellationToken);
         return Ok(ApiResponse<StudentPricingAssignmentDto>.Ok(item, "Catégorie tarifaire mise à jour."));
+    }
+
+    [HttpGet("pricing-assignments/{enrollmentId:guid}/history")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PricingCategoryHistoryLineDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPricingAssignmentHistory(
+        Guid enrollmentId,
+        CancellationToken cancellationToken)
+    {
+        var items = await _financeService.GetPricingCategoryHistoryAsync(
+            RequireSchoolId(), enrollmentId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<PricingCategoryHistoryLineDto>>.Ok(items));
+    }
+
+    [HttpGet("pricing-assignments/{enrollmentId:guid}/applicable-fees")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<StudentApplicableFeesDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetApplicableFees(
+        Guid enrollmentId,
+        CancellationToken cancellationToken)
+    {
+        var item = await _financeService.GetApplicableFeesAsync(
+            RequireSchoolId(), enrollmentId, cancellationToken);
+        return Ok(ApiResponse<StudentApplicableFeesDto>.Ok(item));
     }
 
     private Guid RequireSchoolId() =>

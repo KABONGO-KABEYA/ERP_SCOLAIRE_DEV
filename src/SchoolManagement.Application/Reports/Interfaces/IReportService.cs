@@ -20,4 +20,20 @@ public interface IReportService
         Guid schoolId,
         Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Recettes réalisées (paiements Complet) sur une période, avec ventilation journalière.</summary>
+    Task<RealizedReceiptsResultDto> GetRealizedReceiptsAsync(
+        Guid schoolId,
+        RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportRealizedReceiptsPdfAsync(
+        Guid schoolId,
+        RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportRealizedReceiptsExcelAsync(
+        Guid schoolId,
+        RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
 }

@@ -32,106 +32,22 @@
             </ContentControl.ContentTemplate>
         </ContentControl>
 
-        <ScrollViewer Visibility="{Binding IsConsultationSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <StackPanel Style="{StaticResource ErpFadeIn}">
-                <DockPanel LastChildFill="False">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Command="{Binding ExportExcelCommand}" Content="Excel" Style="{StaticResource ErpSecondaryButton}" />
-                        <Button Margin="8,0,0,0" Command="{Binding ExportPdfCommand}" Content="PDF" Style="{StaticResource ErpSecondaryButton}" />
-                    </StackPanel>
-                </DockPanel>
+        <ContentControl Content="{Binding ExpenseRequests}"
+                        Visibility="{Binding IsDemandesPaiementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <ContentControl.ContentTemplate>
+                <DataTemplate DataType="{x:Type vm:ExpenseRequestsViewModel}">
+                    <views:ExpenseRequestsView />
+                </DataTemplate>
+            </ContentControl.ContentTemplate>
+        </ContentControl>
 
-                <WrapPanel Margin="0,0,0,12">
-                    <ComboBox Width="180" Margin="0,0,8,8"
-                              DisplayMemberPath="Label"
-                              ItemsSource="{Binding AcademicYears}"
-                              SelectedItem="{Binding FilterYear}"
-                              Style="{StaticResource ErpComboBox}"
-                              materialDesign:HintAssist.Hint="Année" />
-                    <DatePicker Width="150" Margin="0,0,8,8"
-                                SelectedDate="{Binding FilterFromDate}"
-                                Style="{StaticResource ErpDatePicker}"
-                                materialDesign:HintAssist.Hint="Du" />
-                    <DatePicker Width="150" Margin="0,0,8,8"
-                                SelectedDate="{Binding FilterToDate}"
-                                Style="{StaticResource ErpDatePicker}"
-                                materialDesign:HintAssist.Hint="Au" />
-                    <ComboBox Width="200" Margin="0,0,8,8"
-                              DisplayMemberPath="FullName"
-                              ItemsSource="{Binding Students}"
-                              SelectedItem="{Binding FilterStudent}"
-                              Style="{StaticResource ErpComboBox}"
-                              materialDesign:HintAssist.Hint="Élève" />
-                    <ComboBox Width="180" Margin="0,0,8,8"
-                              DisplayMemberPath="Name"
-                              ItemsSource="{Binding Destinations}"
-                              SelectedItem="{Binding FilterDestination}"
-                              Style="{StaticResource ErpComboBox}"
-                              materialDesign:HintAssist.Hint="Destination" />
-                    <Button Margin="0,0,8,8" Command="{Binding SearchEntriesCommand}" Content="Filtrer" Style="{StaticResource ErpPrimaryButton}" />
-                </WrapPanel>
-
-                <Border Style="{StaticResource ErpCard}" Padding="0" Margin="0,0,0,12">
-                    <DataGrid Style="{StaticResource ErpDataGrid}" BorderThickness="0" ItemsSource="{Binding Entries}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding ReceiptNumber}" Header="Paiement" Width="120" />
-                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" />
-                            <DataGridTextColumn Binding="{Binding PaymentAmount, StringFormat=N2}" Header="Montant payé" Width="100" />
-                            <DataGridTextColumn Binding="{Binding DestinationName}" Header="Destination" Width="120" />
-                            <DataGridTextColumn Binding="{Binding AllocatedAmount, StringFormat=N2}" Header="Réparti" Width="90" />
-                            <DataGridTextColumn Binding="{Binding AppliedPercentage, StringFormat=N2}" Header="%" Width="60" />
-                            <DataGridTextColumn Binding="{Binding AllocationKeyName}" Header="Clé" Width="120" />
-                            <DataGridTextColumn Binding="{Binding AllocatedAt, StringFormat=dd/MM/yyyy}" Header="Date" Width="90" />
-                            <DataGridTextColumn Binding="{Binding AllocatedBy}" Header="Utilisateur" Width="120" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Border>
-
-                <UniformGrid Columns="3">
-                    <Border Margin="0,0,8,0" Style="{StaticResource ErpCard}">
-                        <StackPanel>
-                            <TextBlock FontWeight="SemiBold" Text="Total période" />
-                            <TextBlock FontSize="20" Text="{Binding GrandTotal, StringFormat=N2}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Margin="0,0,8,0" Style="{StaticResource ErpCard}">
-                        <StackPanel>
-                            <TextBlock FontWeight="SemiBold" Text="Par destination" />
-                            <ItemsControl ItemsSource="{Binding DestinationTotals}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <Run Text="{Binding Name, Mode=OneWay}" />
-                                            <Run Text=" : " />
-                                            <Run Text="{Binding Total, StringFormat=N2, Mode=OneWay}" />
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource ErpCard}">
-                        <StackPanel>
-                            <TextBlock FontWeight="SemiBold" Text="Par type de frais" />
-                            <ItemsControl ItemsSource="{Binding FeeTypeTotals}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock>
-                                            <Run Text="{Binding Name, Mode=OneWay}" />
-                                            <Run Text=" : " />
-                                            <Run Text="{Binding Total, StringFormat=N2, Mode=OneWay}" />
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-                </UniformGrid>
-
-                <TextBlock Margin="0,12,0,0"
-                           Style="{StaticResource ErpBodySecondary}"
-                           Text="{Binding StatusMessage}" />
-            </StackPanel>
-        </ScrollViewer>
+        <ContentControl Content="{Binding ExpensePayments}"
+                        Visibility="{Binding IsDepensesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <ContentControl.ContentTemplate>
+                <DataTemplate DataType="{x:Type vm:ExpensePaymentsViewModel}">
+                    <views:ExpensePaymentsView />
+                </DataTemplate>
+            </ContentControl.ContentTemplate>
+        </ContentControl>
     </Grid>
 </UserControl>

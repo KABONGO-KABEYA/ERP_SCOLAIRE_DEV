@@ -32,68 +32,6 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,20,0,0"
-                                Visibility="{Binding IsEtablissementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition />
-                                <RowDefinition />
-                                <RowDefinition />
-                                <RowDefinition />
-                            </Grid.RowDefinitions>
-
-                            <TextBox Grid.Row="0" Grid.Column="0" Margin="4"
-                                     materialDesign:HintAssist.Hint="Nom de l'école"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBox Grid.Row="0" Grid.Column="1" Margin="4"
-                                     materialDesign:HintAssist.Hint="Raison sociale"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding LegalName, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBox Grid.Row="1" Grid.Column="0" Margin="4"
-                                     materialDesign:HintAssist.Hint="Ville"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding City, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBox Grid.Row="1" Grid.Column="1" Margin="4"
-                                     materialDesign:HintAssist.Hint="Province"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding Province, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBox Grid.Row="2" Grid.Column="0" Margin="4"
-                                     materialDesign:HintAssist.Hint="Téléphone"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBox Grid.Row="2" Grid.Column="1" Margin="4"
-                                     materialDesign:HintAssist.Hint="Email"
-                                     Style="{StaticResource ErpTextBox}"
-                                     Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="4" Orientation="Horizontal">
-                                <Button Command="{Binding SaveCommand}"
-                                        Content="Enregistrer les informations"
-                                        Style="{StaticResource ErpPrimaryButton}" />
-                                <Button Margin="8,0,0,0"
-                                        Command="{Binding LoadCommand}"
-                                        Content="Actualiser"
-                                        Style="{StaticResource ErpSecondaryButton}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Separator Margin="0,24,0,16" />
-
-                        <TextBlock Style="{StaticResource ErpSubtitle}"
-                                   Text="En-têtes et logos des documents" />
-                        <TextBlock Margin="0,6,0,12"
-                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
-                                   Text="Configurez les éléments graphiques utilisés automatiquement sur tous les documents imprimés (bulletins, reçus, attestations, etc.)."
-                                   TextWrapping="Wrap" />
-
-                        <controls:DocumentBrandingControl DataContext="{Binding DocumentBranding}" />
-                    </StackPanel>
-
-                    <StackPanel Margin="0,20,0,0"
                                 Visibility="{Binding IsAnneesScolairesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <DockPanel>
                             <TextBlock Style="{StaticResource ErpSubtitle}"
@@ -512,6 +450,14 @@
                 </StackPanel>
             </Border>
         </ScrollViewer>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsEtablissementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:EstablishmentSettingsControl HorizontalAlignment="Stretch"
+                                                     VerticalAlignment="Stretch"
+                                                     DataContext="{Binding}" />
+        </Grid>
 
         <Grid Grid.Row="0"
               Margin="20,16"

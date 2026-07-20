@@ -129,6 +129,11 @@ public interface IPaymentApiService
         Guid academicYearId,
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Payments.DTOs.PaymentMutationGateDto> GetMutationGateAsync(
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default);
+
     Task CancelAsync(
         Guid paymentId,
         SchoolManagement.Application.Payments.DTOs.CancelPaymentRequest request,
@@ -184,6 +189,14 @@ public interface IRevenueAllocationApiService
     Task DeleteKeyAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchResultDto> SearchEntriesAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.RevenueAllocation.DTOs.FeeTypeAllocationSummaryGroupDto>> GetAllocationSummaryByFeeTypeAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.AllocationCashFlowResultDto> GetAllocationCashFlowAsync(
         SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default);
 
@@ -261,6 +274,14 @@ public interface IFinanceApiService
     Task<SchoolManagement.Application.Finance.DTOs.StudentPricingAssignmentDto> UpdatePricingAssignmentAsync(
         Guid enrollmentId,
         SchoolManagement.Application.Finance.DTOs.UpdateEnrollmentPricingCategoryRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Finance.DTOs.PricingCategoryHistoryLineDto>> GetPricingCategoryHistoryAsync(
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Finance.DTOs.StudentApplicableFeesDto> GetApplicableFeesAsync(
+        Guid enrollmentId,
         CancellationToken cancellationToken = default);
 }
 
@@ -525,6 +546,18 @@ public interface IReportApiService
     Task<SchoolManagement.Application.Reports.DTOs.FinancialSummaryDto> GetFinancialSummaryAsync(
         Guid? academicYearId = null,
         CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Reports.DTOs.RealizedReceiptsResultDto> GetRealizedReceiptsAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportRealizedReceiptsPdfAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportRealizedReceiptsExcelAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAdminApiService
@@ -703,5 +736,32 @@ public interface ISchoolFeeApiService
 
     Task<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkResult> CopyScheduleFromPreviousBulkAsync(
         SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IAccountingApiService
+{
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestSearchResultDto> SearchExpenseRequestsAsync(
+        SchoolManagement.Application.Accounting.DTOs.ExpenseSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentSearchResultDto> SearchExpensePaymentsAsync(
+        SchoolManagement.Application.Accounting.DTOs.ExpenseSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> CreateExpenseRequestAsync(
+        SchoolManagement.Application.Accounting.DTOs.CreateExpenseRequestRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> SubmitExpenseRequestAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> ApproveExpenseRequestAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> CreateExpensePaymentAsync(
+        SchoolManagement.Application.Accounting.DTOs.CreateExpensePaymentRequest request,
         CancellationToken cancellationToken = default);
 }

@@ -155,6 +155,26 @@ public sealed class RevenueAllocationController : ControllerBase
         return Ok(ApiResponse<RevenueAllocationSearchResultDto>.Ok(result));
     }
 
+    [HttpGet("entries/summary-by-fee-type")]
+    [Authorize(Policy = Permissions.RevenueAllocationRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<FeeTypeAllocationSummaryGroupDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSummaryByFeeType([FromQuery] RevenueAllocationSearchRequest request, CancellationToken cancellationToken)
+    {
+        var schoolId = RequireSchoolId();
+        var result = await _service.GetAllocationSummaryByFeeTypeAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<FeeTypeAllocationSummaryGroupDto>>.Ok(result));
+    }
+
+    [HttpGet("entries/cash-flow")]
+    [Authorize(Policy = Permissions.RevenueAllocationRead)]
+    [ProducesResponseType(typeof(ApiResponse<AllocationCashFlowResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCashFlow([FromQuery] RevenueAllocationSearchRequest request, CancellationToken cancellationToken)
+    {
+        var schoolId = RequireSchoolId();
+        var result = await _service.GetAllocationCashFlowAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<AllocationCashFlowResultDto>.Ok(result));
+    }
+
     [HttpGet("entries/export/excel")]
     [Authorize(Policy = Permissions.RevenueAllocationRead)]
     public async Task<IActionResult> ExportExcel([FromQuery] RevenueAllocationSearchRequest request, CancellationToken cancellationToken)

@@ -656,6 +656,14 @@ public sealed class PaymentApiService : ApiServiceBase, IPaymentApiService
         GetAsync<SchoolManagement.Application.Payments.DTOs.StudentFinancialSummaryDto>(
             $"api/v1/payments/student/{studentId}/summary?academicYearId={academicYearId}", cancellationToken);
 
+    public Task<SchoolManagement.Application.Payments.DTOs.PaymentMutationGateDto> GetMutationGateAsync(
+        Guid academicYearId,
+        Guid feeTypeId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Payments.DTOs.PaymentMutationGateDto>(
+            $"api/v1/payments/mutation-gate?academicYearId={academicYearId}&feeTypeId={feeTypeId}",
+            cancellationToken);
+
     public async Task CancelAsync(
         Guid paymentId,
         SchoolManagement.Application.Payments.DTOs.CancelPaymentRequest request,
@@ -760,9 +768,51 @@ public sealed class RevenueAllocationApiService : ApiServiceBase, IRevenueAlloca
         if (request.PaymentId.HasValue) parts.Add($"paymentId={request.PaymentId}");
         if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
         if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
 
         return GetAsync<SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchResultDto>(
             $"api/v1/revenue-allocation/entries?{string.Join("&", parts)}", cancellationToken);
+    }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.RevenueAllocation.DTOs.FeeTypeAllocationSummaryGroupDto>> GetAllocationSummaryByFeeTypeAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FromDate.HasValue) parts.Add($"fromDate={request.FromDate:yyyy-MM-dd}");
+        if (request.ToDate.HasValue) parts.Add($"toDate={request.ToDate:yyyy-MM-dd}");
+        if (request.StudentId.HasValue) parts.Add($"studentId={request.StudentId}");
+        if (request.PaymentId.HasValue) parts.Add($"paymentId={request.PaymentId}");
+        if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
+        if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+
+        var query = parts.Count > 0 ? $"?{string.Join("&", parts)}" : string.Empty;
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.RevenueAllocation.DTOs.FeeTypeAllocationSummaryGroupDto>>(
+            $"api/v1/revenue-allocation/entries/summary-by-fee-type{query}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.RevenueAllocation.DTOs.AllocationCashFlowResultDto> GetAllocationCashFlowAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FromDate.HasValue) parts.Add($"fromDate={request.FromDate:yyyy-MM-dd}");
+        if (request.ToDate.HasValue) parts.Add($"toDate={request.ToDate:yyyy-MM-dd}");
+        if (request.StudentId.HasValue) parts.Add($"studentId={request.StudentId}");
+        if (request.PaymentId.HasValue) parts.Add($"paymentId={request.PaymentId}");
+        if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
+        if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+
+        var query = parts.Count > 0 ? $"?{string.Join("&", parts)}" : string.Empty;
+        return GetAsync<SchoolManagement.Application.RevenueAllocation.DTOs.AllocationCashFlowResultDto>(
+            $"api/v1/revenue-allocation/entries/cash-flow{query}", cancellationToken);
     }
 
     public async Task<byte[]> ExportExcelAsync(
@@ -805,6 +855,8 @@ public sealed class RevenueAllocationApiService : ApiServiceBase, IRevenueAlloca
         if (request.PaymentId.HasValue) parts.Add($"paymentId={request.PaymentId}");
         if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
         if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
         return string.Join("&", parts);
     }
 }
@@ -987,6 +1039,18 @@ public sealed class FinanceApiService : ApiServiceBase, IFinanceApiService
         CancellationToken cancellationToken = default) =>
         PutAsync<SchoolManagement.Application.Finance.DTOs.StudentPricingAssignmentDto>(
             $"api/v1/finance/pricing-assignments/{enrollmentId}", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Finance.DTOs.PricingCategoryHistoryLineDto>> GetPricingCategoryHistoryAsync(
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Finance.DTOs.PricingCategoryHistoryLineDto>>(
+            $"api/v1/finance/pricing-assignments/{enrollmentId}/history", cancellationToken);
+
+    public Task<SchoolManagement.Application.Finance.DTOs.StudentApplicableFeesDto> GetApplicableFeesAsync(
+        Guid enrollmentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Finance.DTOs.StudentApplicableFeesDto>(
+            $"api/v1/finance/pricing-assignments/{enrollmentId}/applicable-fees", cancellationToken);
 }
 
 public sealed class GradeApiService : ApiServiceBase, IGradeApiService
@@ -1161,6 +1225,69 @@ public sealed class ReportApiService : ApiServiceBase, IReportApiService
         var url = "api/v1/reports/financial-summary";
         if (academicYearId.HasValue) url += $"?academicYearId={academicYearId}";
         return GetAsync<SchoolManagement.Application.Reports.DTOs.FinancialSummaryDto>(url, cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Reports.DTOs.RealizedReceiptsResultDto> GetRealizedReceiptsAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildRealizedReceiptsQuery(request, includePaging: true);
+        return GetAsync<SchoolManagement.Application.Reports.DTOs.RealizedReceiptsResultDto>(
+            $"api/v1/reports/financial-realized-receipts?{query}", cancellationToken);
+    }
+
+    public async Task<byte[]> ExportRealizedReceiptsPdfAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildRealizedReceiptsQuery(request, includePaging: false);
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.GetAsync(
+            $"api/v1/reports/financial-realized-receipts/export/pdf?{query}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Erreur export PDF ({(int)response.StatusCode})");
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task<byte[]> ExportRealizedReceiptsExcelAsync(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildRealizedReceiptsQuery(request, includePaging: false);
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.GetAsync(
+            $"api/v1/reports/financial-realized-receipts/export/excel?{query}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Erreur export Excel ({(int)response.StatusCode})");
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    private static string BuildRealizedReceiptsQuery(
+        SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
+        bool includePaging)
+    {
+        var parts = new List<string>
+        {
+            $"fromDate={request.FromDate:yyyy-MM-dd}",
+            $"toDate={request.ToDate:yyyy-MM-dd}"
+        };
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (includePaging)
+        {
+            parts.Add($"page={request.Page}");
+            parts.Add($"pageSize={request.PageSize}");
+        }
+
+        return string.Join("&", parts);
     }
 }
 
@@ -1852,4 +1979,60 @@ public sealed class SchoolFeeApiService : ApiServiceBase, ISchoolFeeApiService
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.SchoolFees.DTOs.CopyClassFeeScheduleBulkResult>(
             "api/v1/school-fees/schedule/copy-from-previous/bulk", request, cancellationToken);
+}
+
+public sealed class AccountingApiService : ApiServiceBase, IAccountingApiService
+{
+    public AccountingApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestSearchResultDto> SearchExpenseRequestsAsync(
+        SchoolManagement.Application.Accounting.DTOs.ExpenseSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string> { $"page={request.Page}", $"pageSize={request.PageSize}" };
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FromDate.HasValue) parts.Add($"fromDate={request.FromDate:yyyy-MM-dd}");
+        if (request.ToDate.HasValue) parts.Add($"toDate={request.ToDate:yyyy-MM-dd}");
+        if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
+        if (request.Status.HasValue) parts.Add($"status={(int)request.Status.Value}");
+        return GetAsync<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestSearchResultDto>(
+            $"api/v1/accounting/expense-requests?{string.Join("&", parts)}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentSearchResultDto> SearchExpensePaymentsAsync(
+        SchoolManagement.Application.Accounting.DTOs.ExpenseSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string> { $"page={request.Page}", $"pageSize={request.PageSize}" };
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FromDate.HasValue) parts.Add($"fromDate={request.FromDate:yyyy-MM-dd}");
+        if (request.ToDate.HasValue) parts.Add($"toDate={request.ToDate:yyyy-MM-dd}");
+        if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
+        return GetAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentSearchResultDto>(
+            $"api/v1/accounting/expense-payments?{string.Join("&", parts)}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> CreateExpenseRequestAsync(
+        SchoolManagement.Application.Accounting.DTOs.CreateExpenseRequestRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto>(
+            "api/v1/accounting/expense-requests", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> SubmitExpenseRequestAsync(
+        Guid id,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto>(
+            $"api/v1/accounting/expense-requests/{id}/submit", new { }, cancellationToken);
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto> ApproveExpenseRequestAsync(
+        Guid id,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpenseRequestDto>(
+            $"api/v1/accounting/expense-requests/{id}/approve", new { }, cancellationToken);
+
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> CreateExpensePaymentAsync(
+        SchoolManagement.Application.Accounting.DTOs.CreateExpensePaymentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto>(
+            "api/v1/accounting/expense-payments", request, cancellationToken);
 }

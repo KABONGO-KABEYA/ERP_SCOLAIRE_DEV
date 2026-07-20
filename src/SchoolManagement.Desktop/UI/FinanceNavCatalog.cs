@@ -60,22 +60,30 @@ public static class FinanceNavCatalog
                     Title = "Rapports financiers",
                     IconKind = "FileChartOutline",
                     Section = FinanceSection.Rapports,
-                    Subtitle = "États et rapports de la comptabilité scolaire"
+                    Subtitle = "Recettes réalisées, répartitions et états de la comptabilité scolaire"
                 }
             ]
         },
         new FinanceNavGroup
         {
-            Title = "Répartition des recettes",
+            Title = "Comptabilité",
             Items =
             [
                 new FinanceNavItem
                 {
-                    Key = "consultation-repartitions",
-                    Title = "Consultation des répartitions",
-                    IconKind = "ChartPie",
-                    Section = FinanceSection.Consultation,
-                    Subtitle = "Historique définitif des répartitions de recettes"
+                    Key = "demandes-paiement",
+                    Title = "Demandes de paiement",
+                    IconKind = "FileDocumentEditOutline",
+                    Section = FinanceSection.DemandesPaiement,
+                    Subtitle = "Demandes de décaissement et workflow d'approbation"
+                },
+                new FinanceNavItem
+                {
+                    Key = "depenses",
+                    Title = "Dépenses",
+                    IconKind = "CashMinus",
+                    Section = FinanceSection.Depenses,
+                    Subtitle = "Dépenses effectuées imputées sur les comptes bénéficiaires"
                 }
             ]
         }

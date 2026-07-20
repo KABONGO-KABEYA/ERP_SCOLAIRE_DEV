@@ -78,6 +78,22 @@ public class EnrollmentConfiguration : AuditableEntityConfiguration<Enrollment>
     }
 }
 
+public class EnrollmentPricingCategoryHistoryConfiguration : AuditableEntityConfiguration<EnrollmentPricingCategoryHistory>
+{
+    public override void Configure(EntityTypeBuilder<EnrollmentPricingCategoryHistory> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("EnrollmentPricingCategoryHistory");
+        builder.Property(h => h.Notes).HasMaxLength(500);
+        builder.HasOne(h => h.Enrollment).WithMany().HasForeignKey(h => h.EnrollmentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(h => h.PreviousFeePricingCategory).WithMany().HasForeignKey(h => h.PreviousFeePricingCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(h => h.NewFeePricingCategory).WithMany().HasForeignKey(h => h.NewFeePricingCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(h => new { h.EnrollmentId, h.ChangedAt });
+    }
+}
+
 public class StudentStatusHistoryConfiguration : AuditableEntityConfiguration<StudentStatusHistory>
 {
     public override void Configure(EntityTypeBuilder<StudentStatusHistory> builder)

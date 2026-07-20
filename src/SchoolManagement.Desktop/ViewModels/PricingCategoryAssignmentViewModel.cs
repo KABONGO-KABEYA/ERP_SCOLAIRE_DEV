@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Academic.DTOs;
@@ -6,6 +7,7 @@ using SchoolManagement.Application.Finance.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.Views;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -16,21 +18,26 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
     private readonly ISchoolApiService _schoolApi;
     private readonly ISchoolFeeApiService _schoolFeeApi;
     private readonly IEnrollmentWizardApiService _wizardApi;
+    private readonly IAuthSessionService _authSession;
     private CancellationTokenSource? _searchCts;
 
     public PricingCategoryAssignmentViewModel(
         IFinanceApiService financeApi,
         ISchoolApiService schoolApi,
         ISchoolFeeApiService schoolFeeApi,
-        IEnrollmentWizardApiService wizardApi)
+        IEnrollmentWizardApiService wizardApi,
+        IAuthSessionService authSession)
     {
         _financeApi = financeApi;
         _schoolApi = schoolApi;
         _schoolFeeApi = schoolFeeApi;
         _wizardApi = wizardApi;
+        _authSession = authSession;
         StatusMessage = "À l'inscription, chaque élève est affecté à la catégorie « Générale ».";
         _ = InitializeAsync();
     }
+
+    public bool CanAssignPricingCategory => _authSession.IsAdministrator;
 
     public ObservableCollection<StudentPricingAssignmentDto> Students { get; } = [];
     public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
@@ -140,41 +147,30 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
             return;
         }
 
+        if (!_authSession.IsAdministrator)
+        {
+            StatusMessage = "Seul l'administrateur peut attribuer ou modifier la catégorie tarifaire d'un élève.";
+            return;
+        }
+
         SelectedStudent = item;
-        var targetCategory = SelectedPricingCategoryFilter
-            ?? SelectedPricingCategoryEdit
-            ?? PricingCategories.FirstOrDefault(c => c.Id == item.FeePricingCategoryId);
-
-        if (targetCategory is null)
+        var dialog = new ChangePricingCategoryWindow(item, PricingCategories.ToList(), _financeApi)
         {
-            StatusMessage = "Aucune catégorie tarifaire disponible.";
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
             return;
         }
 
-        if (targetCategory.Id == item.FeePricingCategoryId)
+        StatusMessage = dialog.UpdatedAssignment is null
+            ? "Catégorie tarifaire mise à jour."
+            : $"Catégorie « {dialog.UpdatedAssignment.FeePricingCategoryName} » appliquée à {dialog.UpdatedAssignment.FullName}.";
+        await SearchAsync();
+        if (dialog.UpdatedAssignment is not null)
         {
-            StatusMessage =
-                "Sélectionnez d'abord une autre catégorie dans le filtre « Catégorie tarifaire », puis relancez « Modifier la catégorie tarifaire ».";
-            return;
-        }
-
-        IsBusy = true;
-        try
-        {
-            var updated = await _financeApi.UpdatePricingAssignmentAsync(
-                item.EnrollmentId,
-                new UpdateEnrollmentPricingCategoryRequest(targetCategory.Id));
-            StatusMessage = $"Catégorie « {updated.FeePricingCategoryName} » appliquée à {updated.FullName}.";
-            await SearchAsync();
-            SelectedStudent = Students.FirstOrDefault(s => s.EnrollmentId == updated.EnrollmentId);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
+            SelectedStudent = Students.FirstOrDefault(s => s.EnrollmentId == dialog.UpdatedAssignment.EnrollmentId);
         }
     }
 
@@ -187,7 +183,11 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
         }
 
         SelectedStudent = item;
-        StatusMessage = $"Historique des changements de catégorie — {item.FullName} (prochaine étape).";
+        var dialog = new PricingCategoryHistoryWindow(item, _financeApi)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        dialog.ShowDialog();
     }
 
     [RelayCommand]
@@ -199,8 +199,11 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
         }
 
         SelectedStudent = item;
-        StatusMessage =
-            $"Frais applicables — {item.FullName} / catégorie {item.FeePricingCategoryName} (consultation barème à venir).";
+        var dialog = new ApplicableFeesWindow(item, _financeApi)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        dialog.ShowDialog();
     }
 
     private async Task InitializeAsync()

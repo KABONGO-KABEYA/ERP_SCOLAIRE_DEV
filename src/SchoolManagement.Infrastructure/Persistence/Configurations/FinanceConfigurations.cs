@@ -149,6 +149,45 @@ public class RevenueAllocationEntryConfiguration : AuditableEntityConfiguration<
     }
 }
 
+public class ExpenseRequestConfiguration : AuditableEntityConfiguration<ExpenseRequest>
+{
+    public override void Configure(EntityTypeBuilder<ExpenseRequest> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("FinDemandePaiement");
+        builder.Property(r => r.Reference).HasMaxLength(40).IsRequired();
+        builder.Property(r => r.Title).HasMaxLength(200).IsRequired();
+        builder.Property(r => r.Description).HasMaxLength(500);
+        builder.Property(r => r.RequestedAmount).HasPrecision(18, 2);
+        builder.Property(r => r.Currency).HasConversion<int>();
+        builder.Property(r => r.Status).HasConversion<int>();
+        builder.HasOne(r => r.School).WithMany().HasForeignKey(r => r.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(r => r.AcademicYear).WithMany().HasForeignKey(r => r.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(r => r.Destination).WithMany().HasForeignKey(r => r.DestinationId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => new { r.SchoolId, r.Reference }).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(r => new { r.SchoolId, r.Status }).HasFilter("[IsDeleted] = 0");
+    }
+}
+
+public class ExpensePaymentConfiguration : AuditableEntityConfiguration<ExpensePayment>
+{
+    public override void Configure(EntityTypeBuilder<ExpensePayment> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("FinDepense");
+        builder.Property(p => p.Reference).HasMaxLength(40).IsRequired();
+        builder.Property(p => p.Label).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.Amount).HasPrecision(18, 2);
+        builder.Property(p => p.Currency).HasConversion<int>();
+        builder.HasOne(p => p.School).WithMany().HasForeignKey(p => p.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(p => p.AcademicYear).WithMany().HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(p => p.Destination).WithMany().HasForeignKey(p => p.DestinationId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(p => p.ExpenseRequest).WithMany().HasForeignKey(p => p.ExpenseRequestId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(p => new { p.SchoolId, p.Reference }).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(p => new { p.SchoolId, p.ExpenseDate, p.DestinationId }).HasFilter("[IsDeleted] = 0");
+    }
+}
+
 public class WithholdingTypeConfiguration : AuditableEntityConfiguration<WithholdingType>
 {
     public override void Configure(EntityTypeBuilder<WithholdingType> builder)

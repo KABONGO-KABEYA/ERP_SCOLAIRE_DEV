@@ -40,7 +40,8 @@ public sealed record PaymentDto(
     Currency Currency,
     PaymentStatus Status,
     string? Notes = null,
-    IReadOnlyList<PaymentLineDto>? Lines = null);
+    IReadOnlyList<PaymentLineDto>? Lines = null,
+    DateTime? CreatedAt = null);
 
 /// <summary>Détail d'un paiement avec lignes (consultation / reçu / annulation).</summary>
 public sealed record PaymentDetailDto(
@@ -54,7 +55,8 @@ public sealed record PaymentDetailDto(
     Currency Currency,
     PaymentStatus Status,
     string? Notes,
-    IReadOnlyList<PaymentLineDto> Lines);
+    IReadOnlyList<PaymentLineDto> Lines,
+    DateTime? CreatedAt = null);
 
 public sealed record PaymentSearchRequest(
     Guid? StudentId = null,
@@ -84,9 +86,29 @@ public sealed record StudentFinancialSummaryDto(
     decimal Balance,
     Currency Currency);
 
+/// <summary>
+/// Verrou rétrograde global : dernier encaissement Complet du type de frais
+/// (tous élèves confondus) pour l'année scolaire.
+/// </summary>
+public sealed record PaymentMutationGateDto(
+    Guid? LatestPaymentId,
+    DateTime? LatestPaymentDate,
+    Guid? LatestStudentId,
+    string? LatestStudentName,
+    string? LatestReceiptNumber);
+
 public sealed record CancelPaymentRequest(string Reason);
 
 public sealed record UpdatePaymentNotesRequest(string? Notes);
 
-/// <summary>Modification du montant du dernier versement (admin, ordre rétrograde).</summary>
-public sealed record UpdatePaymentAmountRequest(decimal NewAmount, string? Notes = null);
+/// <summary>Modification du montant / n° physique du dernier versement (admin, ordre rétrograde).</summary>
+public sealed record UpdatePaymentLineAmountRequest(
+    Guid LineId,
+    decimal Amount,
+    string? PhysicalReceiptNumber = null);
+
+public sealed record UpdatePaymentAmountRequest(
+    decimal NewAmount,
+    string? Notes = null,
+    string? PhysicalReceiptNumber = null,
+    IReadOnlyList<UpdatePaymentLineAmountRequest>? Lines = null);

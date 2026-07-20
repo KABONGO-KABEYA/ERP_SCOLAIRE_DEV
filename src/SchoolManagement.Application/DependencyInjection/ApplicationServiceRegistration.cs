@@ -21,6 +21,8 @@ using SchoolManagement.Application.Reports.Interfaces;
 using SchoolManagement.Application.Reports.Services;
 using SchoolManagement.Application.Payments.Interfaces;
 using SchoolManagement.Application.Payments.Services;
+using SchoolManagement.Application.Accounting.Interfaces;
+using SchoolManagement.Application.Accounting.Services;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.Services;
 using SchoolManagement.Application.Withholdings.Interfaces;
@@ -61,6 +63,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IFeeTypeStatementService, FeeTypeStatementService>();
         services.AddScoped<IRevenueAllocationEngine, RevenueAllocationEngine>();
         services.AddScoped<IRevenueAllocationService, RevenueAllocationService>();
+        services.AddScoped<IAccountingService, AccountingService>();
         services.AddScoped<IWithholdingEngine, WithholdingEngine>();
         services.AddScoped<IWithholdingService, WithholdingService>();
         services.AddScoped<IFinanceOperationService, FinanceOperationService>();
