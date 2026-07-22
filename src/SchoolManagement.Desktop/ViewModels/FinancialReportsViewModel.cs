@@ -8,6 +8,7 @@ using SchoolManagement.Application.Reports.DTOs;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Models;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
@@ -37,6 +38,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
     private List<ReportClassOption> _allClassRooms = [];
     private HashSet<string> _organizedSectionNames = new(StringComparer.OrdinalIgnoreCase);
     private Guid? _structureAcademicYearId;
+    private Guid? _defaultFeeTypeId;
 
     public FinancialReportsViewModel(
         IReportApiService reportApi,
@@ -115,17 +117,29 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
     public ObservableCollection<RealizedReceiptsBySectionDto> BySection { get; } = [];
 
-    public ObservableCollection<RealizedReceiptsDailyByClassDto> DailyByClass { get; } = [];
+    public ObservableCollection<ReportDailyGroupRow<RealizedReceiptsDailyByClassDto>> DailyByClassGroups { get; } = [];
 
-    public ObservableCollection<RealizedReceiptsDailyByFeeTypeDto> DailyByFeeType { get; } = [];
+    public ObservableCollection<ReportDailyGroupRow<RealizedReceiptsDailyByFeeTypeDto>> DailyByFeeTypeGroups { get; } = [];
 
-    public ObservableCollection<RealizedReceiptsDailyBySectionDto> DailyBySection { get; } = [];
+    public ObservableCollection<ReportDailyGroupRow<RealizedReceiptsDailyBySectionDto>> DailyBySectionGroups { get; } = [];
+
+    [ObservableProperty] private decimal _byClassTotal;
+    [ObservableProperty] private int _byClassPaymentCount;
+    [ObservableProperty] private decimal _bySectionTotal;
+    [ObservableProperty] private int _bySectionPaymentCount;
+    [ObservableProperty] private decimal _byFeeTypeTotal;
+    [ObservableProperty] private int _byFeeTypePaymentCount;
 
     public ObservableCollection<AllocationCashFlowRowDto> AllocationGlobalRows { get; } = [];
 
-    public ObservableCollection<AllocationCashFlowDailyRow> AllocationDailyRows { get; } = [];
+    public ObservableCollection<AllocationCashFlowDailyGroupRow> AllocationDailyGroups { get; } = [];
+
+    public ObservableCollection<WithholdingReportTypeGroupRow> WithholdingGroups { get; } = [];
 
     [ObservableProperty] private AllocationCashFlowRowDto? _allocationTotals;
+
+    [ObservableProperty] private decimal _withholdingGrandTotal;
+    [ObservableProperty] private int _withholdingPaymentCount;
 
     [ObservableProperty] private ReportPeriodOption? _selectedPeriod;
     [ObservableProperty] private ReportMonthOption? _selectedMonth;
@@ -138,8 +152,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
     [ObservableProperty] private DateTime? _filterToDate;
     [ObservableProperty] private string? _fromDateError;
     [ObservableProperty] private string? _toDateError;
+    public ObservableCollection<DailyPivotGroupRow> DailyPivotGroups { get; } = [];
+
     [ObservableProperty] private DataView? _pivotView;
-    [ObservableProperty] private DataView? _dailyPivotView;
     [ObservableProperty] private decimal _grandTotal;
     [ObservableProperty] private int _paymentCount;
     [ObservableProperty] private string? _statusMessage;
@@ -317,10 +332,12 @@ public partial class FinancialReportsViewModel : ViewModelBase
                 FeeTypes.Add(feeType);
             }
 
+            var school = await _schoolApi.GetCurrentSchoolAsync();
+            _defaultFeeTypeId = school?.DefaultFeeTypeId;
             _suppressPeriodReload = true;
             _suppressFilterReload = true;
             FilterYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-            FilterFeeType = FeeTypes.FirstOrDefault();
+            FilterFeeType = DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
             ApplyPeriodDates(SelectedPeriod?.Kind ?? RealizedReceiptsPeriodKind.Day);
             _suppressFilterReload = false;
             _suppressPeriodReload = false;
@@ -352,10 +369,13 @@ public partial class FinancialReportsViewModel : ViewModelBase
         {
             StatusMessage = "Sélectionnez un type de frais pour afficher le rapport.";
             PivotView = null;
-            DailyPivotView = null;
+            DailyPivotGroups.Clear();
             AllocationGlobalRows.Clear();
-            AllocationDailyRows.Clear();
+            AllocationDailyGroups.Clear();
             AllocationTotals = null;
+            WithholdingGroups.Clear();
+            WithholdingGrandTotal = 0;
+            WithholdingPaymentCount = 0;
             return;
         }
 
@@ -364,12 +384,14 @@ public partial class FinancialReportsViewModel : ViewModelBase
         {
             var reportTask = _reportApi.GetRealizedReceiptsAsync(BuildRequest());
             var allocationTask = _allocationApi.GetAllocationCashFlowAsync(BuildAllocationRequest());
-            await Task.WhenAll(reportTask, allocationTask);
+            var withholdingTask = _allocationApi.GetWithholdingReportAsync(BuildAllocationRequest());
+            await Task.WhenAll(reportTask, allocationTask, withholdingTask);
 
             var result = await reportTask;
             ApplyPivot(result);
             ApplyDailyPivot(result);
             ApplyAllocationCashFlow(await allocationTask);
+            ApplyWithholdingReport(await withholdingTask);
 
             DailyBuckets.Clear();
             foreach (var bucket in result.DailyBuckets)
@@ -389,11 +411,17 @@ public partial class FinancialReportsViewModel : ViewModelBase
                 ByClass.Add(item);
             }
 
+            ByClassTotal = ByClass.Sum(x => x.TotalAmount);
+            ByClassPaymentCount = ByClass.Sum(x => x.PaymentCount);
+
             ByFeeType.Clear();
             foreach (var item in result.ByFeeType)
             {
                 ByFeeType.Add(item);
             }
+
+            ByFeeTypeTotal = ByFeeType.Sum(x => x.TotalAmount);
+            ByFeeTypePaymentCount = ByFeeType.Sum(x => x.PaymentCount);
 
             BySection.Clear();
             foreach (var item in result.BySection)
@@ -401,22 +429,49 @@ public partial class FinancialReportsViewModel : ViewModelBase
                 BySection.Add(item);
             }
 
-            DailyByClass.Clear();
-            foreach (var item in result.DailyByClass)
+            BySectionTotal = BySection.Sum(x => x.TotalAmount);
+            BySectionPaymentCount = BySection.Sum(x => x.PaymentCount);
+
+            DailyByClassGroups.Clear();
+            foreach (var group in result.DailyByClass
+                         .GroupBy(x => x.Date)
+                         .OrderBy(g => g.Key))
             {
-                DailyByClass.Add(item);
+                var rows = group.OrderBy(x => x.ClassName).ToList();
+                DailyByClassGroups.Add(new ReportDailyGroupRow<RealizedReceiptsDailyByClassDto>
+                {
+                    Date = group.Key,
+                    Rows = rows,
+                    DayTotal = rows.Sum(x => x.TotalAmount)
+                });
             }
 
-            DailyByFeeType.Clear();
-            foreach (var item in result.DailyByFeeType)
+            DailyByFeeTypeGroups.Clear();
+            foreach (var group in result.DailyByFeeType
+                         .GroupBy(x => x.Date)
+                         .OrderBy(g => g.Key))
             {
-                DailyByFeeType.Add(item);
+                var rows = group.OrderBy(x => x.FeeTypeName).ToList();
+                DailyByFeeTypeGroups.Add(new ReportDailyGroupRow<RealizedReceiptsDailyByFeeTypeDto>
+                {
+                    Date = group.Key,
+                    Rows = rows,
+                    DayTotal = rows.Sum(x => x.TotalAmount)
+                });
             }
 
-            DailyBySection.Clear();
-            foreach (var item in result.DailyBySection)
+            DailyBySectionGroups.Clear();
+            foreach (var group in result.DailyBySection
+                         .GroupBy(x => x.Date)
+                         .OrderBy(g => g.Key))
             {
-                DailyBySection.Add(item);
+                var rows = group.OrderBy(x => x.SectionName).ToList();
+                DailyBySectionGroups.Add(new ReportDailyGroupRow<RealizedReceiptsDailyBySectionDto>
+                {
+                    Date = group.Key,
+                    Rows = rows,
+                    DayTotal = rows.Sum(x => x.TotalAmount)
+                });
             }
 
             GrandTotal = result.GrandTotal;
@@ -464,35 +519,48 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
     private void ApplyDailyPivot(RealizedReceiptsResultDto result)
     {
+        DailyPivotGroups.Clear();
+
+        foreach (var dateGroup in result.DailyPivotRows.GroupBy(r => r.Date).OrderBy(g => g.Key))
+        {
+            var table = CreateDailyPivotTable(result.InstallmentColumns);
+            foreach (var row in dateGroup.OrderBy(r => r.ClassName).ThenBy(r => r.StudentName))
+            {
+                var values = new object[2 + row.InstallmentDetails.Count + 1];
+                values[0] = row.StudentName;
+                values[1] = row.ClassName;
+                for (var i = 0; i < row.InstallmentDetails.Count; i++)
+                {
+                    values[2 + i] = string.IsNullOrWhiteSpace(row.InstallmentDetails[i])
+                        ? "—"
+                        : row.InstallmentDetails[i];
+                }
+
+                values[^1] = row.RowTotal;
+                table.Rows.Add(values);
+            }
+
+            DailyPivotGroups.Add(new DailyPivotGroupRow
+            {
+                Date = dateGroup.Key,
+                Rows = table.DefaultView
+            });
+        }
+    }
+
+    private static DataTable CreateDailyPivotTable(
+        IReadOnlyList<RealizedReceiptsInstallmentColumnDto> installmentColumns)
+    {
         var table = new DataTable();
-        table.Columns.Add("Date", typeof(string));
         table.Columns.Add("Nom complet", typeof(string));
         table.Columns.Add("Classe", typeof(string));
-        foreach (var column in result.InstallmentColumns)
+        foreach (var column in installmentColumns)
         {
             table.Columns.Add(column.InstallmentName, typeof(string));
         }
 
         table.Columns.Add("Total", typeof(decimal));
-
-        DateOnly? previousDate = null;
-        foreach (var row in result.DailyPivotRows)
-        {
-            var values = new object[3 + row.InstallmentDetails.Count + 1];
-            values[0] = previousDate == row.Date ? string.Empty : row.Date.ToString("dd/MM/yyyy");
-            values[1] = row.StudentName;
-            values[2] = row.ClassName;
-            for (var i = 0; i < row.InstallmentDetails.Count; i++)
-            {
-                values[3 + i] = string.IsNullOrWhiteSpace(row.InstallmentDetails[i]) ? "—" : row.InstallmentDetails[i];
-            }
-
-            values[^1] = row.RowTotal;
-            table.Rows.Add(values);
-            previousDate = row.Date;
-        }
-
-        DailyPivotView = table.DefaultView;
+        return table;
     }
 
     private void ApplyAllocationCashFlow(AllocationCashFlowResultDto result)
@@ -503,23 +571,36 @@ public partial class FinancialReportsViewModel : ViewModelBase
             AllocationGlobalRows.Add(row);
         }
 
-        AllocationDailyRows.Clear();
+        AllocationDailyGroups.Clear();
         foreach (var group in result.DailyGroups)
         {
-            foreach (var row in group.Rows)
+            AllocationDailyGroups.Add(new AllocationCashFlowDailyGroupRow
             {
-                AllocationDailyRows.Add(new AllocationCashFlowDailyRow(
-                    group.Date,
-                    row.DestinationCode,
-                    row.DestinationName,
-                    row.PeriodJ1,
-                    row.Encaissement,
-                    row.DepenseP,
-                    row.PeriodeP));
-            }
+                Date = group.Date,
+                Rows = group.Rows
+            });
         }
 
         AllocationTotals = result.Totals;
+    }
+
+    private void ApplyWithholdingReport(WithholdingReportResultDto result)
+    {
+        WithholdingGroups.Clear();
+        foreach (var group in result.Groups)
+        {
+            WithholdingGroups.Add(new WithholdingReportTypeGroupRow
+            {
+                WithholdingTypeId = group.WithholdingTypeId,
+                WithholdingTypeCode = group.WithholdingTypeCode,
+                WithholdingTypeName = group.WithholdingTypeName,
+                TypeTotal = group.TypeTotal,
+                Students = group.Students
+            });
+        }
+
+        WithholdingGrandTotal = result.GrandTotal;
+        WithholdingPaymentCount = result.PaymentCount;
     }
 
     [RelayCommand]
@@ -528,7 +609,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         _suppressPeriodReload = true;
         _suppressFilterReload = true;
         SelectedPeriod = PeriodOptions[0];
-        FilterFeeType = FeeTypes.FirstOrDefault();
+        FilterFeeType = DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
         FilterSection = null;
         FilterClassRoom = null;
         FilterYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();

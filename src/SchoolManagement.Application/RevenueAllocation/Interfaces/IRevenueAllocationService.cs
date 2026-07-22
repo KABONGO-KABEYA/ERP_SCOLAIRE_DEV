@@ -62,6 +62,12 @@ public interface IRevenueAllocationService
         RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Retenues effectuées sur les encaissements du périmètre filtré.</summary>
+    Task<WithholdingReportResultDto> GetWithholdingReportAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<byte[]> ExportAllocationsExcelAsync(
         Guid schoolId,
         RevenueAllocationSearchRequest request,

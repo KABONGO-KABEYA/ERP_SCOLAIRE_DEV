@@ -13,8 +13,14 @@ import '../features/teacher/evaluations_screen.dart';
 import '../features/teacher/grade_entry_screen.dart';
 import '../features/direction/dashboard_screen.dart';
 import '../features/promoteur/dashboard_screen.dart';
+import '../features/promoteur/detail_screens.dart';
 import '../features/enrollment/enrollment_wizard_screen.dart';
 import '../features/secretary/secretary_home_screen.dart';
+import '../features/secretary/account/about_screen.dart';
+import '../features/secretary/account/change_password_screen.dart';
+import '../features/secretary/account/secretary_account_screen.dart';
+import '../features/secretary/student_dossier_screen.dart';
+import '../features/secretary/student_search_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -31,6 +37,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
 
       final canEnroll = await AuthStorage.canManageEnrollments;
+      final writePolicy = ref.read(writePolicyProvider);
+      if (state.matchedLocation.startsWith('/secretary/enrollment') &&
+          !writePolicy.canEnrollStudents) {
+        return '/secretary/home';
+      }
       if (state.matchedLocation.startsWith('/secretary') && !canEnroll) {
         return await AuthStorage.homeRoute;
       }
@@ -48,7 +59,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
       GoRoute(path: '/promoteur/dashboard', builder: (_, __) => const PromoteurDashboardScreen()),
+      GoRoute(
+        path: '/promoteur/payments',
+        builder: (context, state) => PromoteurPaymentsDetailScreen(
+          scope: state.uri.queryParameters['scope'] ?? 'Today',
+        ),
+      ),
+      GoRoute(
+        path: '/promoteur/expenses',
+        builder: (context, state) => PromoteurExpensesDetailScreen(
+          scope: state.uri.queryParameters['scope'] ?? 'Month',
+          category: state.uri.queryParameters['category'],
+        ),
+      ),
+      GoRoute(
+        path: '/promoteur/debtors',
+        builder: (context, state) => PromoteurDebtorsDetailScreen(
+          feeTypeId: state.uri.queryParameters['feeTypeId'],
+        ),
+      ),
+      GoRoute(
+        path: '/promoteur/funds/:destinationId',
+        builder: (context, state) => PromoteurFundMovementsScreen(
+          destinationId: state.pathParameters['destinationId']!,
+          name: state.uri.queryParameters['name'] ?? 'Compte',
+        ),
+      ),
+      GoRoute(path: '/promoteur/students', builder: (_, __) => const PromoteurStudentsDetailScreen()),
       GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
+      GoRoute(path: '/secretary/account', builder: (_, __) => const SecretaryAccountScreen()),
+      GoRoute(
+        path: '/secretary/account/change-password',
+        builder: (_, __) => const SecretaryChangePasswordScreen(),
+      ),
+      GoRoute(path: '/secretary/account/about', builder: (_, __) => const SecretaryAboutScreen()),
+      GoRoute(
+        path: '/secretary/students',
+        builder: (_, __) => const SecretaryStudentSearchScreen(),
+      ),
+      GoRoute(
+        path: '/secretary/students/:studentId',
+        builder: (context, state) => SecretaryStudentDossierScreen(
+          studentId: state.pathParameters['studentId']!,
+        ),
+      ),
       GoRoute(
         path: '/secretary/enrollment',
         builder: (context, state) => EnrollmentWizardScreen(
@@ -92,13 +146,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(this._ref) {
     _ref.listen(authStateProvider, (_, __) => notifyListeners());
+    _ref.listen(connectionModeProvider, (_, __) => notifyListeners());
   }
 
   final Ref _ref;
 }
 
 Future<void> logout(WidgetRef ref, BuildContext context) async {
-  await ref.read(authRepositoryProvider).logout();
+  final baseUrl = ref.read(connectionModeProvider).baseUrl;
+  await ref.read(authRepositoryProvider).logout(baseUrl: baseUrl);
   await ref.read(authStateProvider.notifier).setLoggedIn(false);
   if (context.mounted) context.go('/login');
 }

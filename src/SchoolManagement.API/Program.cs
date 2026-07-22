@@ -4,7 +4,9 @@ using FluentValidation.AspNetCore;
 using Microsoft.OpenApi.Models;
 using SchoolManagement.API.Extensions;
 using SchoolManagement.API.Middleware;
+using SchoolManagement.API.Options;
 using SchoolManagement.Application.Configuration.Database;
+using SchoolManagement.Application.Configuration.Encryption;
 using SchoolManagement.Application.Configuration.FileStorage;
 using SchoolManagement.Application.DependencyInjection;
 using SchoolManagement.Infrastructure.DependencyInjection;
@@ -21,28 +23,69 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.Console()
     .WriteTo.File("logs/api-.log", rollingInterval: RollingInterval.Day));
 
-var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory);
-var (_, sqlConnectionString, databaseTestResult) = await databaseBootstrap.LoadValidateAndTestAsync();
-if (!databaseTestResult.IsSuccess)
+var encryption = EncryptionServiceFactory.Create();
+var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory, encryption);
+
+// Docker / cloud : priorité à la connection string d'environnement (sans DPAPI).
+var envConnectionString =
+    builder.Configuration.GetConnectionString("Default")
+    ?? Environment.GetEnvironmentVariable("SQL_CONNECTION_STRING")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+
+string sqlConnectionString;
+DatabaseConnectionTestResult databaseTestResult;
+if (!string.IsNullOrWhiteSpace(envConnectionString))
 {
-    Log.Fatal(
-        "Connexion SQL Server impossible. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
-        DatabaseConfigurationManager.FileName,
-        Environment.NewLine,
-        databaseTestResult.Message);
-    return;
+    sqlConnectionString = envConnectionString.Trim();
+    databaseTestResult = await DatabaseConnectionTester.TestConnectionStringAsync(sqlConnectionString);
+    if (!databaseTestResult.IsSuccess)
+    {
+        Log.Fatal(
+            "Connexion SQL Server impossible via SQL_CONNECTION_STRING / ConnectionStrings:Default.{NewLine}{Error}",
+            Environment.NewLine,
+            databaseTestResult.Message);
+        return;
+    }
+
+    Log.Information("Connexion SQL Server validée via variable d'environnement (Docker/cloud).");
+}
+else
+{
+    (_, sqlConnectionString, databaseTestResult) = await databaseBootstrap.LoadValidateAndTestAsync();
+    if (!databaseTestResult.IsSuccess)
+    {
+        Log.Fatal(
+            "Connexion SQL Server impossible. Corrigez {ConfigFile} ou définissez SQL_CONNECTION_STRING.{NewLine}{Error}",
+            DatabaseConfigurationManager.FileName,
+            Environment.NewLine,
+            databaseTestResult.Message);
+        return;
+    }
+
+    Log.Information("Connexion SQL Server validée via {ConfigFile}.", DatabaseConfigurationManager.FileName);
 }
 
-Log.Information("Connexion SQL Server validée via {ConfigFile}.", DatabaseConfigurationManager.FileName);
-
 var fileStorageManager = new FileStorageConfigurationManager(AppContext.BaseDirectory);
-fileStorageManager.EnsureDefaultFileExists();
+var fileStorageRoot =
+    builder.Configuration["FileStorage:Root"]
+    ?? Environment.GetEnvironmentVariable("FILE_STORAGE_ROOT");
+if (!string.IsNullOrWhiteSpace(fileStorageRoot))
+{
+    Directory.CreateDirectory(fileStorageRoot);
+    fileStorageManager.SaveConfiguration(new FileStorageConfiguration { Racine = fileStorageRoot.Trim() });
+    Log.Information("Dossier fichiers configuré via FILE_STORAGE_ROOT={Root}.", fileStorageRoot);
+}
+else
+{
+    fileStorageManager.EnsureDefaultFileExists();
+}
+
 var fileStorageConfiguration = fileStorageManager.LoadConfiguration();
 var fileStorageValidation = fileStorageManager.Validate(fileStorageConfiguration);
 if (!fileStorageValidation.IsValid)
 {
     Log.Fatal(
-        "Configuration fichiers invalide. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
+        "Configuration fichiers invalide. Définissez FILE_STORAGE_ROOT ou corrigez {ConfigFile}.{NewLine}{Error}",
         FileStorageConfigurationManager.FileName,
         Environment.NewLine,
         string.Join(Environment.NewLine, fileStorageValidation.FieldErrors.Values));
@@ -56,20 +99,49 @@ var fileStorageTestResult = new FileStoragePathTester().TestConfiguration(
 if (!fileStorageTestResult.IsSuccess)
 {
     Log.Fatal(
-        "Dossier partagé inaccessible. Corrigez {ConfigFile} puis redémarrez l'API.{NewLine}{Error}",
+        "Dossier partagé inaccessible. Corrigez FILE_STORAGE_ROOT / {ConfigFile}.{NewLine}{Error}",
         FileStorageConfigurationManager.FileName,
         Environment.NewLine,
         fileStorageTestResult.Message);
     return;
 }
 
-Log.Information("Dossier partagé validé via {ConfigFile}.", FileStorageConfigurationManager.FileName);
+Log.Information("Dossier partagé validé.");
 
+var cloudConfigManager = new CloudDatabaseConfigurationManager(AppContext.BaseDirectory, encryption);
+builder.Services.AddSingleton(cloudConfigManager);
 builder.Services.AddSingleton(databaseBootstrap.ConfigurationManager);
 builder.Services.AddSingleton(fileStorageManager);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, sqlConnectionString);
 builder.Services.AddPermissionPolicies();
+
+if (cloudConfigManager.FileExists)
+{
+    var cloudPreview = cloudConfigManager.LoadConfigurationWithoutPassword();
+    Log.Information(
+        "Sync cloud : fichier {File} présent — ACTIF={Actif}, SERVEUR={Serveur}, INTERVALLE={Interval} min.",
+        CloudDatabaseConfigurationManager.FileName,
+        cloudPreview.Actif ? 1 : 0,
+        cloudPreview.Serveur,
+        cloudPreview.IntervalleMinutes);
+}
+else
+{
+    Log.Information(
+        "Sync cloud inactive — créez {File} (voir scripts/configure-cloud-sync.ps1).",
+        CloudDatabaseConfigurationManager.FileName);
+}
+
+builder.Services.Configure<DeploymentOptions>(
+    builder.Configuration.GetSection(DeploymentOptions.SectionName));
+var deploymentOptions = builder.Configuration
+    .GetSection(DeploymentOptions.SectionName)
+    .Get<DeploymentOptions>() ?? new DeploymentOptions();
+Log.Information(
+    "Déploiement API : Role={Role}, ReadOnly={ReadOnly}",
+    deploymentOptions.Role,
+    deploymentOptions.IsCloudReadOnly);
 
 builder.Services.AddControllers();
 builder.Services.AddFluentValidationAutoValidation();
@@ -223,11 +295,22 @@ if (app.Environment.IsDevelopment())
         scope.ServiceProvider.GetRequiredService<ILogger<PaymentCashRegisterSchemaInitializer>>());
     await paymentCashRegisterSchema.EnsureCreatedAsync();
 
+    var cloudSyncSchema = new CloudSyncSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CloudSyncSchemaInitializer>>());
+    await cloudSyncSchema.EnsureCreatedAsync();
+
+    var schoolDefaultFeeSchema = new SchoolDefaultFeeSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<SchoolDefaultFeeSchemaInitializer>>());
+    await schoolDefaultFeeSchema.EnsureCreatedAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<CloudReadOnlyMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "ERP Scolaire API v1"));
 app.UseSerilogRequestLogging();

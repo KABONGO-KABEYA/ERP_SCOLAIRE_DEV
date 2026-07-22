@@ -2,6 +2,7 @@ namespace SchoolManagement.Application.Academic.Services;
 
 using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Academic.Interfaces;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Schools;
@@ -212,7 +213,7 @@ public sealed class AcademicService : IAcademicService
                 return new EnrollmentDto(
                     e.Id,
                     e.StudentId,
-                    $"{student.LastName} {student.FirstName}",
+                    StudentDisplayName.Format(student),
                     student.RegistrationNumber,
                     e.ClassRoomId,
                     className,
@@ -283,7 +284,7 @@ public sealed class AcademicService : IAcademicService
         return new EnrollmentDto(
             enrollment.Id,
             enrollment.StudentId,
-            $"{student.LastName} {student.FirstName}",
+            StudentDisplayName.Format(student),
             student.RegistrationNumber,
             enrollment.ClassRoomId,
             MapClassRoom(classRoom, new Dictionary<Guid, Section>(), pedagogicalMap).FullDisplayName,

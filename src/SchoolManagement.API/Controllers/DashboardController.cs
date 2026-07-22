@@ -28,10 +28,11 @@ public sealed class DashboardController : ControllerBase
     public async Task<IActionResult> GetOverview(
         [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
         [FromQuery] RevenueGranularity granularity = RevenueGranularity.Daily,
+        [FromQuery] Guid? feeTypeId = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetOverviewAsync(schoolId, period, granularity, cancellationToken);
+        var data = await _dashboard.GetOverviewAsync(schoolId, period, granularity, feeTypeId, cancellationToken);
         return Ok(ApiResponse<PromoterDashboardOverviewDto>.Ok(data));
     }
 
@@ -77,10 +78,11 @@ public sealed class DashboardController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<FundAllocationShareDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDistribution(
         [FromQuery] DashboardPeriod period = DashboardPeriod.Month,
+        [FromQuery] Guid? feeTypeId = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetFundDistributionAsync(schoolId, period, cancellationToken);
+        var data = await _dashboard.GetFundDistributionAsync(schoolId, period, feeTypeId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<FundAllocationShareDto>>.Ok(data));
     }
 
@@ -106,6 +108,77 @@ public sealed class DashboardController : ControllerBase
         var schoolId = RequireSchoolId();
         var data = await _dashboard.GetAlertsAsync(schoolId, period, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DashboardAlertDto>>.Ok(data));
+    }
+
+    [HttpGet("payments")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardPaymentLineDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPayments(
+        [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Today,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetPaymentsDetailAsync(schoolId, scope, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardPaymentLineDto>>.Ok(data));
+    }
+
+    [HttpGet("expenses")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardExpenseLineDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetExpenses(
+        [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Month,
+        [FromQuery] Guid? destinationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetExpensesDetailAsync(schoolId, scope, destinationId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardExpenseLineDto>>.Ok(data));
+    }
+
+    [HttpGet("debtors")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardDebtorLineDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDebtors(
+        [FromQuery] Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetDebtorsDetailAsync(schoolId, feeTypeId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardDebtorLineDto>>.Ok(data));
+    }
+
+    [HttpGet("receivables-breakdown")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<FeeReceivablesBreakdownDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetReceivablesBreakdown(
+        [FromQuery] Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetFeeReceivablesBreakdownAsync(schoolId, feeTypeId, cancellationToken);
+        return Ok(ApiResponse<FeeReceivablesBreakdownDto>.Ok(data));
+    }
+
+    [HttpGet("enrolled-students")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<EnrolledStudentsBySectionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEnrolledStudents(CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetEnrolledStudentsBySectionAsync(schoolId, cancellationToken);
+        return Ok(ApiResponse<EnrolledStudentsBySectionDto>.Ok(data));
+    }
+
+    [HttpGet("fund-movements")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardFundMovementDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFundMovements(
+        [FromQuery] Guid destinationId,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetFundMovementsAsync(schoolId, destinationId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<DashboardFundMovementDto>>.Ok(data));
     }
 
     private Guid RequireSchoolId() =>

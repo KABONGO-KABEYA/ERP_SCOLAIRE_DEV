@@ -107,6 +107,32 @@ public sealed class DocumentBrandingController : ControllerBase
         return Ok(ApiResponse<object>.Ok(null!, "Logo principal défini."));
     }
 
+    [HttpGet("logos/primary/file")]
+    [Authorize]
+    public async Task<IActionResult> GetPrimaryLogoFile(CancellationToken cancellationToken)
+    {
+        var schoolId = RequireSchoolId();
+        var configuration = await _brandingService.GetConfigurationAsync(schoolId, cancellationToken);
+        var logo = configuration.Logos.FirstOrDefault(l => l.IsPrimary && l.IsActive)
+            ?? configuration.Logos.FirstOrDefault(l => l.IsActive);
+        if (logo is null || string.IsNullOrWhiteSpace(logo.ImagePath) || !_storage.FileExists(logo.ImagePath))
+        {
+            return NotFound();
+        }
+
+        var absolutePath = _storage.ResolveAbsolutePath(logo.ImagePath);
+        var contentType = Path.GetExtension(absolutePath).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            _ => "image/jpeg"
+        };
+        var bytes = await System.IO.File.ReadAllBytesAsync(absolutePath, cancellationToken);
+        return File(bytes, contentType);
+    }
+
     [HttpPost("headers")]
     [Authorize(Policy = Permissions.SchoolsUpdate)]
     public async Task<IActionResult> CreateHeader(

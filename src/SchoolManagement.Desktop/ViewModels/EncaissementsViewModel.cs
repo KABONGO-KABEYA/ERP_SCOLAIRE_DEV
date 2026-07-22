@@ -6,6 +6,7 @@ using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Finance.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.Views;
 using SchoolManagement.Desktop.Views.Encaissements;
@@ -27,6 +28,8 @@ public partial class EncaissementsViewModel : ViewModelBase
     private readonly IFeeTypeStatementPrintService _statementPrint;
     private CancellationTokenSource? _searchCts;
     private bool _suppressSearch;
+
+    private Guid? _defaultFeeTypeId;
 
     public EncaissementsViewModel(
         IFinanceApiService financeApi,
@@ -429,6 +432,9 @@ public partial class EncaissementsViewModel : ViewModelBase
                 FeeTypes.Add(feeType);
             }
 
+            var school = await _schoolApi.GetCurrentSchoolAsync();
+            _defaultFeeTypeId = school?.DefaultFeeTypeId;
+
             SelectedFeeType = ResolveDefaultFeeType();
         }
         catch (Exception ex)
@@ -444,20 +450,8 @@ public partial class EncaissementsViewModel : ViewModelBase
         await SearchAsync();
     }
 
-    private FeeTypeDto? ResolveDefaultFeeType()
-    {
-        if (FeeTypes.Count == 0)
-        {
-            return null;
-        }
-
-        return FeeTypes.FirstOrDefault(f =>
-                   string.Equals(f.Name, "Frais scolaire", StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(f.Name, "Frais scolaires", StringComparison.OrdinalIgnoreCase))
-               ?? FeeTypes.FirstOrDefault(f =>
-                   f.Name.Contains("scolaire", StringComparison.OrdinalIgnoreCase))
-               ?? FeeTypes.FirstOrDefault();
-    }
+    private FeeTypeDto? ResolveDefaultFeeType() =>
+        DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
 
     private void QueueSearch()
     {

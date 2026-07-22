@@ -51,7 +51,7 @@ public sealed class SchoolService : ISchoolService
     public async Task<SchoolDto?> GetSchoolAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var school = await _schoolRepository.GetByIdAsync(schoolId, cancellationToken);
-        return school?.Adapt<SchoolDto>();
+        return school is null ? null : await MapSchoolDtoAsync(school, cancellationToken);
     }
 
     public async Task<SchoolDto> UpdateSchoolAsync(Guid schoolId, UpdateSchoolRequest request, CancellationToken cancellationToken = default)
@@ -60,9 +60,51 @@ public sealed class SchoolService : ISchoolService
             ?? throw new KeyNotFoundException("École introuvable.");
 
         request.Adapt(school);
+
+        if (request.DefaultFeeTypeId is Guid feeTypeId)
+        {
+            var fee = await _feeTypeRepository.GetByIdAsync(feeTypeId, cancellationToken)
+                ?? throw new DomainException("Le frais principal sélectionné est introuvable.");
+            if (fee.SchoolId != schoolId || !fee.IsActive)
+            {
+                throw new DomainException("Le frais principal doit être un type de frais actif de cet établissement.");
+            }
+
+            school.DefaultFeeTypeId = fee.Id;
+            school.DefaultCurrency = fee.Currency;
+        }
+        else
+        {
+            school.DefaultFeeTypeId = null;
+        }
+
         await _schoolRepository.UpdateAsync(school, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return school.Adapt<SchoolDto>();
+        return await MapSchoolDtoAsync(school, cancellationToken);
+    }
+
+    private async Task<SchoolDto> MapSchoolDtoAsync(School school, CancellationToken cancellationToken)
+    {
+        string? feeName = null;
+        if (school.DefaultFeeTypeId is Guid feeId)
+        {
+            var fee = await _feeTypeRepository.GetByIdAsync(feeId, cancellationToken);
+            feeName = fee?.Name;
+        }
+
+        return new SchoolDto(
+            school.Id,
+            school.Name,
+            school.LegalName,
+            school.Address,
+            school.City,
+            school.Province,
+            school.Phone,
+            school.Email,
+            school.DefaultCurrency,
+            school.DefaultFeeTypeId,
+            feeName,
+            school.IsActive);
     }
 
     public async Task<IReadOnlyList<AcademicYearDto>> GetAcademicYearsAsync(Guid schoolId, CancellationToken cancellationToken = default)

@@ -79,7 +79,8 @@ public sealed class RevenueAllocationSchemaInitializer
                 [Id] uniqueidentifier NOT NULL,
                 [SchoolId] uniqueidentifier NOT NULL,
                 [AcademicYearId] uniqueidentifier NOT NULL,
-                [FeeTypeId] uniqueidentifier NOT NULL,
+                [FeeTypeId] uniqueidentifier NULL,
+                [WithholdingTypeId] uniqueidentifier NULL,
                 [Name] nvarchar(150) NOT NULL,
                 [Notes] nvarchar(500) NULL,
                 [StartDate] date NOT NULL,
@@ -97,10 +98,16 @@ public sealed class RevenueAllocationSchemaInitializer
                 CONSTRAINT [FK_FinCleRepartition_AcademicYears] FOREIGN KEY ([AcademicYearId]) REFERENCES [AcademicYears] ([Id]),
                 CONSTRAINT [FK_FinCleRepartition_FeeTypes] FOREIGN KEY ([FeeTypeId]) REFERENCES [FeeTypes] ([Id])
             );
+            IF OBJECT_ID(N'FinRetenue', N'U') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinCleRepartition_Retenue')
+                EXEC(N'ALTER TABLE [FinCleRepartition] WITH CHECK ADD CONSTRAINT [FK_FinCleRepartition_Retenue] FOREIGN KEY ([WithholdingTypeId]) REFERENCES [FinRetenue] ([Id])');
             CREATE UNIQUE INDEX [IX_FinCleRepartition_School_Year_Fee]
-                ON [FinCleRepartition] ([SchoolId], [AcademicYearId], [FeeTypeId]) WHERE [IsDeleted] = 0;
+                ON [FinCleRepartition] ([SchoolId], [AcademicYearId], [FeeTypeId])
+                WHERE [IsDeleted] = 0 AND [FeeTypeId] IS NOT NULL;
+            EXEC(N'CREATE UNIQUE INDEX [IX_FinCleRepartition_School_Year_Retenue] ON [FinCleRepartition] ([SchoolId], [AcademicYearId], [WithholdingTypeId]) WHERE [IsDeleted] = 0 AND [WithholdingTypeId] IS NOT NULL');
             CREATE INDEX [IX_FinCleRepartition_School_Fee_Start]
                 ON [FinCleRepartition] ([SchoolId], [FeeTypeId], [StartDate]);
+            EXEC(N'CREATE INDEX [IX_FinCleRepartition_School_Retenue_Start] ON [FinCleRepartition] ([SchoolId], [WithholdingTypeId], [StartDate])');
         END
         """,
         """
@@ -113,8 +120,10 @@ public sealed class RevenueAllocationSchemaInitializer
         END
         """,
         """
+        -- Ancienne migration (FeeTypeId obligatoire) : ne s'applique plus dès que WithholdingTypeId existe.
         IF OBJECT_ID(N'FinCleRepartition', N'U') IS NOT NULL
            AND COL_LENGTH(N'FinCleRepartition', N'FeeTypeId') IS NOT NULL
+           AND COL_LENGTH(N'FinCleRepartition', N'WithholdingTypeId') IS NULL
            AND EXISTS (
                SELECT 1 FROM sys.columns
                WHERE object_id = OBJECT_ID(N'FinCleRepartition')
@@ -227,9 +236,10 @@ public sealed class RevenueAllocationSchemaInitializer
                 [Id] uniqueidentifier NOT NULL,
                 [SchoolId] uniqueidentifier NOT NULL,
                 [PaymentId] uniqueidentifier NOT NULL,
-                [AllocationKeyId] uniqueidentifier NOT NULL,
+                [AllocationKeyId] uniqueidentifier NULL,
                 [DestinationId] uniqueidentifier NOT NULL,
                 [FeeTypeId] uniqueidentifier NULL,
+                [WithholdingTypeId] uniqueidentifier NULL,
                 [AcademicYearId] uniqueidentifier NOT NULL,
                 [Amount] decimal(18,2) NOT NULL,
                 [AppliedPercentage] decimal(18,4) NULL,
@@ -251,10 +261,74 @@ public sealed class RevenueAllocationSchemaInitializer
                 CONSTRAINT [FK_FinRepartitionRecette_FeeTypes] FOREIGN KEY ([FeeTypeId]) REFERENCES [FeeTypes] ([Id]),
                 CONSTRAINT [FK_FinRepartitionRecette_Years] FOREIGN KEY ([AcademicYearId]) REFERENCES [AcademicYears] ([Id])
             );
+            IF OBJECT_ID(N'FinRetenue', N'U') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinRepartitionRecette_Retenue')
+                EXEC(N'ALTER TABLE [FinRepartitionRecette] WITH CHECK ADD CONSTRAINT [FK_FinRepartitionRecette_Retenue] FOREIGN KEY ([WithholdingTypeId]) REFERENCES [FinRetenue] ([Id])');
             CREATE INDEX [IX_FinRepartitionRecette_Payment] ON [FinRepartitionRecette] ([PaymentId]);
             CREATE INDEX [IX_FinRepartitionRecette_School_Date] ON [FinRepartitionRecette] ([SchoolId], [AllocatedAt]);
             CREATE INDEX [IX_FinRepartitionRecette_Dest_Year] ON [FinRepartitionRecette] ([SchoolId], [DestinationId], [AcademicYearId]);
         END
+        """,
+        // Compte principal + retenues : FeeTypeId nullable, WithholdingTypeId, AllocationKeyId nullable
+        // (index/FK sur nouvelle colonne en EXEC pour éviter erreur de compilation de lot SQL Server)
+        """
+        IF OBJECT_ID(N'FinCleRepartition', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinCleRepartition', N'WithholdingTypeId') IS NULL
+        BEGIN
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Year_Fee' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                DROP INDEX [IX_FinCleRepartition_School_Year_Fee] ON [FinCleRepartition];
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Year_Fee_Active' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                DROP INDEX [IX_FinCleRepartition_School_Year_Fee_Active] ON [FinCleRepartition];
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Fee_Start' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                DROP INDEX [IX_FinCleRepartition_School_Fee_Start] ON [FinCleRepartition];
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinCleRepartition', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinCleRepartition', N'WithholdingTypeId') IS NULL
+        BEGIN
+            ALTER TABLE [FinCleRepartition] ALTER COLUMN [FeeTypeId] uniqueidentifier NULL;
+            ALTER TABLE [FinCleRepartition] ADD [WithholdingTypeId] uniqueidentifier NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinCleRepartition', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinCleRepartition', N'WithholdingTypeId') IS NOT NULL
+        BEGIN
+            IF OBJECT_ID(N'FinRetenue', N'U') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinCleRepartition_Retenue')
+                EXEC(N'ALTER TABLE [FinCleRepartition] WITH CHECK ADD CONSTRAINT [FK_FinCleRepartition_Retenue] FOREIGN KEY ([WithholdingTypeId]) REFERENCES [FinRetenue] ([Id])');
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Year_Fee' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                CREATE UNIQUE INDEX [IX_FinCleRepartition_School_Year_Fee]
+                    ON [FinCleRepartition] ([SchoolId], [AcademicYearId], [FeeTypeId])
+                    WHERE [IsDeleted] = 0 AND [FeeTypeId] IS NOT NULL;
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Fee_Start' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                CREATE INDEX [IX_FinCleRepartition_School_Fee_Start]
+                    ON [FinCleRepartition] ([SchoolId], [FeeTypeId], [StartDate]);
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Year_Retenue' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                EXEC(N'CREATE UNIQUE INDEX [IX_FinCleRepartition_School_Year_Retenue] ON [FinCleRepartition] ([SchoolId], [AcademicYearId], [WithholdingTypeId]) WHERE [IsDeleted] = 0 AND [WithholdingTypeId] IS NOT NULL');
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Retenue_Start' AND object_id = OBJECT_ID(N'FinCleRepartition'))
+                EXEC(N'CREATE INDEX [IX_FinCleRepartition_School_Retenue_Start] ON [FinCleRepartition] ([SchoolId], [WithholdingTypeId], [StartDate])');
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'WithholdingTypeId') IS NULL
+        BEGIN
+            ALTER TABLE [FinRepartitionRecette] ALTER COLUMN [AllocationKeyId] uniqueidentifier NULL;
+            ALTER TABLE [FinRepartitionRecette] ADD [WithholdingTypeId] uniqueidentifier NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'WithholdingTypeId') IS NOT NULL
+           AND OBJECT_ID(N'FinRetenue', N'U') IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinRepartitionRecette_Retenue')
+            EXEC(N'ALTER TABLE [FinRepartitionRecette] WITH CHECK ADD CONSTRAINT [FK_FinRepartitionRecette_Retenue] FOREIGN KEY ([WithholdingTypeId]) REFERENCES [FinRetenue] ([Id])');
         """
     ];
 }

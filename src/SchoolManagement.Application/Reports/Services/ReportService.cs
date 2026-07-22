@@ -4,7 +4,9 @@ using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Finance.Interfaces;
 using SchoolManagement.Application.Reports.DTOs;
 using SchoolManagement.Application.Reports.Interfaces;
 using SchoolManagement.Application.Schools;
@@ -32,6 +34,7 @@ public sealed class ReportService : IReportService
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<StudentFeeBalance> _balanceRepository;
     private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
+    private readonly IFinanceOperationService _financeOperationService;
 
     public ReportService(
         IRepository<Student> studentRepository,
@@ -48,7 +51,8 @@ public sealed class ReportService : IReportService
         IRepository<AcademicPeriod> periodRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<StudentFeeBalance> balanceRepository,
-        IRepository<ClassFeeAmount> classFeeAmountRepository)
+        IRepository<ClassFeeAmount> classFeeAmountRepository,
+        IFinanceOperationService financeOperationService)
     {
         _studentRepository = studentRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -65,6 +69,7 @@ public sealed class ReportService : IReportService
         _yearRepository = yearRepository;
         _balanceRepository = balanceRepository;
         _classFeeAmountRepository = classFeeAmountRepository;
+        _financeOperationService = financeOperationService;
     }
 
     public async Task<DashboardStatsDto> GetDashboardAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -366,7 +371,7 @@ public sealed class ReportService : IReportService
         var items = pageItems.Select(p =>
         {
             var name = studentMap.TryGetValue(p.StudentId, out var student)
-                ? $"{student.LastName} {student.FirstName}".Trim()
+                ? StudentDisplayName.Format(student)
                 : "—";
             var classId = ResolveClassId(p);
             string? feeSummary = null;
@@ -425,7 +430,7 @@ public sealed class ReportService : IReportService
             {
                 var studentId = g.Key.StudentId;
                 var name = studentMap.TryGetValue(studentId, out var student)
-                    ? $"{student.LastName} {student.FirstName}".Trim()
+                    ? StudentDisplayName.Format(student)
                     : "—";
                 var amountsByInstallment = g
                     .GroupBy(l => l.FeeInstallmentId!.Value)
@@ -458,7 +463,7 @@ public sealed class ReportService : IReportService
             {
                 var studentId = g.Key.StudentId;
                 var name = studentMap.TryGetValue(studentId, out var student)
-                    ? $"{student.LastName} {student.FirstName}".Trim()
+                    ? StudentDisplayName.Format(student)
                     : "—";
 
                 var detailsByInstallment = g
@@ -1113,5 +1118,230 @@ public sealed class ReportService : IReportService
         }
 
         return query.ToList();
+    }
+
+    public Task<PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default) =>
+        _financeOperationService.GetPaymentSituationReportAsync(schoolId, request, cancellationToken);
+
+    public async Task<byte[]> ExportPaymentSituationReportPdfAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await GetPaymentSituationReportAsync(schoolId, request, cancellationToken);
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Margin(24);
+                page.DefaultTextStyle(x => x.FontSize(8));
+                page.Header().Column(col =>
+                {
+                    col.Item().Text("ERP SCOLAIRE — Situation des paiements").SemiBold().FontSize(14);
+                    col.Item().Text($"{result.FeeTypeName} · {result.AcademicYearLabel}")
+                        .FontSize(10).FontColor(Colors.Grey.Darken2);
+                    col.Item().Text($"{result.ScopeLabel} · {result.SituationLabel}")
+                        .FontSize(9).FontColor(Colors.Grey.Darken1);
+                    if (!string.IsNullOrWhiteSpace(result.FiltersSummary))
+                    {
+                        col.Item().Text(result.FiltersSummary!).FontSize(8).FontColor(Colors.Grey.Medium);
+                    }
+                });
+
+                page.Content().PaddingTop(8).Column(col =>
+                {
+                    foreach (var sectionGroup in result.PivotRows
+                                 .GroupBy(r => r.SectionName)
+                                 .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        col.Item().PaddingTop(8).Background(Colors.Blue.Lighten4).Padding(6)
+                            .Text($"Section : {sectionGroup.Key}").SemiBold().FontColor(Colors.Blue.Darken3);
+
+                        foreach (var classGroup in sectionGroup
+                                     .GroupBy(r => r.ClassName)
+                                     .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+                        {
+                            col.Item().PaddingTop(4).Background(Colors.Grey.Lighten3).Padding(5)
+                                .Text($"Classe : {classGroup.Key}").SemiBold();
+
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn(2.2f);
+                                    foreach (var _ in result.InstallmentColumns)
+                                    {
+                                        columns.RelativeColumn(0.9f);
+                                    }
+
+                                    columns.RelativeColumn(1.1f);
+                                    columns.RelativeColumn(1.1f);
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Background(Colors.Blue.Darken3).Padding(3)
+                                        .Text("Nom complet").SemiBold().FontColor(Colors.White);
+                                    foreach (var installment in result.InstallmentColumns)
+                                    {
+                                        header.Cell().Background(Colors.Blue.Darken3).Padding(3).AlignRight()
+                                            .Text(installment.InstallmentName).SemiBold().FontColor(Colors.White);
+                                    }
+
+                                    header.Cell().Background(Colors.Blue.Darken3).Padding(3).AlignRight()
+                                        .Text("Montant global prévu").SemiBold().FontColor(Colors.White);
+                                    header.Cell().Background(Colors.Blue.Darken3).Padding(3).AlignRight()
+                                        .Text("Reste à payer").SemiBold().FontColor(Colors.White);
+                                });
+
+                                foreach (var row in classGroup)
+                                {
+                                    table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(2)
+                                        .Text(row.FullName);
+                                    for (var i = 0; i < result.InstallmentColumns.Count; i++)
+                                    {
+                                        var applicable = i < row.InstallmentApplicable.Count && row.InstallmentApplicable[i];
+                                        var paid = applicable && i < row.InstallmentPaid.Count
+                                            ? row.InstallmentPaid[i]
+                                            : 0m;
+                                        table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(2)
+                                            .AlignRight()
+                                            .Background(applicable ? Colors.White : Colors.Grey.Lighten2)
+                                            .Text(applicable ? $"{paid:N0}" : "—")
+                                            .FontColor(applicable ? Colors.Black : Colors.Grey.Darken1);
+                                    }
+
+                                    table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(2)
+                                        .AlignRight().Text($"{row.AmountExpected:N0}");
+                                    table.Cell().BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(2)
+                                        .AlignRight().Text($"{row.Balance:N0}");
+                                }
+
+                                var classExpected = classGroup.Sum(r => r.AmountExpected);
+                                var classRemaining = classGroup.Sum(r => r.Balance);
+                                table.Cell().Background(Colors.Blue.Lighten4).Padding(3)
+                                    .Text("Sous-total classe").SemiBold();
+                                foreach (var _ in result.InstallmentColumns)
+                                {
+                                    table.Cell().Background(Colors.Blue.Lighten4).Padding(3).AlignRight().Text("");
+                                }
+
+                                table.Cell().Background(Colors.Blue.Lighten4).Padding(3).AlignRight()
+                                    .Text($"{classExpected:N0}").SemiBold();
+                                table.Cell().Background(Colors.Blue.Lighten4).Padding(3).AlignRight()
+                                    .Text($"{classRemaining:N0}").SemiBold();
+                            });
+                        }
+                    }
+                });
+
+                page.Footer().Row(row =>
+                {
+                    row.RelativeItem().Text(
+                        $"Total : {result.TotalCount} élève(s) — En ordre : {result.InOrderCount} — Non en ordre : {result.NotInOrderCount}");
+                    row.RelativeItem().AlignRight().Text(
+                        $"Prévu {result.TotalExpected:N0} · Payé {result.TotalPaid:N0} · Reste {result.TotalBalance:N0} {result.Currency}");
+                });
+            });
+        });
+
+        return document.GeneratePdf();
+    }
+
+    public async Task<byte[]> ExportPaymentSituationReportExcelAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await GetPaymentSituationReportAsync(schoolId, request, cancellationToken);
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Situation paiements");
+        sheet.Cell(1, 1).Value = "ERP SCOLAIRE — Situation des paiements";
+        sheet.Cell(2, 1).Value = $"{result.FeeTypeName} · {result.AcademicYearLabel}";
+        sheet.Cell(3, 1).Value = $"{result.ScopeLabel} · {result.SituationLabel}";
+        if (!string.IsNullOrWhiteSpace(result.FiltersSummary))
+        {
+            sheet.Cell(4, 1).Value = result.FiltersSummary;
+        }
+
+        var colCount = 1 + result.InstallmentColumns.Count + 2;
+        var r = 6;
+        foreach (var sectionGroup in result.PivotRows
+                     .GroupBy(x => x.SectionName)
+                     .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            sheet.Cell(r, 1).Value = $"Section : {sectionGroup.Key}";
+            sheet.Range(r, 1, r, colCount).Merge().Style.Font.Bold = true;
+            sheet.Range(r, 1, r, colCount).Style.Fill.BackgroundColor = XLColor.FromHtml("#EEF2FF");
+            r++;
+
+            foreach (var classGroup in sectionGroup
+                         .GroupBy(x => x.ClassName)
+                         .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                sheet.Cell(r, 1).Value = $"Classe : {classGroup.Key}";
+                sheet.Range(r, 1, r, colCount).Merge().Style.Font.Bold = true;
+                sheet.Range(r, 1, r, colCount).Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+                r++;
+
+                sheet.Cell(r, 1).Value = "Nom complet";
+                var c = 2;
+                foreach (var installment in result.InstallmentColumns)
+                {
+                    sheet.Cell(r, c++).Value = installment.InstallmentName;
+                }
+
+                sheet.Cell(r, c++).Value = "Montant global prévu";
+                sheet.Cell(r, c).Value = "Reste à payer";
+                sheet.Range(r, 1, r, colCount).Style.Font.Bold = true;
+                r++;
+
+                foreach (var item in classGroup)
+                {
+                    sheet.Cell(r, 1).Value = item.FullName;
+                    c = 2;
+                    for (var i = 0; i < result.InstallmentColumns.Count; i++)
+                    {
+                        var applicable = i < item.InstallmentApplicable.Count && item.InstallmentApplicable[i];
+                        if (applicable)
+                        {
+                            var paid = i < item.InstallmentPaid.Count ? item.InstallmentPaid[i] : 0m;
+                            sheet.Cell(r, c).Value = paid;
+                        }
+                        else
+                        {
+                            sheet.Cell(r, c).Value = "—";
+                            sheet.Cell(r, c).Style.Fill.BackgroundColor = XLColor.FromHtml("#D1D5DB");
+                        }
+
+                        c++;
+                    }
+
+                    sheet.Cell(r, c++).Value = item.AmountExpected;
+                    sheet.Cell(r, c).Value = item.Balance;
+                    r++;
+                }
+
+                sheet.Cell(r, 1).Value = "Sous-total classe";
+                sheet.Cell(r, colCount - 1).Value = classGroup.Sum(x => x.AmountExpected);
+                sheet.Cell(r, colCount).Value = classGroup.Sum(x => x.Balance);
+                sheet.Range(r, 1, r, colCount).Style.Font.Bold = true;
+                r += 2;
+            }
+        }
+
+        sheet.Cell(r, 1).Value = "Totaux";
+        sheet.Cell(r, colCount - 1).Value = result.TotalExpected;
+        sheet.Cell(r, colCount).Value = result.TotalBalance;
+        sheet.Range(r, 1, r, colCount).Style.Font.Bold = true;
+        sheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 }

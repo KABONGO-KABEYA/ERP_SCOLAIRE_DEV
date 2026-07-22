@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.Students.DTOs;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Students;
 using SchoolManagement.Domain.Enums;
 
@@ -20,7 +21,7 @@ public sealed record StudentDto(
     string? WithdrawalReason = null,
     DateOnly? WithdrawalDate = null)
 {
-    public string FullName => $"{LastName} {FirstName}";
+    public string FullName => StudentDisplayName.Format(LastName, MiddleName, FirstName);
 }
 
 public sealed record StudentEnrollmentHistoryDto(

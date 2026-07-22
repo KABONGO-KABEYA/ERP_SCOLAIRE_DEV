@@ -21,7 +21,7 @@ public class RevenueAllocationDestination : AuditableEntity, IAggregateRoot
 }
 
 /// <summary>
-/// Clé de répartition : une seule par type de frais et année scolaire.
+/// Clé de répartition : une par type de frais <em>ou</em> type de retenue et année scolaire.
 /// Ouverte tant que <see cref="EndDate"/> est null. Si jamais utilisée, elle peut être supprimée ;
 /// sinon l'historique des paiements est conservé.
 /// </summary>
@@ -31,7 +31,11 @@ public class RevenueAllocationKey : AuditableEntity, IAggregateRoot
 
     public Guid AcademicYearId { get; set; }
 
-    public Guid FeeTypeId { get; set; }
+    /// <summary>Renseigné pour une répartition sur type de frais (sinon null).</summary>
+    public Guid? FeeTypeId { get; set; }
+
+    /// <summary>Renseigné pour une répartition sur type de retenue (sinon null).</summary>
+    public Guid? WithholdingTypeId { get; set; }
 
     public string Name { get; set; } = string.Empty;
 
@@ -48,13 +52,20 @@ public class RevenueAllocationKey : AuditableEntity, IAggregateRoot
 
     public AcademicYear AcademicYear { get; set; } = null!;
 
-    public FeeType FeeType { get; set; } = null!;
+    public FeeType? FeeType { get; set; }
+
+    public WithholdingType? WithholdingType { get; set; }
 
     public School School { get; set; } = null!;
 
     public ICollection<RevenueAllocationKeyDetail> Details { get; set; } = [];
 
     public bool IsOpen => EndDate is null;
+
+    public RevenueAllocationSourceKind SourceKind =>
+        WithholdingTypeId.HasValue
+            ? RevenueAllocationSourceKind.Withholding
+            : RevenueAllocationSourceKind.FeeType;
 }
 
 /// <summary>Ligne d'une clé : destination + pourcentage.</summary>
@@ -86,11 +97,14 @@ public class RevenueAllocationEntry : AuditableEntity, IAggregateRoot
 
     public Guid PaymentId { get; set; }
 
-    public Guid AllocationKeyId { get; set; }
+    /// <summary>Null si répartition par défaut sur le Compte principal (aucune clé configurée).</summary>
+    public Guid? AllocationKeyId { get; set; }
 
     public Guid DestinationId { get; set; }
 
     public Guid? FeeTypeId { get; set; }
+
+    public Guid? WithholdingTypeId { get; set; }
 
     public Guid AcademicYearId { get; set; }
 
@@ -106,11 +120,13 @@ public class RevenueAllocationEntry : AuditableEntity, IAggregateRoot
 
     public Payment Payment { get; set; } = null!;
 
-    public RevenueAllocationKey AllocationKey { get; set; } = null!;
+    public RevenueAllocationKey? AllocationKey { get; set; }
 
     public RevenueAllocationDestination Destination { get; set; } = null!;
 
     public FeeType? FeeType { get; set; }
+
+    public WithholdingType? WithholdingType { get; set; }
 
     public AcademicYear AcademicYear { get; set; } = null!;
 

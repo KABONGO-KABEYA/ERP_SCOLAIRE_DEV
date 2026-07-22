@@ -9,6 +9,7 @@ using SchoolManagement.Application.Withholdings.DTOs;
 using SchoolManagement.Application.Withholdings.Interfaces;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
 
@@ -16,6 +17,14 @@ public sealed class WithholdingService : IWithholdingService
 {
     private readonly IRepository<WithholdingType> _typeRepository;
     private readonly IRepository<WithholdingConfiguration> _configRepository;
+    private readonly IRepository<WithholdingApplication> _applicationRepository;
+    private readonly IRepository<Payment> _paymentRepository;
+    private readonly IRepository<PaymentLine> _paymentLineRepository;
+    private readonly IRepository<RevenueAllocationEntry> _allocationEntryRepository;
+    private readonly IRepository<StudentFeeBalance> _balanceRepository;
+    private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
+    private readonly IRepository<Enrollment> _enrollmentRepository;
+    private readonly IRepository<ClassRoom> _classRoomRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
     private readonly IRepository<FeeInstallment> _installmentRepository;
@@ -26,6 +35,14 @@ public sealed class WithholdingService : IWithholdingService
     public WithholdingService(
         IRepository<WithholdingType> typeRepository,
         IRepository<WithholdingConfiguration> configRepository,
+        IRepository<WithholdingApplication> applicationRepository,
+        IRepository<Payment> paymentRepository,
+        IRepository<PaymentLine> paymentLineRepository,
+        IRepository<RevenueAllocationEntry> allocationEntryRepository,
+        IRepository<StudentFeeBalance> balanceRepository,
+        IRepository<ClassFeeAmount> classFeeAmountRepository,
+        IRepository<Enrollment> enrollmentRepository,
+        IRepository<ClassRoom> classRoomRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<FeeType> feeTypeRepository,
         IRepository<FeeInstallment> installmentRepository,
@@ -35,6 +52,14 @@ public sealed class WithholdingService : IWithholdingService
     {
         _typeRepository = typeRepository;
         _configRepository = configRepository;
+        _applicationRepository = applicationRepository;
+        _paymentRepository = paymentRepository;
+        _paymentLineRepository = paymentLineRepository;
+        _allocationEntryRepository = allocationEntryRepository;
+        _balanceRepository = balanceRepository;
+        _classFeeAmountRepository = classFeeAmountRepository;
+        _enrollmentRepository = enrollmentRepository;
+        _classRoomRepository = classRoomRepository;
         _yearRepository = yearRepository;
         _feeTypeRepository = feeTypeRepository;
         _installmentRepository = installmentRepository;
@@ -268,7 +293,87 @@ public sealed class WithholdingService : IWithholdingService
         CancellationToken cancellationToken = default)
     {
         var configs = await LoadApplicableEntitiesAsync(schoolId, context, cancellationToken);
+        if (context.StudentId.HasValue)
+        {
+            configs = await FilterConfigsForStudentAsync(
+                schoolId,
+                context.StudentId.Value,
+                context,
+                configs,
+                grossAmount,
+                cancellationToken);
+        }
+
         return _engine.Calculate(grossAmount, configs);
+    }
+
+    public async Task RecordApplicationsAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        Guid paymentId,
+        Guid paymentLineId,
+        WithholdingCalculationResult result,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var line in result.Lines.Where(l =>
+                     l.WithheldAmount > 0
+                     && l.CalculationMode == WithholdingCalculationMode.MontantFixe))
+        {
+            await _applicationRepository.AddAsync(new WithholdingApplication
+            {
+                SchoolId = schoolId,
+                StudentId = studentId,
+                AcademicYearId = academicYearId,
+                WithholdingConfigurationId = line.ConfigurationId,
+                PaymentId = paymentId,
+                PaymentLineId = paymentLineId,
+                Amount = line.WithheldAmount
+            }, cancellationToken);
+        }
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> GetFixedApplicationConfigurationIdsByLineAsync(
+        Guid schoolId,
+        Guid paymentId,
+        CancellationToken cancellationToken = default)
+    {
+        var applications = await _applicationRepository.FindAsync(
+            a => a.SchoolId == schoolId && a.PaymentId == paymentId,
+            cancellationToken);
+        if (applications.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlySet<Guid>>();
+        }
+
+        var configIds = applications.Select(a => a.WithholdingConfigurationId).Distinct().ToList();
+        var fixedConfigIds = (await _configRepository.FindAsync(
+                c => configIds.Contains(c.Id)
+                     && c.CalculationMode == WithholdingCalculationMode.MontantFixe,
+                cancellationToken))
+            .Select(c => c.Id)
+            .ToHashSet();
+
+        return applications
+            .Where(a => fixedConfigIds.Contains(a.WithholdingConfigurationId))
+            .GroupBy(a => a.PaymentLineId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlySet<Guid>)g.Select(a => a.WithholdingConfigurationId).ToHashSet());
+    }
+
+    public async Task RemoveApplicationsForPaymentAsync(
+        Guid schoolId,
+        Guid paymentId,
+        CancellationToken cancellationToken = default)
+    {
+        var applications = await _applicationRepository.FindAsync(
+            a => a.SchoolId == schoolId && a.PaymentId == paymentId,
+            cancellationToken);
+        foreach (var application in applications)
+        {
+            await _applicationRepository.DeleteAsync(application, cancellationToken);
+        }
     }
 
     public async Task<byte[]> ExportConfigurationsExcelAsync(
@@ -411,6 +516,337 @@ public sealed class WithholdingService : IWithholdingService
                 .First())
             .OrderBy(c => c.WithholdingType.Code)
             .ToList();
+    }
+
+    /// <summary>
+    /// Montant fixe : une seule fois par rubrique.
+    /// Pourcentage : à chaque versement tant que la rubrique n'est pas soldée.
+    /// </summary>
+    private async Task<List<WithholdingConfiguration>> FilterConfigsForStudentAsync(
+        Guid schoolId,
+        Guid studentId,
+        WithholdingResolveContext context,
+        List<WithholdingConfiguration> configs,
+        decimal grossAmount,
+        CancellationToken cancellationToken)
+    {
+        if (configs.Count == 0)
+        {
+            return configs;
+        }
+
+        var result = new List<WithholdingConfiguration>();
+        var fixedConfigs = configs
+            .Where(c => c.CalculationMode == WithholdingCalculationMode.MontantFixe)
+            .ToList();
+        var percentConfigs = configs
+            .Where(c => c.CalculationMode == WithholdingCalculationMode.Pourcentage)
+            .ToList();
+
+        if (fixedConfigs.Count > 0)
+        {
+            var fixedInstallmentConfigs = fixedConfigs
+                .Where(c => c.FeeInstallmentId.HasValue)
+                .ToList();
+            var fixedGeneralConfigs = fixedConfigs
+                .Where(c => !c.FeeInstallmentId.HasValue)
+                .ToList();
+
+            var preserveFixed = context.PreserveFixedConfigurationIds ?? new HashSet<Guid>();
+
+            // Règle demandée : un montant fixe s'applique à la première fois où la rubrique
+            // (tranche) est payée par l'élève. En modification de paiement, on conserve
+            // les retenues fixes déjà attachées à ce même paiement.
+            foreach (var config in fixedInstallmentConfigs)
+            {
+                if (preserveFixed.Contains(config.Id)
+                    || await IsFirstPaymentOnInstallmentRubriqueAsync(
+                        schoolId,
+                        studentId,
+                        context,
+                        config,
+                        grossAmount,
+                        cancellationToken))
+                {
+                    result.Add(config);
+                }
+            }
+
+            // Cas "général" (sans tranche) : on retombe sur la déduplication par configuration déjà appliquée.
+            if (fixedGeneralConfigs.Count > 0)
+            {
+                var appliedConfigIds = await GetAppliedConfigurationIdsAsync(
+                    schoolId,
+                    studentId,
+                    context.AcademicYearId,
+                    cancellationToken);
+
+                var pendingFixed = fixedGeneralConfigs
+                    .Where(c => preserveFixed.Contains(c.Id) || !appliedConfigIds.Contains(c.Id))
+                    .ToList();
+
+                var legacyCandidates = pendingFixed
+                    .Where(c => !preserveFixed.Contains(c.Id))
+                    .ToList();
+                var legacyApplied = await GetLegacyAppliedConfigurationIdsAsync(
+                    schoolId,
+                    studentId,
+                    context.AcademicYearId,
+                    legacyCandidates,
+                    cancellationToken);
+
+                result.AddRange(pendingFixed.Where(c =>
+                    preserveFixed.Contains(c.Id) || !legacyApplied.Contains(c.Id)));
+            }
+        }
+
+        foreach (var config in percentConfigs)
+        {
+            if (await HasRemainingOnRubriqueAsync(
+                    schoolId,
+                    studentId,
+                    context,
+                    config,
+                    grossAmount,
+                    cancellationToken))
+            {
+                result.Add(config);
+            }
+        }
+
+        return result
+            .OrderBy(c => c.WithholdingType.Code)
+            .ToList();
+    }
+
+    private async Task<bool> HasRemainingOnRubriqueAsync(
+        Guid schoolId,
+        Guid studentId,
+        WithholdingResolveContext context,
+        WithholdingConfiguration config,
+        decimal grossAmount,
+        CancellationToken cancellationToken)
+    {
+        var installmentId = config.FeeInstallmentId ?? context.FeeInstallmentId;
+        if (!installmentId.HasValue)
+        {
+            return true;
+        }
+
+        var remainingBefore = await GetRubriqueRemainingBeforePaymentAsync(
+            schoolId,
+            studentId,
+            context.AcademicYearId,
+            context.FeeTypeId,
+            installmentId.Value,
+            grossAmount,
+            context.BalanceIncludesCurrentPayment,
+            cancellationToken);
+
+        return remainingBefore > 0;
+    }
+
+    private async Task<bool> IsFirstPaymentOnInstallmentRubriqueAsync(
+        Guid schoolId,
+        Guid studentId,
+        WithholdingResolveContext context,
+        WithholdingConfiguration config,
+        decimal grossAmount,
+        CancellationToken cancellationToken)
+    {
+        if (!config.FeeInstallmentId.HasValue)
+        {
+            return false;
+        }
+
+        var classFeeAmountId = await ResolveClassFeeAmountIdAsync(
+            schoolId,
+            studentId,
+            context.AcademicYearId,
+            config.FeeTypeId,
+            config.FeeInstallmentId.Value,
+            cancellationToken);
+
+        if (!classFeeAmountId.HasValue)
+        {
+            // Pas de solde connu : on considère que c'est la "première fois".
+            return true;
+        }
+
+        var balance = (await _balanceRepository.FindAsync(
+            b => b.StudentId == studentId && b.ClassFeeAmountId == classFeeAmountId.Value,
+            cancellationToken)).FirstOrDefault();
+
+        if (balance is null)
+        {
+            return true;
+        }
+
+        // En encaissement (réel), AmountPaid a déjà été incrémenté avant calcul.
+        var amountPaidBefore = balance.AmountPaid;
+        if (context.BalanceIncludesCurrentPayment)
+        {
+            amountPaidBefore -= grossAmount;
+        }
+
+        return amountPaidBefore <= 0m;
+    }
+
+    /// <summary>
+    /// Reste à payer sur la rubrique avant le versement en cours
+    /// (le solde élève inclut déjà ce versement au moment du calcul).
+    /// </summary>
+    private async Task<decimal> GetRubriqueRemainingBeforePaymentAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        Guid feeInstallmentId,
+        decimal grossAmount,
+        bool balanceIncludesCurrentPayment,
+        CancellationToken cancellationToken)
+    {
+        var classFeeAmountId = await ResolveClassFeeAmountIdAsync(
+            schoolId,
+            studentId,
+            academicYearId,
+            feeTypeId,
+            feeInstallmentId,
+            cancellationToken);
+        if (!classFeeAmountId.HasValue)
+        {
+            return grossAmount;
+        }
+
+        var balance = (await _balanceRepository.FindAsync(
+            b => b.StudentId == studentId && b.ClassFeeAmountId == classFeeAmountId.Value,
+            cancellationToken)).FirstOrDefault();
+
+        if (balance is null)
+        {
+            return grossAmount;
+        }
+
+        var remaining = balance.AmountDue - balance.AmountPaid;
+        if (balanceIncludesCurrentPayment)
+        {
+            remaining += grossAmount;
+        }
+
+        return Math.Max(0, remaining);
+    }
+
+    private async Task<Guid?> ResolveClassFeeAmountIdAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        Guid feeTypeId,
+        Guid feeInstallmentId,
+        CancellationToken cancellationToken)
+    {
+        var enrollment = (await _enrollmentRepository.FindAsync(
+            e => e.StudentId == studentId
+                 && e.AcademicYearId == academicYearId
+                 && e.IsActive,
+            cancellationToken)).FirstOrDefault();
+        if (enrollment is null)
+        {
+            return null;
+        }
+
+        var classRoom = (await _classRoomRepository.FindAsync(
+            c => c.Id == enrollment.ClassRoomId, cancellationToken)).FirstOrDefault();
+        if (classRoom?.PedagogicalClassId is not Guid pedagogicalClassId)
+        {
+            return null;
+        }
+
+        var tariff = (await _classFeeAmountRepository.FindAsync(
+            a => a.SchoolId == schoolId
+                 && a.AcademicYearId == academicYearId
+                 && a.PedagogicalClassId == pedagogicalClassId
+                 && a.FeePricingCategoryId == enrollment.FeePricingCategoryId
+                 && a.FeeTypeId == feeTypeId
+                 && a.FeeInstallmentId == feeInstallmentId,
+            cancellationToken)).FirstOrDefault();
+
+        return tariff?.Id;
+    }
+
+    private async Task<HashSet<Guid>> GetAppliedConfigurationIdsAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        CancellationToken cancellationToken)
+    {
+        var applications = await _applicationRepository.FindAsync(
+            a => a.SchoolId == schoolId
+                 && a.StudentId == studentId
+                 && a.AcademicYearId == academicYearId,
+            cancellationToken);
+        return applications.Select(a => a.WithholdingConfigurationId).ToHashSet();
+    }
+
+    /// <summary>
+    /// Paiements antérieurs à la table FinRetenueApplication : retenue déjà constatée via répartition.
+    /// </summary>
+    private async Task<HashSet<Guid>> GetLegacyAppliedConfigurationIdsAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        IReadOnlyList<WithholdingConfiguration> configsToCheck,
+        CancellationToken cancellationToken)
+    {
+        if (configsToCheck.Count == 0)
+        {
+            return [];
+        }
+
+        var payments = (await _paymentRepository.FindAsync(
+                p => p.SchoolId == schoolId
+                     && p.StudentId == studentId
+                     && p.AcademicYearId == academicYearId
+                     && p.Status == PaymentStatus.Complet,
+                cancellationToken))
+            .ToList();
+        if (payments.Count == 0)
+        {
+            return [];
+        }
+
+        var paymentIds = payments.Select(p => p.Id).ToHashSet();
+        var lines = (await _paymentLineRepository.FindAsync(l => paymentIds.Contains(l.PaymentId), cancellationToken))
+            .ToList();
+        var entries = (await _allocationEntryRepository.FindAsync(
+                e => e.SchoolId == schoolId && e.WithholdingTypeId != null,
+                cancellationToken))
+            .Where(e => paymentIds.Contains(e.PaymentId))
+            .ToList();
+        if (entries.Count == 0)
+        {
+            return [];
+        }
+
+        var applied = new HashSet<Guid>();
+        foreach (var config in configsToCheck)
+        {
+            foreach (var payment in payments)
+            {
+                var hasWithholding = lines
+                    .Where(l => l.PaymentId == payment.Id && l.FeeTypeId == config.FeeTypeId)
+                    .Where(l => !config.FeeInstallmentId.HasValue || l.FeeInstallmentId == config.FeeInstallmentId)
+                    .Any(_ => entries.Any(e =>
+                        e.PaymentId == payment.Id && e.WithholdingTypeId == config.WithholdingTypeId));
+
+                if (hasWithholding)
+                {
+                    applied.Add(config.Id);
+                    break;
+                }
+            }
+        }
+
+        return applied;
     }
 
     private async Task ValidateConfigurationRequestAsync(

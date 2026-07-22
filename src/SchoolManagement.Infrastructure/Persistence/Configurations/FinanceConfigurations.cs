@@ -107,11 +107,16 @@ public class RevenueAllocationKeyConfiguration : AuditableEntityConfiguration<Re
         builder.Property(k => k.Name).HasMaxLength(150).IsRequired();
         builder.Property(k => k.Notes).HasMaxLength(500);
         builder.HasOne(k => k.AcademicYear).WithMany().HasForeignKey(k => k.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(k => k.FeeType).WithMany().HasForeignKey(k => k.FeeTypeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(k => k.FeeType).WithMany().HasForeignKey(k => k.FeeTypeId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
+        builder.HasOne(k => k.WithholdingType).WithMany().HasForeignKey(k => k.WithholdingTypeId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasIndex(k => new { k.SchoolId, k.AcademicYearId, k.FeeTypeId })
             .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .HasFilter("[IsDeleted] = 0 AND [FeeTypeId] IS NOT NULL");
+        builder.HasIndex(k => new { k.SchoolId, k.AcademicYearId, k.WithholdingTypeId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0 AND [WithholdingTypeId] IS NOT NULL");
         builder.HasIndex(k => new { k.SchoolId, k.FeeTypeId, k.StartDate });
+        builder.HasIndex(k => new { k.SchoolId, k.WithholdingTypeId, k.StartDate });
     }
 }
 
@@ -139,9 +144,10 @@ public class RevenueAllocationEntryConfiguration : AuditableEntityConfiguration<
         builder.Property(e => e.AppliedPercentage).HasPrecision(18, 4);
         builder.Property(e => e.CalculationType).HasConversion<int>();
         builder.HasOne(e => e.Payment).WithMany().HasForeignKey(e => e.PaymentId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(e => e.AllocationKey).WithMany().HasForeignKey(e => e.AllocationKeyId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.AllocationKey).WithMany().HasForeignKey(e => e.AllocationKeyId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasOne(e => e.Destination).WithMany().HasForeignKey(e => e.DestinationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.FeeType).WithMany().HasForeignKey(e => e.FeeTypeId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(e => e.WithholdingType).WithMany().HasForeignKey(e => e.WithholdingTypeId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.AcademicYear).WithMany().HasForeignKey(e => e.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(e => new { e.SchoolId, e.AllocatedAt });
         builder.HasIndex(e => e.PaymentId);
@@ -226,5 +232,28 @@ public class WithholdingConfigurationConfiguration : AuditableEntityConfiguratio
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
         builder.HasIndex(c => new { c.SchoolId, c.AcademicYearId, c.IsActive });
+    }
+}
+
+public class WithholdingApplicationConfiguration : AuditableEntityConfiguration<WithholdingApplication>
+{
+    public override void Configure(EntityTypeBuilder<WithholdingApplication> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("FinRetenueApplication");
+        builder.Property(a => a.Amount).HasPrecision(18, 4);
+        builder.HasOne(a => a.WithholdingConfiguration).WithMany().HasForeignKey(a => a.WithholdingConfigurationId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.Payment).WithMany().HasForeignKey(a => a.PaymentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.PaymentLine).WithMany().HasForeignKey(a => a.PaymentLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => new
+            {
+                a.SchoolId,
+                a.StudentId,
+                a.AcademicYearId,
+                a.WithholdingConfigurationId
+            })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(a => new { a.SchoolId, a.PaymentId });
     }
 }

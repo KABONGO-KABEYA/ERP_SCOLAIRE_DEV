@@ -175,6 +175,16 @@ public sealed class RevenueAllocationController : ControllerBase
         return Ok(ApiResponse<AllocationCashFlowResultDto>.Ok(result));
     }
 
+    [HttpGet("entries/withholdings")]
+    [Authorize(Policy = Permissions.RevenueAllocationRead)]
+    [ProducesResponseType(typeof(ApiResponse<WithholdingReportResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetWithholdings([FromQuery] RevenueAllocationSearchRequest request, CancellationToken cancellationToken)
+    {
+        var schoolId = RequireSchoolId();
+        var result = await _service.GetWithholdingReportAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<WithholdingReportResultDto>.Ok(result));
+    }
+
     [HttpGet("entries/export/excel")]
     [Authorize(Policy = Permissions.RevenueAllocationRead)]
     public async Task<IActionResult> ExportExcel([FromQuery] RevenueAllocationSearchRequest request, CancellationToken cancellationToken)

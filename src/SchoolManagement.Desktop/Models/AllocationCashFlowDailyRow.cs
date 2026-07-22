@@ -1,10 +1,13 @@
 namespace SchoolManagement.Desktop.Models;
 
-public sealed record AllocationCashFlowDailyRow(
-    DateOnly Date,
-    string DestinationCode,
-    string DestinationName,
-    decimal PeriodJ1,
-    decimal Encaissement,
-    decimal DepenseP,
-    decimal PeriodeP);
+using SchoolManagement.Application.RevenueAllocation.DTOs;
+
+/// <summary>Groupe journalier de répartition (rupture par date).</summary>
+public sealed class AllocationCashFlowDailyGroupRow
+{
+    public required DateOnly Date { get; init; }
+
+    public string DateLabel => Date.ToString("dd/MM/yyyy");
+
+    public required IReadOnlyList<AllocationCashFlowRowDto> Rows { get; init; }
+}

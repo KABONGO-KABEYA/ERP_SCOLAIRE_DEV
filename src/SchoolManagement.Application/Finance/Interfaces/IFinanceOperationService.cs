@@ -1,12 +1,18 @@
 namespace SchoolManagement.Application.Finance.Interfaces;
 
 using SchoolManagement.Application.Finance.DTOs;
+using SchoolManagement.Application.Reports.DTOs;
 
 public interface IFinanceOperationService
 {
     Task<StudentPaymentSituationSearchResultDto> SearchPaymentSituationsAsync(
         Guid schoolId,
         StudentPaymentSituationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
         CancellationToken cancellationToken = default);
 
     Task<StudentInstallmentPaymentPlanDto> GetInstallmentPaymentPlanAsync(

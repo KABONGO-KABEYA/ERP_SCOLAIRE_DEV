@@ -6,6 +6,14 @@
              xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
     <UserControl.Resources>
         <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+        <Style x:Key="AllocationAmountCellStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+        <Style x:Key="AllocationAmountHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="Padding" Value="0,0,12,0" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="0" Style="{StaticResource ErpFadeIn}">
@@ -302,147 +310,488 @@
                 </TabItem>
 
                 <TabItem Header="Journalier" Style="{StaticResource ErpTabItem}">
-                    <DataGrid Margin="0,8,0,0"
-                              AutoGenerateColumns="True"
-                              BorderThickness="0"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              IsReadOnly="True"
-                              ItemsSource="{Binding DailyPivotView}"
-                              Style="{StaticResource ErpDataGrid}">
-                    </DataGrid>
+                    <ScrollViewer Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
+                        <Border Background="White"
+                                BorderBrush="#E5E7EB"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                ClipToBounds="True">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding DailyPivotGroups}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <!-- Rupture date -->
+                                                <Border Padding="12,8"
+                                                        Background="#EEF2FF"
+                                                        BorderBrush="#E5E7EB"
+                                                        BorderThickness="0,0,0,1">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                 Kind="Calendar" />
+                                                        <TextBlock VerticalAlignment="Center"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#1F2937"
+                                                                   Text="{Binding DateLabel}" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <DataGrid AutoGenerateColumns="True"
+                                                          BorderThickness="0"
+                                                          CanUserAddRows="False"
+                                                          CanUserDeleteRows="False"
+                                                          CanUserResizeColumns="False"
+                                                          ColumnWidth="*"
+                                                          GridLinesVisibility="Horizontal"
+                                                          HeadersVisibility="Column"
+                                                          IsReadOnly="True"
+                                                          ItemsSource="{Binding Rows}"
+                                                          RowHeaderWidth="0"
+                                                          Style="{StaticResource ErpDataGrid}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Border Background="#EEF2FF"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="12,10">
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   FontWeight="Bold"
+                                                   Foreground="#1E3A8A"
+                                                   Text="Total général" />
+                                        <TextBlock Margin="16,0,0,0"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   DockPanel.Dock="Right"
+                                                   FontWeight="Bold"
+                                                   Foreground="#1E3A8A"
+                                                   Text="{Binding GrandTotal, StringFormat=N2}" />
+                                    </DockPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
                 </TabItem>
 
                 <TabItem Header="Par classe" Style="{StaticResource ErpTabItem}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Total période par classe" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0" Margin="0,0,0,12">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding ByClass}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding ClassCode}" Header="Code" Width="80" />
-                                        <DataGridTextColumn Binding="{Binding ClassName}" Header="Classe" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding SectionName}" Header="Section" Width="120" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Margin="0,0,0,20"
+                                    Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Code" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Classe" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Section" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="4" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding ByClass}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                    <Grid Height="36" Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="90" />
+                                                            <ColumnDefinition Width="*" MinWidth="180" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="80" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding ClassCode}" />
+                                                        <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" Text="{Binding ClassName}" />
+                                                        <TextBlock Grid.Column="2" Margin="0,0,8,0" VerticalAlignment="Center" Text="{Binding SectionName}" />
+                                                        <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="4" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="*" MinWidth="180" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="Total" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding ByClassTotal, StringFormat=N2}" />
+                                            <TextBlock Grid.Column="4" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding ByClassPaymentCount}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
                             </Border>
 
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Recette journalière par classe" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding DailyByClass}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Header="Jour" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding ClassName}" Header="Classe" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Classe" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding DailyByClassGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Border Padding="12,8" Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                                        <DockPanel LastChildFill="True">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1E3A8A" Text="{Binding DayTotal, StringFormat=N2}" />
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource ErpPrimaryBrush}" Kind="Calendar" />
+                                                                <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1F2937" Text="{Binding DateLabel}" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                    <ItemsControl ItemsSource="{Binding Rows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                                    <Grid Height="36" Background="White">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="80" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding ClassName}" />
+                                                                        <TextBlock Grid.Column="1" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
                 <TabItem Header="Par section" Style="{StaticResource ErpTabItem}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Total période par section" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0" Margin="0,0,0,12">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding BySection}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding SectionCode}" Header="Code" Width="80" />
-                                        <DataGridTextColumn Binding="{Binding SectionName}" Header="Section" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Margin="0,0,0,20"
+                                    Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Code" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Section" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding BySection}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                    <Grid Height="36" Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="90" />
+                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="80" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding SectionCode}" />
+                                                        <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" Text="{Binding SectionName}" />
+                                                        <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="Total" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding BySectionTotal, StringFormat=N2}" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding BySectionPaymentCount}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
                             </Border>
 
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Recette journalière par section" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding DailyBySection}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Header="Jour" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding SectionName}" Header="Section" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Section" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding DailyBySectionGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Border Padding="12,8" Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                                        <DockPanel LastChildFill="True">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1E3A8A" Text="{Binding DayTotal, StringFormat=N2}" />
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource ErpPrimaryBrush}" Kind="Calendar" />
+                                                                <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1F2937" Text="{Binding DateLabel}" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                    <ItemsControl ItemsSource="{Binding Rows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                                    <Grid Height="36" Background="White">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="80" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding SectionName}" />
+                                                                        <TextBlock Grid.Column="1" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
                 <TabItem Header="Par type de frais" Style="{StaticResource ErpTabItem}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Total période par type de frais" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0" Margin="0,0,0,12">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding ByFeeType}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding FeeTypeName}" Header="Type de frais" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding Currency}" Header="Devise" Width="80" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Margin="0,0,0,20"
+                                    Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Type de frais" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Devise" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding ByFeeType}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                    <Grid Height="36" Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                            <ColumnDefinition Width="100" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="80" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding FeeTypeName}" />
+                                                        <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" Text="{Binding Currency}" />
+                                                        <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="Total" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding ByFeeTypeTotal, StringFormat=N2}" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold" Foreground="#1E3A8A" Text="{Binding ByFeeTypePaymentCount}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
                             </Border>
 
-                            <TextBlock Margin="0,0,0,6"
+                            <TextBlock Margin="0,0,0,8"
+                                       FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="#1F2937"
                                        Text="Recette journalière par type de frais" />
-                            <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="0">
-                                <DataGrid BorderThickness="0"
-                                          ItemsSource="{Binding DailyByFeeType}"
-                                          MaxHeight="220"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Header="Jour" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding FeeTypeName}" Header="Type de frais" Width="*" />
-                                        <DataGridTextColumn Binding="{Binding Currency}" Header="Devise" Width="80" />
-                                        <DataGridTextColumn Binding="{Binding TotalAmount, StringFormat=N2}" Header="Montant" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PaymentCount}" Header="Nb" Width="70" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+
+                            <Border Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="200" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="80" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Type de frais" />
+                                            <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Devise" />
+                                            <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Montant" />
+                                            <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#374151" Text="Nb" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding DailyByFeeTypeGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Border Padding="12,8" Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                                        <DockPanel LastChildFill="True">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1E3A8A" Text="{Binding DayTotal, StringFormat=N2}" />
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource ErpPrimaryBrush}" Kind="Calendar" />
+                                                                <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#1F2937" Text="{Binding DateLabel}" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                    <ItemsControl ItemsSource="{Binding Rows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                                    <Grid Height="36" Background="White">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" MinWidth="200" />
+                                                                            <ColumnDefinition Width="100" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="80" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" Text="{Binding FeeTypeName}" />
+                                                                        <TextBlock Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center" Text="{Binding Currency}" />
+                                                                        <TextBlock Grid.Column="2" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding TotalAmount, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="3" Margin="0,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding PaymentCount}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
                 <TabItem Header="Répartitions" Style="{StaticResource ErpTabItem}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,8,0,0">
                             <TextBlock Margin="0,0,0,8"
                                        FontSize="14"
@@ -450,60 +799,149 @@
                                        Foreground="#1F2937"
                                        Text="Répartition globale par compte bénéficiaire" />
 
-                            <Border Margin="0,0,0,16"
+                            <Border Margin="0,0,0,20"
+                                    Background="White"
                                     BorderBrush="#E5E7EB"
                                     BorderThickness="1"
-                                    CornerRadius="10">
-                                <DataGrid CanUserAddRows="False"
-                                          CanUserDeleteRows="False"
-                                          IsReadOnly="True"
-                                          ItemsSource="{Binding AllocationGlobalRows}"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding DestinationCode}" Header="Code" Width="90" />
-                                        <DataGridTextColumn Binding="{Binding DestinationName}" Header="Compte bénéficiaire" Width="*" MinWidth="180" />
-                                        <DataGridTextColumn Binding="{Binding PeriodJ1, StringFormat=N2}" Header="Période J-1" Width="120" />
-                                        <DataGridTextColumn Binding="{Binding Encaissement, StringFormat=N2}" Header="Encaissement" Width="120" />
-                                        <DataGridTextColumn Binding="{Binding DepenseP, StringFormat=N2}" Header="Dépense P" Width="120" />
-                                        <DataGridTextColumn Binding="{Binding PeriodeP, StringFormat=N2}" Header="Période P" Width="120" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Border>
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <!-- En-tête -->
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Margin="12,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Compte bénéficiaire" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Période J-1" />
+                                            <TextBlock Grid.Column="2"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Encaissement" />
+                                            <TextBlock Grid.Column="3"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Dépense P" />
+                                            <TextBlock Grid.Column="4"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Période P" />
+                                        </Grid>
+                                    </Border>
 
-                            <Border Margin="0,0,0,16"
-                                    Padding="12,10"
-                                    Background="#F3F4F6"
-                                    BorderBrush="#E5E7EB"
-                                    BorderThickness="1"
-                                    CornerRadius="10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="120" />
-                                        <ColumnDefinition Width="120" />
-                                        <ColumnDefinition Width="120" />
-                                        <ColumnDefinition Width="120" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding AllocationTotals.DestinationName, FallbackValue=Total général}" />
-                                    <TextBlock Grid.Column="1"
-                                               HorizontalAlignment="Right"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding AllocationTotals.PeriodJ1, StringFormat=N2}" />
-                                    <TextBlock Grid.Column="2"
-                                               HorizontalAlignment="Right"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding AllocationTotals.Encaissement, StringFormat=N2}" />
-                                    <TextBlock Grid.Column="3"
-                                               HorizontalAlignment="Right"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding AllocationTotals.DepenseP, StringFormat=N2}" />
-                                    <TextBlock Grid.Column="4"
-                                               HorizontalAlignment="Right"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding AllocationTotals.PeriodeP, StringFormat=N2}" />
-                                </Grid>
+                                    <ItemsControl ItemsSource="{Binding AllocationGlobalRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                    <Grid Height="36" Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="140" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0"
+                                                                   Margin="12,0,8,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding DestinationName}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="3"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="4"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding PeriodeP, StringFormat=N2}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Total aligné -->
+                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Margin="12,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="Total général" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="{Binding AllocationTotals.PeriodJ1, StringFormat=N2, TargetNullValue=0}" />
+                                            <TextBlock Grid.Column="2"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="{Binding AllocationTotals.Encaissement, StringFormat=N2, TargetNullValue=0}" />
+                                            <TextBlock Grid.Column="3"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="{Binding AllocationTotals.DepenseP, StringFormat=N2, TargetNullValue=0}" />
+                                            <TextBlock Grid.Column="4"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="{Binding AllocationTotals.PeriodeP, StringFormat=N2, TargetNullValue=0}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
                             </Border>
 
                             <TextBlock Margin="0,0,0,8"
@@ -512,24 +950,256 @@
                                        Foreground="#1F2937"
                                        Text="Répartition par date" />
 
-                            <Border BorderBrush="#E5E7EB"
+                            <Border Background="White"
+                                    BorderBrush="#E5E7EB"
                                     BorderThickness="1"
-                                    CornerRadius="10">
-                                <DataGrid CanUserAddRows="False"
-                                          CanUserDeleteRows="False"
-                                          IsReadOnly="True"
-                                          ItemsSource="{Binding AllocationDailyRows}"
-                                          Style="{StaticResource ErpDataGrid}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Binding="{Binding Date, StringFormat=dd/MM/yyyy}" Header="Date" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding DestinationCode}" Header="Code" Width="90" />
-                                        <DataGridTextColumn Binding="{Binding DestinationName}" Header="Compte bénéficiaire" Width="*" MinWidth="160" />
-                                        <DataGridTextColumn Binding="{Binding PeriodJ1, StringFormat=N2}" Header="Période J-1" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding Encaissement, StringFormat=N2}" Header="Encaissement" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding DepenseP, StringFormat=N2}" Header="Dépense P" Width="110" />
-                                        <DataGridTextColumn Binding="{Binding PeriodeP, StringFormat=N2}" Header="Période P" Width="110" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Margin="12,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Compte bénéficiaire" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Période J-1" />
+                                            <TextBlock Grid.Column="2"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Encaissement" />
+                                            <TextBlock Grid.Column="3"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Dépense P" />
+                                            <TextBlock Grid.Column="4"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Période P" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding AllocationDailyGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Border Padding="12,8"
+                                                            Background="#EEF2FF"
+                                                            BorderBrush="#E5E7EB"
+                                                            BorderThickness="0,0,0,1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                                     VerticalAlignment="Center"
+                                                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                     Kind="Calendar" />
+                                                            <TextBlock VerticalAlignment="Center"
+                                                                       FontSize="13"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#1F2937"
+                                                                       Text="{Binding DateLabel}" />
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <ItemsControl ItemsSource="{Binding Rows}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                                    <Grid Height="36" Background="White">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0"
+                                                                                   Margin="12,0,8,0"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding DestinationName}" />
+                                                                        <TextBlock Grid.Column="1"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="2"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="3"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="4"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding PeriodeP, StringFormat=N2}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Retenues" Style="{StaticResource ErpTabItem}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="0,8,0,0">
+                            <Border Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <StackPanel>
+                                    <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Margin="12,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Élève" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Date" />
+                                            <TextBlock Grid.Column="2"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Montant" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ItemsControl ItemsSource="{Binding WithholdingGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Border Padding="12,8"
+                                                            Background="#EEF2FF"
+                                                            BorderBrush="#E5E7EB"
+                                                            BorderThickness="0,0,0,1">
+                                                        <DockPanel LastChildFill="True">
+                                                            <TextBlock DockPanel.Dock="Right"
+                                                                       Margin="12,0,0,0"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="13"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#1E3A8A"
+                                                                       Text="{Binding TypeTotal, StringFormat=N2}" />
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Margin="0,0,8,0"
+                                                                                         VerticalAlignment="Center"
+                                                                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                         Kind="PercentOutline" />
+                                                                <TextBlock VerticalAlignment="Center"
+                                                                           FontSize="13"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#1F2937"
+                                                                           Text="{Binding TypeLabel}" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+
+                                                    <ItemsControl ItemsSource="{Binding Students}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
+                                                                    <Grid Height="36" Background="White">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" MinWidth="240" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="140" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0"
+                                                                                   Margin="12,0,8,0"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding StudentName}" />
+                                                                        <TextBlock Grid.Column="1"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding PaymentDate, StringFormat=dd/MM/yyyy}" />
+                                                                        <TextBlock Grid.Column="2"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding Amount, StringFormat=N2}" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                        <Grid Height="40">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" MinWidth="240" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Margin="12,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="Total" />
+                                            <TextBlock Grid.Column="2"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Text="{Binding WithholdingGrandTotal, StringFormat=N2}" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>

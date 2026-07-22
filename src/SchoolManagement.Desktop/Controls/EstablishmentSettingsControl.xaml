@@ -110,13 +110,19 @@
                                                           Label="Email"
                                                           Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" />
                                         <erp:ErpComboField Margin="0,0,8,0"
-                                                           FieldWidth="220"
+                                                           FieldWidth="280"
                                                            HorizontalAlignment="Stretch"
-                                                           IconKind="CurrencyUsd"
-                                                           ItemsSource="{Binding Currencies}"
-                                                           Label="Devise par défaut"
-                                                           SelectedItem="{Binding DefaultCurrency, Mode=TwoWay}" />
+                                                           DisplayMemberPath="Name"
+                                                           IconKind="CashMultiple"
+                                                           ItemsSource="{Binding FeeTypes}"
+                                                           Label="Frais principal"
+                                                           SelectedItem="{Binding SelectedDefaultFeeType, Mode=TwoWay}" />
                                     </UniformGrid>
+
+                                    <TextBlock Margin="0,8,0,0"
+                                               Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                               Text="Ce frais devient le défaut en Finance et sur le dashboard promoteur. Sa devise s'applique automatiquement."
+                                               TextWrapping="Wrap" />
 
                                     <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                                         <Button Command="{Binding SaveCommand}"

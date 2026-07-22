@@ -1,5 +1,7 @@
 namespace SchoolManagement.Application.Reports.DTOs;
 
+using SchoolManagement.Domain.Enums;
+
 public sealed record DashboardStatsDto(
     int TotalStudents,
     int ActiveEnrollments,
@@ -161,3 +163,90 @@ public sealed record RealizedReceiptsResultDto(
     decimal GrandTotal,
     int PaymentCount,
     int TotalCount);
+
+/// <summary>Périmètre de calcul de la situation de paiement.</summary>
+public enum PaymentSituationScopeKind
+{
+    EntireFeeType = 0,
+    SelectedInstallments = 1
+}
+
+/// <summary>Filtre métier : en ordre / non en ordre / tous.</summary>
+public enum PaymentSituationReportFilter
+{
+    All = 0,
+    InOrder = 1,
+    NotInOrder = 2
+}
+
+public enum PaymentSituationSortKind
+{
+    Name = 0,
+    RegistrationNumber = 1,
+    ClassName = 2,
+    BalanceDescending = 3
+}
+
+public sealed record PaymentSituationReportRequest(
+    Guid AcademicYearId,
+    Guid FeeTypeId,
+    PaymentSituationScopeKind ScopeKind = PaymentSituationScopeKind.EntireFeeType,
+    IReadOnlyList<Guid>? FeeInstallmentIds = null,
+    PaymentSituationReportFilter SituationFilter = PaymentSituationReportFilter.All,
+    EducationCycle? EducationCycle = null,
+    Guid? SectionId = null,
+    Guid? PedagogicalClassId = null,
+    Guid? ClassRoomId = null,
+    string? StudyOption = null,
+    Guid? FeePricingCategoryId = null,
+    PaymentSituationSortKind SortBy = PaymentSituationSortKind.Name);
+
+public sealed record PaymentSituationReportRowDto(
+    string RegistrationNumber,
+    string FullName,
+    string ClassName,
+    string? SectionName,
+    decimal AmountExpected,
+    decimal AmountPaid,
+    decimal Balance,
+    string Currency,
+    bool IsInOrder);
+
+/// <summary>Colonne dynamique de tranche pour le tableau croisé Situation des paiements.</summary>
+public sealed record PaymentSituationInstallmentColumnDto(
+    Guid FeeInstallmentId,
+    string InstallmentName,
+    int SortOrder);
+
+/// <summary>Ligne pivot : élève × montants par tranche (payé / prévu / applicable).</summary>
+public sealed record PaymentSituationPivotRowDto(
+    Guid StudentId,
+    string RegistrationNumber,
+    string FullName,
+    string ClassName,
+    string SectionName,
+    IReadOnlyList<decimal> InstallmentExpected,
+    IReadOnlyList<decimal> InstallmentPaid,
+    IReadOnlyList<decimal> InstallmentBalances,
+    IReadOnlyList<bool> InstallmentApplicable,
+    decimal AmountExpected,
+    decimal AmountPaid,
+    decimal Balance,
+    bool IsInOrder);
+
+public sealed record PaymentSituationReportResultDto(
+    string AcademicYearLabel,
+    string FeeTypeName,
+    string ScopeLabel,
+    string SituationLabel,
+    string? FiltersSummary,
+    IReadOnlyList<PaymentSituationInstallmentColumnDto> InstallmentColumns,
+    IReadOnlyList<PaymentSituationPivotRowDto> PivotRows,
+    IReadOnlyList<PaymentSituationReportRowDto> Items,
+    int TotalCount,
+    int InOrderCount,
+    int NotInOrderCount,
+    decimal TotalExpected,
+    decimal TotalPaid,
+    decimal TotalBalance,
+    string Currency);

@@ -8,8 +8,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using SchoolManagement.Application.Auth.Interfaces;
+using SchoolManagement.Application.CloudSync;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Infrastructure.Auth;
+using SchoolManagement.Infrastructure.CloudSync;
 using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Application.Enrollment.Interfaces;
@@ -54,6 +57,13 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
         services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();
         services.AddScoped<IEnrollmentMaintenanceService, EnrollmentMaintenanceService>();
+
+        services.AddSingleton<DatabaseConnectionFactory>();
+        // Legacy full-table sync — utilisé uniquement pour bootstrap initial (v1 → outbox).
+        services.AddScoped<ICloudDatabaseSyncService, CloudDatabaseSyncService>();
+        services.AddScoped<ICloudSyncEngine, CloudSyncEngine>();
+        services.AddScoped<ICloudSyncFacade, CloudSyncFacade>();
+        services.AddHostedService<CloudSyncHostedService>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

@@ -1,0 +1,476 @@
+# =============================================================================
+# ERP Administration Scolaire RDC — Module INSCRIPTION
+# Schéma base de données (source de vérité documentaire)
+# =============================================================================
+#
+# Usage:
+#   - Donner CE FICHIER à Claude / Cursor pour générer de la documentation
+#     (Markdown, PDF, diagrammes, fiches métier, etc.).
+#   - Lors de toute modification du module Inscription (entités, migrations,
+#     SchemaInitializers, services), METTRE À JOUR ce fichier dans le même PR/commit.
+#
+# Format volontairement structuré (YAML) pour une lecture machine fiable.
+# Dernière synchronisation code : 2026-07-21
+# =============================================================================
+
+meta:
+  module_id: inscription
+  module_label_fr: "Inscription"
+  document_version: "1.0.0"
+  last_updated: "2026-07-21"
+  project: "ERP_Administration_Scolaire_2026"
+  database: "SQL Server"
+  orm: "Entity Framework Core 8"
+  schema_strategy: "hybrid" # migrations EF + SchemaInitializers au démarrage API
+
+  instructions_for_ai:
+    - "Ce fichier est la source canonique du schéma Inscription."
+    - "Générer la documentation utilisateur à partir des sections tables, relationships, business_flows, enums."
+    - "Ne pas inventer de tables absentes de ce fichier ; vérifier le code si doute."
+    - "Respecter la distinction tables_core (module) vs tables_related (dépendances)."
+    - "Toute table AuditableEntity utilise soft delete (IsDeleted) et colonnes d audit."
+
+  instructions_for_maintainers:
+    - "Modifier ce fichier quand on touche : Student.cs, Enrollment*, SchemaInitializer*, StudentConfigurations.cs, EnrollmentWizardService."
+    - "Incrémenter document_version (patch) et last_updated."
+    - "Lister les fichiers modifiés dans changelog (section en bas)."
+
+source_of_truth:
+  domain_entities:
+    - path: src/SchoolManagement.Domain/Entities/Students/Student.cs
+      entities: [Student, Guardian, StudentGuardian, StudentDocument, Enrollment, EnrollmentPricingCategoryHistory, StudentStatusHistory]
+    - path: src/SchoolManagement.Domain/Entities/Settings/School.cs
+      entities: [AcademicYear, ClassRoom, PedagogicalClass, FeePricingCategory, ClassFeeAmount, Section, StudyOption]
+    - path: src/SchoolManagement.Domain/Entities/Finance/Payment.cs
+      entities: [StudentFeeBalance]
+    - path: src/SchoolManagement.Domain/Entities/Geography/GeographyEntities.cs
+      entities: [Country, Province, City, Commune, PostalAddress]
+  enums:
+    - path: src/SchoolManagement.Domain/Enums/DomainEnums.cs
+      used: [Gender, EnrollmentStatus, RegistrationKind]
+  ef_configurations:
+    - path: src/SchoolManagement.Infrastructure/Persistence/Configurations/StudentConfigurations.cs
+    - path: src/SchoolManagement.Infrastructure/Persistence/Configurations/SettingsConfigurations.cs
+    - path: src/SchoolManagement.Infrastructure/Persistence/Configurations/FinanceConfigurations.cs
+    - path: src/SchoolManagement.Infrastructure/Persistence/Configurations/GeographyConfigurations.cs
+  db_context:
+    - path: src/SchoolManagement.Infrastructure/Persistence/SchoolDbContext.cs
+  migrations_ef:
+    - path: src/SchoolManagement.Infrastructure/Persistence/Migrations/20260706114538_InitialCreate.cs
+      creates: [Students, Guardians, StudentGuardians, StudentDocuments, Enrollments, StudentStatusHistory, AcademicYears, ClassRooms, StudentFeeBalances]
+    - path: src/SchoolManagement.Infrastructure/Persistence/Migrations/20260707084815_AddPedagogicalStructure.cs
+      creates: [PedagogicalClasses]
+      alters: [ClassRooms]
+  schema_initializers:
+    - path: src/SchoolManagement.Infrastructure/Persistence/EnrollmentGuardianSchemaInitializer.cs
+      role: "Guardians.Gender, StudentGuardians.UsesStudentAddress"
+    - path: src/SchoolManagement.Infrastructure/Persistence/GeographySchemaInitializer.cs
+      role: "Tables Pays/Province/Ville/Commune/Adresse + Students.AddressId + Guardians.AddressId"
+    - path: src/SchoolManagement.Infrastructure/Persistence/ClassRoomSchemaInitializer.cs
+      role: "ClassRooms.Code nvarchar(80)"
+    - path: src/SchoolManagement.Infrastructure/Persistence/SchoolFeeSchemaInitializer.cs
+      role: "FeePricingCategories, FeeInstallments, FeeTypeInstallments, ClassFeeAmounts"
+    - path: src/SchoolManagement.Infrastructure/Persistence/EnrollmentPricingSchemaInitializer.cs
+      role: "Enrollments.FeePricingCategoryId, EnrollmentPricingCategoryHistory, seed GENERAL"
+    - path: src/SchoolManagement.Infrastructure/Persistence/StudentFeeBalanceSchemaInitializer.cs
+      role: "StudentFeeBalances.ClassFeeAmountId (remplace AcademicYearId+FeeTypeId legacy)"
+  application_services:
+    - path: src/SchoolManagement.Application/EnrollmentWizard/Services/EnrollmentWizardService.cs
+      method: CompleteAsync
+      role: "Flux principal de finalisation inscription"
+    - path: src/SchoolManagement.API/Controllers/EnrollmentWizardController.cs
+  startup_registration:
+    - path: src/SchoolManagement.API/Program.cs
+      note: "SchemaInitializers exécutés au démarrage API dans l ordre défini"
+
+common_patterns:
+  auditable_entity:
+    description: "Toutes les entités métier héritent de AuditableEntity"
+    columns:
+      - { name: Id, type: uniqueidentifier, role: "PK, GUID généré côté application" }
+      - { name: CreatedAt, type: datetime2, nullable: false }
+      - { name: CreatedBy, type: uniqueidentifier, nullable: true }
+      - { name: UpdatedAt, type: datetime2, nullable: true }
+      - { name: UpdatedBy, type: uniqueidentifier, nullable: true }
+      - { name: IsDeleted, type: bit, nullable: false, default: 0 }
+      - { name: DeletedAt, type: datetime2, nullable: true }
+      - { name: DeletedBy, type: uniqueidentifier, nullable: true }
+    soft_delete:
+      query_filter: "IsDeleted = 0 (global EF)"
+      on_delete_behavior: "EntityState.Deleted devient IsDeleted=true (pas de DELETE physique)"
+    unique_indexes_filter: "Souvent WHERE IsDeleted = 0"
+
+enums:
+  EnrollmentStatus:
+    storage: int
+    values:
+      - { value: 1, name: PreInscription, label_fr: "Pré-inscription" }
+      - { value: 2, name: Inscrit, label_fr: "Inscrit" }
+      - { value: 3, name: Reinscrit, label_fr: "Réinscrit" }
+      - { value: 4, name: Transfere, label_fr: "Transféré" }
+      - { value: 5, name: Abandon, label_fr: "Abandon" }
+      - { value: 6, name: Exclusion, label_fr: "Exclusion" }
+      - { value: 7, name: Archive, label_fr: "Archivé" }
+    used_in: [Enrollments.Status, StudentStatusHistory.PreviousStatus, StudentStatusHistory.NewStatus]
+
+  RegistrationKind:
+    storage: int
+    scope: ui_only
+    description: "Saisi dans l assistant inscription ; mappé vers EnrollmentStatus à la finalisation"
+    values:
+      - { value: 1, name: NouvelleInscription, maps_to: Inscrit }
+      - { value: 2, name: Reinscription, maps_to: Reinscrit }
+      - { value: 3, name: Transfert, maps_to: Transfere }
+      - { value: 4, name: RetourApresAbandon, maps_to: Reinscrit }
+
+  Gender:
+    storage: int
+    used_in: [Students.Gender, Guardians.Gender]
+
+tables_core:
+  - table: Students
+    entity: Student
+    scope: core
+    description: "Dossier permanent de l élève (indépendant de l année scolaire)"
+    columns:
+      - { name: SchoolId, type: uniqueidentifier, nullable: false, fk: Schools.Id, note: "Pas de FK déclarée en migration initiale" }
+      - { name: RegistrationNumber, type: nvarchar(30), nullable: false, business: "Matricule unique par école" }
+      - { name: FirstName, type: nvarchar(100), nullable: false }
+      - { name: LastName, type: nvarchar(100), nullable: false }
+      - { name: MiddleName, type: nvarchar(max), nullable: true }
+      - { name: Gender, type: int, nullable: false, enum: Gender }
+      - { name: DateOfBirth, type: date, nullable: false }
+      - { name: PlaceOfBirth, type: nvarchar(max), nullable: true }
+      - { name: Nationality, type: nvarchar(max), nullable: true, default: "Congolaise" }
+      - { name: AddressId, type: uniqueidentifier, nullable: true, fk: Adresse.IdAdresse, added_by: GeographySchemaInitializer }
+      - { name: Address, type: nvarchar(max), nullable: true, note: "Legacy texte libre" }
+      - { name: Phone, type: nvarchar(max), nullable: true }
+      - { name: Email, type: nvarchar(max), nullable: true }
+      - { name: PhotoPath, type: nvarchar(max), nullable: true }
+      - { name: BloodGroup, type: nvarchar(max), nullable: true }
+      - { name: MedicalNotes, type: nvarchar(max), nullable: true }
+      - { name: IsArchived, type: bit, nullable: false }
+    indexes:
+      - { name: IX_Students_SchoolId_RegistrationNumber, unique: true, columns: [SchoolId, RegistrationNumber] }
+      - { name: IX_Students_LastName_FirstName, columns: [LastName, FirstName] }
+
+  - table: Guardians
+    entity: Guardian
+    scope: core
+    description: "Responsables légaux / contacts"
+    columns:
+      - { name: SchoolId, type: uniqueidentifier, nullable: false }
+      - { name: FirstName, type: nvarchar(100), nullable: false }
+      - { name: LastName, type: nvarchar(100), nullable: false }
+      - { name: Phone, type: nvarchar(max), nullable: true }
+      - { name: Email, type: nvarchar(max), nullable: true }
+      - { name: AddressId, type: uniqueidentifier, nullable: true, fk: Adresse.IdAdresse }
+      - { name: Address, type: nvarchar(max), nullable: true }
+      - { name: Profession, type: nvarchar(max), nullable: true }
+      - { name: NationalId, type: nvarchar(max), nullable: true }
+      - { name: Gender, type: int, nullable: true, enum: Gender, added_by: EnrollmentGuardianSchemaInitializer }
+    indexes:
+      - { name: IX_Guardians_SchoolId_LastName_FirstName, columns: [SchoolId, LastName, FirstName] }
+
+  - table: StudentGuardians
+    entity: StudentGuardian
+    scope: core
+    description: "Liaison N-N élève ↔ responsable"
+    columns:
+      - { name: StudentId, type: uniqueidentifier, fk: Students.Id, on_delete: CASCADE }
+      - { name: GuardianId, type: uniqueidentifier, fk: Guardians.Id, on_delete: RESTRICT }
+      - { name: Relationship, type: nvarchar(50), nullable: false, business: "Père, Mère, Tuteur..." }
+      - { name: IsPrimary, type: bit, nullable: false }
+      - { name: CanPickup, type: bit, nullable: false, default: true }
+      - { name: UsesStudentAddress, type: bit, nullable: false, default: 0, added_by: EnrollmentGuardianSchemaInitializer }
+    indexes:
+      - { name: unique_student_guardian, unique: true, columns: [StudentId, GuardianId] }
+
+  - table: StudentDocuments
+    entity: StudentDocument
+    scope: core
+    description: "Pièces jointes du dossier élève (wizard inscription)"
+    columns:
+      - { name: StudentId, type: uniqueidentifier, fk: Students.Id, on_delete: CASCADE }
+      - { name: DocumentType, type: nvarchar(50), nullable: false }
+      - { name: FileName, type: nvarchar(255), nullable: false }
+      - { name: StoragePath, type: nvarchar(max), nullable: false }
+      - { name: MimeType, type: nvarchar(max), nullable: true }
+      - { name: FileSizeBytes, type: bigint, nullable: false }
+
+  - table: Enrollments
+    entity: Enrollment
+    scope: core
+    central: true
+    description: "Inscription annuelle : élève + année + classe locale + catégorie tarifaire"
+    columns:
+      - { name: StudentId, type: uniqueidentifier, fk: Students.Id, on_delete: RESTRICT }
+      - { name: AcademicYearId, type: uniqueidentifier, fk: AcademicYears.Id, on_delete: RESTRICT }
+      - { name: ClassRoomId, type: uniqueidentifier, fk: ClassRooms.Id, on_delete: RESTRICT }
+      - { name: FeePricingCategoryId, type: uniqueidentifier, fk: FeePricingCategories.Id, on_delete: RESTRICT, added_by: EnrollmentPricingSchemaInitializer }
+      - { name: Status, type: int, enum: EnrollmentStatus }
+      - { name: EnrollmentDate, type: date, nullable: false }
+      - { name: EndDate, type: date, nullable: true }
+      - { name: Notes, type: nvarchar(max), nullable: true }
+      - { name: IsActive, type: bit, nullable: false, default: true, business: "Une seule inscription active par élève et par année" }
+    indexes:
+      - name: IX_Enrollments_Student_Year_Active
+        unique: true
+        columns: [StudentId, AcademicYearId, IsActive]
+        filter: "[IsActive] = 1 AND [IsDeleted] = 0"
+      - { name: IX_Enrollments_AcademicYearId_ClassRoomId, columns: [AcademicYearId, ClassRoomId] }
+      - { name: IX_Enrollments_AcademicYearId_FeePricingCategoryId, columns: [AcademicYearId, FeePricingCategoryId] }
+
+  - table: EnrollmentPricingCategoryHistory
+    entity: EnrollmentPricingCategoryHistory
+    scope: core
+    created_by: EnrollmentPricingSchemaInitializer
+    description: "Historique des changements de catégorie tarifaire sur une inscription"
+    columns:
+      - { name: EnrollmentId, type: uniqueidentifier, fk: Enrollments.Id, on_delete: CASCADE }
+      - { name: PreviousFeePricingCategoryId, type: uniqueidentifier, nullable: true, fk: FeePricingCategories.Id }
+      - { name: NewFeePricingCategoryId, type: uniqueidentifier, fk: FeePricingCategories.Id }
+      - { name: ChangedAt, type: datetime2, nullable: false }
+      - { name: ChangedByUserId, type: uniqueidentifier, nullable: true }
+      - { name: Notes, type: nvarchar(500), nullable: true }
+    schema_drift_warning: "CreatedBy/UpdatedBy/DeletedBy en nvarchar(256) dans SQL initializer vs uniqueidentifier ailleurs"
+    indexes:
+      - { name: IX_EnrollmentPricingCategoryHistory_EnrollmentId_ChangedAt, columns: [EnrollmentId, ChangedAt] }
+
+  - table: StudentStatusHistory
+    entity: StudentStatusHistory
+    scope: core
+    description: "Historique des transitions de statut d inscription"
+    columns:
+      - { name: StudentId, type: uniqueidentifier, fk: Students.Id, on_delete: CASCADE }
+      - { name: AcademicYearId, type: uniqueidentifier, nullable: true, note: "Pas de FK DB" }
+      - { name: PreviousStatus, type: int, enum: EnrollmentStatus }
+      - { name: NewStatus, type: int, enum: EnrollmentStatus }
+      - { name: EffectiveDate, type: date, nullable: false }
+      - { name: Reason, type: nvarchar(max), nullable: true }
+      - { name: DestinationSchool, type: nvarchar(max), nullable: true }
+    indexes:
+      - { name: IX_StudentStatusHistory_StudentId_EffectiveDate, columns: [StudentId, EffectiveDate] }
+
+tables_related:
+  academic_structure:
+    - table: AcademicYears
+      description: "Années scolaires de l établissement"
+      key_columns:
+        - { name: SchoolId, fk: Schools.Id }
+        - { name: Label, business: "Ex. 2025-2026" }
+        - { name: StartDate, type: date }
+        - { name: EndDate, type: date }
+        - { name: IsCurrent, business: "Une seule année courante par école" }
+        - { name: IsClosed, type: bit }
+      unique_constraints:
+        - { columns: [SchoolId, Label], unique: true }
+        - { columns: [SchoolId, IsCurrent], unique: true, filter: "IsCurrent=1 AND IsDeleted=0" }
+
+    - table: PedagogicalClasses
+      description: "Niveau pédagogique officiel RDC (PRI-6, HUM-COM-IG-1...)"
+      key_columns:
+        - { name: SchoolId, fk: Schools.Id }
+        - { name: TemplateCode, unique_per_school: true }
+        - { name: Program, type: int }
+        - { name: LevelOrder, type: int }
+        - { name: DisplayName, type: nvarchar(200) }
+        - { name: MinAge, type: int, nullable: true }
+        - { name: MaxAge, type: int, nullable: true }
+        - { name: IsEnabled, type: bit }
+
+    - table: ClassRooms
+      description: "Classe locale / division (6ème A, 6ème B) pour une année"
+      key_columns:
+        - { name: SchoolId, fk: Schools.Id }
+        - { name: AcademicYearId, fk: AcademicYears.Id }
+        - { name: PedagogicalClassId, fk: PedagogicalClasses.Id, nullable: true }
+        - { name: SectionId, fk: Sections.Id }
+        - { name: StudyOptionId, fk: StudyOptions.Id, nullable: true }
+        - { name: Code, type: nvarchar(80), unique_per_year: true }
+        - { name: Name, type: nvarchar(100), business: "Libellé local A, B..." }
+        - { name: MaxCapacity, type: int, nullable: true, business: "Contrôle capacité à l inscription" }
+        - { name: IsActive, type: bit }
+      unique_constraints:
+        - { columns: [AcademicYearId, Code], unique: true }
+        - { columns: [PedagogicalClassId, AcademicYearId, Name], unique: true, filter: "PedagogicalClassId IS NOT NULL AND IsDeleted=0" }
+
+  fee_pricing:
+    - table: FeePricingCategories
+      created_by: SchoolFeeSchemaInitializer
+      description: "Catégories tarifaires (GENERAL, Boursier...)"
+      key_columns:
+        - { name: SchoolId, fk: Schools.Id }
+        - { name: Code, type: nvarchar(20), unique_per_school: true }
+        - { name: Name, type: nvarchar(150) }
+        - { name: IsActive, type: bit }
+      default_seed:
+        code: GENERAL
+        name: "Générale"
+        seeded_by: EnrollmentPricingSchemaInitializer
+
+    - table: ClassFeeAmounts
+      created_by: SchoolFeeSchemaInitializer
+      description: "Grille tarifaire : montant par année × niveau × catégorie × type de frais × tranche"
+      key_columns:
+        - { name: AcademicYearId, fk: AcademicYears.Id }
+        - { name: PedagogicalClassId, fk: PedagogicalClasses.Id }
+        - { name: FeePricingCategoryId, fk: FeePricingCategories.Id }
+        - { name: FeeTypeId, fk: FeeTypes.Id }
+        - { name: FeeInstallmentId, fk: FeeInstallments.Id }
+        - { name: Amount, type: decimal(18,2) }
+        - { name: DueDate, type: date, nullable: true }
+      unique_constraints:
+        - columns: [AcademicYearId, PedagogicalClassId, FeePricingCategoryId, FeeTypeId, FeeInstallmentId]
+          filter: "IsDeleted=0"
+
+    - table: StudentFeeBalances
+      description: "Soldes élève provisionnés à l inscription (un par ligne tarifaire)"
+      key_columns:
+        - { name: StudentId, fk: Students.Id, on_delete: RESTRICT }
+        - { name: ClassFeeAmountId, fk: ClassFeeAmounts.Id, on_delete: RESTRICT, added_by: StudentFeeBalanceSchemaInitializer }
+        - { name: AmountDue, type: decimal(18,2), business: "Figé à la création (historique)" }
+        - { name: AmountPaid, type: decimal(18,2) }
+        - { name: Currency, type: int }
+      legacy_removed:
+        - AcademicYearId
+        - FeeTypeId
+      unique_constraints:
+        - { columns: [StudentId, ClassFeeAmountId], filter: "IsDeleted=0" }
+
+  geography:
+    - table: Pays
+      entity: Country
+    - table: Province
+      entity: Province
+      fk: Pays
+    - table: Ville
+      entity: City
+      fk: Province
+    - table: Commune
+      entity: Commune
+      fk: Ville
+    - table: Adresse
+      entity: PostalAddress
+      pk_column: IdAdresse
+      fields: [Quartier, Avenue, NumeroMaison, CommuneId]
+      referenced_by:
+        - Students.AddressId
+        - Guardians.AddressId
+
+relationships:
+  - from: Students
+    to: Enrollments
+    cardinality: "1-N"
+    fk: Enrollments.StudentId
+    on_delete: RESTRICT
+
+  - from: AcademicYears
+    to: Enrollments
+    cardinality: "1-N"
+    fk: Enrollments.AcademicYearId
+
+  - from: ClassRooms
+    to: Enrollments
+    cardinality: "1-N"
+    fk: Enrollments.ClassRoomId
+
+  - from: FeePricingCategories
+    to: Enrollments
+    cardinality: "1-N"
+    fk: Enrollments.FeePricingCategoryId
+
+  - from: Enrollments
+    to: EnrollmentPricingCategoryHistory
+    cardinality: "1-N"
+    fk: EnrollmentPricingCategoryHistory.EnrollmentId
+    on_delete: CASCADE
+
+  - from: Students
+    to: StudentGuardians
+    cardinality: "1-N"
+    on_delete: CASCADE
+
+  - from: Guardians
+    to: StudentGuardians
+    cardinality: "1-N"
+    on_delete: RESTRICT
+
+  - from: PedagogicalClasses
+    to: ClassRooms
+    cardinality: "1-N"
+    fk: ClassRooms.PedagogicalClassId
+
+  - from: ClassRooms
+    to: Enrollments
+    cardinality: "1-N"
+    business: "La classe locale choisie à l inscription"
+
+  - from: Enrollment
+    fee_lookup_path:
+      - "Enrollment.ClassRoomId → ClassRooms.PedagogicalClassId"
+      - "Enrollment.AcademicYearId"
+      - "Enrollment.FeePricingCategoryId"
+      - "→ ClassFeeAmounts (filtre sur ces 3 dimensions + FeeType + FeeInstallment)"
+      - "→ StudentFeeBalances (StudentId + ClassFeeAmountId)"
+
+business_flows:
+  enrollment_wizard_complete:
+    service: EnrollmentWizardService.CompleteAsync
+    steps:
+      - order: 1
+        action: "Vérifier année scolaire courante (AcademicYears.IsCurrent = true)"
+      - order: 2
+        action: "Créer ou mettre à jour Students (+ Adresse via AddressId)"
+      - order: 3
+        action: "Créer / remplacer liaisons Guardians via StudentGuardians"
+      - order: 4
+        action: "Créer Enrollments"
+        fields_set:
+          AcademicYearId: "année courante"
+          ClassRoomId: "classe sélectionnée"
+          FeePricingCategoryId: "GENERAL par défaut"
+          Status: "mappé depuis RegistrationKind"
+          IsActive: true
+      - order: 5
+        action: "Insérer StudentStatusHistory"
+      - order: 6
+        action: "Provisionner StudentFeeBalances via IStudentFeeBalanceProvisioner"
+        filter: "ClassFeeAmounts par (AcademicYearId, PedagogicalClassId, FeePricingCategoryId)"
+      - order: 7
+        action: "Enregistrer StudentDocuments + générer fiche inscription PDF"
+
+  pricing_category_change:
+    description: "Changement de catégorie tarifaire après inscription"
+    effects:
+      - "UPDATE Enrollments.FeePricingCategoryId"
+      - "INSERT EnrollmentPricingCategoryHistory"
+      - "Re-provisionnement StudentFeeBalances (montants payés préservés)"
+
+integrity_rules:
+  - rule: "Un seul matricule par école"
+    constraint: "UNIQUE Students(SchoolId, RegistrationNumber)"
+  - rule: "Une seule inscription active par élève et par année"
+    constraint: "UNIQUE Enrollments(StudentId, AcademicYearId, IsActive) WHERE IsActive=1 AND IsDeleted=0"
+  - rule: "Une seule année courante par école"
+    constraint: "UNIQUE AcademicYears(SchoolId, IsCurrent) WHERE IsCurrent=1"
+  - rule: "Un solde unique par élève et ligne tarifaire"
+    constraint: "UNIQUE StudentFeeBalances(StudentId, ClassFeeAmountId) WHERE IsDeleted=0"
+
+schema_drift_known:
+  - item: "FeePricingCategoryId sur Enrollments absent du EF ModelSnapshot initial"
+    resolution: "Ajouté par EnrollmentPricingSchemaInitializer"
+  - item: "FeePricingCategories, ClassFeeAmounts hors migrations EF"
+    resolution: "SchoolFeeSchemaInitializer"
+  - item: "EnrollmentPricingCategoryHistory audit columns type mismatch"
+    resolution: "SQL nvarchar(256) vs C# Guid? — à harmoniser si migration future"
+  - item: "StudentStatusHistory.AcademicYearId sans FK"
+    resolution: "Volontaire ou dette technique"
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-07-21"
+    author: "Cursor Agent"
+    changes:
+      - "Création du fichier source de vérité inscription-module.schema.yaml"
+      - "Documentation tables core, related, enums, flux, contraintes"

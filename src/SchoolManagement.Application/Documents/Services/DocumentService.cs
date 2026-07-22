@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.Documents.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Common.Models;
 using SchoolManagement.Application.Documents.DTOs;
@@ -47,7 +48,7 @@ public sealed class DocumentService : IDocumentService
             .Select(d =>
             {
                 studentMap.TryGetValue(d.StudentId, out var student);
-                var name = student is null ? "—" : $"{student.LastName} {student.FirstName}";
+                var name = StudentDisplayName.FormatOrDefault(student);
                 return new StudentDocumentDto(d.Id, d.StudentId, name, d.DocumentType, d.FileName, d.FileSizeBytes, d.MimeType, d.CreatedAt);
             })
             .ToList();
@@ -102,7 +103,7 @@ public sealed class DocumentService : IDocumentService
         return new StudentDocumentDto(
             document.Id,
             document.StudentId,
-            $"{student.LastName} {student.FirstName}",
+            StudentDisplayName.Format(student),
             document.DocumentType,
             document.FileName,
             saved.FileSizeBytes,

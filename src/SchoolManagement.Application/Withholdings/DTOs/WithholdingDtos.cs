@@ -66,9 +66,21 @@ public sealed record WithholdingResolveContext(
     Guid AcademicYearId,
     Guid FeeTypeId,
     Guid? FeeInstallmentId,
-    Guid? PricingCategoryId);
+    Guid? PricingCategoryId,
+    /// <summary>Requis à l'encaissement pour exclure les retenues déjà appliquées à l'élève.</summary>
+    Guid? StudentId = null,
+    /// <summary>
+    /// True si le solde élève inclut déjà le versement en cours (après enregistrement).
+    /// False pour l'aperçu avant validation.
+    /// </summary>
+    bool BalanceIncludesCurrentPayment = false,
+    /// <summary>
+    /// Configurations de retenue fixe déjà liées à ce paiement (modification de montant) :
+    /// à conserver même si ce n'est plus le « premier » versement de la rubrique.
+    /// </summary>
+    IReadOnlySet<Guid>? PreserveFixedConfigurationIds = null);
 
-/// <summary>Ligne de retenue calculée (intégration future Finance → Répartition).</summary>
+/// <summary>Ligne de retenue calculée à l'encaissement.</summary>
 public sealed record CalculatedWithholdingLine(
     Guid ConfigurationId,
     Guid WithholdingTypeId,
@@ -78,14 +90,14 @@ public sealed record CalculatedWithholdingLine(
     decimal ConfiguredValue,
     decimal WithheldAmount);
 
-/// <summary>Résultat de calcul des retenues sur un montant brut.</summary>
+/// <summary>Résultat de calcul des retenues sur un montant brut (encaissement).</summary>
 public sealed record WithholdingCalculationResult(
     decimal GrossAmount,
     decimal TotalWithheld,
     decimal NetAmount,
     IReadOnlyList<CalculatedWithholdingLine> Lines);
 
-/// <summary>Requête API pour calculer les retenues (intégration future Finance).</summary>
+/// <summary>Requête API pour calculer les retenues applicables à un versement.</summary>
 public sealed record WithholdingCalculateRequest(
     decimal GrossAmount,
     WithholdingResolveContext Context);

@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_storage.dart';
 import '../../core/providers/app_providers.dart';
-import '../../core/theme/erp_theme.dart';
-import '../../router/app_router.dart';
+import 'widgets/secretary_ui_widgets.dart';
 
 class SecretaryHomeScreen extends ConsumerStatefulWidget {
   const SecretaryHomeScreen({super.key});
@@ -27,68 +26,121 @@ class _SecretaryHomeScreenState extends ConsumerState<SecretaryHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canEnroll = ref.watch(writePolicyProvider).canEnrollStudents;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Secrétariat'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => logout(ref, context),
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Mon compte',
+            onPressed: () => context.push('/secretary/account'),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(ErpSpacing.page),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
           if (_userName != null)
-            Text('Bonjour, $_userName', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
+            Text(
+              'Bonjour, $_userName',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+            ),
+          const SizedBox(height: 10),
           Text(
-            'Enregistrez les élèves depuis votre téléphone.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            canEnroll
+                ? 'Consultez les dossiers et enregistrez les élèves depuis votre téléphone.'
+                : 'Mode Cloud : recherche et consultation OK. Les modifications (inscriptions, documents) nécessitent le réseau de l\'école.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
-          const SizedBox(height: 24),
-          ErpCard(
+          const SizedBox(height: 28),
+          SecretaryHomeCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: ErpColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.person_add_alt_1, color: ErpColors.primary, size: 32),
-                    ),
-                    const SizedBox(width: 16),
+                    const SecretaryFeatureIcon(icon: Icons.folder_shared_outlined),
+                    const SizedBox(width: 18),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Inscription élève', style: Theme.of(context).textTheme.titleLarge),
-                          const SizedBox(height: 4),
                           Text(
-                            'Nouvelle inscription ou réinscription avec adresse, responsables et documents.',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            'Dossier élève',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Rechercher un élève, consulter sa fiche et mettre à jour les documents (photo, etc.).',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () => context.push('/secretary/enrollment?mode=new'),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nouvelle inscription'),
+                const SizedBox(height: 22),
+                SecretaryFilledButton(
+                  onPressed: () => context.push('/secretary/students'),
+                  icon: Icons.search,
+                  label: 'Rechercher un élève',
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => context.push('/secretary/enrollment?mode=re'),
-                  icon: const Icon(Icons.search),
-                  label: const Text('Réinscription'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SecretaryHomeCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SecretaryFeatureIcon(icon: Icons.person_add_alt_1),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Inscription élève',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Nouvelle inscription ou réinscription avec adresse, responsables et documents.',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                SecretaryFilledButton(
+                  onPressed: canEnroll
+                      ? () => context.push('/secretary/enrollment?mode=new')
+                      : null,
+                  icon: Icons.add,
+                  label: 'Nouvelle inscription',
+                ),
+                const SizedBox(height: 14),
+                SecretaryOutlinedButton(
+                  onPressed: canEnroll
+                      ? () => context.push('/secretary/enrollment?mode=re')
+                      : null,
+                  icon: Icons.search,
+                  label: 'Réinscription',
                 ),
               ],
             ),

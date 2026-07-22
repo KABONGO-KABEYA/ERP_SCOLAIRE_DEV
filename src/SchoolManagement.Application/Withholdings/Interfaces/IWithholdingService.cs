@@ -46,7 +46,7 @@ public interface IWithholdingService
     Task DeleteConfigurationAsync(Guid schoolId, Guid configurationId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Préparé pour le module Finance : récupère les retenues actives applicables
+    /// Retenues actives applicables à un versement
     /// (année + type de frais + tranche optionnelle + catégorie optionnelle).
     /// </summary>
     Task<IReadOnlyList<WithholdingConfigurationDto>> ResolveApplicableAsync(
@@ -55,12 +55,38 @@ public interface IWithholdingService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Préparé pour le module Finance : calcule TotalRetenues et MontantNet à partir d'un montant brut.
+    /// Calcule TotalRetenues et MontantNet pour un montant brut d'encaissement.
+    /// Montant fixe : une seule fois par rubrique. Pourcentage : à chaque versement tant que la rubrique n'est pas soldée.
     /// </summary>
     Task<WithholdingCalculationResult> CalculateForPaymentLineAsync(
         Guid schoolId,
         decimal grossAmount,
         WithholdingResolveContext context,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Enregistre les retenues calculées lors d'un encaissement.</summary>
+    Task RecordApplicationsAsync(
+        Guid schoolId,
+        Guid studentId,
+        Guid academicYearId,
+        Guid paymentId,
+        Guid paymentLineId,
+        WithholdingCalculationResult result,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Configurations de retenue fixe déjà liées à ce paiement, indexées par ligne de paiement
+    /// (pour les conserver lors d'une modification de montant, uniquement sur la bonne ligne).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> GetFixedApplicationConfigurationIdsByLineAsync(
+        Guid schoolId,
+        Guid paymentId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Supprime les retenues enregistrées pour un paiement (annulation / modification).</summary>
+    Task RemoveApplicationsForPaymentAsync(
+        Guid schoolId,
+        Guid paymentId,
         CancellationToken cancellationToken = default);
 
     Task<byte[]> ExportConfigurationsExcelAsync(

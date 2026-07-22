@@ -1,28 +1,61 @@
 # ERP Administration Scolaire RDC — Mobile
 
-Application Flutter pour parents, enseignants et direction.
+Application Flutter pour parents, enseignants, direction, promoteur et secrétariat.
+
+## Modes de connexion (automatiques)
+
+L'utilisateur **ne choisit jamais** le serveur. Au démarrage (et périodiquement) :
+
+1. Test de l'**API Locale** → **Mode Local** (lecture + écriture)
+2. Sinon test de l'**API Cloud** → **Mode Cloud** (lecture seule ; notes enseignants autorisées)
+3. Sinon → **Hors ligne**
+
+| Indicateur | Signification |
+|------------|---------------|
+| 🟢 Mode Local | Serveur de l'établissement — toutes opérations selon rôles |
+| 🔵 Mode Cloud | Copie synchronisée — consultation (+ notes si autorisé) |
+| 🔴 Hors ligne / Serveur inaccessible | Aucun serveur joignable |
+
+**Important :** la 4G ne remplace pas le Wi‑Fi de l'école. L'IP locale (`192.168.x.x`)
+n'est pas accessible via Internet mobile. Pour consulter hors établissement, il faut
+configurer `CLOUD_API_BASE_URL` (API Cloud publique).
+
+La base locale reste la **Source of Truth**. Le Cloud ne reçoit que la sync **Local → Cloud**.
 
 ## Stack
 
 - **Flutter** (Material 3)
-- **Riverpod** (state management — choisi pour la compile-time safety et la testabilité)
-- **go_router** (navigation multi-rôles)
-- **dio** (client HTTP avec intercepteurs JWT)
-- **flutter_secure_storage** (tokens)
-- **Hive** (cache hors-ligne léger)
+- **Riverpod**
+- **go_router**
+- **dio** (JWT)
+- **flutter_secure_storage**
 
-## Structure
+## URL API
 
+```bash
+# Émulateur Android → API locale PC
+flutter run
+
+# Appareil physique (Wi‑Fi école) + cloud de secours
+flutter run \
+  --dart-define=LOCAL_API_BASE_URL=http://192.168.1.10:5041 \
+  --dart-define=CLOUD_API_BASE_URL=https://api.votredomaine.com
 ```
-lib/
-├── core/           # API client, auth storage, config
-├── features/
-│   ├── auth/       # login
-│   ├── parent/     # enfants, paiements, bulletins
-│   ├── teacher/    # affectations, liste de classe, saisie notes
-│   └── direction/  # tableau de bord KPIs et rapports
-└── router/         # go_router
+
+Rétrocompatibilité : `API_BASE_URL` force l'URL locale.
+
+## Instance API Cloud (.NET)
+
+Sur le serveur cloud, dans `appsettings.json` (ou variables d'environnement) :
+
+```json
+"Deployment": {
+  "Role": "Cloud",
+  "ReadOnly": true
+}
 ```
+
+Le middleware refuse alors POST/PUT/PATCH/DELETE (sauf `/api/v1/auth`, `/api/v1/health`, `/api/v1/grades/entries`).
 
 ## Comptes démo
 
@@ -31,23 +64,7 @@ lib/
 | Parent | `parent` | `Parent@2026` |
 | Enseignant | `enseignant` | `Teacher@2026` |
 | Direction | `direction` | `Direction@2026` |
-
-La redirection après connexion dépend du rôle (`DIRECTION` → tableau de bord, `ENSEIGNANT` → cours, `PARENT` → enfants).
-
-## URL API
-
-Par défaut : `https://10.0.2.2:7060` (émulateur Android → localhost).
-
-Pour changer :
-
-```bash
-flutter run --dart-define=API_BASE_URL=https://localhost:7060
-```
-
-## Prérequis
-
-- Flutter SDK stable installé et dans le PATH
-- Android Studio / Xcode selon la plateforme cible
+| Admin | `admin` | `Admin@2026` |
 
 ## Démarrage
 
@@ -56,9 +73,3 @@ cd mobile/school_management_mobile
 flutter pub get
 flutter run
 ```
-
-> **Note** : le projet a été scaffoldé manuellement. Exécuter `flutter create .` dans ce dossier si des fichiers plateforme manquent.
-
-## Périmètre par rôle
-
-Voir le prompt maître section 4 : Parent, Enseignant, Direction.

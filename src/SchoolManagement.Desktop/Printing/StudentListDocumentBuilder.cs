@@ -51,7 +51,7 @@ public static class StudentListDocumentBuilder
         });
 
         var table = new Table { CellSpacing = 0 };
-        var columns = new[] { 32d, 90d, 120d, 120d, 130d, 70d, 72d, 80d, 1.6 };
+        var columns = new[] { 32d, 90d, 100d, 100d, 100d, 120d, 70d, 72d, 80d, 1.4 };
         var total = columns.Sum();
         foreach (var weight in columns)
         {
@@ -60,7 +60,7 @@ public static class StudentListDocumentBuilder
 
         var headerGroup = new TableRowGroup();
         headerGroup.Rows.Add(CreateHeaderRow(
-            "#", "Matricule", "Nom", "Prénom", "Classe", "Sexe", "Naissance", "État", "Raison"));
+            "#", "Matricule", "Nom", "Postnom", "Prénom", "Classe", "Sexe", "Naissance", "État", "Raison"));
         table.RowGroups.Add(headerGroup);
 
         var bodyGroup = new TableRowGroup();
@@ -71,6 +71,7 @@ public static class StudentListDocumentBuilder
                 index.ToString(culture),
                 student.RegistrationNumber,
                 student.LastName,
+                student.MiddleName ?? "—",
                 student.FirstName,
                 student.CurrentYearClassName ?? "—",
                 FormatGender(student.Gender),

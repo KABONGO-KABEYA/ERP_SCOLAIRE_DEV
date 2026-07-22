@@ -1138,6 +1138,12 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
   }
 
   Future<void> _submit() async {
+    final policy = ref.read(writePolicyProvider);
+    if (!policy.canEnrollStudents) {
+      setState(() => _error = policy.readOnlyHint);
+      return;
+    }
+
     final validation = _validateCurrentStep();
     if (validation != null) {
       setState(() => _error = validation);
@@ -1275,7 +1281,9 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
                     )
                   else
                     FilledButton(
-                      onPressed: _busy ? null : _submit,
+                      onPressed: (_busy || !ref.watch(writePolicyProvider).canEnrollStudents)
+                          ? null
+                          : _submit,
                       child: _busy
                           ? const SizedBox(
                               width: 20,

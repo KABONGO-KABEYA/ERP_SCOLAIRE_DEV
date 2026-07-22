@@ -3,6 +3,7 @@
 | Module | Documentation | Statut |
 |--------|---------------|--------|
 | **État d'implémentation (5 modules)** | [etat-implementation.md](etat-implementation.md) | ✅ Documenté |
+| **Inscription (schéma BDD)** | [inscription-module.schema.yaml](../database/inscription-module.schema.yaml) | ✅ Source de vérité YAML |
 | Authentification | — | ✅ Complet |
 | Paramétrage | [etat-implementation.md §3](etat-implementation.md#3-paramètres-établissement) | ✅ Desktop + API |
 | Élèves | [etat-implementation.md §2](etat-implementation.md#2-module-élève) | ✅ Desktop + API |
@@ -21,3 +22,5 @@ Voir aussi :
 - [Guide de démarrage](../guide-demarrage.md)
 - [Référence API](../api-reference.md)
 - [Architecture](../architecture.md)
+- [Schéma Inscription (YAML)](../database/inscription-module.schema.yaml)
+- [Sync cloud local → distant](../database/cloud-sync.md)

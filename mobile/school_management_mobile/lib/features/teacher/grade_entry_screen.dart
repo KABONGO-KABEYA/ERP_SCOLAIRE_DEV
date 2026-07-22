@@ -91,6 +91,12 @@ class _TeacherGradeEntryScreenState extends ConsumerState<TeacherGradeEntryScree
   }
 
   Future<void> _save() async {
+    final policy = ref.read(writePolicyProvider);
+    if (!policy.canSubmitGrades) {
+      setState(() => _error = 'Hors ligne : impossible d\'enregistrer les notes.');
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final grades = _rows.map((row) {
@@ -123,14 +129,16 @@ class _TeacherGradeEntryScreenState extends ConsumerState<TeacherGradeEntryScree
 
   @override
   Widget build(BuildContext context) {
+    final canSave = ref.watch(writePolicyProvider).canSubmitGrades;
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saving ? null : _save,
+        onPressed: (_saving || !canSave) ? null : _save,
         icon: _saving
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.save),
-        label: const Text('Enregistrer'),
+        label: Text(canSave ? 'Enregistrer' : 'Lecture seule'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

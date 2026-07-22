@@ -483,6 +483,14 @@
                                                DataContext="{Binding WithholdingConfig}" />
         </Grid>
 
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsSyncCloudSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:CloudSyncDashboardControl HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                DataContext="{Binding CloudSyncDashboard}" />
+        </Grid>
+
         <views:PedagogicalStructureWizardControl Grid.Row="0"
                                                  DataContext="{Binding}"
                                                  Margin="20,16"

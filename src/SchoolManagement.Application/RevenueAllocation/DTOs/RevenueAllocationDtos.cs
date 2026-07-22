@@ -28,9 +28,13 @@ public sealed record RevenueAllocationKeyDto(
     Guid Id,
     Guid AcademicYearId,
     string AcademicYearLabel,
-    Guid FeeTypeId,
-    string FeeTypeCode,
-    string FeeTypeName,
+    RevenueAllocationSourceKind SourceKind,
+    Guid? FeeTypeId,
+    string? FeeTypeCode,
+    string? FeeTypeName,
+    Guid? WithholdingTypeId,
+    string? WithholdingTypeCode,
+    string? WithholdingTypeName,
     string Name,
     string? Notes,
     DateOnly StartDate,
@@ -48,7 +52,8 @@ public sealed record SaveRevenueAllocationKeyDetailRequest(
 
 public sealed record CreateRevenueAllocationKeyRequest(
     Guid AcademicYearId,
-    Guid FeeTypeId,
+    Guid? FeeTypeId,
+    Guid? WithholdingTypeId,
     string Name,
     string? Notes,
     DateOnly StartDate,
@@ -75,7 +80,7 @@ public sealed record RevenueAllocationEntryDto(
     decimal AllocatedAmount,
     decimal? AppliedPercentage,
     AllocationCalculationType CalculationType,
-    Guid AllocationKeyId,
+    Guid? AllocationKeyId,
     string AllocationKeyName,
     Guid AcademicYearId,
     string AcademicYearLabel,
@@ -158,3 +163,25 @@ public sealed record CalculatedAllocationLine(
     AllocationCalculationType CalculationType,
     decimal Amount,
     decimal? AppliedPercentage);
+
+/// <summary>Ligne élève ayant occasionné une retenue.</summary>
+public sealed record WithholdingReportStudentLineDto(
+    Guid StudentId,
+    string StudentName,
+    Guid PaymentId,
+    DateOnly PaymentDate,
+    decimal Amount);
+
+/// <summary>Groupe de retenues par type (rupture).</summary>
+public sealed record WithholdingReportTypeGroupDto(
+    Guid WithholdingTypeId,
+    string WithholdingTypeCode,
+    string WithholdingTypeName,
+    decimal TypeTotal,
+    IReadOnlyList<WithholdingReportStudentLineDto> Students);
+
+/// <summary>Résultat du rapport retenues (groupé par type, détail élève).</summary>
+public sealed record WithholdingReportResultDto(
+    IReadOnlyList<WithholdingReportTypeGroupDto> Groups,
+    decimal GrandTotal,
+    int PaymentCount);

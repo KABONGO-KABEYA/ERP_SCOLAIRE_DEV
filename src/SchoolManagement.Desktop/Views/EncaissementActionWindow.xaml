@@ -74,9 +74,46 @@
 
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                     <TextBlock x:Name="CollectTotalsText"
-                               Margin="0,0,0,12"
+                               Margin="0,0,0,8"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap" />
+
+                    <Border x:Name="CollectWithholdingsBox"
+                            Margin="0,0,0,12"
+                            Padding="12,10"
+                            Background="#FFFBEB"
+                            BorderBrush="#FCD34D"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,6"
+                                       FontWeight="SemiBold"
+                                       Foreground="#92400E"
+                                       Text="Retenues applicables à cet encaissement" />
+                            <TextBlock x:Name="CollectWithholdingsText"
+                                       Margin="0,0,0,8"
+                                       Foreground="#78350F"
+                                       TextWrapping="Wrap" />
+                            <DataGrid x:Name="CollectWithholdingsGrid"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      HeadersVisibility="Column"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      MaxHeight="140"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      GridLinesVisibility="Horizontal"
+                                      RowHeight="28">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Binding="{Binding WithholdingTypeName}" Header="Retenue" Width="*" MinWidth="120" />
+                                    <DataGridTextColumn Binding="{Binding WithholdingTypeCode}" Header="Code" Width="80" />
+                                    <DataGridTextColumn Binding="{Binding WithheldAmount, StringFormat=N0}" Header="Montant" Width="100" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
 
                     <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Notes (optionnel)" />
                     <TextBox x:Name="CollectNotesBox"

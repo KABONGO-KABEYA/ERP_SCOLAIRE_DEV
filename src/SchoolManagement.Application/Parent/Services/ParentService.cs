@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.Parent.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Application.Parent.Interfaces;
@@ -66,7 +67,7 @@ public sealed class ParentService : IParentService
                     className = cr.Name;
                 }
             }
-            return new ParentChildDto(s.Id, s.RegistrationNumber, $"{s.LastName} {s.FirstName}", className);
+            return new ParentChildDto(s.Id, s.RegistrationNumber, StudentDisplayName.Format(s), className);
         }).ToList();
     }
 

@@ -1,6 +1,7 @@
 namespace SchoolManagement.Application.EnrollmentWizard.DTOs;
 
 using SchoolManagement.Application.Academic.DTOs;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.DocumentBranding.DTOs;
 using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
@@ -99,9 +100,7 @@ public sealed record EnrollmentStudentSearchResultDto(
     string StatusLabel,
     int? LastClassLevel = null)
 {
-    public string FullName => string.IsNullOrWhiteSpace(MiddleName)
-        ? $"{LastName} {FirstName}"
-        : $"{LastName} {MiddleName} {FirstName}";
+    public string FullName => StudentDisplayName.Format(LastName, MiddleName, FirstName);
 }
 
 public sealed record CompleteEnrollmentRequest(
@@ -266,9 +265,7 @@ public sealed record EnrollmentFormDocumentDto(
     EnrollmentFormGuardianDto? LegalGuardian,
     IReadOnlyList<EnrollmentFormGuardianDto> Guardians)
 {
-    public string FullName => string.IsNullOrWhiteSpace(MiddleName)
-        ? $"{LastName} {FirstName}".Trim()
-        : $"{LastName} {MiddleName} {FirstName}".Trim();
+    public string FullName => StudentDisplayName.Format(LastName, MiddleName, FirstName);
 
     public decimal? BalanceDue => RegistrationFee.HasValue ? RegistrationFee - AmountPaid : null;
 }

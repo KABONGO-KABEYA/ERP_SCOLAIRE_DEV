@@ -26,7 +26,8 @@ public partial class SettingsViewModel : ViewModelBase
         GeographyAdminViewModel geographyAdmin,
         SchoolFeeConfigurationViewModel schoolFeeConfiguration,
         RevenueAllocationConfigViewModel revenueAllocationConfig,
-        WithholdingConfigViewModel withholdingConfig)
+        WithholdingConfigViewModel withholdingConfig,
+        CloudSyncDashboardViewModel cloudSyncDashboard)
     {
         _schoolApiService = schoolApiService;
         _academicApiService = academicApiService;
@@ -37,11 +38,11 @@ public partial class SettingsViewModel : ViewModelBase
         SchoolFeeConfiguration = schoolFeeConfiguration;
         RevenueAllocationConfig = revenueAllocationConfig;
         WithholdingConfig = withholdingConfig;
+        CloudSyncDashboard = cloudSyncDashboard;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         NewTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
-        Currencies = [Currency.CDF, Currency.USD];
 
         ProgramFilters =
         [
@@ -72,7 +73,8 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Matières", "BookEducation", SettingsSection.Matieres),
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
-                    new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants)
+                    new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
+                    new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud)
                 ])
         ];
 
@@ -102,7 +104,7 @@ public partial class SettingsViewModel : ViewModelBase
     private string? _email;
 
     [ObservableProperty]
-    private Currency _defaultCurrency = Currency.CDF;
+    private FeeTypeLookupDto? _selectedDefaultFeeType;
 
     [ObservableProperty]
     private bool _isGeneralInfoExpanded = true;
@@ -284,9 +286,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     public WithholdingConfigViewModel WithholdingConfig { get; }
 
-    public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
+    public CloudSyncDashboardViewModel CloudSyncDashboard { get; }
 
-    public IReadOnlyList<Currency> Currencies { get; }
+    public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
 
     public string GeneralInfoSectionHeaderText => "Informations générales";
 
@@ -310,12 +312,15 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsRetenuesSelected => SelectedSettingsNode?.Section == SettingsSection.Retenues;
 
+    public bool IsSyncCloudSelected => SelectedSettingsNode?.Section == SettingsSection.SyncCloud;
+
     public bool IsScrollableSettingsContent =>
         !IsEtablissementSelected
         && !IsStructurePedagogiqueSelected
         && !IsFraisScolairesSelected
         && !IsRepartitionRecettesSelected
-        && !IsRetenuesSelected;
+        && !IsRetenuesSelected
+        && !IsSyncCloudSelected;
 
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
 
@@ -340,6 +345,7 @@ public partial class SettingsViewModel : ViewModelBase
         "frais-scolaires" => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
         "repartition-recettes" => "Destinations financières et clés de répartition par année scolaire.",
         "retenues" => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
+        "sync-cloud" => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
         _ => SelectedSettingsNode?.Section switch
         {
             SettingsSection.Etablissement => "Informations générales, logos, en-têtes, signatures et identité documentaire de l'établissement.",
@@ -349,6 +355,7 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
             SettingsSection.RepartitionRecettes => "Destinations financières et clés de répartition par année scolaire.",
             SettingsSection.Retenues => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
+            SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
             SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
             SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
@@ -394,6 +401,10 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 WithholdingConfig.LoadCommand.Execute(null);
             }
+            else if (item.Key == "sync-cloud")
+            {
+                CloudSyncDashboard.LoadCommand.Execute(null);
+            }
         }
 
         OnPropertyChanged(nameof(ActiveNavKey));
@@ -404,6 +415,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
         OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
         OnPropertyChanged(nameof(IsRetenuesSelected));
+        OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
 
@@ -482,6 +494,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
         OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
         OnPropertyChanged(nameof(IsRetenuesSelected));
+        OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsGeographieSelected));
@@ -525,6 +538,10 @@ public partial class SettingsViewModel : ViewModelBase
         {
             DocumentBranding.LoadCommand.Execute(null);
         }
+        else if (value?.Section == SettingsSection.SyncCloud)
+        {
+            CloudSyncDashboard.LoadCommand.Execute(null);
+        }
     }
 
     [RelayCommand]
@@ -542,7 +559,6 @@ public partial class SettingsViewModel : ViewModelBase
                 Province = school.Province;
                 Phone = school.Phone;
                 Email = school.Email;
-                DefaultCurrency = school.DefaultCurrency;
             }
 
             await LoadAcademicYearsAsync();
@@ -550,6 +566,14 @@ public partial class SettingsViewModel : ViewModelBase
             await LoadStructureAsync();
             await LoadRegulationAsync();
             await LoadFeeTypesAsync();
+            if (school?.DefaultFeeTypeId is Guid feeId)
+            {
+                SelectedDefaultFeeType = FeeTypes.FirstOrDefault(f => f.Id == feeId);
+            }
+            else
+            {
+                SelectedDefaultFeeType = null;
+            }
             await LoadSubjectClassesAsync();
             await LoadUsersAsync();
         }
@@ -571,7 +595,7 @@ public partial class SettingsViewModel : ViewModelBase
         try
         {
             await _schoolApiService.UpdateSchoolAsync(new UpdateSchoolRequest(
-                Name, LegalName, null, City, Province, Phone, Email, DefaultCurrency));
+                Name, LegalName, null, City, Province, Phone, Email, SelectedDefaultFeeType?.Id));
             StatusMessage = "Paramètres enregistrés.";
             await LoadAsync();
         }
@@ -1439,7 +1463,8 @@ public enum SettingsSection
     Utilisateurs = 7,
     Enseignants = 8,
     RepartitionRecettes = 10,
-    Retenues = 11
+    Retenues = 11,
+    SyncCloud = 12
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

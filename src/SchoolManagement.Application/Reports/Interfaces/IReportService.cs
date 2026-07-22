@@ -36,4 +36,19 @@ public interface IReportService
         Guid schoolId,
         RealizedReceiptsRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPaymentSituationReportPdfAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPaymentSituationReportExcelAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
 }

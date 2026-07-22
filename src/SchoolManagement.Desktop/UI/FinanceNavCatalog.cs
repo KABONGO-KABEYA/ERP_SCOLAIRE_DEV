@@ -61,6 +61,14 @@ public static class FinanceNavCatalog
                     IconKind = "FileChartOutline",
                     Section = FinanceSection.Rapports,
                     Subtitle = "Recettes réalisées, répartitions et états de la comptabilité scolaire"
+                },
+                new FinanceNavItem
+                {
+                    Key = "situation-paiements",
+                    Title = "Situation des paiements",
+                    IconKind = "ClipboardListOutline",
+                    Section = FinanceSection.SituationPaiements,
+                    Subtitle = "Liste des élèves selon leur situation de paiement (en ordre / non en ordre)"
                 }
             ]
         },

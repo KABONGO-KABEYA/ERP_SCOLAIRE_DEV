@@ -1,6 +1,7 @@
 namespace SchoolManagement.Application.EnrollmentWizard.Services;
 
 using SchoolManagement.Application.EnrollmentWizard;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Domain.Entities.Academic;
@@ -210,7 +211,7 @@ public sealed partial class EnrollmentWizardService
             student.Id,
             enrollment.Id,
             student.RegistrationNumber,
-            $"{student.LastName} {student.FirstName}",
+            StudentDisplayName.Format(student),
             "Dossier élève mis à jour." + ficheMessage);
     }
 

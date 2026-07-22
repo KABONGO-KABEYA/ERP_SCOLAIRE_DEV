@@ -6,7 +6,6 @@
              xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
              xmlns:enums="clr-namespace:SchoolManagement.Domain.Enums;assembly=SchoolManagement.Domain">
     <UserControl.Resources>
-        <ui:DateOnlyDisplayConverter x:Key="DateOnlyDisplayConverter" />
         <ui:GenderDisplayConverter x:Key="GenderDisplayConverter" />
         <ui:StudentStatusLabelConverter x:Key="StudentStatusLabelConverter" />
         <ui:NullToDashConverter x:Key="NullToDashConverter" />
@@ -205,12 +204,17 @@
                     <DataGridTextColumn Binding="{Binding LastName}"
                                         Header="NOM"
                                         Width="*"
-                                        MinWidth="120"
+                                        MinWidth="110"
+                                        ElementStyle="{StaticResource ErpStudentsGridCellText}" />
+                    <DataGridTextColumn Binding="{Binding MiddleName}"
+                                        Header="POSTNOM"
+                                        Width="*"
+                                        MinWidth="110"
                                         ElementStyle="{StaticResource ErpStudentsGridCellText}" />
                     <DataGridTextColumn Binding="{Binding FirstName}"
                                         Header="PRÉNOM"
                                         Width="*"
-                                        MinWidth="120"
+                                        MinWidth="110"
                                         ElementStyle="{StaticResource ErpStudentsGridCellText}" />
                     <DataGridTemplateColumn Header="CLASSE" Width="190">
                         <DataGridTemplateColumn.CellTemplate>
@@ -221,20 +225,11 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Header="SEXE" Width="110">
+                    <DataGridTemplateColumn Header="SEXE" Width="64">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Style="{StaticResource ErpStudentsGridCellText}"
                                            Text="{Binding Gender, Converter={StaticResource GenderDisplayConverter}}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-
-                    <DataGridTemplateColumn Header="NAISSANCE" Width="120">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Style="{StaticResource ErpStudentsGridCellText}"
-                                           Text="{Binding DateOfBirth, Converter={StaticResource DateOnlyDisplayConverter}}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -291,17 +286,6 @@
                                         <Setter TargetName="StatusText" Property="Foreground" Value="#4B5563" />
                                     </MultiDataTrigger>
                                 </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-
-                    <DataGridTemplateColumn Header="RAISON" Width="200">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Style="{StaticResource ErpStudentsGridCellText}"
-                                           Text="{Binding WithdrawalReason, Converter={StaticResource NullToDashConverter}}"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding WithdrawalReason}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

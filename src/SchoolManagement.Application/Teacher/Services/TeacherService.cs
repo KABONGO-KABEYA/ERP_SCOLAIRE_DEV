@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.Teacher.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Teacher.DTOs;
@@ -109,7 +110,7 @@ public sealed class TeacherService : ITeacherService
         return students
             .OrderBy(s => s.LastName)
             .ThenBy(s => s.FirstName)
-            .Select(s => new TeacherStudentDto(s.Id, s.RegistrationNumber, $"{s.LastName} {s.FirstName}"))
+            .Select(s => new TeacherStudentDto(s.Id, s.RegistrationNumber, StudentDisplayName.Format(s)))
             .ToList();
     }
 

@@ -1,13 +1,12 @@
 import 'package:dio/dio.dart';
 
 import '../auth/auth_storage.dart';
-import '../config/api_config.dart';
 import '../models/api_response.dart';
 import 'dio_factory.dart';
 
 class ApiClient {
-  ApiClient() {
-    _dio = createApiDio(apiBaseUrl);
+  ApiClient({required String baseUrl}) {
+    _dio = createApiDio(baseUrl);
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -21,6 +20,8 @@ class ApiClient {
   }
 
   late final Dio _dio;
+
+  String get baseUrl => _dio.options.baseUrl;
 
   Future<List<T>> getList<T>(
     String path,
@@ -132,5 +133,21 @@ class ApiClient {
     }
 
     return fromJson(Map<String, dynamic>.from(api.data as Map));
+  }
+
+  Future<void> delete(String path) async {
+    final response = await _dio.delete<Map<String, dynamic>>(path);
+    final body = response.data;
+    if (body == null) {
+      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+    }
+
+    final api = ApiResponse.fromJson(body, (d) => d);
+    if (!api.success) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        message: api.message ?? 'Erreur suppression',
+      );
+    }
   }
 }

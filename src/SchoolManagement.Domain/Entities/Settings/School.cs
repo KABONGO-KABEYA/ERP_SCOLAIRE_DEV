@@ -31,6 +31,9 @@ public class School : AuditableEntity, IAggregateRoot
 
     public Currency DefaultCurrency { get; set; } = Currency.CDF;
 
+    /// <summary>Frais scolaire principal de l'établissement (devise et défaut Finance / Dashboard).</summary>
+    public Guid? DefaultFeeTypeId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<AcademicYear> AcademicYears { get; set; } = [];

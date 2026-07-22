@@ -2,77 +2,53 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/erp_theme.dart';
-import '../promoteur_dashboard_repository.dart';
 import '../dashboard_formatters.dart';
 import '../models/promoteur_dashboard_models.dart';
 
-class PromoterPeriodSelector extends StatelessWidget {
-  const PromoterPeriodSelector({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+class PilotSectionTitle extends StatelessWidget {
+  const PilotSectionTitle(this.title, {super.key, this.subtitle});
 
-  final DashboardPeriod value;
-  final ValueChanged<DashboardPeriod> onChanged;
+  final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: DashboardPeriod.values.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final period = DashboardPeriod.values[index];
-          final selected = period == value;
-          return ChoiceChip(
-            label: Text(period.label),
-            selected: selected,
-            onSelected: (_) => onChanged(period),
-            selectedColor: ErpColors.primary,
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : ErpColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: ErpColors.navy,
+              letterSpacing: -0.2,
             ),
-            backgroundColor: Colors.white,
-            side: BorderSide(color: selected ? ErpColors.primary : ErpColors.border),
-            showCheckmark: false,
-          );
-        },
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(subtitle!, style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary)),
+          ],
+        ],
       ),
     );
   }
 }
 
-class PromoterStatCard extends StatelessWidget {
-  const PromoterStatCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.value,
-    this.subtitle,
-    this.changePercent,
-    this.child,
-    this.accent = ErpColors.primary,
-  });
+class PilotCard extends StatelessWidget {
+  const PilotCard({super.key, required this.child, this.onTap, this.padding});
 
-  final IconData icon;
-  final String title;
-  final String value;
-  final String? subtitle;
-  final double? changePercent;
-  final Widget? child;
-  final Color accent;
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
-    final change = changePercent;
-    final up = (change ?? 0) >= 0;
-    return Container(
-      padding: const EdgeInsets.all(14),
+    final content = Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -84,6 +60,48 @@ class PromoterStatCard extends StatelessWidget {
           ),
         ],
       ),
+      child: child,
+    );
+
+    if (onTap == null) return content;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: content,
+      ),
+    );
+  }
+}
+
+class KpiMoneyCard extends StatelessWidget {
+  const KpiMoneyCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.amount,
+    required this.currency,
+    required this.changePercent,
+    required this.comparisonLabel,
+    required this.accent,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final double amount;
+  final String currency;
+  final double changePercent;
+  final String comparisonLabel;
+  final Color accent;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final up = changePercent >= 0;
+    return PilotCard(
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -98,87 +116,483 @@ class PromoterStatCard extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: accent),
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
+              Icon(Icons.chevron_right_rounded, size: 18, color: ErpColors.textSecondary.withValues(alpha: 0.6)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(label, style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            formatMoney(amount, currency),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: ErpColors.navy),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                size: 14,
+                color: up ? ErpColors.success : ErpColors.danger,
+              ),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
+                  '${formatPercent(changePercent)} $comparisonLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: ErpColors.textSecondary,
+                    color: up ? ErpColors.success : ErpColors.danger,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: ErpColors.navy,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(subtitle!, style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary)),
-          ],
-          if (change != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(
-                  up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  size: 16,
-                  color: up ? ErpColors.success : ErpColors.danger,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  formatPercent(change),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: up ? ErpColors.success : ErpColors.danger,
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (child != null) ...[
-            const SizedBox(height: 10),
-            child!,
-          ],
         ],
       ),
     );
   }
 }
 
-class PromoterSectionCard extends StatelessWidget {
-  const PromoterSectionCard({
+class KpiStudentsCard extends StatelessWidget {
+  const KpiStudentsCard({
     super.key,
-    required this.title,
-    required this.child,
-    this.trailing,
+    required this.students,
+    this.onTap,
   });
 
-  final String title;
-  final Widget child;
-  final Widget? trailing;
+  final PromoterStudentsKpi students;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    return PilotCard(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.school_rounded, size: 18, color: Color(0xFF8B5CF6)),
+              ),
+              const Spacer(),
+              Icon(Icons.chevron_right_rounded, size: 18, color: ErpColors.textSecondary.withValues(alpha: 0.6)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text('Élèves inscrits', style: TextStyle(fontSize: 11, color: ErpColors.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            '${students.total}',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ErpColors.navy),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '♂ ${students.boys}  ·  ♀ ${students.girls}',
+            style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RevenueLineChartCard extends StatelessWidget {
+  const RevenueLineChartCard({
+    super.key,
+    required this.title,
+    required this.points,
+    required this.currency,
+    this.color = ErpColors.primary,
+  });
+
+  final String title;
+  final List<RevenuePoint> points;
+  final String currency;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxY = points.fold<double>(0, (m, p) => p.amount > m ? p.amount : m);
+    final spots = <FlSpot>[];
+    for (var i = 0; i < points.length; i++) {
+      spots.add(FlSpot(i.toDouble(), points[i].amount));
+    }
+
+    return PilotCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy)),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160,
+            child: spots.isEmpty
+                ? const Center(child: Text('Aucune donnée', style: TextStyle(color: ErpColors.textSecondary)))
+                : LineChart(
+                    LineChartData(
+                      minY: 0,
+                      maxY: maxY <= 0 ? 1 : maxY * 1.15,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (_) => FlLine(
+                          color: ErpColors.border.withValues(alpha: 0.8),
+                          strokeWidth: 1,
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: (points.length / 4).clamp(1, 10).toDouble(),
+                            getTitlesWidget: (value, meta) {
+                              final i = value.round();
+                              if (i < 0 || i >= points.length) return const SizedBox.shrink();
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(points[i].label, style: const TextStyle(fontSize: 9, color: ErpColors.textSecondary)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (touched) => touched
+                              .map(
+                                (t) => LineTooltipItem(
+                                  formatMoney(t.y, currency),
+                                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 11),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          color: color,
+                          barWidth: 2.5,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: color.withValues(alpha: 0.12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ExpenseSummaryCard extends StatelessWidget {
+  const ExpenseSummaryCard({
+    super.key,
+    required this.expenses,
+    required this.currency,
+    required this.onOpenScope,
+    required this.onCategoryTap,
+  });
+
+  final PromoterExpensesBoard expenses;
+  final String currency;
+  final void Function(String scope) onOpenScope;
+  final void Function(NamedAmountShare category) onCategoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MiniMetric(
+                label: "Aujourd'hui",
+                value: formatMoney(expenses.today, currency),
+                onTap: () => onOpenScope('Today'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Ce mois',
+                value: formatMoney(expenses.month, currency),
+                onTap: () => onOpenScope('Month'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Année',
+                value: formatMoney(expenses.year, currency),
+                onTap: () => onOpenScope('Year'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        PilotCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Répartition par catégorie', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy)),
+              const SizedBox(height: 10),
+              if (expenses.byCategory.isEmpty)
+                const Text('Aucune dépense enregistrée', style: TextStyle(color: ErpColors.textSecondary, fontSize: 12))
+              else
+                ...expenses.byCategory.map((c) {
+                  final color = parseHexColor(c.colorHex);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: InkWell(
+                      onTap: () => onCategoryTap(c),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                              ),
+                              Text(formatMoney(c.amount, currency), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (c.percentage / 100).clamp(0, 1),
+                              minHeight: 6,
+                              backgroundColor: color.withValues(alpha: 0.12),
+                              color: color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class FundAllocationList extends StatelessWidget {
+  const FundAllocationList({
+    super.key,
+    required this.funds,
+    required this.currency,
+    required this.onTap,
+  });
+
+  final List<FundAllocationShare> funds;
+  final String currency;
+  final void Function(FundAllocationShare fund) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (funds.isEmpty) {
+      return const PilotCard(
+        child: Text(
+          'Aucun compte lié à ce frais (configurez la répartition ou encaissez).',
+          style: TextStyle(color: ErpColors.textSecondary),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        const PilotCard(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Text(
+            'J-1 = solde avant aujourd’hui · J = encaissement du jour · Dépense = sorties du jour',
+            style: TextStyle(fontSize: 11, color: ErpColors.textSecondary, height: 1.35),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...funds.map((f) {
+          final color = parseHexColor(f.colorHex);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: PilotCard(
+              onTap: () => onTap(f),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          f.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy),
+                        ),
+                      ),
+                      Text(
+                        formatMoney(f.solde, currency),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: f.solde >= 0 ? ErpColors.navy : ErpColors.danger,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: _CashFlowCell(label: 'J-1', value: formatMoney(f.periodJ1, currency))),
+                      Expanded(child: _CashFlowCell(label: 'J', value: formatMoney(f.encaissementJ, currency), accent: ErpColors.success)),
+                      Expanded(child: _CashFlowCell(label: 'Dépense', value: formatMoney(f.depenseJ, currency), accent: ErpColors.danger)),
+                    ],
+                  ),
+                  if (f.percentage > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${f.percentage.toStringAsFixed(1)} % des encaissements du jour',
+                      style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _CashFlowCell extends StatelessWidget {
+  const _CashFlowCell({required this.label, required this.value, this.accent});
+
+  final String label;
+  final String value;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: ErpColors.textSecondary, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: accent ?? ErpColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class WithholdingsList extends StatelessWidget {
+  const WithholdingsList({
+    super.key,
+    required this.items,
+    required this.currency,
+  });
+
+  final List<PromoterWithholdingShare> items;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const PilotCard(
+        child: Text('Aucune retenue sur ce frais.', style: TextStyle(color: ErpColors.textSecondary)),
+      );
+    }
+
+    return Column(
+      children: items.map((w) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: PilotCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(w.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _CashFlowCell(label: 'Aujourd’hui', value: formatMoney(w.amountToday, currency))),
+                    Expanded(child: _CashFlowCell(label: 'Mois', value: formatMoney(w.amountMonth, currency))),
+                    Expanded(child: _CashFlowCell(label: 'Année', value: formatMoney(w.amountYear, currency), accent: ErpColors.primary)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class SituationHeroCard extends StatelessWidget {
+  const SituationHeroCard({
+    super.key,
+    required this.situation,
+    required this.currency,
+  });
+
+  final PromoterSituation situation;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = situation.availableBalance >= 0;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: positive
+              ? [ErpColors.navy, const Color(0xFF1D4ED8)]
+              : [const Color(0xFF7F1D1D), ErpColors.danger],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: ErpColors.navy.withValues(alpha: 0.05),
-            blurRadius: 18,
+            color: ErpColors.navy.withValues(alpha: 0.25),
+            blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
@@ -186,568 +600,146 @@ class PromoterSectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Situation financière', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(
+            formatMoney(situation.availableBalance, currency),
+            style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text('Solde disponible', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: ErpColors.navy,
-                  ),
-                ),
+                child: _HeroStat(label: 'Recettes', value: formatMoney(situation.totalRevenue, currency)),
               ),
-              if (trailing != null) trailing!,
+              Expanded(
+                child: _HeroStat(label: 'Dépenses', value: formatMoney(situation.totalExpenses, currency)),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
-          child,
         ],
       ),
     );
   }
 }
 
-class PromoterRevenueChart extends StatelessWidget {
-  const PromoterRevenueChart({
+class ReceivablesGrid extends StatelessWidget {
+  const ReceivablesGrid({
     super.key,
-    required this.points,
+    required this.receivables,
     required this.currency,
-    required this.granularity,
-    required this.onGranularityChanged,
+    required this.onRemaining,
+    required this.onDebtors,
+    required this.onPaid,
+    required this.onRecovery,
   });
 
-  final List<RevenuePoint> points;
+  final PromoterReceivables receivables;
   final String currency;
-  final RevenueGranularity granularity;
-  final ValueChanged<RevenueGranularity> onGranularityChanged;
+  final VoidCallback onRemaining;
+  final VoidCallback onDebtors;
+  final VoidCallback onPaid;
+  final VoidCallback onRecovery;
 
   @override
   Widget build(BuildContext context) {
-    final maxY = points.fold<double>(0, (m, p) => p.amount > m ? p.amount : m);
-    final chartMax = maxY <= 0 ? 100.0 : maxY * 1.2;
-
-    return PromoterSectionCard(
-      title: 'Évolution des recettes',
-      trailing: DropdownButtonHideUnderline(
-        child: DropdownButton<RevenueGranularity>(
-          value: granularity,
-          items: RevenueGranularity.values
-              .map((g) => DropdownMenuItem(value: g, child: Text(g.label, style: const TextStyle(fontSize: 12))))
-              .toList(),
-          onChanged: (v) {
-            if (v != null) onGranularityChanged(v);
-          },
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MiniMetric(
+                label: 'À percevoir',
+                value: formatMoney(receivables.remainingToCollect, currency),
+                onTap: onRemaining,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Débiteurs',
+                value: '${receivables.debtorStudents}',
+                onTap: onDebtors,
+              ),
+            ),
+          ],
         ),
-      ),
-      child: SizedBox(
-        height: 220,
-        child: points.isEmpty
-            ? const Center(child: Text('Aucune donnée sur la période.'))
-            : LineChart(
-                LineChartData(
-                  minY: 0,
-                  maxY: chartMax,
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (v) => FlLine(
-                      color: ErpColors.border.withValues(alpha: 0.8),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 42,
-                        getTitlesWidget: (value, meta) => Text(
-                          value >= 1000 ? '${(value / 1000).toStringAsFixed(0)}k' : value.toStringAsFixed(0),
-                          style: const TextStyle(fontSize: 10, color: ErpColors.textSecondary),
-                        ),
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: points.length <= 8 ? 1 : (points.length / 5).ceilToDouble(),
-                        getTitlesWidget: (value, meta) {
-                          final i = value.toInt();
-                          if (i < 0 || i >= points.length) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(points[i].label, style: const TextStyle(fontSize: 10, color: ErpColors.textSecondary)),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  lineTouchData: LineTouchData(
-                    touchTooltipData: LineTouchTooltipData(
-                      getTooltipItems: (spots) => spots
-                          .map(
-                            (s) => LineTooltipItem(
-                              formatMoney(s.y, currency),
-                              const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].amount),
-                      ],
-                      isCurved: true,
-                      color: ErpColors.primary,
-                      barWidth: 3,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: ErpColors.primary.withValues(alpha: 0.15),
-                      ),
-                    ),
-                  ],
-                ),
-                duration: const Duration(milliseconds: 650),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _MiniMetric(
+                label: 'En ordre',
+                value: '${receivables.fullyPaidStudents}',
+                onTap: onPaid,
               ),
-      ),
-    );
-  }
-}
-
-class PromoterDonutChart extends StatefulWidget {
-  const PromoterDonutChart({
-    super.key,
-    required this.shares,
-    required this.currency,
-  });
-
-  final List<NamedAmountShare> shares;
-  final String currency;
-
-  @override
-  State<PromoterDonutChart> createState() => _PromoterDonutChartState();
-}
-
-class _PromoterDonutChartState extends State<PromoterDonutChart> {
-  int? _touched;
-
-  @override
-  Widget build(BuildContext context) {
-    final shares = widget.shares;
-    final selected = _touched != null && _touched! < shares.length ? shares[_touched!] : null;
-
-    return PromoterSectionCard(
-      title: 'Répartition des recettes',
-      child: Column(
-        children: [
-          SizedBox(
-            height: 200,
-            child: shares.isEmpty
-                ? const Center(child: Text('Aucune répartition disponible.'))
-                : Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 52,
-                          pieTouchData: PieTouchData(
-                            touchCallback: (event, response) {
-                              setState(() {
-                                if (!event.isInterestedForInteractions ||
-                                    response?.touchedSection == null) {
-                                  _touched = null;
-                                  return;
-                                }
-                                _touched = response!.touchedSection!.touchedSectionIndex;
-                              });
-                            },
-                          ),
-                          sections: [
-                            for (var i = 0; i < shares.length; i++)
-                              PieChartSectionData(
-                                color: parseHexColor(shares[i].colorHex),
-                                value: shares[i].amount <= 0 ? 0.01 : shares[i].amount,
-                                title: '${shares[i].percentage.toStringAsFixed(0)}%',
-                                radius: _touched == i ? 58 : 48,
-                                titleStyle: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                          ],
-                        ),
-                        duration: const Duration(milliseconds: 500),
-                      ),
-                      if (selected != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 48),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                selected.name,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                              ),
-                              Text(
-                                formatMoney(selected.amount, widget.currency),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: ErpColors.navy,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 8),
-          ...shares.take(6).map(
-                (s) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: parseHexColor(s.colorHex),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(s.name, style: const TextStyle(fontSize: 12))),
-                      Text(
-                        '${s.percentage.toStringAsFixed(0)} %',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MiniMetric(
+                label: 'Recouvrement',
+                value: '${receivables.recoveryPercent.toStringAsFixed(1)} %',
+                onTap: onRecovery,
               ),
-        ],
-      ),
-    );
-  }
-}
-
-class PromoterFundAllocationList extends StatelessWidget {
-  const PromoterFundAllocationList({
-    super.key,
-    required this.items,
-    required this.currency,
-    this.onSeeAll,
-  });
-
-  final List<FundAllocationShare> items;
-  final String currency;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return PromoterSectionCard(
-      title: 'Répartition automatique des fonds',
-      trailing: TextButton(
-        onPressed: onSeeAll,
-        child: const Text('Voir toutes', style: TextStyle(fontSize: 12)),
-      ),
-      child: items.isEmpty
-          ? const Text('Aucune répartition enregistrée sur la période.')
-          : Column(
-              children: [
-                for (final item in items) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      Text('${item.percentage.toStringAsFixed(0)} %'),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      value: (item.percentage / 100).clamp(0, 1),
-                      minHeight: 8,
-                      backgroundColor: ErpColors.border,
-                      color: ErpColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      formatMoney(item.amount, currency),
-                      style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ],
             ),
+          ],
+        ),
+      ],
     );
   }
 }
 
-class PromoterActivitiesList extends StatelessWidget {
-  const PromoterActivitiesList({
+class AlertsList extends StatelessWidget {
+  const AlertsList({
     super.key,
-    required this.activities,
-    required this.currency,
+    required this.alerts,
+    required this.onTap,
   });
-
-  final List<DashboardActivity> activities;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    return PromoterSectionCard(
-      title: 'Activités récentes',
-      child: activities.isEmpty
-          ? const Text('Aucune activité récente.')
-          : Column(
-              children: [
-                for (final a in activities)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: (a.kind == 'Payment' ? ErpColors.success : ErpColors.primary)
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            a.kind == 'Payment' ? Icons.payments_rounded : Icons.person_add_alt_1_rounded,
-                            color: a.kind == 'Payment' ? ErpColors.success : ErpColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(a.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                              Text(a.subtitle, style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(formatTime(a.occurredAtUtc), style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary)),
-                            if (a.amount != null)
-                              Text(
-                                formatMoney(a.amount!, a.currency ?? currency),
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-    );
-  }
-}
-
-class PromoterAlertsList extends StatelessWidget {
-  const PromoterAlertsList({super.key, required this.alerts});
 
   final List<DashboardAlert> alerts;
+  final void Function(DashboardAlert alert) onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PromoterSectionCard(
-      title: 'Alertes',
-      child: Column(
-        children: [
-          for (final alert in alerts)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: alertColor(alert.severity).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: alertColor(alert.severity).withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.notifications_active_rounded, color: alertColor(alert.severity), size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      alert.message,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: alertColor(alert.severity),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class PromoterTopClassesChart extends StatelessWidget {
-  const PromoterTopClassesChart({
-    super.key,
-    required this.items,
-    required this.currency,
-  });
-
-  final List<ClassRevenueRank> items;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final max = items.fold<double>(0, (m, e) => e.amount > m ? e.amount : m);
-
-    return PromoterSectionCard(
-      title: 'Classement des classes',
-      child: items.isEmpty
-          ? const Text('Aucune recette par classe.')
-          : Column(
-              children: [
-                for (final item in items) ...[
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 22,
-                        child: Text('${item.rank}.', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      ),
-                      Expanded(child: Text(item.className, style: const TextStyle(fontWeight: FontWeight.w600))),
-                      Text(formatMoney(item.amount, currency), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      value: max <= 0 ? 0 : (item.amount / max).clamp(0, 1),
-                      minHeight: 10,
-                      backgroundColor: ErpColors.border,
-                      color: ErpColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ],
-            ),
-    );
-  }
-}
-
-class PromoterTopFeeTypes extends StatelessWidget {
-  const PromoterTopFeeTypes({super.key, required this.items});
-
-  final List<NamedAmountShare> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return PromoterSectionCard(
-      title: 'Top des types de frais',
-      child: items.isEmpty
-          ? const Text('Aucun type de frais encaissé.')
-          : Column(
-              children: [
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(item.name)),
-                        Text(
-                          '${item.percentage.toStringAsFixed(0)} %',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.navy),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-    );
-  }
-}
-
-class PromoterQuickStatsGrid extends StatelessWidget {
-  const PromoterQuickStatsGrid({
-    super.key,
-    required this.stats,
-    required this.currency,
-  });
-
-  final PromoterQuickStats stats;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final tiles = [
-      ('Présents', '${stats.presentStudents}', Icons.check_circle_outline),
-      ('Absents', '${stats.absentStudents}', Icons.cancel_outlined),
-      ('Paiements du jour', '${stats.paymentsToday}', Icons.receipt_long_outlined),
-      ('Reçus imprimés', '${stats.receiptsPrinted}', Icons.print_outlined),
-      ('Reste à percevoir', formatMoney(stats.remainingToCollect, currency), Icons.hourglass_bottom_rounded),
-      ('Total réparti', formatMoney(stats.totalAllocated, currency), Icons.pie_chart_outline),
-    ];
-
-    return PromoterSectionCard(
-      title: 'Informations rapides',
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: tiles.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.55,
-        ),
-        itemBuilder: (context, index) {
-          final t = tiles[index];
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: ErpColors.pageBackground,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
+    return Column(
+      children: alerts.map((a) {
+        final color = alertColor(a.severity);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: PilotCard(
+            onTap: a.actionHint == null ? null : () => onTap(a),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(t.$3, size: 18, color: ErpColors.primary),
-                const Spacer(),
-                Text(t.$2, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: ErpColors.navy)),
-                Text(t.$1, style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary)),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.notifications_active_rounded, color: color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy)),
+                      const SizedBox(height: 2),
+                      Text(a.message, style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                if (a.actionHint != null)
+                  Icon(Icons.chevron_right_rounded, color: ErpColors.textSecondary.withValues(alpha: 0.5)),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -757,31 +749,61 @@ class PromoterSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget box({double h = 90}) => Container(
-          height: h,
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: List.generate(
+        6,
+        (i) => Container(
+          height: i == 0 ? 100 : 80,
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Center(
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        );
+        ),
+      ),
+    );
+  }
+}
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({required this.label, required this.value, this.onTap});
+
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PilotCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: ErpColors.navy)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        box(h: 120),
-        box(h: 48),
-        Row(children: [Expanded(child: box()), const SizedBox(width: 10), Expanded(child: box())]),
-        Row(children: [Expanded(child: box()), const SizedBox(width: 10), Expanded(child: box())]),
-        box(h: 240),
-        box(h: 260),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
       ],
     );
   }

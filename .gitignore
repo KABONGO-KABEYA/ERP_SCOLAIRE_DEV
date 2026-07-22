@@ -22,9 +22,12 @@ appsettings.Local.json
 *.pfx
 .env
 .env.*
+!.env.example
 
 ## Local runtime configuration (machine-specific)
 **/ServeurDonnees.txt
+**/ServeurDonneesCloud.txt
+**/CloudSyncState.txt
 **/ServeurFichiers.txt
 src/SchoolManagement.API/uploads/
 

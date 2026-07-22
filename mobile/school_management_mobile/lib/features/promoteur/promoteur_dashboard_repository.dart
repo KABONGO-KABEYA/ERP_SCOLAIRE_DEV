@@ -3,7 +3,7 @@ import 'models/promoteur_dashboard_models.dart';
 
 enum DashboardPeriod { today, week, month, year }
 
-enum RevenueGranularity { daily, weekly, monthly }
+enum DashboardDetailScope { today, month, year }
 
 extension DashboardPeriodApi on DashboardPeriod {
   String get apiValue => switch (this) {
@@ -12,26 +12,19 @@ extension DashboardPeriodApi on DashboardPeriod {
         DashboardPeriod.month => 'Month',
         DashboardPeriod.year => 'Year',
       };
-
-  String get label => switch (this) {
-        DashboardPeriod.today => "Aujourd'hui",
-        DashboardPeriod.week => 'Cette semaine',
-        DashboardPeriod.month => 'Ce mois',
-        DashboardPeriod.year => 'Cette année',
-      };
 }
 
-extension RevenueGranularityApi on RevenueGranularity {
+extension DashboardDetailScopeApi on DashboardDetailScope {
   String get apiValue => switch (this) {
-        RevenueGranularity.daily => 'Daily',
-        RevenueGranularity.weekly => 'Weekly',
-        RevenueGranularity.monthly => 'Monthly',
+        DashboardDetailScope.today => 'Today',
+        DashboardDetailScope.month => 'Month',
+        DashboardDetailScope.year => 'Year',
       };
 
   String get label => switch (this) {
-        RevenueGranularity.daily => 'Journalier',
-        RevenueGranularity.weekly => 'Hebdomadaire',
-        RevenueGranularity.monthly => 'Mensuel',
+        DashboardDetailScope.today => "Aujourd'hui",
+        DashboardDetailScope.month => 'Ce mois',
+        DashboardDetailScope.year => 'Cette année',
       };
 }
 
@@ -40,12 +33,82 @@ class PromoteurDashboardRepository {
 
   final ApiClient _api;
 
+  PromoterDashboardOverview? _cache;
+  DateTime? _cacheAt;
+  String? _cacheFeeTypeId;
+  static const _cacheTtl = Duration(seconds: 20);
+
   Future<PromoterDashboardOverview> getOverview({
-    DashboardPeriod period = DashboardPeriod.month,
-    RevenueGranularity granularity = RevenueGranularity.daily,
-  }) =>
-      _api.getObject(
-        '/api/v1/dashboard/overview?period=${period.apiValue}&granularity=${granularity.apiValue}',
-        PromoterDashboardOverview.fromJson,
+    bool forceRefresh = false,
+    String? feeTypeId,
+  }) async {
+    final now = DateTime.now();
+    final cacheKey = feeTypeId ?? '';
+    if (!forceRefresh &&
+        _cache != null &&
+        _cacheAt != null &&
+        _cacheFeeTypeId == cacheKey &&
+        now.difference(_cacheAt!) < _cacheTtl) {
+      return _cache!;
+    }
+
+    final feeQuery = (feeTypeId == null || feeTypeId.isEmpty) ? '' : '&feeTypeId=$feeTypeId';
+    final data = await _api.getObject(
+      '/api/v1/dashboard/overview?period=Month&granularity=Daily$feeQuery',
+      PromoterDashboardOverview.fromJson,
+    );
+    _cache = data;
+    _cacheAt = now;
+    _cacheFeeTypeId = cacheKey;
+    return data;
+  }
+
+  void invalidateCache() {
+    _cache = null;
+    _cacheAt = null;
+    _cacheFeeTypeId = null;
+  }
+
+  Future<List<DashboardPaymentLine>> getPayments(DashboardDetailScope scope) =>
+      _api.getList(
+        '/api/v1/dashboard/payments?scope=${scope.apiValue}',
+        DashboardPaymentLine.fromJson,
+      );
+
+  Future<List<DashboardExpenseLine>> getExpenses(
+    DashboardDetailScope scope, {
+    String? destinationId,
+  }) {
+    final q = destinationId == null || destinationId.isEmpty
+        ? ''
+        : '&destinationId=$destinationId';
+    return _api.getList(
+      '/api/v1/dashboard/expenses?scope=${scope.apiValue}$q',
+      DashboardExpenseLine.fromJson,
+    );
+  }
+
+  Future<List<DashboardDebtorLine>> getDebtors({String? feeTypeId}) {
+    final feeQuery = (feeTypeId == null || feeTypeId.isEmpty) ? '' : '?feeTypeId=$feeTypeId';
+    return _api.getList('/api/v1/dashboard/debtors$feeQuery', DashboardDebtorLine.fromJson);
+  }
+
+  Future<FeeReceivablesBreakdown> getReceivablesBreakdown({String? feeTypeId}) {
+    final feeQuery = (feeTypeId == null || feeTypeId.isEmpty) ? '' : '?feeTypeId=$feeTypeId';
+    return _api.getObject(
+      '/api/v1/dashboard/receivables-breakdown$feeQuery',
+      FeeReceivablesBreakdown.fromJson,
+    );
+  }
+
+  Future<EnrolledStudentsBySection> getEnrolledStudents() => _api.getObject(
+        '/api/v1/dashboard/enrolled-students',
+        EnrolledStudentsBySection.fromJson,
+      );
+
+  Future<List<DashboardFundMovement>> getFundMovements(String destinationId) =>
+      _api.getList(
+        '/api/v1/dashboard/fund-movements?destinationId=$destinationId',
+        DashboardFundMovement.fromJson,
       );
 }

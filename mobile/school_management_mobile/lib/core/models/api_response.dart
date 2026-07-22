@@ -16,10 +16,12 @@ class ApiResponse<T> {
     T Function(Object? json) fromJsonT,
   ) {
     return ApiResponse(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String?,
-      data: json['data'] == null ? null : fromJsonT(json['data']),
-      errors: (json['errors'] as List<dynamic>?)
+      success: json['success'] as bool? ?? json['Success'] as bool? ?? false,
+      message: json['message'] as String? ?? json['Message'] as String?,
+      data: json['data'] == null && json['Data'] == null
+          ? null
+          : fromJsonT(json['data'] ?? json['Data']),
+      errors: (json['errors'] as List<dynamic>? ?? json['Errors'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList(),
     );

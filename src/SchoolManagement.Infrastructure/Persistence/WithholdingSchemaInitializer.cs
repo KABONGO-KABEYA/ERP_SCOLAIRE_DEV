@@ -97,6 +97,42 @@ public sealed class WithholdingSchemaInitializer
             CREATE INDEX [IX_FinRetenueConfiguration_School_Year]
                 ON [FinRetenueConfiguration] ([SchoolId], [AcademicYearId], [IsActive]);
         END
+        """,
+        """
+        IF OBJECT_ID(N'FinRetenueApplication', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [FinRetenueApplication] (
+                [Id] uniqueidentifier NOT NULL,
+                [SchoolId] uniqueidentifier NOT NULL,
+                [StudentId] uniqueidentifier NOT NULL,
+                [AcademicYearId] uniqueidentifier NOT NULL,
+                [WithholdingConfigurationId] uniqueidentifier NOT NULL,
+                [PaymentId] uniqueidentifier NOT NULL,
+                [PaymentLineId] uniqueidentifier NOT NULL,
+                [Amount] decimal(18,4) NOT NULL,
+                [CreatedAt] datetime2 NOT NULL,
+                [CreatedBy] uniqueidentifier NULL,
+                [UpdatedAt] datetime2 NULL,
+                [UpdatedBy] uniqueidentifier NULL,
+                [IsDeleted] bit NOT NULL CONSTRAINT [DF_FinRetenueApplication_IsDeleted] DEFAULT(0),
+                [DeletedAt] datetime2 NULL,
+                [DeletedBy] uniqueidentifier NULL,
+                CONSTRAINT [PK_FinRetenueApplication] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_FinRetenueApplication_Schools] FOREIGN KEY ([SchoolId]) REFERENCES [Schools] ([Id]),
+                CONSTRAINT [FK_FinRetenueApplication_Config] FOREIGN KEY ([WithholdingConfigurationId]) REFERENCES [FinRetenueConfiguration] ([Id]),
+                CONSTRAINT [FK_FinRetenueApplication_Payments] FOREIGN KEY ([PaymentId]) REFERENCES [Payments] ([Id]),
+                CONSTRAINT [FK_FinRetenueApplication_PaymentLines] FOREIGN KEY ([PaymentLineId]) REFERENCES [PaymentLines] ([Id])
+            );
+            CREATE UNIQUE INDEX [IX_FinRetenueApplication_Unique]
+                ON [FinRetenueApplication] (
+                    [SchoolId],
+                    [StudentId],
+                    [AcademicYearId],
+                    [WithholdingConfigurationId]
+                ) WHERE [IsDeleted] = 0;
+            CREATE INDEX [IX_FinRetenueApplication_Payment]
+                ON [FinRetenueApplication] ([SchoolId], [PaymentId]);
+        END
         """
     ];
 }

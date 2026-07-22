@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../../core/auth/auth_storage.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
 import '../../router/app_router.dart';
-import 'dashboard_formatters.dart';
 import 'models/promoteur_dashboard_models.dart';
-import 'promoteur_dashboard_repository.dart';
 import 'widgets/promoteur_dashboard_widgets.dart';
 
 class PromoteurDashboardScreen extends ConsumerStatefulWidget {
@@ -18,13 +18,12 @@ class PromoteurDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScreen> {
-  DashboardPeriod _period = DashboardPeriod.month;
-  RevenueGranularity _granularity = RevenueGranularity.daily;
   PromoterDashboardOverview? _data;
   bool _loading = true;
   String? _error;
   String? _userName;
   bool _localeReady = false;
+  String? _selectedFeeTypeId;
 
   @override
   void initState() {
@@ -42,18 +41,23 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
     await _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool force = true}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final data = await ref.read(promoteurDashboardRepositoryProvider).getOverview(
-            period: _period,
-            granularity: _granularity,
-          );
+      final repo = ref.read(promoteurDashboardRepositoryProvider);
+      if (force) repo.invalidateCache();
+      final data = await repo.getOverview(
+        forceRefresh: force,
+        feeTypeId: _selectedFeeTypeId,
+      );
       if (!mounted) return;
-      setState(() => _data = data);
+      setState(() {
+        _data = data;
+        _selectedFeeTypeId ??= data.selectedFeeTypeId;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -62,21 +66,48 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
     }
   }
 
-  Future<void> _onPeriodChanged(DashboardPeriod period) async {
-    setState(() => _period = period);
-    await _load();
+  Future<void> _onFeeTypeChanged(String? feeTypeId) async {
+    if (feeTypeId == null || feeTypeId == _selectedFeeTypeId) return;
+    setState(() => _selectedFeeTypeId = feeTypeId);
+    await _load(force: true);
   }
 
-  Future<void> _onGranularityChanged(RevenueGranularity granularity) async {
-    setState(() => _granularity = granularity);
-    await _load();
+  void _openPayments(String scope) => context.push('/promoteur/payments?scope=$scope');
+
+  void _openExpenses(String scope, {String? category}) {
+    final q = category == null ? '' : '&category=${Uri.encodeComponent(category)}';
+    context.push('/promoteur/expenses?scope=$scope$q');
+  }
+
+  void _openDebtors() {
+    final fee = _selectedFeeTypeId ?? _data?.selectedFeeTypeId;
+    final q = fee == null || fee.isEmpty ? '' : '?feeTypeId=$fee';
+    context.push('/promoteur/debtors$q');
+  }
+
+  void _openFund(FundAllocationShare fund) => context.push(
+        '/promoteur/funds/${fund.destinationId}?name=${Uri.encodeComponent(fund.name)}',
+      );
+
+  void _openStudents() => context.push('/promoteur/students');
+
+  void _onAlert(DashboardAlert alert) {
+    final hint = alert.actionHint;
+    if (hint == 'debtors' || hint == 'receivables') {
+      _openDebtors();
+    } else if (hint == 'payments_today') {
+      _openPayments('Today');
+    } else if (hint == 'expenses_month') {
+      _openExpenses('Month');
+    } else if (hint == 'expenses_today') {
+      _openExpenses('Today');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final data = _data;
     final currency = data?.currency ?? 'CDF';
-    final summary = data?.summary;
 
     return Scaffold(
       backgroundColor: ErpColors.pageBackground,
@@ -85,64 +116,101 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
             ? const PromoterSkeleton()
             : RefreshIndicator(
                 color: ErpColors.primary,
-                onRefresh: _load,
+                onRefresh: () => _load(force: true),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   slivers: [
-                    SliverToBoxAdapter(child: _Header(
-                      userName: _userName ?? 'Promoteur',
-                      schoolName: data?.schoolName ?? 'Établissement',
-                      onLogout: () => logout(ref, context),
-                    )),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      sliver: SliverToBoxAdapter(
-                        child: PromoterPeriodSelector(
-                          value: _period,
-                          onChanged: _onPeriodChanged,
-                        ),
+                    SliverToBoxAdapter(
+                      child: _Header(
+                        userName: _userName ?? 'Promoteur',
+                        schoolName: data?.schoolName ?? 'Établissement',
+                        schoolLogoUrl: data?.schoolLogoUrl,
+                        apiBaseUrl: ref.watch(apiClientProvider).baseUrl,
+                        onLogout: () => logout(ref, context),
                       ),
                     ),
                     if (_error != null)
                       SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         sliver: SliverToBoxAdapter(
                           child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: ErpColors.danger.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(_error!, style: const TextStyle(color: ErpColors.danger)),
+                            child: Text(_error!, style: const TextStyle(color: ErpColors.danger, fontSize: 12)),
                           ),
                         ),
                       ),
-                    if (summary != null)
+                    if (data != null) ...[
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         sliver: SliverToBoxAdapter(
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              PilotCard(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.payments_outlined, size: 18, color: ErpColors.primary),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Frais suivi',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: ErpColors.navy),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          isExpanded: true,
+                                          value: data.availableFeeTypes.any((f) => f.id == (_selectedFeeTypeId ?? data.selectedFeeTypeId))
+                                              ? (_selectedFeeTypeId ?? data.selectedFeeTypeId)
+                                              : (data.availableFeeTypes.isEmpty ? null : data.availableFeeTypes.first.id),
+                                          hint: Text(data.selectedFeeTypeName, overflow: TextOverflow.ellipsis),
+                                          items: data.availableFeeTypes
+                                              .map(
+                                                (f) => DropdownMenuItem(
+                                                  value: f.id,
+                                                  child: Text('${f.name} (${f.currency})', overflow: TextOverflow.ellipsis),
+                                                ),
+                                              )
+                                              .toList(),
+                                          onChanged: _loading ? null : _onFeeTypeChanged,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const PilotSectionTitle('Indicateurs principaux', subtitle: 'Touchez une carte pour le détail'),
                               Row(
                                 children: [
                                   Expanded(
-                                    child: PromoterStatCard(
-                                      icon: Icons.payments_rounded,
-                                      title: summary.periodRevenueLabel,
-                                      value: formatMoney(summary.periodRevenue, currency),
-                                      changePercent: summary.periodRevenueChangePercent,
+                                    child: KpiMoneyCard(
+                                      icon: Icons.today_rounded,
+                                      label: data.kpis.todayRevenue.label,
+                                      amount: data.kpis.todayRevenue.amount,
+                                      currency: currency,
+                                      changePercent: data.kpis.todayRevenue.changePercent,
+                                      comparisonLabel: data.kpis.todayRevenue.comparisonLabel,
                                       accent: ErpColors.primary,
+                                      onTap: () => _openPayments('Today'),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: PromoterStatCard(
+                                    child: KpiMoneyCard(
                                       icon: Icons.calendar_month_rounded,
-                                      title: summary.secondaryRevenueLabel,
-                                      value: formatMoney(summary.secondaryRevenue, currency),
-                                      changePercent: summary.secondaryRevenueChangePercent,
-                                      accent: ErpColors.navy,
+                                      label: data.kpis.monthRevenue.label,
+                                      amount: data.kpis.monthRevenue.amount,
+                                      currency: currency,
+                                      changePercent: data.kpis.monthRevenue.changePercent,
+                                      comparisonLabel: data.kpis.monthRevenue.comparisonLabel,
+                                      accent: const Color(0xFF06B6D4),
+                                      onTap: () => _openPayments('Month'),
                                     ),
                                   ),
                                 ],
@@ -151,109 +219,80 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                               Row(
                                 children: [
                                   Expanded(
-                                    child: PromoterStatCard(
-                                      icon: Icons.school_rounded,
-                                      title: 'Inscriptions',
-                                      value: '${summary.newEnrollments}',
-                                      subtitle: '${summary.activeStudents} élèves actifs',
+                                    child: KpiMoneyCard(
+                                      icon: Icons.insights_rounded,
+                                      label: data.kpis.yearRevenue.label,
+                                      amount: data.kpis.yearRevenue.amount,
+                                      currency: currency,
+                                      changePercent: data.kpis.yearRevenue.changePercent,
+                                      comparisonLabel: data.kpis.yearRevenue.comparisonLabel,
                                       accent: ErpColors.success,
+                                      onTap: () => _openPayments('Year'),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: PromoterStatCard(
-                                      icon: Icons.insights_rounded,
-                                      title: 'Taux de réalisation',
-                                      value: '${summary.realizationRate.toStringAsFixed(0)} %',
-                                      accent: ErpColors.warning,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(999),
-                                        child: LinearProgressIndicator(
-                                          value: (summary.realizationRate / 100).clamp(0, 1),
-                                          minHeight: 7,
-                                          backgroundColor: ErpColors.border,
-                                          color: ErpColors.success,
-                                        ),
-                                      ),
+                                    child: KpiStudentsCard(
+                                      students: data.kpis.students,
+                                      onTap: _openStudents,
                                     ),
                                   ),
                                 ],
                               ),
+                              const PilotSectionTitle('Évolution des recettes'),
+                              RevenueLineChartCard(
+                                title: '30 derniers jours',
+                                points: data.dailyRevenueLast30Days,
+                                currency: currency,
+                              ),
+                              const SizedBox(height: 12),
+                              RevenueLineChartCard(
+                                title: 'Année scolaire (mensuel)',
+                                points: data.monthlyRevenueSchoolYear,
+                                currency: currency,
+                                color: const Color(0xFF0B1F47),
+                              ),
+                              const PilotSectionTitle('Dépenses'),
+                              ExpenseSummaryCard(
+                                expenses: data.expenses,
+                                currency: currency,
+                                onOpenScope: _openExpenses,
+                                onCategoryTap: (c) => _openExpenses('Year', category: c.name),
+                              ),
+                              const PilotSectionTitle(
+                                'Répartition des recettes',
+                                subtitle: 'Comptes liés au frais suivi — J-1, J et dépenses',
+                              ),
+                              FundAllocationList(
+                                funds: data.fundAllocations,
+                                currency: currency,
+                                onTap: _openFund,
+                              ),
+                              if (data.withholdings.isNotEmpty) ...[
+                                const PilotSectionTitle(
+                                  'Retenues',
+                                  subtitle: 'Retenues appliquées sur le frais suivi',
+                                ),
+                                WithholdingsList(items: data.withholdings, currency: currency),
+                              ],
+                              const PilotSectionTitle('Situation financière'),
+                              SituationHeroCard(situation: data.situation, currency: currency),
+                              PilotSectionTitle(
+                                'Créances',
+                                subtitle: 'Inscrits année en cours × tarif du frais suivi (comme Encaissements)',
+                              ),
+                              ReceivablesGrid(
+                                receivables: data.receivables,
+                                currency: currency,
+                                onRemaining: _openDebtors,
+                                onDebtors: _openDebtors,
+                                onPaid: _openDebtors,
+                                onRecovery: _openDebtors,
+                              ),
+                              const PilotSectionTitle('Alertes'),
+                              AlertsList(alerts: data.alerts, onTap: _onAlert),
+                              const SizedBox(height: 28),
                             ],
-                          ),
-                        ),
-                      ),
-                    if (data != null) ...[
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterRevenueChart(
-                            points: data.revenueSeries,
-                            currency: currency,
-                            granularity: _granularity,
-                            onGranularityChanged: _onGranularityChanged,
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterDonutChart(
-                            shares: data.feeTypeShares,
-                            currency: currency,
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterFundAllocationList(
-                            items: data.fundAllocations,
-                            currency: currency,
-                            onSeeAll: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Détail des répartitions — bientôt disponible.')),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterActivitiesList(
-                            activities: data.recentActivities,
-                            currency: currency,
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterAlertsList(alerts: data.alerts),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterTopClassesChart(
-                            items: data.topClasses,
-                            currency: currency,
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterTopFeeTypes(items: data.topFeeTypes),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-                        sliver: SliverToBoxAdapter(
-                          child: PromoterQuickStatsGrid(
-                            stats: data.quickStats,
-                            currency: currency,
                           ),
                         ),
                       ),
@@ -266,93 +305,104 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends StatefulWidget {
   const _Header({
     required this.userName,
     required this.schoolName,
+    this.schoolLogoUrl,
+    required this.apiBaseUrl,
     required this.onLogout,
   });
 
   final String userName;
   final String schoolName;
+  final String? schoolLogoUrl;
+  final String apiBaseUrl;
   final VoidCallback onLogout;
 
   @override
-  Widget build(BuildContext context) {
-    final first = userName.trim().isEmpty ? 'P' : userName.trim()[0].toUpperCase();
+  State<_Header> createState() => _HeaderState();
+}
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [ErpColors.navy, ErpColors.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: ErpColors.navy.withValues(alpha: 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+class _HeaderState extends State<_Header> {
+  String? _token;
+
+  @override
+  void initState() {
+    super.initState();
+    AuthStorage.accessToken.then((t) {
+      if (mounted) setState(() => _token = t);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logoUrl = widget.schoolLogoUrl;
+    final fullLogoUrl = (logoUrl == null || logoUrl.isEmpty)
+        ? null
+        : (logoUrl.startsWith('http') ? logoUrl : '${widget.apiBaseUrl.replaceAll(RegExp(r'/$'), '')}$logoUrl');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: 48,
+              height: 48,
+              color: Colors.white,
+              child: fullLogoUrl == null || _token == null
+                  ? Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [ErpColors.navy, ErpColors.primary]),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+                    )
+                  : Image.network(
+                      fullLogoUrl,
+                      fit: BoxFit.contain,
+                      headers: {'Authorization': 'Bearer $_token'},
+                      errorBuilder: (_, __, ___) => Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [ErpColors.navy, ErpColors.primary]),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Bonjour, $userName',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
+                const Text(
+                  'Centre de pilotage',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: ErpColors.navy),
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  schoolName,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  widget.schoolName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
                 ),
-                const SizedBox(height: 6),
                 Text(
-                  formatLongDate(DateTime.now()),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 12,
-                  ),
+                  'Bonjour, ${widget.userName}',
+                  style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-          ),
-          const SizedBox(width: 4),
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'logout') onLogout();
+              if (v == 'logout') widget.onLogout();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'logout', child: Text('Déconnexion')),
             ],
-            child: CircleAvatar(
-              radius: 22,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              child: Text(
-                first,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
-              ),
-            ),
           ),
         ],
       ),

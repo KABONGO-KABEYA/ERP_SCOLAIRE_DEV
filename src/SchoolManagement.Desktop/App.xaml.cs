@@ -124,6 +124,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IPaymentApiService, PaymentApiService>();
         services.AddTransient<IRevenueAllocationApiService, RevenueAllocationApiService>();
         services.AddTransient<IWithholdingApiService, WithholdingApiService>();
+        services.AddTransient<ICloudSyncApiService, CloudSyncApiService>();
         services.AddTransient<IFinanceApiService, FinanceApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
         services.AddTransient<IAcademicApiService, AcademicApiService>();
@@ -168,6 +169,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<SchoolFeeConfigurationViewModel>();
         services.AddTransient<RevenueAllocationConfigViewModel>();
         services.AddTransient<WithholdingConfigViewModel>();
+        services.AddTransient<CloudSyncDashboardViewModel>();
         services.AddTransient<StudentsViewModel>();
         services.AddTransient<StudentDossierEditViewModel>();
         services.AddTransient<EnrollmentWizardViewModel>();
@@ -175,6 +177,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<EncaissementsViewModel>();
         services.AddTransient<PricingCategoryAssignmentViewModel>();
         services.AddTransient<FinancialReportsViewModel>();
+        services.AddTransient<PaymentSituationReportViewModel>();
         services.AddTransient<ExpenseRequestsViewModel>();
         services.AddTransient<ExpensePaymentsViewModel>();
         services.AddTransient<FinanceHubViewModel>();

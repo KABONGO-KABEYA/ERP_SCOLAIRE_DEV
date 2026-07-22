@@ -6,16 +6,19 @@ using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Application.Withholdings.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
-/// <summary>Configuration Paramètres : destinations + clés de répartition par type de frais.</summary>
+/// <summary>Configuration Paramètres : destinations + clés de répartition (frais et retenues).</summary>
 public partial class RevenueAllocationConfigViewModel : ViewModelBase
 {
     private readonly IRevenueAllocationApiService _allocationApi;
     private readonly ISchoolApiService _schoolApi;
     private readonly ISchoolFeeApiService _schoolFeeApi;
+    private readonly IWithholdingApiService _withholdingApi;
     private readonly object _destinationsSync = new();
     private readonly object _keysSync = new();
     private int _destinationsLoadVersion;
@@ -25,18 +28,28 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
     public RevenueAllocationConfigViewModel(
         IRevenueAllocationApiService allocationApi,
         ISchoolApiService schoolApi,
-        ISchoolFeeApiService schoolFeeApi)
+        ISchoolFeeApiService schoolFeeApi,
+        IWithholdingApiService withholdingApi)
     {
         _allocationApi = allocationApi;
         _schoolApi = schoolApi;
         _schoolFeeApi = schoolFeeApi;
+        _withholdingApi = withholdingApi;
+        SelectedSourceKind = SourceKindOptions[0];
     }
+
+    public IReadOnlyList<AllocationSourceKindOption> SourceKindOptions { get; } =
+    [
+        new(RevenueAllocationSourceKind.FeeType, "Type de frais"),
+        new(RevenueAllocationSourceKind.Withholding, "Retenue")
+    ];
 
     public ObservableCollection<RevenueDestinationDto> Destinations { get; } = [];
     public ObservableCollection<RevenueDestinationDto> AvailableDestinationsForKey { get; } = [];
     public ObservableCollection<RevenueAllocationKeyDto> AllocationKeys { get; } = [];
     public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
     public ObservableCollection<FeeTypeDto> FeeTypes { get; } = [];
+    public ObservableCollection<WithholdingTypeDto> WithholdingTypes { get; } = [];
     public ObservableCollection<KeyDetailEditorRow> KeyDetailRows { get; } = [];
 
     [ObservableProperty] private string? _statusMessage;
@@ -50,7 +63,9 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
     [ObservableProperty] private bool _destinationIsActive = true;
 
     [ObservableProperty] private AcademicYearDto? _selectedKeyYear;
+    [ObservableProperty] private AllocationSourceKindOption? _selectedSourceKind;
     [ObservableProperty] private FeeTypeDto? _selectedFeeType;
+    [ObservableProperty] private WithholdingTypeDto? _selectedWithholdingType;
     [ObservableProperty] private RevenueAllocationKeyDto? _selectedKey;
     [ObservableProperty] private string _keyName = string.Empty;
     [ObservableProperty] private string _keyNotes = string.Empty;
@@ -64,6 +79,8 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
 
     public string KeysConfigurationSectionHeaderText => "Configuration des clés de répartition";
     public string DestinationsSectionHeaderText => $"Destinations de répartition ({Destinations.Count})";
+    public string PrincipalAccountHint =>
+        "Sans clé ouverte, 100 % du montant (frais net ou retenue) est crédité au Compte principal (PRN).";
 
     public string KeysConfigurationToggleLabel =>
         IsKeysConfigurationExpanded
@@ -80,24 +97,43 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
 
     public string AllocationKeysCountLabel => $"{AllocationKeys.Count} clé(s)";
 
+    public bool IsFeeTypeSource =>
+        SelectedSourceKind?.Kind == RevenueAllocationSourceKind.FeeType;
+
+    public bool IsWithholdingSource =>
+        SelectedSourceKind?.Kind == RevenueAllocationSourceKind.Withholding;
+
+    public string SourcePickerLabel => IsWithholdingSource ? "Type de retenue" : "Type de frais";
+
     public string KeyStatusLabel => SelectedKey is null
-        ? (CanCreateKeyForSelection ? "Nouvelle répartition" : "Sélectionnez un type de frais")
+        ? (CanCreateKeyForSelection
+            ? "Nouvelle répartition"
+            : IsWithholdingSource
+                ? "Sélectionnez un type de retenue"
+                : "Sélectionnez un type de frais")
         : SelectedKey.HasAllocationHistory
             ? (SelectedKey.IsActive ? "Ouverte — déjà utilisée (historique conservé)" : $"Clôturée au {SelectedKey.EndDate:dd/MM/yyyy} — historique conservé")
             : SelectedKey.IsActive
                 ? "Ouverte — jamais utilisée"
                 : $"Clôturée au {SelectedKey.EndDate:dd/MM/yyyy}";
 
-    /// <summary>Toujours modifiable : une seule clé par type de frais / année.</summary>
+    /// <summary>Toujours modifiable : une seule clé par source / année.</summary>
     public bool CanEditKey => true;
 
     public bool IsKeyReadOnly => false;
 
     public bool CanCreateKeyForSelection =>
         SelectedKeyYear is not null
-        && SelectedFeeType is not null
-        && !AllocationKeys.Any(k =>
-            k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType.Id);
+        && ((IsFeeTypeSource
+                && SelectedFeeType is not null
+                && !AllocationKeys.Any(k =>
+                    k.AcademicYearId == SelectedKeyYear.Id
+                    && k.FeeTypeId == SelectedFeeType.Id))
+            || (IsWithholdingSource
+                && SelectedWithholdingType is not null
+                && !AllocationKeys.Any(k =>
+                    k.AcademicYearId == SelectedKeyYear.Id
+                    && k.WithholdingTypeId == SelectedWithholdingType.Id)));
 
     public bool CanDeleteSelectedKey => SelectedKey?.CanDelete == true;
 
@@ -156,7 +192,19 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         KeyNotes = value.Notes ?? string.Empty;
         KeyStartDate = value.StartDate.ToDateTime(TimeOnly.MinValue);
         KeyEndDate = value.EndDate?.ToDateTime(TimeOnly.MinValue);
-        SelectedFeeType = FeeTypes.FirstOrDefault(f => f.Id == value.FeeTypeId) ?? SelectedFeeType;
+
+        SelectedSourceKind = SourceKindOptions.FirstOrDefault(o => o.Kind == value.SourceKind)
+            ?? SelectedSourceKind;
+        if (value.SourceKind == RevenueAllocationSourceKind.Withholding)
+        {
+            SelectedWithholdingType = WithholdingTypes.FirstOrDefault(t => t.Id == value.WithholdingTypeId)
+                ?? SelectedWithholdingType;
+        }
+        else
+        {
+            SelectedFeeType = FeeTypes.FirstOrDefault(f => f.Id == value.FeeTypeId) ?? SelectedFeeType;
+        }
+
         foreach (var detail in value.Details.OrderBy(d => d.SortOrder))
         {
             AddKeyDetailRowInternal(new KeyDetailEditorRow
@@ -179,7 +227,30 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         _ = LoadKeysThenSyncSelectionAsync();
     }
 
-    partial void OnSelectedFeeTypeChanged(FeeTypeDto? value) => SyncSelectionToExistingKey();
+    partial void OnSelectedSourceKindChanged(AllocationSourceKindOption? value)
+    {
+        OnPropertyChanged(nameof(IsFeeTypeSource));
+        OnPropertyChanged(nameof(IsWithholdingSource));
+        OnPropertyChanged(nameof(SourcePickerLabel));
+        SyncSelectionToExistingKey();
+        NotifyKeyUiState();
+    }
+
+    partial void OnSelectedFeeTypeChanged(FeeTypeDto? value)
+    {
+        if (IsFeeTypeSource)
+        {
+            SyncSelectionToExistingKey();
+        }
+    }
+
+    partial void OnSelectedWithholdingTypeChanged(WithholdingTypeDto? value)
+    {
+        if (IsWithholdingSource)
+        {
+            SyncSelectionToExistingKey();
+        }
+    }
 
     [RelayCommand]
     public async Task LoadAsync()
@@ -214,6 +285,15 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             }
 
             SelectedFeeType ??= FeeTypes.FirstOrDefault();
+
+            WithholdingTypes.Clear();
+            foreach (var type in (await _withholdingApi.GetTypesAsync(activeOnly: true))
+                         .OrderBy(t => t.Name))
+            {
+                WithholdingTypes.Add(type);
+            }
+
+            SelectedWithholdingType ??= WithholdingTypes.FirstOrDefault();
 
             await LoadDestinationsAsync();
             await LoadKeysAsync();
@@ -358,13 +438,23 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
     private void SyncSelectionToExistingKey()
     {
         OnPropertyChanged(nameof(CanCreateKeyForSelection));
-        if (SelectedKeyYear is null || SelectedFeeType is null)
+        if (SelectedKeyYear is null)
         {
             return;
         }
 
-        var existing = AllocationKeys.FirstOrDefault(k =>
-            k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType.Id);
+        RevenueAllocationKeyDto? existing = null;
+        if (IsFeeTypeSource && SelectedFeeType is not null)
+        {
+            existing = AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType.Id);
+        }
+        else if (IsWithholdingSource && SelectedWithholdingType is not null)
+        {
+            existing = AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.WithholdingTypeId == SelectedWithholdingType.Id);
+        }
+
         if (existing is not null)
         {
             if (SelectedKey?.Id != existing.Id)
@@ -375,11 +465,13 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedKey is not null
-            && (SelectedKey.AcademicYearId != SelectedKeyYear.Id || SelectedKey.FeeTypeId != SelectedFeeType.Id))
+        if (SelectedKey is not null && !MatchesCurrentSourceSelection(SelectedKey))
         {
             SelectedKey = null;
-            KeyName = $"Répartition {SelectedFeeType.Name}";
+            var sourceName = IsWithholdingSource
+                ? SelectedWithholdingType?.Name
+                : SelectedFeeType?.Name;
+            KeyName = string.IsNullOrWhiteSpace(sourceName) ? string.Empty : $"Répartition {sourceName}";
             KeyNotes = string.Empty;
             KeyStartDate = DateTime.Today;
             KeyEndDate = null;
@@ -390,28 +482,61 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         }
     }
 
+    private bool MatchesCurrentSourceSelection(RevenueAllocationKeyDto key)
+    {
+        if (SelectedKeyYear is null || key.AcademicYearId != SelectedKeyYear.Id)
+        {
+            return false;
+        }
+
+        if (IsFeeTypeSource)
+        {
+            return SelectedFeeType is not null && key.FeeTypeId == SelectedFeeType.Id;
+        }
+
+        return SelectedWithholdingType is not null && key.WithholdingTypeId == SelectedWithholdingType.Id;
+    }
+
     [RelayCommand]
     private void NewKey()
     {
-        if (SelectedKeyYear is null || SelectedFeeType is null)
+        if (SelectedKeyYear is null)
         {
-            SetStatus("Sélectionnez l'année scolaire et le type de frais.", FeeStatusMessageKind.Warning);
+            SetStatus("Sélectionnez l'année scolaire.", FeeStatusMessageKind.Warning);
             return;
         }
 
-        var existing = AllocationKeys.FirstOrDefault(k =>
-            k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType.Id);
+        if (IsFeeTypeSource && SelectedFeeType is null)
+        {
+            SetStatus("Sélectionnez le type de frais.", FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        if (IsWithholdingSource && SelectedWithholdingType is null)
+        {
+            SetStatus("Sélectionnez le type de retenue.", FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        var existing = IsWithholdingSource
+            ? AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.WithholdingTypeId == SelectedWithholdingType!.Id)
+            : AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType!.Id);
         if (existing is not null)
         {
             SelectedKey = existing;
             SetStatus(
-                "Une clé existe déjà pour ce type de frais sur cette année. Vous ne pouvez que la modifier.",
+                IsWithholdingSource
+                    ? "Une clé existe déjà pour cette retenue sur cette année. Vous ne pouvez que la modifier."
+                    : "Une clé existe déjà pour ce type de frais sur cette année. Vous ne pouvez que la modifier.",
                 FeeStatusMessageKind.Warning);
             return;
         }
 
         SelectedKey = null;
-        KeyName = $"Répartition {SelectedFeeType.Name}";
+        var sourceName = IsWithholdingSource ? SelectedWithholdingType!.Name : SelectedFeeType!.Name;
+        KeyName = $"Répartition {sourceName}";
         KeyNotes = string.Empty;
         KeyStartDate = DateTime.Today;
         KeyEndDate = null;
@@ -495,9 +620,15 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedFeeType is null)
+        if (IsFeeTypeSource && SelectedFeeType is null)
         {
             SetStatus("Sélectionnez le type de frais à répartir.", FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        if (IsWithholdingSource && SelectedWithholdingType is null)
+        {
+            SetStatus("Sélectionnez le type de retenue à répartir.", FeeStatusMessageKind.Warning);
             return;
         }
 
@@ -513,12 +644,12 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             return;
         }
 
-        // Une seule clé par type de frais / année : bascule en mise à jour si elle existe déjà.
-        var existingForSelection = AllocationKeys.FirstOrDefault(k =>
-            SelectedKeyYear is not null
-            && SelectedFeeType is not null
-            && k.AcademicYearId == SelectedKeyYear.Id
-            && k.FeeTypeId == SelectedFeeType.Id);
+        // Une seule clé par source / année : bascule en mise à jour si elle existe déjà.
+        var existingForSelection = IsWithholdingSource
+            ? AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.WithholdingTypeId == SelectedWithholdingType!.Id)
+            : AllocationKeys.FirstOrDefault(k =>
+                k.AcademicYearId == SelectedKeyYear.Id && k.FeeTypeId == SelectedFeeType!.Id);
         if (SelectedKey is null && existingForSelection is not null)
         {
             SelectedKey = existingForSelection;
@@ -537,12 +668,17 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             {
                 var created = await _allocationApi.CreateKeyAsync(new CreateRevenueAllocationKeyRequest(
                     SelectedKeyYear.Id,
-                    SelectedFeeType.Id,
+                    IsFeeTypeSource ? SelectedFeeType!.Id : null,
+                    IsWithholdingSource ? SelectedWithholdingType!.Id : null,
                     KeyName.Trim(),
                     string.IsNullOrWhiteSpace(KeyNotes) ? null : KeyNotes.Trim(),
                     startDate,
                     details));
-                SetStatus("Répartition créée pour ce type de frais (une seule autorisée par année).", FeeStatusMessageKind.Success);
+                SetStatus(
+                    IsWithholdingSource
+                        ? "Répartition créée pour cette retenue (une seule autorisée par année)."
+                        : "Répartition créée pour ce type de frais (une seule autorisée par année).",
+                    FeeStatusMessageKind.Success);
                 await LoadKeysAsync();
                 SelectedKey = AllocationKeys.FirstOrDefault(k => k.Id == created.Id);
             }
@@ -597,9 +733,14 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             SelectedKey = null;
             await LoadKeysAsync();
             SyncSelectionToExistingKey();
-            if (SelectedKey is null && SelectedFeeType is not null)
+            if (SelectedKey is null
+                && ((IsFeeTypeSource && SelectedFeeType is not null)
+                    || (IsWithholdingSource && SelectedWithholdingType is not null)))
             {
-                KeyName = $"Répartition {SelectedFeeType.Name}";
+                var sourceName = IsWithholdingSource
+                    ? SelectedWithholdingType!.Name
+                    : SelectedFeeType!.Name;
+                KeyName = $"Répartition {sourceName}";
                 KeyNotes = string.Empty;
                 KeyStartDate = DateTime.Today;
                 ClearKeyDetailRows();
@@ -697,6 +838,9 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCreateKeyForSelection));
         OnPropertyChanged(nameof(CanDeleteSelectedKey));
         OnPropertyChanged(nameof(CanOpenAddDestinationPicker));
+        OnPropertyChanged(nameof(IsFeeTypeSource));
+        OnPropertyChanged(nameof(IsWithholdingSource));
+        OnPropertyChanged(nameof(SourcePickerLabel));
     }
 
     private void SetStatus(string? message, FeeStatusMessageKind kind = FeeStatusMessageKind.Info)
@@ -705,3 +849,5 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         StatusMessageKind = string.IsNullOrWhiteSpace(message) ? FeeStatusMessageKind.None : kind;
     }
 }
+
+public sealed record AllocationSourceKindOption(RevenueAllocationSourceKind Kind, string Label);

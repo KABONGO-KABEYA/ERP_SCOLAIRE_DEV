@@ -20,6 +20,7 @@ public static class ApiRoutes
     public const string Documents = $"{Base}/documents";
     public const string DocumentBranding = $"{Base}/document-branding";
     public const string Admin = $"{Base}/admin";
+    public const string CloudSync = $"{Base}/cloud-sync";
 }
 
 public static class AppConstants

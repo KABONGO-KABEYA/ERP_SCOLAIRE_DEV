@@ -29,6 +29,18 @@ public sealed class DatabaseConnectionTester
         }
 
         var connectionString = _connectionFactory.BuildConnectionString(configuration);
+        return await TestConnectionStringAsync(connectionString, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Teste une connection string brute (Docker / variables d'environnement).</summary>
+    public static async Task<DatabaseConnectionTestResult> TestConnectionStringAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return DatabaseConnectionTestResult.Failure("La chaîne de connexion SQL est vide.");
+        }
 
         try
         {

@@ -13,6 +13,11 @@ public class SchoolConfiguration : AuditableEntityConfiguration<School>
         builder.ToTable("Schools");
         builder.Property(s => s.Name).HasMaxLength(200).IsRequired();
         builder.Property(s => s.DefaultCurrency).HasConversion<int>();
+        builder.HasOne<FeeType>()
+            .WithMany()
+            .HasForeignKey(s => s.DefaultFeeTypeId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
         builder.HasIndex(s => s.Name);
     }
 }

@@ -8,17 +8,18 @@
 │  (MVVM)         │     │  (Riverpod)     │
 └────────┬────────┘     └────────┬────────┘
          │         HTTPS/JWT     │
-         └───────────┬───────────┘
-                     ▼
-         ┌───────────────────────┐
-         │  ASP.NET Core API     │
-         │  /api/v1/*            │
-         └───────────┬───────────┘
-                     ▼
-         ┌───────────────────────┐
-         │  SQL Server           │
-         └───────────────────────┘
+         │    ┌──────────────────┤
+         │    │ détection auto   │
+         │    ▼                  ▼
+         │  API Locale        API Cloud
+         │  (R/W)             (lecture seule*)
+         │    │                  │
+         │    ▼                  ▼
+         │  SQL Local ──sync──► SQL Cloud
+         │  (Source of Truth)   (copie)
 ```
+
+\* Mobile : lecture seule en Mode Cloud, sauf saisie de notes enseignants. L'API Cloud refuse les autres écritures (`Deployment:Role=Cloud`).
 
 Le Desktop et le Mobile **ne contactent jamais** SQL Server directement.
 
@@ -69,3 +70,4 @@ Dépendances : `API → Infrastructure → Application → Domain`
 - [Guide de démarrage](guide-demarrage.md)
 - [Référence API](api-reference.md)
 - [Modules métier](modules/README.md)
+- [Déploiement API Cloud (Docker)](deploy-docker-cloud.md)

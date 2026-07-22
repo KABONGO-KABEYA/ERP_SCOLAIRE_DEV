@@ -4,9 +4,12 @@ using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
+using SchoolManagement.Application.Withholdings.DTOs;
+using SchoolManagement.Application.Withholdings.Interfaces;
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Security;
@@ -17,6 +20,8 @@ using SchoolManagement.Domain.Exceptions;
 
 public sealed class RevenueAllocationService : IRevenueAllocationService
 {
+    public const string PrincipalDestinationCode = "PRN";
+
     private readonly IRepository<RevenueAllocationDestination> _destinationRepository;
     private readonly IRepository<RevenueAllocationKey> _keyRepository;
     private readonly IRepository<RevenueAllocationKeyDetail> _detailRepository;
@@ -30,8 +35,10 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
     private readonly IRepository<Student> _studentRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
+    private readonly IRepository<WithholdingType> _withholdingTypeRepository;
     private readonly IRepository<UserAccount> _userRepository;
     private readonly IRevenueAllocationEngine _engine;
+    private readonly IWithholdingService _withholdingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public RevenueAllocationService(
@@ -48,8 +55,10 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         IRepository<Student> studentRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<FeeType> feeTypeRepository,
+        IRepository<WithholdingType> withholdingTypeRepository,
         IRepository<UserAccount> userRepository,
         IRevenueAllocationEngine engine,
+        IWithholdingService withholdingService,
         IUnitOfWork unitOfWork)
     {
         _destinationRepository = destinationRepository;
@@ -65,8 +74,10 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         _studentRepository = studentRepository;
         _yearRepository = yearRepository;
         _feeTypeRepository = feeTypeRepository;
+        _withholdingTypeRepository = withholdingTypeRepository;
         _userRepository = userRepository;
         _engine = engine;
+        _withholdingService = withholdingService;
         _unitOfWork = unitOfWork;
     }
 
@@ -103,6 +114,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
 
         var defaults = new (string Code, string Name, string Description)[]
         {
+            (PrincipalDestinationCode, "Compte principal", "Compte par défaut — reçoit 100 % tant qu'aucune clé de répartition n'est configurée"),
             ("SAL", "Salaire", "Masse salariale"),
             ("FON", "Fonctionnement", "Charges de fonctionnement"),
             ("INV", "Investissement", "Investissements et équipements"),
@@ -256,27 +268,56 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         CancellationToken cancellationToken = default)
     {
         _ = await GetYearAsync(schoolId, request.AcademicYearId, cancellationToken);
-        var feeType = await GetFeeTypeAsync(schoolId, request.FeeTypeId, cancellationToken);
         await ValidateDetailsAsync(schoolId, request.Details, cancellationToken);
 
-        var existing = await _keyRepository.FindAsync(
-            k => k.SchoolId == schoolId
-                 && k.AcademicYearId == request.AcademicYearId
-                 && k.FeeTypeId == request.FeeTypeId,
-            cancellationToken);
-        if (existing.Count > 0)
+        var hasFee = request.FeeTypeId.HasValue;
+        var hasWithholding = request.WithholdingTypeId.HasValue;
+        if (hasFee == hasWithholding)
         {
             throw new DomainException(
-                $"Une clé de répartition existe déjà pour « {feeType.Name} » sur cette année scolaire. Vous ne pouvez que la modifier.");
+                "Indiquez soit un type de frais, soit un type de retenue (un seul des deux).");
         }
 
+        FeeType? feeType = null;
+        WithholdingType? withholdingType = null;
+        if (hasFee)
+        {
+            feeType = await GetFeeTypeAsync(schoolId, request.FeeTypeId!.Value, cancellationToken);
+            var existing = await _keyRepository.FindAsync(
+                k => k.SchoolId == schoolId
+                     && k.AcademicYearId == request.AcademicYearId
+                     && k.FeeTypeId == request.FeeTypeId,
+                cancellationToken);
+            if (existing.Count > 0)
+            {
+                throw new DomainException(
+                    $"Une clé de répartition existe déjà pour « {feeType.Name} » sur cette année scolaire. Vous ne pouvez que la modifier.");
+            }
+        }
+        else
+        {
+            withholdingType = await GetWithholdingTypeAsync(schoolId, request.WithholdingTypeId!.Value, cancellationToken);
+            var existing = await _keyRepository.FindAsync(
+                k => k.SchoolId == schoolId
+                     && k.AcademicYearId == request.AcademicYearId
+                     && k.WithholdingTypeId == request.WithholdingTypeId,
+                cancellationToken);
+            if (existing.Count > 0)
+            {
+                throw new DomainException(
+                    $"Une clé de répartition existe déjà pour la retenue « {withholdingType.Name} » sur cette année scolaire. Vous ne pouvez que la modifier.");
+            }
+        }
+
+        var sourceLabel = feeType?.Name ?? withholdingType!.Name;
         var key = new RevenueAllocationKey
         {
             SchoolId = schoolId,
             AcademicYearId = request.AcademicYearId,
-            FeeTypeId = feeType.Id,
+            FeeTypeId = feeType?.Id,
+            WithholdingTypeId = withholdingType?.Id,
             Name = string.IsNullOrWhiteSpace(request.Name)
-                ? $"Répartition {feeType.Name}"
+                ? $"Répartition {sourceLabel}"
                 : request.Name.Trim(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
             StartDate = request.StartDate,
@@ -384,6 +425,9 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureDefaultDestinationsAsync(schoolId, cancellationToken);
+        var principal = await GetPrincipalDestinationAsync(schoolId, cancellationToken);
+
         var paymentDate = DateOnly.FromDateTime(payment.PaymentDate.Kind == DateTimeKind.Unspecified
             ? DateTime.SpecifyKind(payment.PaymentDate, DateTimeKind.Utc)
             : payment.PaymentDate.ToUniversalTime());
@@ -396,7 +440,15 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             cancellationToken);
 
         var keysByFeeType = openKeys
-            .GroupBy(k => k.FeeTypeId)
+            .Where(k => k.FeeTypeId.HasValue)
+            .GroupBy(k => k.FeeTypeId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(k => k.StartDate).ThenByDescending(k => k.CreatedAt).First());
+
+        var keysByWithholding = openKeys
+            .Where(k => k.WithholdingTypeId.HasValue)
+            .GroupBy(k => k.WithholdingTypeId!.Value)
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderByDescending(k => k.StartDate).ThenByDescending(k => k.CreatedAt).First());
@@ -407,44 +459,155 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             throw new DomainException("Aucun montant à répartir sur ce paiement.");
         }
 
+        var pricingCategoryId = (await _enrollmentRepository.FindAsync(
+                e => e.IsActive
+                     && e.StudentId == payment.StudentId
+                     && e.AcademicYearId == payment.AcademicYearId,
+                cancellationToken))
+            .OrderByDescending(e => e.EnrollmentDate)
+            .Select(e => (Guid?)e.FeePricingCategoryId)
+            .FirstOrDefault();
+
         var now = DateTime.UtcNow;
+
+        // Modification de montant : mémoriser les retenues fixes déjà liées à chaque ligne
+        // avant de recalculer (sinon elles seraient perdues car ce n'est plus le 1er versement).
+        var preserveFixedByLine = await _withholdingService
+            .GetFixedApplicationConfigurationIdsByLineAsync(schoolId, payment.Id, cancellationToken);
+        await _withholdingService.RemoveApplicationsForPaymentAsync(schoolId, payment.Id, cancellationToken);
+
         foreach (var paymentLine in lines)
         {
-            if (!keysByFeeType.TryGetValue(paymentLine.FeeTypeId, out var key))
-            {
-                var feeType = (await _feeTypeRepository.FindAsync(
-                    f => f.Id == paymentLine.FeeTypeId && f.SchoolId == schoolId,
-                    cancellationToken)).FirstOrDefault();
-                var label = feeType?.Name ?? paymentLine.FeeTypeId.ToString();
-                throw new DomainException(
-                    $"Aucune répartition ouverte pour le type de frais « {label} » à la date du paiement. Configurez une clé de répartition (pourcentages) avant d'encaisser.");
-            }
+            preserveFixedByLine.TryGetValue(paymentLine.Id, out var preserveFixedForLine);
+            var withholdingResult = await _withholdingService.CalculateForPaymentLineAsync(
+                schoolId,
+                paymentLine.Amount,
+                new WithholdingResolveContext(
+                    payment.AcademicYearId,
+                    paymentLine.FeeTypeId,
+                    paymentLine.FeeInstallmentId,
+                    pricingCategoryId,
+                    payment.StudentId,
+                    BalanceIncludesCurrentPayment: true,
+                    PreserveFixedConfigurationIds: preserveFixedForLine),
+                cancellationToken);
 
-            var details = await LoadDetailsWithDestinationsAsync(key.Id, cancellationToken);
-            if (details.Count == 0)
-            {
-                throw new DomainException($"La clé de répartition « {key.Name} » ne contient aucune ligne.");
-            }
+            await _withholdingService.RecordApplicationsAsync(
+                schoolId,
+                payment.StudentId,
+                payment.AcademicYearId,
+                payment.Id,
+                paymentLine.Id,
+                withholdingResult,
+                cancellationToken);
 
-            var calculated = _engine.Calculate(paymentLine.Amount, details);
-            foreach (var item in calculated.Where(c => c.Amount != 0))
+            // Montant net (après retenues) → répartition type de frais, sinon Compte principal 100 %.
+            keysByFeeType.TryGetValue(paymentLine.FeeTypeId, out var feeKey);
+            await WriteAllocationEntriesAsync(
+                schoolId,
+                payment,
+                userId,
+                now,
+                withholdingResult.NetAmount,
+                feeKey,
+                principal,
+                feeTypeId: paymentLine.FeeTypeId,
+                withholdingTypeId: null,
+                cancellationToken);
+
+            // Chaque retenue → répartition type de retenue, sinon Compte principal 100 %.
+            foreach (var withheld in withholdingResult.Lines.Where(l => l.WithheldAmount > 0))
             {
-                await _entryRepository.AddAsync(new RevenueAllocationEntry
-                {
-                    SchoolId = schoolId,
-                    PaymentId = payment.Id,
-                    AllocationKeyId = key.Id,
-                    DestinationId = item.DestinationId,
-                    FeeTypeId = paymentLine.FeeTypeId,
-                    AcademicYearId = payment.AcademicYearId,
-                    Amount = item.Amount,
-                    AppliedPercentage = item.AppliedPercentage,
-                    CalculationType = AllocationCalculationType.Pourcentage,
-                    AllocatedAt = now,
-                    AllocatedByUserId = userId
-                }, cancellationToken);
+                keysByWithholding.TryGetValue(withheld.WithholdingTypeId, out var withholdingKey);
+                await WriteAllocationEntriesAsync(
+                    schoolId,
+                    payment,
+                    userId,
+                    now,
+                    withheld.WithheldAmount,
+                    withholdingKey,
+                    principal,
+                    feeTypeId: paymentLine.FeeTypeId,
+                    withholdingTypeId: withheld.WithholdingTypeId,
+                    cancellationToken);
             }
         }
+    }
+
+    private async Task WriteAllocationEntriesAsync(
+        Guid schoolId,
+        Payment payment,
+        Guid userId,
+        DateTime allocatedAt,
+        decimal amount,
+        RevenueAllocationKey? key,
+        RevenueAllocationDestination principal,
+        Guid? feeTypeId,
+        Guid? withholdingTypeId,
+        CancellationToken cancellationToken)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        if (key is null)
+        {
+            await _entryRepository.AddAsync(new RevenueAllocationEntry
+            {
+                SchoolId = schoolId,
+                PaymentId = payment.Id,
+                AllocationKeyId = null,
+                DestinationId = principal.Id,
+                FeeTypeId = feeTypeId,
+                WithholdingTypeId = withholdingTypeId,
+                AcademicYearId = payment.AcademicYearId,
+                Amount = amount,
+                AppliedPercentage = 100m,
+                CalculationType = AllocationCalculationType.Pourcentage,
+                AllocatedAt = allocatedAt,
+                AllocatedByUserId = userId
+            }, cancellationToken);
+            return;
+        }
+
+        var details = await LoadDetailsWithDestinationsAsync(key.Id, cancellationToken);
+        if (details.Count == 0)
+        {
+            throw new DomainException($"La clé de répartition « {key.Name} » ne contient aucune ligne.");
+        }
+
+        var calculated = _engine.Calculate(amount, details);
+        foreach (var item in calculated.Where(c => c.Amount != 0))
+        {
+            await _entryRepository.AddAsync(new RevenueAllocationEntry
+            {
+                SchoolId = schoolId,
+                PaymentId = payment.Id,
+                AllocationKeyId = key.Id,
+                DestinationId = item.DestinationId,
+                FeeTypeId = feeTypeId,
+                WithholdingTypeId = withholdingTypeId,
+                AcademicYearId = payment.AcademicYearId,
+                Amount = item.Amount,
+                AppliedPercentage = item.AppliedPercentage,
+                CalculationType = AllocationCalculationType.Pourcentage,
+                AllocatedAt = allocatedAt,
+                AllocatedByUserId = userId
+            }, cancellationToken);
+        }
+    }
+
+    private async Task<RevenueAllocationDestination> GetPrincipalDestinationAsync(
+        Guid schoolId,
+        CancellationToken cancellationToken)
+    {
+        var principal = (await _destinationRepository.FindAsync(
+            d => d.SchoolId == schoolId && d.Code == PrincipalDestinationCode && d.IsActive,
+            cancellationToken)).FirstOrDefault();
+        return principal
+            ?? throw new DomainException(
+                "Le Compte principal (PRN) est introuvable. Vérifiez les destinations de répartition.");
     }
 
     public async Task<RevenueAllocationSearchResultDto> SearchAllocationsAsync(
@@ -535,14 +698,29 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             (fromDate, toDate) = (toDate, fromDate);
         }
 
+        // Même base que le rapport recettes : date de paiement (PaymentDate), pas AllocatedAt.
+        // On charge tout le périmètre (sans dates) puis on découpe période / J-1.
+        var scopeRequest = request with { FromDate = null, ToDate = null };
+        var matchingPayments = await ResolveMatchingPaymentsAsync(schoolId, scopeRequest, cancellationToken);
+        var periodPaymentIds = matchingPayments
+            .Where(p =>
+            {
+                var date = DateOnly.FromDateTime(p.PaymentDate);
+                return date >= fromDate && date <= toDate;
+            })
+            .Select(p => p.Id)
+            .ToHashSet();
+        var openingPaymentIds = matchingPayments
+            .Where(p => DateOnly.FromDateTime(p.PaymentDate) < fromDate)
+            .Select(p => p.Id)
+            .ToHashSet();
+
         var entries = await _entryRepository.FindAsync(e => e.SchoolId == schoolId, cancellationToken);
         var expenses = await _expensePaymentRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
         var destinations = (await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken))
             .ToDictionary(d => d.Id);
 
-        var scopedPaymentIds = await ResolveScopedPaymentIdsAsync(schoolId, request, cancellationToken);
-
-        IEnumerable<RevenueAllocationEntry> FilterEntries(IEnumerable<RevenueAllocationEntry> source, DateOnly? from, DateOnly? to)
+        IEnumerable<RevenueAllocationEntry> BaseEntries(IEnumerable<RevenueAllocationEntry> source)
         {
             var query = source;
             if (request.AcademicYearId.HasValue)
@@ -550,36 +728,28 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 query = query.Where(e => e.AcademicYearId == request.AcademicYearId);
             }
 
-            if (request.FeeTypeId.HasValue)
-            {
-                query = query.Where(e => e.FeeTypeId == request.FeeTypeId);
-            }
+            // Le filtre type de frais passe par les paiements (PaymentLines), pas FeeTypeId
+            // sur l'écriture : les parts retenues doivent rester dans le cash-flow.
 
             if (request.DestinationId.HasValue)
             {
                 query = query.Where(e => e.DestinationId == request.DestinationId);
             }
 
-            if (scopedPaymentIds is not null)
-            {
-                query = query.Where(e => scopedPaymentIds.Contains(e.PaymentId));
-            }
-
-            if (from.HasValue)
-            {
-                query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) >= from);
-            }
-
-            if (to.HasValue)
-            {
-                query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) <= to);
-            }
-
             return query;
         }
 
+        // Dépenses : hors filtre section/classe (pas liées à un élève) pour ne pas
+        // fausser le partage d'encaissement du périmètre sélectionné.
+        var applyExpenses = !request.SectionId.HasValue && !request.ClassRoomId.HasValue;
+
         IEnumerable<ExpensePayment> FilterExpenses(IEnumerable<ExpensePayment> source, DateOnly? from, DateOnly? to)
         {
+            if (!applyExpenses)
+            {
+                return [];
+            }
+
             var query = source;
             if (request.AcademicYearId.HasValue)
             {
@@ -604,17 +774,29 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             return query;
         }
 
-        var periodEntries = FilterEntries(entries, fromDate, toDate).ToList();
+        var baseEntries = BaseEntries(entries).ToList();
+        var periodEntries = baseEntries.Where(e => periodPaymentIds.Contains(e.PaymentId)).ToList();
+        var openingEntries = baseEntries.Where(e => openingPaymentIds.Contains(e.PaymentId)).ToList();
         var periodExpenses = FilterExpenses(expenses, fromDate, toDate).ToList();
-        var openingEntries = FilterEntries(entries, null, fromDate.AddDays(-1)).ToList();
         var openingExpenses = FilterExpenses(expenses, null, fromDate.AddDays(-1)).ToList();
 
+        // Lignes = comptes ayant reçu un partage sur la période (évent. + dépenses globales).
+        // Le total Encaissement = somme des parts = montant perçu (jamais supérieur).
         var destinationIds = periodEntries.Select(e => e.DestinationId)
             .Concat(periodExpenses.Select(p => p.DestinationId))
-            .Concat(openingEntries.Select(e => e.DestinationId))
-            .Concat(openingExpenses.Select(p => p.DestinationId))
             .Distinct()
             .ToList();
+
+        // Conserver aussi les comptes avec solde J-1 pour le suivi de solde.
+        foreach (var id in openingEntries.Select(e => e.DestinationId)
+                     .Concat(openingExpenses.Select(p => p.DestinationId))
+                     .Distinct())
+        {
+            if (!destinationIds.Contains(id))
+            {
+                destinationIds.Add(id);
+            }
+        }
 
         if (request.DestinationId.HasValue && !destinationIds.Contains(request.DestinationId.Value))
         {
@@ -657,7 +839,11 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         var dailyGroups = new List<AllocationCashFlowDailyGroupDto>();
         for (var date = fromDate; date <= toDate; date = date.AddDays(1))
         {
-            var dayEntries = FilterEntries(entries, date, date).ToList();
+            var dayPaymentIds = matchingPayments
+                .Where(p => DateOnly.FromDateTime(p.PaymentDate) == date)
+                .Select(p => p.Id)
+                .ToHashSet();
+            var dayEntries = baseEntries.Where(e => dayPaymentIds.Contains(e.PaymentId)).ToList();
             var dayExpenses = FilterExpenses(expenses, date, date).ToList();
             var dayDestinationIds = dayEntries.Select(e => e.DestinationId)
                 .Concat(dayExpenses.Select(p => p.DestinationId))
@@ -669,12 +855,20 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 continue;
             }
 
-            var dayBefore = date.AddDays(-1);
+            var openingBeforeDayPaymentIds = matchingPayments
+                .Where(p => DateOnly.FromDateTime(p.PaymentDate) < date)
+                .Select(p => p.Id)
+                .ToHashSet();
+            var openingBeforeDay = baseEntries
+                .Where(e => openingBeforeDayPaymentIds.Contains(e.PaymentId))
+                .ToList();
+            var expensesBeforeDay = FilterExpenses(expenses, null, date.AddDays(-1)).ToList();
+
             var rows = dayDestinationIds
                 .Select(id => BuildRow(
                     id,
-                    FilterEntries(entries, null, dayBefore).Where(e => e.DestinationId == id).Sum(e => e.Amount),
-                    FilterExpenses(expenses, null, dayBefore).Where(p => p.DestinationId == id).Sum(p => p.Amount),
+                    openingBeforeDay.Where(e => e.DestinationId == id).Sum(e => e.Amount),
+                    expensesBeforeDay.Where(p => p.DestinationId == id).Sum(p => p.Amount),
                     dayEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
                     dayExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount)))
                 .OrderBy(r => r.DestinationName)
@@ -684,6 +878,90 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         }
 
         return new AllocationCashFlowResultDto(globalRows, dailyGroups, totals);
+    }
+
+    public async Task<WithholdingReportResultDto> GetWithholdingReportAsync(
+        Guid schoolId,
+        RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var matchingPayments = await ResolveMatchingPaymentsAsync(schoolId, request, cancellationToken);
+        var paymentMap = matchingPayments.ToDictionary(p => p.Id);
+        var paymentIds = paymentMap.Keys.ToHashSet();
+        if (paymentIds.Count == 0)
+        {
+            return new WithholdingReportResultDto([], 0m, 0);
+        }
+
+        var entries = (await _entryRepository.FindAsync(
+                e => e.SchoolId == schoolId && e.WithholdingTypeId != null,
+                cancellationToken))
+            .Where(e => paymentIds.Contains(e.PaymentId))
+            .ToList();
+
+        if (request.AcademicYearId.HasValue)
+        {
+            entries = entries.Where(e => e.AcademicYearId == request.AcademicYearId.Value).ToList();
+        }
+
+        if (entries.Count == 0)
+        {
+            return new WithholdingReportResultDto([], 0m, 0);
+        }
+
+        var typeIds = entries
+            .Where(e => e.WithholdingTypeId.HasValue)
+            .Select(e => e.WithholdingTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var types = (await _withholdingTypeRepository.FindAsync(t => typeIds.Contains(t.Id), cancellationToken))
+            .ToDictionary(t => t.Id);
+
+        var studentIds = paymentMap.Values.Select(p => p.StudentId).Distinct().ToList();
+        var students = (await _studentRepository.FindAsync(s => studentIds.Contains(s.Id), cancellationToken))
+            .ToDictionary(s => s.Id);
+
+        var groups = entries
+            .Where(e => e.WithholdingTypeId.HasValue && paymentMap.ContainsKey(e.PaymentId))
+            .GroupBy(e => e.WithholdingTypeId!.Value)
+            .Select(typeGroup =>
+            {
+                types.TryGetValue(typeGroup.Key, out var type);
+                var studentLines = typeGroup
+                    .GroupBy(e => e.PaymentId)
+                    .Select(paymentGroup =>
+                    {
+                        var payment = paymentMap[paymentGroup.Key];
+                        students.TryGetValue(payment.StudentId, out var student);
+                        var name = student is null
+                            ? "—"
+                            : StudentDisplayName.Format(student);
+                        return new WithholdingReportStudentLineDto(
+                            payment.StudentId,
+                            name,
+                            payment.Id,
+                            DateOnly.FromDateTime(payment.PaymentDate),
+                            paymentGroup.Sum(e => e.Amount));
+                    })
+                    .OrderBy(l => l.StudentName)
+                    .ThenBy(l => l.PaymentDate)
+                    .ToList();
+
+                return new WithholdingReportTypeGroupDto(
+                    typeGroup.Key,
+                    type?.Code ?? "—",
+                    type?.Name ?? "—",
+                    studentLines.Sum(l => l.Amount),
+                    studentLines);
+            })
+            .OrderByDescending(g => g.TypeTotal)
+            .ThenBy(g => g.WithholdingTypeName)
+            .ToList();
+
+        return new WithholdingReportResultDto(
+            groups,
+            groups.Sum(g => g.TypeTotal),
+            entries.Select(e => e.PaymentId).Distinct().Count());
     }
 
     private async Task<RevenueAllocationTotalsDto> BuildTotalsAsync(
@@ -831,16 +1109,6 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             query = query.Where(e => e.AcademicYearId == request.AcademicYearId);
         }
 
-        if (request.FromDate.HasValue)
-        {
-            query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) >= request.FromDate);
-        }
-
-        if (request.ToDate.HasValue)
-        {
-            query = query.Where(e => DateOnly.FromDateTime(e.AllocatedAt) <= request.ToDate);
-        }
-
         if (request.PaymentId.HasValue)
         {
             query = query.Where(e => e.PaymentId == request.PaymentId);
@@ -865,35 +1133,55 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             query = query.Where(e => paymentIds.Contains(e.PaymentId));
         }
 
-        var scopedPaymentIds = await ResolveScopedPaymentIdsAsync(schoolId, request, cancellationToken);
-        if (scopedPaymentIds is not null)
+        // Dates / section / classe : même logique que le rapport recettes (PaymentDate).
+        if (request.FromDate.HasValue
+            || request.ToDate.HasValue
+            || request.SectionId.HasValue
+            || request.ClassRoomId.HasValue)
         {
-            query = query.Where(e => scopedPaymentIds.Contains(e.PaymentId));
+            var matchingIds = (await ResolveMatchingPaymentsAsync(schoolId, request, cancellationToken))
+                .Select(p => p.Id)
+                .ToHashSet();
+            query = query.Where(e => matchingIds.Contains(e.PaymentId));
         }
 
         return query.ToList();
     }
 
-    /// <summary>Filtre section/classe aligné sur le rapport recettes réalisées.</summary>
-    private async Task<HashSet<Guid>?> ResolveScopedPaymentIdsAsync(
+    /// <summary>
+    /// Paiements validés alignés sur le rapport recettes (année, type de frais, section, classe, dates).
+    /// </summary>
+    private async Task<List<Payment>> ResolveMatchingPaymentsAsync(
         Guid schoolId,
         RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken)
     {
-        if (!request.SectionId.HasValue && !request.ClassRoomId.HasValue)
-        {
-            return null;
-        }
-
-        var payments = (await _paymentRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken)).ToList();
-        if (payments.Count == 0)
-        {
-            return [];
-        }
+        var payments = (await _paymentRepository.FindAsync(
+            p => p.SchoolId == schoolId && p.Status == PaymentStatus.Complet,
+            cancellationToken)).ToList();
 
         if (request.AcademicYearId.HasValue)
         {
             payments = payments.Where(p => p.AcademicYearId == request.AcademicYearId.Value).ToList();
+        }
+
+        if (request.FromDate.HasValue || request.ToDate.HasValue)
+        {
+            payments = payments.Where(p =>
+            {
+                var date = DateOnly.FromDateTime(p.PaymentDate);
+                if (request.FromDate.HasValue && date < request.FromDate.Value)
+                {
+                    return false;
+                }
+
+                if (request.ToDate.HasValue && date > request.ToDate.Value)
+                {
+                    return false;
+                }
+
+                return true;
+            }).ToList();
         }
 
         if (request.FeeTypeId.HasValue)
@@ -906,12 +1194,30 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             payments = payments.Where(p => paymentIdsWithFee.Contains(p.Id)).ToList();
         }
 
+        if (request.StudentId.HasValue)
+        {
+            payments = payments.Where(p => p.StudentId == request.StudentId.Value).ToList();
+        }
+
+        if (request.PaymentId.HasValue)
+        {
+            payments = payments.Where(p => p.Id == request.PaymentId.Value).ToList();
+        }
+
+        if (!request.SectionId.HasValue && !request.ClassRoomId.HasValue)
+        {
+            return payments;
+        }
+
+        if (payments.Count == 0)
+        {
+            return payments;
+        }
+
         var studentIds = payments.Select(p => p.StudentId).Distinct().ToList();
-        var enrollments = studentIds.Count == 0
-            ? []
-            : await _enrollmentRepository.FindAsync(
-                e => e.IsActive && studentIds.Contains(e.StudentId),
-                cancellationToken);
+        var enrollments = await _enrollmentRepository.FindAsync(
+            e => e.IsActive && studentIds.Contains(e.StudentId),
+            cancellationToken);
         var yearIds = payments.Select(p => p.AcademicYearId).Distinct().ToList();
         if (yearIds.Count > 0)
         {
@@ -963,7 +1269,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             payments = payments.Where(p => ResolveClassId(p) == request.ClassRoomId.Value).ToList();
         }
 
-        return payments.Select(p => p.Id).ToHashSet();
+        return payments;
     }
 
     private async Task<IReadOnlyList<RevenueAllocationEntryDto>> MapEntriesAsync(
@@ -1000,7 +1306,12 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             payments.TryGetValue(e.PaymentId, out var payment);
             students.TryGetValue(payment?.StudentId ?? Guid.Empty, out var student);
             destinations.TryGetValue(e.DestinationId, out var dest);
-            keys.TryGetValue(e.AllocationKeyId, out var key);
+            RevenueAllocationKey? key = null;
+            if (e.AllocationKeyId.HasValue)
+            {
+                keys.TryGetValue(e.AllocationKeyId.Value, out key);
+            }
+
             years.TryGetValue(e.AcademicYearId, out var year);
             feeTypes.TryGetValue(e.FeeTypeId ?? Guid.Empty, out var feeType);
             users.TryGetValue(e.AllocatedByUserId ?? Guid.Empty, out var user);
@@ -1010,7 +1321,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 e.PaymentId,
                 payment?.ReceiptNumber ?? "—",
                 payment?.StudentId ?? Guid.Empty,
-                student is null ? "—" : $"{student.LastName} {student.FirstName}",
+                StudentDisplayName.FormatOrDefault(student),
                 payment?.TotalAmount ?? 0,
                 e.DestinationId,
                 dest?.Code ?? "—",
@@ -1019,7 +1330,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 e.AppliedPercentage,
                 e.CalculationType,
                 e.AllocationKeyId,
-                key?.Name ?? "—",
+                key?.Name ?? (e.AllocationKeyId is null ? "Compte principal (défaut)" : "—"),
                 e.AcademicYearId,
                 year?.Label ?? "—",
                 e.FeeTypeId,
@@ -1035,7 +1346,17 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         CancellationToken cancellationToken)
     {
         var year = await GetYearAsync(schoolId, key.AcademicYearId, cancellationToken);
-        var feeType = await GetFeeTypeAsync(schoolId, key.FeeTypeId, cancellationToken);
+        FeeType? feeType = null;
+        WithholdingType? withholdingType = null;
+        if (key.FeeTypeId.HasValue)
+        {
+            feeType = await GetFeeTypeAsync(schoolId, key.FeeTypeId.Value, cancellationToken);
+        }
+        else if (key.WithholdingTypeId.HasValue)
+        {
+            withholdingType = await GetWithholdingTypeAsync(schoolId, key.WithholdingTypeId.Value, cancellationToken);
+        }
+
         var details = await LoadDetailsWithDestinationsAsync(key.Id, cancellationToken);
         var detailDtos = details
             .OrderBy(d => d.SortOrder)
@@ -1055,9 +1376,13 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             key.Id,
             key.AcademicYearId,
             year.Label,
+            key.SourceKind,
             key.FeeTypeId,
-            feeType.Code,
-            feeType.Name,
+            feeType?.Code,
+            feeType?.Name,
+            key.WithholdingTypeId,
+            withholdingType?.Code,
+            withholdingType?.Name,
             key.Name,
             key.Notes,
             key.StartDate,
@@ -1179,6 +1504,16 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         (await _feeTypeRepository.FindAsync(f => f.Id == feeTypeId && f.SchoolId == schoolId, cancellationToken))
             .FirstOrDefault()
         ?? throw new KeyNotFoundException("Type de frais introuvable.");
+
+    private async Task<WithholdingType> GetWithholdingTypeAsync(
+        Guid schoolId,
+        Guid withholdingTypeId,
+        CancellationToken cancellationToken) =>
+        (await _withholdingTypeRepository.FindAsync(
+            w => w.Id == withholdingTypeId && w.SchoolId == schoolId,
+            cancellationToken))
+            .FirstOrDefault()
+        ?? throw new KeyNotFoundException("Type de retenue introuvable.");
 
     private static string NormalizeCode(string code)
     {

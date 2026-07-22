@@ -6,9 +6,14 @@ namespace SchoolManagement.Application.Configuration.Database;
 public sealed class DatabaseConnectionBootstrap
 {
     public DatabaseConnectionBootstrap(string applicationDirectory)
+        : this(applicationDirectory, EncryptionServiceFactory.Create())
+    {
+    }
+
+    public DatabaseConnectionBootstrap(string applicationDirectory, IEncryptionService encryptionService)
     {
         ApplicationDirectory = applicationDirectory;
-        ConfigurationManager = new DatabaseConfigurationManager(applicationDirectory, new EncryptionService());
+        ConfigurationManager = new DatabaseConfigurationManager(applicationDirectory, encryptionService);
         ConnectionFactory = new DatabaseConnectionFactory();
         ConnectionTester = new DatabaseConnectionTester(ConnectionFactory, ConfigurationManager);
     }

@@ -1,10 +1,12 @@
 namespace SchoolManagement.Application.Payments.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Payments.DTOs;
 using SchoolManagement.Application.Payments.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
 using SchoolManagement.Application.Schools;
+using SchoolManagement.Application.Withholdings.Interfaces;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -27,6 +29,7 @@ public sealed class PaymentService : IPaymentService
     private readonly IRepository<FeeInstallment> _installmentRepository;
     private readonly IRepository<RevenueAllocationEntry> _allocationEntryRepository;
     private readonly IRevenueAllocationService _revenueAllocationService;
+    private readonly IWithholdingService _withholdingService;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -45,6 +48,7 @@ public sealed class PaymentService : IPaymentService
         IRepository<FeeInstallment> installmentRepository,
         IRepository<RevenueAllocationEntry> allocationEntryRepository,
         IRevenueAllocationService revenueAllocationService,
+        IWithholdingService withholdingService,
         ICurrentUserService currentUser,
         IUnitOfWork unitOfWork)
     {
@@ -62,6 +66,7 @@ public sealed class PaymentService : IPaymentService
         _installmentRepository = installmentRepository;
         _allocationEntryRepository = allocationEntryRepository;
         _revenueAllocationService = revenueAllocationService;
+        _withholdingService = withholdingService;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
     }
@@ -148,9 +153,8 @@ public sealed class PaymentService : IPaymentService
         // Pas de mouvement de caisse : les caisses ne sont plus gérées (CashRegisterId = null).
 
         // Répartition atomique via SaveChanges (transaction implicite EF Core).
-        // Note d'intégration future « Retenues » :
-        // 1) Calculer MontantNet = MontantBrut - TotalRetenues via IWithholdingService.CalculateForPaymentLineAsync
-        // 2) Transmettre MontantNet (et non le brut) à ApplyAllocationForPaymentAsync
+        // Net après retenues → clé type de frais (ou Compte principal) ;
+        // chaque montant retenu → clé type de retenue (ou Compte principal).
         await _revenueAllocationService.ApplyAllocationForPaymentAsync(
             schoolId,
             payment,
@@ -159,7 +163,7 @@ public sealed class PaymentService : IPaymentService
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapPaymentDto(payment, $"{student.LastName} {student.FirstName}");
+        return MapPaymentDto(payment, StudentDisplayName.Format(student));
     }
 
     public async Task<PaymentListDto> SearchAsync(Guid schoolId, PaymentSearchRequest request, CancellationToken cancellationToken = default)
@@ -193,7 +197,7 @@ public sealed class PaymentService : IPaymentService
             .Select(p =>
             {
                 studentMap.TryGetValue(p.StudentId, out var student);
-                var name = student is null ? "—" : $"{student.LastName} {student.FirstName}";
+                var name = student is null ? "—" : StudentDisplayName.Format(student);
                 return MapPaymentDto(p, name);
             })
             .ToList();
@@ -248,7 +252,7 @@ public sealed class PaymentService : IPaymentService
 
         return new StudentFinancialSummaryDto(
             studentId,
-            $"{student.LastName} {student.FirstName}",
+            StudentDisplayName.Format(student),
             totalDue,
             totalPaid,
             totalDue - totalPaid,
@@ -344,6 +348,7 @@ public sealed class PaymentService : IPaymentService
         }, cancellationToken);
 
         // Les écritures de répartition restent en place ; le statut Annule suffit pour l'instant.
+        await _withholdingService.RemoveApplicationsForPaymentAsync(schoolId, paymentId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
@@ -738,7 +743,7 @@ public sealed class PaymentService : IPaymentService
 
         var student = (await _studentRepository.FindAsync(
             s => s.Id == latest.StudentId, cancellationToken)).FirstOrDefault();
-        var studentName = student is null ? null : $"{student.LastName} {student.FirstName}".Trim();
+        var studentName = student is null ? null : StudentDisplayName.Format(student).Trim();
 
         return new PaymentMutationGateDto(
             latest.Id,
@@ -882,7 +887,7 @@ public sealed class PaymentService : IPaymentService
     private async Task<PaymentDetailDto> MapDetailAsync(Payment payment, CancellationToken cancellationToken)
     {
         var student = (await _studentRepository.FindAsync(s => s.Id == payment.StudentId, cancellationToken)).FirstOrDefault();
-        var name = student is null ? "—" : $"{student.LastName} {student.FirstName}";
+        var name = student is null ? "—" : StudentDisplayName.Format(student);
         var lines = await _paymentLineRepository.FindAsync(l => l.PaymentId == payment.Id, cancellationToken);
         var feeTypes = await _feeTypeRepository.FindAsync(_ => true, cancellationToken);
         var feeMap = feeTypes.ToDictionary(f => f.Id, f => f.Name);

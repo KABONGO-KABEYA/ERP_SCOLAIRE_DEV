@@ -7,16 +7,21 @@ import '../../core/models/api_response.dart';
 import 'models/auth_models.dart';
 
 class AuthRepository {
-  AuthRepository() {
-    _dio = createApiDio(apiBaseUrl);
-  }
+  /// [baseUrl] = URL active (local ou cloud) après détection automatique.
+  Future<AuthSession> login(
+    String userName,
+    String password, {
+    String? baseUrl,
+  }) async {
+    final url = ApiConfig.normalize(
+      baseUrl ?? ApiConfig.effectiveLocalBaseUrl,
+    );
+    final dio = createApiDio(url);
 
-  late final Dio _dio;
-
-  Future<AuthSession> login(String userName, String password) async {
-    final response = await _dio.post<Map<String, dynamic>>(
+    final response = await dio.post<Map<String, dynamic>>(
       '/api/v1/auth/login',
       data: {'userName': userName, 'password': password},
+      options: Options(validateStatus: (status) => status != null && status < 500),
     );
 
     final body = response.data;
@@ -28,7 +33,8 @@ class AuthRepository {
     if (!api.success || api.data == null) {
       throw DioException(
         requestOptions: response.requestOptions,
-        message: api.message ?? 'Identifiants invalides',
+        response: response,
+        message: api.message ?? 'Nom d\'utilisateur ou mot de passe incorrect.',
       );
     }
 
@@ -43,12 +49,16 @@ class AuthRepository {
     return session;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String? baseUrl}) async {
     final refresh = await AuthStorage.refreshToken;
     if (refresh != null) {
       try {
+        final url = ApiConfig.normalize(
+          baseUrl ?? ApiConfig.effectiveLocalBaseUrl,
+        );
+        final dio = createApiDio(url);
         final token = await AuthStorage.accessToken;
-        await _dio.post(
+        await dio.post(
           '/api/v1/auth/logout',
           data: {'refreshToken': refresh},
           options: Options(headers: {

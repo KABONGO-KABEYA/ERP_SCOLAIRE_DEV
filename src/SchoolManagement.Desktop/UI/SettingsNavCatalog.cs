@@ -67,6 +67,7 @@ public static class SettingsNavCatalog
             Items =
             [
                 new SettingsNavItem { Key = "sauvegarde", Title = "Sauvegarde & restauration", IconKind = "DatabaseOutline", Section = null },
+                new SettingsNavItem { Key = "sync-cloud", Title = "Synchronisation cloud", IconKind = "CloudSync", Section = SettingsSection.SyncCloud },
                 new SettingsNavItem { Key = "journal", Title = "Journal d'activités", IconKind = "History", Section = null },
                 new SettingsNavItem { Key = "parametres-systeme", Title = "Paramètres système", IconKind = "CogOutline", Section = null },
                 new SettingsNavItem { Key = "personnalisation", Title = "Personnalisation", IconKind = "PaletteOutline", Section = null },

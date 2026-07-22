@@ -12,6 +12,8 @@ public sealed record SchoolDto(
     string? Phone,
     string? Email,
     Currency DefaultCurrency,
+    Guid? DefaultFeeTypeId,
+    string? DefaultFeeTypeName,
     bool IsActive);
 
 public sealed record AcademicYearDto(
@@ -31,7 +33,7 @@ public sealed record UpdateSchoolRequest(
     string? Province,
     string? Phone,
     string? Email,
-    Currency DefaultCurrency);
+    Guid? DefaultFeeTypeId);
 
 public sealed record CreateAcademicYearRequest(
     string Label,

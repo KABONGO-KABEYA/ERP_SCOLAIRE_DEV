@@ -1,9 +1,11 @@
 namespace SchoolManagement.Application.Finance.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Finance.DTOs;
 using SchoolManagement.Application.Finance.Interfaces;
 using SchoolManagement.Application.Payments.Services;
+using SchoolManagement.Application.Reports.DTOs;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
@@ -183,7 +185,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
                 enrollment.Id,
                 student.Id,
                 student.RegistrationNumber,
-                $"{student.LastName} {student.FirstName}".Trim(),
+                StudentDisplayName.Format(student),
                 FormatGender(student.Gender),
                 string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
                 classInfo.SectionName,
@@ -219,6 +221,334 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var pageSize = Math.Clamp(request.PageSize, 1, 200);
         var pageItems = items.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         return new StudentPaymentSituationSearchResultDto(pageItems, page, pageSize, items.Count);
+    }
+
+    public async Task<PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        Guid schoolId,
+        PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.AcademicYearId == Guid.Empty)
+        {
+            throw new ArgumentException("L'année scolaire est obligatoire.", nameof(request));
+        }
+
+        if (request.FeeTypeId == Guid.Empty)
+        {
+            throw new ArgumentException("Le type de frais est obligatoire.", nameof(request));
+        }
+
+        var selectedInstallmentIds = request.ScopeKind == PaymentSituationScopeKind.SelectedInstallments
+            ? (request.FeeInstallmentIds ?? Array.Empty<Guid>()).Where(id => id != Guid.Empty).Distinct().ToList()
+            : [];
+
+        if (request.ScopeKind == PaymentSituationScopeKind.SelectedInstallments && selectedInstallmentIds.Count == 0)
+        {
+            throw new DomainException("Sélectionnez au moins une tranche pour ce périmètre.");
+        }
+
+        var year = await ResolveYearAsync(schoolId, request.AcademicYearId, cancellationToken);
+        var feeType = (await _feeTypeRepository.FindAsync(
+            f => f.Id == request.FeeTypeId && f.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Type de frais introuvable.");
+
+        var enrollments = await LoadActiveEnrollmentsAsync(schoolId, year.Id, cancellationToken);
+        enrollments = await ApplyStructureFiltersAsync(
+            enrollments,
+            request.SectionId,
+            request.PedagogicalClassId,
+            request.ClassRoomId,
+            cancellationToken);
+
+        if (request.FeePricingCategoryId.HasValue)
+        {
+            enrollments = enrollments
+                .Where(e => e.FeePricingCategoryId == request.FeePricingCategoryId.Value)
+                .ToList();
+        }
+
+        var classRooms = await LoadClassRoomDetailsAsync(enrollments.Select(e => e.ClassRoomId), cancellationToken);
+
+        if (request.EducationCycle.HasValue || !string.IsNullOrWhiteSpace(request.StudyOption))
+        {
+            var roomEntities = await _classRoomRepository.FindAsync(
+                c => enrollments.Select(e => e.ClassRoomId).Contains(c.Id),
+                cancellationToken);
+            var pedIds = roomEntities.Where(r => r.PedagogicalClassId.HasValue)
+                .Select(r => r.PedagogicalClassId!.Value).Distinct().ToList();
+            var secIds = roomEntities.Select(r => r.SectionId).Distinct().ToList();
+            var sections = (await _sectionRepository.FindAsync(s => secIds.Contains(s.Id), cancellationToken))
+                .ToDictionary(s => s.Id);
+            var pedagogical = (await _pedagogicalClassRepository.FindAsync(p => pedIds.Contains(p.Id), cancellationToken))
+                .ToDictionary(p => p.Id);
+
+            var allowedRoomIds = roomEntities
+                .Where(room =>
+                {
+                    if (request.EducationCycle.HasValue
+                        && (!sections.TryGetValue(room.SectionId, out var section)
+                            || section.Cycle != request.EducationCycle.Value))
+                    {
+                        return false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(request.StudyOption))
+                    {
+                        if (!room.PedagogicalClassId.HasValue
+                            || !pedagogical.TryGetValue(room.PedagogicalClassId.Value, out var ped)
+                            || !string.Equals(ped.StudyOption, request.StudyOption.Trim(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .Select(r => r.Id)
+                .ToHashSet();
+
+            enrollments = enrollments.Where(e => allowedRoomIds.Contains(e.ClassRoomId)).ToList();
+        }
+
+        var studentIds = enrollments.Select(e => e.StudentId).Distinct().ToList();
+        var students = (await _studentRepository.FindAsync(
+            s => s.SchoolId == schoolId && studentIds.Contains(s.Id),
+            cancellationToken)).ToDictionary(s => s.Id);
+
+        // Colonnes = tranches du type de frais (ordonnées), filtrées si portée « sélection ».
+        var feeTypeInstallments = await _schoolFeeService.GetFeeTypeInstallmentsAsync(
+            schoolId, feeType.Id, cancellationToken);
+        var installmentColumns = feeTypeInstallments
+            .Where(i => selectedInstallmentIds.Count == 0 || selectedInstallmentIds.Contains(i.FeeInstallmentId))
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.InstallmentName, StringComparer.OrdinalIgnoreCase)
+            .Select(i => new PaymentSituationInstallmentColumnDto(
+                i.FeeInstallmentId,
+                i.InstallmentName,
+                i.SortOrder))
+            .ToList();
+
+        var columnIds = installmentColumns.Select(c => c.FeeInstallmentId).ToHashSet();
+
+        // Tarifs de l'année pour le type de frais (tranches du pivot uniquement).
+        var allTariffs = await _classFeeAmountRepository.FindAsync(
+            a => a.SchoolId == schoolId
+                 && a.AcademicYearId == year.Id
+                 && a.FeeTypeId == feeType.Id
+                 && columnIds.Contains(a.FeeInstallmentId),
+            cancellationToken);
+
+        var scopedTariffs = allTariffs.ToList();
+
+        var expectedByTariff = scopedTariffs
+            .GroupBy(a => (a.PedagogicalClassId, a.FeePricingCategoryId, a.FeeInstallmentId))
+            .ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
+
+        var tariffIdToInstallment = scopedTariffs
+            .GroupBy(a => a.Id)
+            .ToDictionary(g => g.Key, g => g.First().FeeInstallmentId);
+
+        var tariffIds = tariffIdToInstallment.Keys.ToHashSet();
+        var balances = tariffIds.Count == 0 || studentIds.Count == 0
+            ? []
+            : await _balanceRepository.FindAsync(
+                b => studentIds.Contains(b.StudentId) && tariffIds.Contains(b.ClassFeeAmountId),
+                cancellationToken);
+
+        var paidByStudentInstallment = balances
+            .Where(b => tariffIdToInstallment.ContainsKey(b.ClassFeeAmountId))
+            .GroupBy(b => (b.StudentId, FeeInstallmentId: tariffIdToInstallment[b.ClassFeeAmountId]))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
+
+        var pivotRows = new List<PaymentSituationPivotRowDto>();
+        foreach (var enrollment in enrollments)
+        {
+            if (!students.TryGetValue(enrollment.StudentId, out var student))
+            {
+                continue;
+            }
+
+            classRooms.TryGetValue(enrollment.ClassRoomId, out var classInfo);
+            var expectedList = new List<decimal>(installmentColumns.Count);
+            var paidList = new List<decimal>(installmentColumns.Count);
+            var balanceList = new List<decimal>(installmentColumns.Count);
+            var applicableList = new List<bool>(installmentColumns.Count);
+
+            foreach (var column in installmentColumns)
+            {
+                var applicable = false;
+                decimal expected = 0;
+                if (classInfo.PedagogicalClassId.HasValue
+                    && expectedByTariff.TryGetValue(
+                        (classInfo.PedagogicalClassId.Value, enrollment.FeePricingCategoryId, column.FeeInstallmentId),
+                        out var tariffAmount))
+                {
+                    applicable = true;
+                    expected = tariffAmount;
+                }
+
+                paidByStudentInstallment.TryGetValue((student.Id, column.FeeInstallmentId), out var paid);
+                if (!applicable)
+                {
+                    paid = 0;
+                }
+
+                expectedList.Add(expected);
+                paidList.Add(paid);
+                balanceList.Add(applicable ? expected - paid : 0);
+                applicableList.Add(applicable);
+            }
+
+            var amountExpected = expectedList.Sum();
+            var amountPaid = paidList.Sum();
+            var balance = amountExpected - amountPaid;
+            var inOrder = balance <= 0;
+
+            if (request.SituationFilter == PaymentSituationReportFilter.InOrder && !inOrder)
+            {
+                continue;
+            }
+
+            if (request.SituationFilter == PaymentSituationReportFilter.NotInOrder && inOrder)
+            {
+                continue;
+            }
+
+            pivotRows.Add(new PaymentSituationPivotRowDto(
+                student.Id,
+                student.RegistrationNumber,
+                StudentDisplayName.Format(student),
+                string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
+                string.IsNullOrWhiteSpace(classInfo.SectionName) ? "Sans section" : classInfo.SectionName!,
+                expectedList,
+                paidList,
+                balanceList,
+                applicableList,
+                amountExpected,
+                amountPaid,
+                balance,
+                inOrder));
+        }
+
+        // Ne garder que les tranches configurées pour au moins un élève du résultat filtré.
+        var usedIndexes = Enumerable.Range(0, installmentColumns.Count)
+            .Where(i => pivotRows.Any(r => i < r.InstallmentApplicable.Count && r.InstallmentApplicable[i]))
+            .ToList();
+        if (usedIndexes.Count != installmentColumns.Count)
+        {
+            installmentColumns = usedIndexes.Select(i => installmentColumns[i]).ToList();
+            pivotRows = pivotRows.Select(r => new PaymentSituationPivotRowDto(
+                r.StudentId,
+                r.RegistrationNumber,
+                r.FullName,
+                r.ClassName,
+                r.SectionName,
+                usedIndexes.Select(i => r.InstallmentExpected[i]).ToList(),
+                usedIndexes.Select(i => r.InstallmentPaid[i]).ToList(),
+                usedIndexes.Select(i => r.InstallmentBalances[i]).ToList(),
+                usedIndexes.Select(i => r.InstallmentApplicable[i]).ToList(),
+                r.AmountExpected,
+                r.AmountPaid,
+                r.Balance,
+                r.IsInOrder)).ToList();
+        }
+
+        pivotRows = request.SortBy switch
+        {
+            PaymentSituationSortKind.RegistrationNumber => pivotRows
+                .OrderBy(r => r.SectionName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.RegistrationNumber, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            PaymentSituationSortKind.ClassName => pivotRows
+                .OrderBy(r => r.SectionName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            PaymentSituationSortKind.BalanceDescending => pivotRows
+                .OrderBy(r => r.SectionName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(r => r.Balance)
+                .ThenBy(r => r.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            _ => pivotRows
+                .OrderBy(r => r.SectionName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+        };
+
+        var rows = pivotRows
+            .Select(r => new PaymentSituationReportRowDto(
+                r.RegistrationNumber,
+                r.FullName,
+                r.ClassName,
+                r.SectionName,
+                r.AmountExpected,
+                r.AmountPaid,
+                r.Balance,
+                feeType.Currency.ToString(),
+                r.IsInOrder))
+            .ToList();
+
+        var situationLabel = request.SituationFilter switch
+        {
+            PaymentSituationReportFilter.InOrder => "Élèves en ordre",
+            PaymentSituationReportFilter.NotInOrder => "Élèves non en ordre",
+            _ => "Tous les élèves"
+        };
+
+        var scopeLabel = selectedInstallmentIds.Count > 0
+            ? $"Tranche(s) : {string.Join(", ", installmentColumns.Select(c => c.InstallmentName))}"
+            : "Totalité du type de frais";
+
+        var filterParts = new List<string>();
+        if (request.EducationCycle.HasValue)
+        {
+            filterParts.Add($"Cycle : {request.EducationCycle}");
+        }
+
+        if (request.SectionId.HasValue)
+        {
+            var section = (await _sectionRepository.FindAsync(s => s.Id == request.SectionId.Value, cancellationToken))
+                .FirstOrDefault();
+            if (section is not null)
+            {
+                filterParts.Add($"Section : {section.Name}");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.StudyOption))
+        {
+            filterParts.Add($"Option : {request.StudyOption.Trim()}");
+        }
+
+        if (request.FeePricingCategoryId.HasValue)
+        {
+            var cat = (await _categoryRepository.FindAsync(c => c.Id == request.FeePricingCategoryId.Value, cancellationToken))
+                .FirstOrDefault();
+            if (cat is not null)
+            {
+                filterParts.Add($"Catégorie : {cat.Name}");
+            }
+        }
+
+        return new PaymentSituationReportResultDto(
+            year.Label,
+            feeType.Name,
+            scopeLabel,
+            situationLabel,
+            filterParts.Count == 0 ? null : string.Join(" · ", filterParts),
+            installmentColumns,
+            pivotRows,
+            rows,
+            rows.Count,
+            rows.Count(r => r.IsInOrder),
+            rows.Count(r => !r.IsInOrder),
+            rows.Sum(r => r.AmountExpected),
+            rows.Sum(r => r.AmountPaid),
+            rows.Sum(r => r.Balance),
+            feeType.Currency.ToString());
     }
 
     public async Task<StudentInstallmentPaymentPlanDto> GetInstallmentPaymentPlanAsync(
@@ -361,7 +691,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
                 enrollment.Id,
                 student.Id,
                 student.RegistrationNumber,
-                $"{student.LastName} {student.FirstName}".Trim(),
+                StudentDisplayName.Format(student),
                 string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
                 classInfo.SectionName,
                 year.Id,
@@ -466,7 +796,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
             enrollment.Id,
             student.Id,
             student.RegistrationNumber,
-            $"{student.LastName} {student.FirstName}".Trim(),
+            StudentDisplayName.Format(student),
             string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
             classInfo.SectionName,
             year.Id,
@@ -609,7 +939,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var currencyLabel = lines.Select(l => l.Currency).Distinct().DefaultIfEmpty(Currency.CDF.ToString()).First();
         return new StudentApplicableFeesDto(
             enrollment.Id,
-            $"{student.LastName} {student.FirstName}".Trim(),
+            StudentDisplayName.Format(student),
             string.IsNullOrWhiteSpace(classInfo.ClassName) ? "—" : classInfo.ClassName,
             categoryName,
             year.Label,

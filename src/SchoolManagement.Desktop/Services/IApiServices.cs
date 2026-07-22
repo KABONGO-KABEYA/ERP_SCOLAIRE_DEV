@@ -200,6 +200,10 @@ public interface IRevenueAllocationApiService
         SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.RevenueAllocation.DTOs.WithholdingReportResultDto> GetWithholdingReportAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<byte[]> ExportExcelAsync(
         SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default);
@@ -558,6 +562,18 @@ public interface IReportApiService
     Task<byte[]> ExportRealizedReceiptsExcelAsync(
         SchoolManagement.Application.Reports.DTOs.RealizedReceiptsRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Reports.DTOs.PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPaymentSituationReportPdfAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<byte[]> ExportPaymentSituationReportExcelAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAdminApiService
@@ -763,5 +779,15 @@ public interface IAccountingApiService
 
     Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> CreateExpensePaymentAsync(
         SchoolManagement.Application.Accounting.DTOs.CreateExpensePaymentRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface ICloudSyncApiService
+{
+    Task<SchoolManagement.Application.CloudSync.DTOs.CloudSyncStatusDto> GetStatusAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CloudSync.DTOs.CloudSyncRunResultDto> SynchronizeNowAsync(
+        bool criticalOnly = false,
         CancellationToken cancellationToken = default);
 }

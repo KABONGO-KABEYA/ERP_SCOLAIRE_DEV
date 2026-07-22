@@ -474,6 +474,7 @@ public partial class ShellView : UserControl
             "frais-scolaires" => "Configuration des frais par année, classe et type de frais.",
             "repartition-recettes" => "Destinations et clés de répartition des recettes.",
             "retenues" => "Configuration des retenues appliquées aux encaissements.",
+            "sync-cloud" => "État et pilotage de la synchronisation Local → Cloud.",
             "reglement" => "Rédigez et enregistrez le règlement d'ordre intérieur.",
             _ => "Configuration de l'établissement scolaire."
         };

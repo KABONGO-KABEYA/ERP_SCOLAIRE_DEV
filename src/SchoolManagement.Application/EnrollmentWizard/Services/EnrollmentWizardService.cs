@@ -1,6 +1,7 @@
 namespace SchoolManagement.Application.EnrollmentWizard.Services;
 
 using SchoolManagement.Application.Academic.DTOs;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Common.Models;
 using SchoolManagement.Application.Common.Storage;
@@ -783,7 +784,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             student.Id,
             enrollment.Id,
             student.RegistrationNumber,
-            $"{student.LastName} {student.FirstName}",
+            StudentDisplayName.Format(student),
             className,
             totalDue,
             financialMessage + ficheMessage);

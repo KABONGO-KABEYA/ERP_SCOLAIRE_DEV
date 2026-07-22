@@ -121,6 +121,13 @@ public enum AllocationCalculationType
     MontantFixe = 2
 }
 
+/// <summary>Source d'une clé de répartition : type de frais ou type de retenue.</summary>
+public enum RevenueAllocationSourceKind
+{
+    FeeType = 1,
+    Withholding = 2
+}
+
 /// <summary>Mode de calcul d'une retenue sur encaissement.</summary>
 public enum WithholdingCalculationMode
 {

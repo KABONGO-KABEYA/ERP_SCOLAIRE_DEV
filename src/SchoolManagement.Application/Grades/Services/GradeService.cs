@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.Grades.Services;
 
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Grades.DTOs;
 using SchoolManagement.Application.Grades.Interfaces;
@@ -139,7 +140,7 @@ public sealed class GradeService : IGradeService
             .Select(e =>
             {
                 studentMap.TryGetValue(e.StudentId, out var student);
-                var name = student is null ? "—" : $"{student.LastName} {student.FirstName}";
+                var name = StudentDisplayName.FormatOrDefault(student);
                 if (gradeMap.TryGetValue(e.StudentId, out var grade))
                 {
                     return new GradeEntryDto(grade.Id, grade.StudentId, name, grade.Score, grade.IsAbsent, grade.Comment);
@@ -265,7 +266,7 @@ public sealed class GradeService : IGradeService
             var rank = i + 1;
 
             studentMap.TryGetValue(studentId, out var student);
-            var name = student is null ? "—" : $"{student.LastName} {student.FirstName}";
+            var name = StudentDisplayName.FormatOrDefault(student);
 
             var existing = await _periodResultRepository.FindAsync(
                 p => p.StudentId == studentId && p.AcademicPeriodId == request.AcademicPeriodId, cancellationToken);

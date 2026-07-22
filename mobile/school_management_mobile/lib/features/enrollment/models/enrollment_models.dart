@@ -1,3 +1,4 @@
+import '../../../core/utils/student_display_name.dart';
 import 'geography_models.dart';
 
 class EnrollmentPrerequisiteIssue {
@@ -76,16 +77,15 @@ class EnrollmentStudentSearchResult {
   final String? statusLabel;
   final int? lastClassLevel;
 
-  String get fullName {
-    if (middleName != null && middleName!.trim().isNotEmpty) {
-      return '$lastName $middleName $firstName';
-    }
-    return '$lastName $firstName';
-  }
+  String get fullName => formatStudentDisplayName(
+        lastName: lastName,
+        middleName: middleName,
+        firstName: firstName,
+      );
 
   factory EnrollmentStudentSearchResult.fromJson(Map<String, dynamic> json) =>
       EnrollmentStudentSearchResult(
-        id: json['id'] as String,
+        id: json['id']?.toString() ?? '',
         registrationNumber: json['registrationNumber'] as String,
         firstName: json['firstName'] as String,
         lastName: json['lastName'] as String,

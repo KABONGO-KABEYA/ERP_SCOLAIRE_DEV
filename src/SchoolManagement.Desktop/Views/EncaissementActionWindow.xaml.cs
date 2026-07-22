@@ -49,6 +49,7 @@ public partial class EncaissementActionWindow : Window
     private bool _busy;
     private bool _suppressDistribute;
     private bool _suppressTodayPaymentSync;
+    private int _collectWithholdingPreviewVersion;
 
     public bool NeedsRefresh { get; private set; }
 
@@ -383,6 +384,108 @@ public partial class EncaissementActionWindow : Window
         CollectTotalsText.Text =
             $"Total des versements : {versements:N0} {_situation.Currency}  ·  " +
             $"Reste après ce paiement : {remainingAfter:N0} {_situation.Currency}";
+        _ = RefreshCollectWithholdingsAsync();
+    }
+
+    /// <summary>
+    /// Aperçu des retenues qui seront appliquées à l'enregistrement
+    /// (même logique que le serveur : par tranche / catégorie / config active).
+    /// </summary>
+    private async Task RefreshCollectWithholdingsAsync()
+    {
+        if (_mode != EncaissementActionMode.CollectPayment || _situation.FeeTypeId is null)
+        {
+            CollectWithholdingsBox.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var version = Interlocked.Increment(ref _collectWithholdingPreviewVersion);
+        var linesToPay = _installmentRows.Where(r => r.TodayPayment > 0).ToList();
+        if (linesToPay.Count == 0)
+        {
+            if (version == _collectWithholdingPreviewVersion)
+            {
+                CollectWithholdingsBox.Visibility = Visibility.Collapsed;
+                CollectWithholdingsGrid.ItemsSource = null;
+            }
+
+            return;
+        }
+
+        try
+        {
+            var aggregated = new Dictionary<Guid, (string Code, string Name, decimal Amount)>();
+            decimal gross = 0;
+            decimal totalWithheld = 0;
+
+            foreach (var row in linesToPay)
+            {
+                var result = await _withholdingApi.CalculateAsync(new WithholdingCalculateRequest(
+                    row.TodayPayment,
+                    new WithholdingResolveContext(
+                        _situation.AcademicYearId,
+                        _situation.FeeTypeId.Value,
+                        row.FeeInstallmentId,
+                        _situation.FeePricingCategoryId,
+                        _situation.StudentId)));
+
+                if (version != _collectWithholdingPreviewVersion)
+                {
+                    return;
+                }
+
+                gross += result.GrossAmount;
+                totalWithheld += result.TotalWithheld;
+                foreach (var line in result.Lines.Where(l => l.WithheldAmount > 0))
+                {
+                    if (aggregated.TryGetValue(line.WithholdingTypeId, out var existing))
+                    {
+                        aggregated[line.WithholdingTypeId] =
+                            (existing.Code, existing.Name, existing.Amount + line.WithheldAmount);
+                    }
+                    else
+                    {
+                        aggregated[line.WithholdingTypeId] =
+                            (line.WithholdingTypeCode, line.WithholdingTypeName, line.WithheldAmount);
+                    }
+                }
+            }
+
+            if (version != _collectWithholdingPreviewVersion)
+            {
+                return;
+            }
+
+            if (totalWithheld <= 0 || aggregated.Count == 0)
+            {
+                CollectWithholdingsBox.Visibility = Visibility.Collapsed;
+                CollectWithholdingsGrid.ItemsSource = null;
+                return;
+            }
+
+            var net = gross - totalWithheld;
+            CollectWithholdingsText.Text =
+                $"Sur {gross:N0} {_situation.Currency} encaissés : " +
+                $"retenues {totalWithheld:N0} · net réparti {net:N0}. " +
+                "Montant fixe : une fois par rubrique. Pourcentage : à chaque versement jusqu'au solde de la rubrique.";
+            CollectWithholdingsGrid.ItemsSource = aggregated
+                .OrderBy(kv => kv.Value.Name)
+                .Select(kv => new
+                {
+                    WithholdingTypeCode = kv.Value.Code,
+                    WithholdingTypeName = kv.Value.Name,
+                    WithheldAmount = kv.Value.Amount
+                })
+                .ToList();
+            CollectWithholdingsBox.Visibility = Visibility.Visible;
+        }
+        catch
+        {
+            if (version == _collectWithholdingPreviewVersion)
+            {
+                CollectWithholdingsBox.Visibility = Visibility.Collapsed;
+            }
+        }
     }
 
     private async Task LoadPaymentsAsync()
@@ -673,6 +776,7 @@ public partial class EncaissementActionWindow : Window
             return;
         }
 
+        // Aperçu informatif : retenues restantes à appliquer (une fois par rubrique).
         var balance = Math.Max(0, _situation.Balance);
         var gross = Math.Max(balance, _situation.AmountExpected);
         if (gross <= 0)
@@ -686,12 +790,16 @@ public partial class EncaissementActionWindow : Window
                 _situation.AcademicYearId,
                 _situation.FeeTypeId.Value,
                 null,
-                _situation.FeePricingCategoryId)));
+                _situation.FeePricingCategoryId,
+                _situation.StudentId)));
 
         WithholdingTotalsText.Text =
-            $"Montant brut : {result.GrossAmount:N0} {_situation.Currency}  ·  " +
-            $"Retenues : {result.TotalWithheld:N0}  ·  " +
-            $"Net : {result.NetAmount:N0}";
+            $"Aperçu sur {result.GrossAmount:N0} {_situation.Currency}  ·  " +
+            $"Retenues restantes : {result.TotalWithheld:N0}  ·  " +
+            $"Net : {result.NetAmount:N0}" +
+            Environment.NewLine +
+            "Chaque retenue fixe s'applique une seule fois par rubrique. " +
+            "Le pourcentage s'applique à chaque versement jusqu'au solde de la rubrique.";
         WithholdingsGrid.ItemsSource = result.Lines;
         if (result.Lines.Count == 0)
         {

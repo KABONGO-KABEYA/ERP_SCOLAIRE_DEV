@@ -36,8 +36,8 @@ public sealed class GenderDisplayConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value switch
         {
-            Gender.Masculin => "Masculin",
-            Gender.Feminin => "Féminin",
+            Gender.Masculin => "M",
+            Gender.Feminin => "F",
             _ => "—"
         };
 

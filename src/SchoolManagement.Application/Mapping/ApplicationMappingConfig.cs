@@ -10,12 +10,14 @@ public class ApplicationMappingConfig : IRegister
 {
     public void Register(TypeAdapterConfig config)
     {
-        config.NewConfig<School, SchoolDto>();
+        config.NewConfig<School, SchoolDto>()
+            .Map(dest => dest.DefaultFeeTypeName, _ => (string?)null);
         config.NewConfig<AcademicYear, AcademicYearDto>();
         config.NewConfig<UpdateSchoolRequest, School>()
             .Ignore(dest => dest.Id)
             .Ignore(dest => dest.CreatedAt)
-            .Ignore(dest => dest.IsActive);
+            .Ignore(dest => dest.IsActive)
+            .Ignore(dest => dest.DefaultCurrency);
 
         config.NewConfig<CreateAcademicYearRequest, AcademicYear>()
             .Map(dest => dest.IsCurrent, src => src.SetAsCurrent)
@@ -34,7 +36,12 @@ public class ApplicationMappingConfig : IRegister
                 s.DateOfBirth,
                 s.Phone,
                 s.Email,
-                s.IsArchived));
+                s.IsArchived,
+                false,
+                null,
+                null,
+                null,
+                null));
         config.NewConfig<CreateStudentRequest, Student>()
             .Ignore(dest => dest.Id)
             .Ignore(dest => dest.SchoolId)

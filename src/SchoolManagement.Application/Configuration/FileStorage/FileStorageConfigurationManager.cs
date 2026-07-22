@@ -101,8 +101,14 @@ public sealed class FileStorageConfigurationManager
 
         if (Path.IsPathRooted(trimmed))
         {
+            // Windows : "D:\" (longueur >= 3). Linux/Docker : "/" (longueur 1) est valide.
             var root = Path.GetPathRoot(trimmed);
-            if (string.IsNullOrWhiteSpace(root) || root.Length < 3)
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return "Le chemin absolu est invalide.";
+            }
+
+            if (OperatingSystem.IsWindows() && root.Length < 3)
             {
                 return "Le chemin absolu est invalide.";
             }
@@ -110,7 +116,7 @@ public sealed class FileStorageConfigurationManager
             return null;
         }
 
-        return "Indiquez un chemin UNC (\\\\serveur\\partage\\Dossier_Elève) ou un chemin absolu (D:\\...). Les chemins relatifs ne sont pas autorisés.";
+        return "Indiquez un chemin UNC (\\\\serveur\\partage\\Dossier_Elève) ou un chemin absolu (D:\\... ou /app/data). Les chemins relatifs ne sont pas autorisés.";
     }
 
     public string GetAbsoluteRootPath()

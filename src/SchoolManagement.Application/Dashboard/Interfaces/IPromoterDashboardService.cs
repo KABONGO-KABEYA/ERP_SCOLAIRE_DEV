@@ -8,6 +8,7 @@ public interface IPromoterDashboardService
         Guid schoolId,
         DashboardPeriod period = DashboardPeriod.Month,
         RevenueGranularity granularity = RevenueGranularity.Daily,
+        Guid? feeTypeId = null,
         CancellationToken cancellationToken = default);
 
     Task<PromoterFinancialSummaryDto> GetSummaryAsync(
@@ -29,6 +30,7 @@ public interface IPromoterDashboardService
     Task<IReadOnlyList<FundAllocationShareDto>> GetFundDistributionAsync(
         Guid schoolId,
         DashboardPeriod period = DashboardPeriod.Month,
+        Guid? feeTypeId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DashboardActivityDto>> GetActivitiesAsync(
@@ -39,5 +41,35 @@ public interface IPromoterDashboardService
     Task<IReadOnlyList<DashboardAlertDto>> GetAlertsAsync(
         Guid schoolId,
         DashboardPeriod period = DashboardPeriod.Month,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DashboardPaymentLineDto>> GetPaymentsDetailAsync(
+        Guid schoolId,
+        DashboardDetailScope scope,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DashboardExpenseLineDto>> GetExpensesDetailAsync(
+        Guid schoolId,
+        DashboardDetailScope scope,
+        Guid? destinationId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DashboardDebtorLineDto>> GetDebtorsDetailAsync(
+        Guid schoolId,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<FeeReceivablesBreakdownDto> GetFeeReceivablesBreakdownAsync(
+        Guid schoolId,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<EnrolledStudentsBySectionDto> GetEnrolledStudentsBySectionAsync(
+        Guid schoolId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DashboardFundMovementDto>> GetFundMovementsAsync(
+        Guid schoolId,
+        Guid destinationId,
         CancellationToken cancellationToken = default);
 }

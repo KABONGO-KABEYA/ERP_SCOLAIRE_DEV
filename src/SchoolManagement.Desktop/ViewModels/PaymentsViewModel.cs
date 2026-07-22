@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Payments.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Students.DTOs;
+using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Domain.Enums;
 
@@ -55,7 +56,8 @@ public partial class PaymentsViewModel : ViewModelBase
         {
             Lookups = await _schoolApiService.GetLookupsAsync();
             SelectedYear = Lookups.AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? Lookups.AcademicYears.FirstOrDefault();
-            SelectedFeeType = Lookups.FeeTypes.FirstOrDefault();
+            var school = await _schoolApiService.GetCurrentSchoolAsync();
+            SelectedFeeType = DefaultFeeTypeHelper.Resolve(Lookups.FeeTypes, school?.DefaultFeeTypeId);
 
             var students = await _studentApiService.SearchAsync(new StudentSearchRequest(
                 null, null, null, null, null, null,

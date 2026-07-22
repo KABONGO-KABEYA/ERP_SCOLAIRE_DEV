@@ -5,6 +5,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Academic.DTOs;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Desktop.Services;
@@ -288,10 +289,10 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
         }
     }
     public string AgeCategory => Age < 18 ? "Mineur" : "Majeur";
-    public string DisplayName => string.IsNullOrWhiteSpace(LastName) ? "—" : $"{LastName} {FirstName}".Trim();
-    public string FullDisplayName => string.IsNullOrWhiteSpace(MiddleName)
-        ? DisplayName
-        : $"{LastName} {MiddleName} {FirstName}".Trim();
+    public string DisplayName => string.IsNullOrWhiteSpace(LastName)
+        ? "—"
+        : StudentDisplayName.Format(LastName, MiddleName, FirstName);
+    public string FullDisplayName => DisplayName;
     public string SummarySection => Sections.FirstOrDefault(s => s.Id == SelectedSectionId)?.Name ?? "—";
     public string SummaryOption => SelectedStudyOption ?? "—";
     public string SummaryPedagogicalClass => SelectedClass?.PedagogicalDisplayName ?? PedagogicalClassOptions

@@ -59,6 +59,24 @@
 
                         <StackPanel Margin="0,10,0,0"
                                     Visibility="{Binding IsKeysConfigurationExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Border Margin="0,0,0,8"
+                                    Padding="12,10"
+                                    Background="#EEF6FF"
+                                    BorderBrush="#BFDBFE"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Margin="0,0,8,0"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#1D4ED8"
+                                                           Kind="InformationOutline" />
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="#1E3A5F"
+                                               TextWrapping="Wrap"
+                                               Text="{Binding PrincipalAccountHint}" />
+                                </StackPanel>
+                            </Border>
                             <Border Margin="0,0,0,8" Style="{StaticResource SchoolFeeSectionCard}">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -72,10 +90,10 @@
                                                                Kind="TuneVariant" />
                                         <TextBlock Style="{StaticResource SchoolFeeSectionTitle}" Text="Paramètres" />
                                     </StackPanel>
-                                    <UniformGrid Grid.Row="1" Columns="4">
+                                    <UniformGrid Grid.Row="1" Columns="5">
                                         <erp:ErpComboField Margin="0,0,8,0"
                                                            DisplayMemberPath="Label"
-                                                           FieldWidth="200"
+                                                           FieldWidth="160"
                                                            HorizontalAlignment="Stretch"
                                                            IconKind="CalendarRange"
                                                            ItemsSource="{Binding AcademicYears}"
@@ -83,16 +101,34 @@
                                                            SelectedItem="{Binding SelectedKeyYear, Mode=TwoWay}"
                                                            SelectedValuePath="Id" />
                                         <erp:ErpComboField Margin="0,0,8,0"
-                                                           DisplayMemberPath="Name"
-                                                           FieldWidth="200"
+                                                           DisplayMemberPath="Label"
+                                                           FieldWidth="160"
                                                            HorizontalAlignment="Stretch"
-                                                           IconKind="CashMultiple"
-                                                           ItemsSource="{Binding FeeTypes}"
-                                                           Label="Type de frais"
-                                                           SelectedItem="{Binding SelectedFeeType, Mode=TwoWay}" />
+                                                           IconKind="SourceBranch"
+                                                           ItemsSource="{Binding SourceKindOptions}"
+                                                           Label="Répartir sur"
+                                                           SelectedItem="{Binding SelectedSourceKind, Mode=TwoWay}" />
+                                        <Grid Margin="0,0,8,0">
+                                            <erp:ErpComboField DisplayMemberPath="Name"
+                                                               FieldWidth="180"
+                                                               HorizontalAlignment="Stretch"
+                                                               IconKind="CashMultiple"
+                                                               ItemsSource="{Binding FeeTypes}"
+                                                               Label="Type de frais"
+                                                               SelectedItem="{Binding SelectedFeeType, Mode=TwoWay}"
+                                                               Visibility="{Binding IsFeeTypeSource, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <erp:ErpComboField DisplayMemberPath="Name"
+                                                               FieldWidth="180"
+                                                               HorizontalAlignment="Stretch"
+                                                               IconKind="PercentOutline"
+                                                               ItemsSource="{Binding WithholdingTypes}"
+                                                               Label="Type de retenue"
+                                                               SelectedItem="{Binding SelectedWithholdingType, Mode=TwoWay}"
+                                                               Visibility="{Binding IsWithholdingSource, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        </Grid>
                                         <erp:ErpDateField Margin="0,0,8,0"
                                                           DateValidationMode="None"
-                                                          FieldWidth="200"
+                                                          FieldWidth="160"
                                                           HorizontalAlignment="Stretch"
                                                           IsEnabled="{Binding CanEditKey}"
                                                           IsRequired="True"
@@ -114,7 +150,8 @@
                                                 <TextBlock VerticalAlignment="Center"
                                                            FontWeight="SemiBold"
                                                            Foreground="{StaticResource ErpTextSecondaryBrush}"
-                                                           Text="{Binding KeyStatusLabel}" />
+                                                           Text="{Binding KeyStatusLabel}"
+                                                           TextWrapping="Wrap" />
                                             </Border>
                                         </StackPanel>
                                     </UniformGrid>
@@ -155,7 +192,7 @@
                                                     IsEnabled="{Binding CanCreateKeyForSelection}"
                                                     Padding="10,5"
                                                     Style="{StaticResource ErpSecondaryButton}"
-                                                    ToolTip="Un seul type de frais = une seule clé par année" />
+                                                    ToolTip="Une seule clé par type de frais ou retenue et par année" />
                                             <Button Margin="6,0,0,0"
                                                     Command="{Binding LoadKeysCommand}"
                                                     Content="Actualiser"
@@ -174,7 +211,36 @@
                                                   Style="{StaticResource SchoolFeePremiumDataGrid}"
                                                   VerticalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Binding="{Binding FeeTypeName}" Header="Type de frais" MinWidth="120" Width="*" />
+                                                <DataGridTemplateColumn Header="Source" MinWidth="140" Width="*">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                                           Margin="0,0,6,0">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Text" Value="Frais" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding SourceKind}" Value="Withholding">
+                                                                                    <Setter Property="Text" Value="Retenue" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock>
+                                                                    <TextBlock.Text>
+                                                                        <PriorityBinding>
+                                                                            <Binding Path="FeeTypeName" />
+                                                                            <Binding Path="WithholdingTypeName" />
+                                                                        </PriorityBinding>
+                                                                    </TextBlock.Text>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
                                                 <DataGridTextColumn Binding="{Binding StartDate, StringFormat=dd/MM/yyyy}" Header="Début" Width="90" />
                                                 <DataGridTextColumn Binding="{Binding EndDate, StringFormat=dd/MM/yyyy}" Header="Fin" Width="90" />
                                                 <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Ouverte" Width="75" />

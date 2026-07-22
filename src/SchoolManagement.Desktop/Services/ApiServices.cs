@@ -815,6 +815,26 @@ public sealed class RevenueAllocationApiService : ApiServiceBase, IRevenueAlloca
             $"api/v1/revenue-allocation/entries/cash-flow{query}", cancellationToken);
     }
 
+    public Task<SchoolManagement.Application.RevenueAllocation.DTOs.WithholdingReportResultDto> GetWithholdingReportAsync(
+        SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.FromDate.HasValue) parts.Add($"fromDate={request.FromDate:yyyy-MM-dd}");
+        if (request.ToDate.HasValue) parts.Add($"toDate={request.ToDate:yyyy-MM-dd}");
+        if (request.StudentId.HasValue) parts.Add($"studentId={request.StudentId}");
+        if (request.PaymentId.HasValue) parts.Add($"paymentId={request.PaymentId}");
+        if (request.DestinationId.HasValue) parts.Add($"destinationId={request.DestinationId}");
+        if (request.FeeTypeId.HasValue) parts.Add($"feeTypeId={request.FeeTypeId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+
+        var query = parts.Count > 0 ? $"?{string.Join("&", parts)}" : string.Empty;
+        return GetAsync<SchoolManagement.Application.RevenueAllocation.DTOs.WithholdingReportResultDto>(
+            $"api/v1/revenue-allocation/entries/withholdings{query}", cancellationToken);
+    }
+
     public async Task<byte[]> ExportExcelAsync(
         SchoolManagement.Application.RevenueAllocation.DTOs.RevenueAllocationSearchRequest request,
         CancellationToken cancellationToken = default)
@@ -1266,6 +1286,73 @@ public sealed class ReportApiService : ApiServiceBase, IReportApiService
         }
 
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Reports.DTOs.PaymentSituationReportResultDto> GetPaymentSituationReportAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildPaymentSituationQuery(request);
+        return GetAsync<SchoolManagement.Application.Reports.DTOs.PaymentSituationReportResultDto>(
+            $"api/v1/reports/payment-situations?{query}", cancellationToken);
+    }
+
+    public async Task<byte[]> ExportPaymentSituationReportPdfAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildPaymentSituationQuery(request);
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.GetAsync($"api/v1/reports/payment-situations/export/pdf?{query}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Erreur export PDF ({(int)response.StatusCode})");
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public async Task<byte[]> ExportPaymentSituationReportExcelAsync(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildPaymentSituationQuery(request);
+        var client = HttpClientFactory.CreateClient("SchoolApiAuth");
+        var response = await client.GetAsync($"api/v1/reports/payment-situations/export/excel?{query}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Erreur export Excel ({(int)response.StatusCode})");
+        }
+
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    private static string BuildPaymentSituationQuery(
+        SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request)
+    {
+        var parts = new List<string>
+        {
+            $"academicYearId={request.AcademicYearId}",
+            $"feeTypeId={request.FeeTypeId}",
+            $"scopeKind={(int)request.ScopeKind}",
+            $"situationFilter={(int)request.SituationFilter}",
+            $"sortBy={(int)request.SortBy}"
+        };
+        if (request.FeeInstallmentIds is { Count: > 0 })
+        {
+            foreach (var id in request.FeeInstallmentIds)
+            {
+                parts.Add($"feeInstallmentIds={id}");
+            }
+        }
+
+        if (request.EducationCycle.HasValue) parts.Add($"educationCycle={(int)request.EducationCycle.Value}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.PedagogicalClassId.HasValue) parts.Add($"pedagogicalClassId={request.PedagogicalClassId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+        if (!string.IsNullOrWhiteSpace(request.StudyOption)) parts.Add($"studyOption={Uri.EscapeDataString(request.StudyOption)}");
+        if (request.FeePricingCategoryId.HasValue) parts.Add($"feePricingCategoryId={request.FeePricingCategoryId}");
+        return string.Join("&", parts);
     }
 
     private static string BuildRealizedReceiptsQuery(
@@ -2035,4 +2122,24 @@ public sealed class AccountingApiService : ApiServiceBase, IAccountingApiService
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto>(
             "api/v1/accounting/expense-payments", request, cancellationToken);
+}
+
+public sealed class CloudSyncApiService : ApiServiceBase, ICloudSyncApiService
+{
+    public CloudSyncApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory)
+    {
+    }
+
+    public Task<SchoolManagement.Application.CloudSync.DTOs.CloudSyncStatusDto> GetStatusAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.CloudSync.DTOs.CloudSyncStatusDto>(
+            "api/v1/cloud-sync/status", cancellationToken);
+
+    public Task<SchoolManagement.Application.CloudSync.DTOs.CloudSyncRunResultDto> SynchronizeNowAsync(
+        bool criticalOnly = false,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CloudSync.DTOs.CloudSyncRunResultDto>(
+            $"api/v1/cloud-sync/synchronize?criticalOnly={criticalOnly}",
+            new { },
+            cancellationToken);
 }

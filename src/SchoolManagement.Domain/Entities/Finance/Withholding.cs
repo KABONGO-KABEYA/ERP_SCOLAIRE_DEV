@@ -58,3 +58,31 @@ public class WithholdingConfiguration : AuditableEntity, IAggregateRoot
 
     public FeePricingCategory? PricingCategory { get; set; }
 }
+
+/// <summary>
+/// Retenue déjà appliquée à un élève pour une configuration donnée (une seule fois par rubrique).
+/// </summary>
+public class WithholdingApplication : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid StudentId { get; set; }
+
+    public Guid AcademicYearId { get; set; }
+
+    public Guid WithholdingConfigurationId { get; set; }
+
+    public Guid PaymentId { get; set; }
+
+    public Guid PaymentLineId { get; set; }
+
+    public decimal Amount { get; set; }
+
+    public School School { get; set; } = null!;
+
+    public WithholdingConfiguration WithholdingConfiguration { get; set; } = null!;
+
+    public Payment Payment { get; set; } = null!;
+
+    public PaymentLine PaymentLine { get; set; } = null!;
+}
