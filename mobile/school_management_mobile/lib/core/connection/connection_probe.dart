@@ -66,16 +66,11 @@ class ConnectionProbe {
   }
 
   List<String> _localCandidates() {
-    const usbTunnel = 'http://127.0.0.1:5041';
+    // Uniquement l'URL locale configurée (IP LAN école).
+    // Pas de fallback 127.0.0.1 / tunnel USB : hors Wi‑Fi école → Cloud.
     final primary = ApiConfig.effectiveLocalBaseUrl;
-    final list = <String>[];
-    if (ApiConfig.isValidBaseUrl(primary)) {
-      list.add(primary);
-    }
-    if (primary != usbTunnel) {
-      list.add(usbTunnel);
-    }
-    return list;
+    if (!ApiConfig.isValidBaseUrl(primary)) return const [];
+    return [primary];
   }
 
   Future<String?> _firstHealthy(List<String> urls, Duration timeout) async {

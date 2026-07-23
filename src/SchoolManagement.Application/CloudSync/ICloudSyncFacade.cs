@@ -9,5 +9,6 @@ public interface ICloudSyncFacade
 
     Task<DTOs.CloudSyncRunResultDto> SynchronizeNowAsync(
         bool criticalOnly = false,
+        bool requeueDeadLetters = true,
         CancellationToken cancellationToken = default);
 }

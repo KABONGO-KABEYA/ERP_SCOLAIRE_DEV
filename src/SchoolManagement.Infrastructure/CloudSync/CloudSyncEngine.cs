@@ -10,6 +10,9 @@ using SchoolManagement.Application.CloudSync.DTOs;
 using SchoolManagement.Application.Configuration;
 using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Entities.Sync;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Infrastructure.Persistence;
@@ -119,6 +122,9 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             await using var remote = open.Remote!;
             remote.SuppressCloudSyncEnqueue = true;
+
+            // Référentiel finance d'abord (destinations, retenues, clés…) — commit hors outbox.
+            await EnsureFinanceReferenceDataAsync(local, remote, cancellationToken);
 
             foreach (var unit in units)
             {
@@ -409,6 +415,40 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         return true;
     }
 
+    public async Task<int> RequeueFailedUnitsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+        local.SuppressCloudSyncEnqueue = true;
+
+        var units = await local.SyncOutboxUnits
+            .Include(u => u.Items)
+            .Where(u => !u.IsDeleted
+                        && (u.Status == SyncOutboxStatus.Failed || u.Status == SyncOutboxStatus.DeadLetter))
+            .ToListAsync(cancellationToken);
+
+        foreach (var unit in units)
+        {
+            unit.Status = SyncOutboxStatus.Pending;
+            unit.AttemptCount = 0;
+            unit.LastError = null;
+            unit.CompletedAt = null;
+            foreach (var item in unit.Items.Where(i => !i.IsDeleted))
+            {
+                item.Status = SyncOutboxStatus.Pending;
+                item.LastError = null;
+            }
+        }
+
+        if (units.Count > 0)
+        {
+            await local.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Requeue sync : {Count} unité(s) Failed/DeadLetter → Pending.", units.Count);
+        }
+
+        return units.Count;
+    }
+
     private async Task<(bool Skipped, string Message, SchoolDbContext? Remote)> TryOpenRemoteAsync(
         CancellationToken cancellationToken)
     {
@@ -445,7 +485,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
         var remoteCs = _connectionFactory.BuildConnectionString(cloudConfig.ToDatabaseConfiguration());
         var remoteOptions = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseSqlServer(remoteCs)
+            .UseSqlServer(remoteCs, sql => sql.CommandTimeout(120))
             .Options;
         var remote = new SchoolDbContext(remoteOptions) { SuppressCloudSyncEnqueue = true };
 
@@ -464,6 +504,76 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         }
 
         return (false, "OK", remote);
+    }
+
+    /// <summary>
+    /// Pousse le référentiel finance Local → Cloud avant les unités paiement.
+    /// Évite les FK manquantes (destinations, retenues, clés de répartition…).
+    /// </summary>
+    private static async Task EnsureFinanceReferenceDataAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        CancellationToken cancellationToken)
+    {
+        var cs = remote.Database.GetConnectionString()
+            ?? throw new InvalidOperationException("ConnectionString cloud introuvable.");
+        var options = new DbContextOptionsBuilder<SchoolDbContext>()
+            .UseSqlServer(cs, sql => sql.CommandTimeout(120))
+            .Options;
+
+        await using var ctx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+
+        await UpsertAllAsync<School>(local, ctx, cancellationToken);
+        await UpsertAllAsync<AcademicYear>(local, ctx, cancellationToken);
+        await UpsertAllAsync<FeeType>(local, ctx, cancellationToken);
+        await UpsertAllAsync<FeeInstallment>(local, ctx, cancellationToken);
+        await UpsertAllAsync<FeePricingCategory>(local, ctx, cancellationToken);
+        await UpsertAllAsync<Bank>(local, ctx, cancellationToken);
+        await UpsertAllAsync<WithholdingType>(local, ctx, cancellationToken);
+        await UpsertAllAsync<RevenueAllocationDestination>(local, ctx, cancellationToken);
+        await UpsertAllAsync<RevenueAllocationKey>(local, ctx, cancellationToken);
+        await UpsertAllAsync<RevenueAllocationKeyDetail>(local, ctx, cancellationToken);
+        await UpsertAllAsync<WithholdingConfiguration>(local, ctx, cancellationToken);
+    }
+
+    private static async Task UpsertAllAsync<TEntity>(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        CancellationToken cancellationToken)
+        where TEntity : AuditableEntity, new()
+    {
+        var rows = await local.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var existingIds = await remote.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
+        var existing = new HashSet<Guid>(existingIds);
+
+        const int batchSize = 1;
+        for (var offset = 0; offset < rows.Count; offset += batchSize)
+        {
+            var batch = rows.Skip(offset).Take(batchSize);
+            foreach (var row in batch)
+            {
+                UpsertScalars(remote, row, existing.Contains(row.Id));
+            }
+
+            await remote.SaveChangesAsync(cancellationToken);
+            foreach (var entry in remote.ChangeTracker.Entries().ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+        }
     }
 
     private async Task RecoverStaleInProgressAsync(SchoolDbContext local, CancellationToken cancellationToken)
@@ -523,6 +633,14 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             foreach (var item in items)
             {
                 await ApplyItemAsync(local, remote, item, cancellationToken);
+                // Un item = un SaveChanges : évite les conflits de graphe
+                // (Payment.Lines vide vs PaymentLine / retenues / répartitions trackés ensemble).
+                await remote.SaveChangesAsync(cancellationToken);
+                foreach (var entry in remote.ChangeTracker.Entries().ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+
                 applied++;
             }
 
@@ -534,13 +652,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                     $"Intégrité sync : attendu {expected}, traité {applied} / {items.Count}.");
             }
 
-            await remote.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
-
-            foreach (var entry in remote.ChangeTracker.Entries().ToList())
-            {
-                entry.State = EntityState.Detached;
-            }
 
             unit.Status = SyncOutboxStatus.Completed;
             unit.CompletedAt = DateTime.UtcNow;
@@ -569,8 +681,9 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             }
 
             var dead = unit.AttemptCount >= MaxAttemptsBeforeDeadLetter;
+            var errorText = FormatException(ex);
             unit.Status = dead ? SyncOutboxStatus.DeadLetter : SyncOutboxStatus.Failed;
-            unit.LastError = Truncate(ex.Message, 2000);
+            unit.LastError = Truncate(errorText, 2000);
             foreach (var item in items)
             {
                 item.Status = unit.Status;
@@ -579,7 +692,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             await local.SaveChangesAsync(cancellationToken);
             _logger.LogWarning(ex, "Échec unité sync {UnitId} ({Aggregate}).", unit.Id, unit.AggregateType);
-            return new UnitOutcome(false, 0, items.Count, ex.Message, tables);
+            return new UnitOutcome(false, 0, items.Count, errorText, tables);
         }
     }
 
@@ -607,34 +720,38 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         SchoolDbContext remote,
         SyncOutboxItem item,
         CancellationToken cancellationToken)
-        where TEntity : AuditableEntity
+        where TEntity : AuditableEntity, new()
     {
         var localEntity = await local.Set<TEntity>()
             .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == item.EntityId, cancellationToken);
 
-        var remoteEntity = await remote.Set<TEntity>()
+        // Ne jamais réutiliser une instance déjà trackée (fixup de navigations).
+        foreach (var tracked in remote.ChangeTracker.Entries<TEntity>()
+                     .Where(e => e.Entity.Id == item.EntityId)
+                     .ToList())
+        {
+            tracked.State = EntityState.Detached;
+        }
+
+        var remoteExists = await remote.Set<TEntity>()
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(e => e.Id == item.EntityId, cancellationToken);
+            .AsNoTracking()
+            .AnyAsync(e => e.Id == item.EntityId, cancellationToken);
 
         if (item.Operation == SyncOperationType.Delete)
         {
             if (localEntity is not null)
             {
-                if (remoteEntity is null)
-                {
-                    remote.Set<TEntity>().Add(localEntity);
-                }
-                else
-                {
-                    remote.Entry(remoteEntity).CurrentValues.SetValues(localEntity);
-                }
+                UpsertScalars(remote, localEntity, remoteExists);
             }
-            else if (remoteEntity is not null)
+            else if (remoteExists)
             {
-                remoteEntity.IsDeleted = true;
-                remoteEntity.DeletedAt ??= DateTime.UtcNow;
+                var stub = new TEntity { Id = item.EntityId, IsDeleted = true, DeletedAt = DateTime.UtcNow };
+                var entry = remote.Attach(stub);
+                entry.Property(e => e.IsDeleted).IsModified = true;
+                entry.Property(e => e.DeletedAt).IsModified = true;
             }
 
             return;
@@ -646,14 +763,195 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return;
         }
 
-        if (remoteEntity is null)
+        // Les parents finance sont poussés une fois via EnsureFinanceReferenceDataAsync.
+        UpsertScalars(remote, localEntity, remoteExists);
+    }
+
+    /// <summary>
+    /// Upsert les parents FK manquants sur le cloud (ex. destinations de répartition)
+    /// avant d'écrire une ligne finance dépendante.
+    /// </summary>
+    private static async Task EnsureFinanceParentsAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        AuditableEntity localEntity,
+        CancellationToken cancellationToken)
+    {
+        switch (localEntity)
         {
-            remote.Set<TEntity>().Add(localEntity);
+            case RevenueAllocationEntry entry:
+                await EnsureParentAsync<RevenueAllocationDestination>(local, remote, entry.DestinationId, cancellationToken);
+                await EnsureParentAsync<RevenueAllocationKey>(local, remote, entry.AllocationKeyId, cancellationToken);
+                await EnsureParentAsync<FeeType>(local, remote, entry.FeeTypeId, cancellationToken);
+                await EnsureParentAsync<WithholdingType>(local, remote, entry.WithholdingTypeId, cancellationToken);
+                await EnsureParentAsync<AcademicYear>(local, remote, entry.AcademicYearId, cancellationToken);
+                break;
+            case WithholdingApplication withholding:
+                await EnsureParentAsync<WithholdingConfiguration>(local, remote, withholding.WithholdingConfigurationId, cancellationToken);
+                await EnsureParentAsync<Payment>(local, remote, withholding.PaymentId, cancellationToken);
+                await EnsureParentAsync<PaymentLine>(local, remote, withholding.PaymentLineId, cancellationToken);
+                break;
+            case PaymentLine line:
+                await EnsureParentAsync<Payment>(local, remote, line.PaymentId, cancellationToken);
+                await EnsureParentAsync<FeeType>(local, remote, line.FeeTypeId, cancellationToken);
+                await EnsureParentAsync<FeeInstallment>(local, remote, line.FeeInstallmentId, cancellationToken);
+                break;
+            case Payment payment:
+                await EnsureParentAsync<Student>(local, remote, payment.StudentId, cancellationToken);
+                await EnsureParentAsync<AcademicYear>(local, remote, payment.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<Bank>(local, remote, payment.BankId, cancellationToken);
+                break;
+        }
+    }
+
+    private static async Task EnsureParentAsync<TParent>(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid? parentId,
+        CancellationToken cancellationToken)
+        where TParent : AuditableEntity, new()
+    {
+        if (parentId is null || parentId == Guid.Empty)
+        {
             return;
         }
 
-        // Source de vérité = local : on écrase toujours le cloud.
-        remote.Entry(remoteEntity).CurrentValues.SetValues(localEntity);
+        // Contexte dédié : commit immédiat hors transaction de l'unité paiement.
+        // Sinon un échec plus bas annule aussi les destinations / clés déjà "écrites".
+        var cs = remote.Database.GetConnectionString()
+            ?? throw new InvalidOperationException("ConnectionString cloud introuvable pour EnsureParent.");
+        var options = new DbContextOptionsBuilder<SchoolDbContext>()
+            .UseSqlServer(cs)
+            .Options;
+        await using var parentCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+
+        var exists = await parentCtx.Set<TParent>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(e => e.Id == parentId.Value, cancellationToken);
+        if (exists)
+        {
+            return;
+        }
+
+        var localParent = await local.Set<TParent>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == parentId.Value, cancellationToken);
+        if (localParent is null)
+        {
+            return;
+        }
+
+        // Parents référentiels : toujours pousser l'école d'abord si présente.
+        var schoolIdProp = typeof(TParent).GetProperty("SchoolId");
+        if (schoolIdProp?.PropertyType == typeof(Guid))
+        {
+            var schoolId = (Guid)schoolIdProp.GetValue(localParent)!;
+            if (schoolId != Guid.Empty && typeof(TParent) != typeof(School))
+            {
+                await EnsureParentAsync<School>(local, remote, schoolId, cancellationToken);
+            }
+        }
+
+        if (localParent is RevenueAllocationDestination)
+        {
+            // School déjà géré ci-dessus.
+        }
+
+        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory)
+        {
+            UpsertScalars(parentCtx, localParent, remoteExists: false);
+            await parentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is RevenueAllocationKey key)
+        {
+            await EnsureParentAsync<AcademicYear>(local, remote, key.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<FeeType>(local, remote, key.FeeTypeId, cancellationToken);
+            await EnsureParentAsync<WithholdingType>(local, remote, key.WithholdingTypeId, cancellationToken);
+
+            // Recharger un contexte frais après les ensures (évite tracker sale).
+            await using var keyCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(keyCtx, localParent, remoteExists: false);
+            await keyCtx.SaveChangesAsync(cancellationToken);
+
+            var details = await local.Set<RevenueAllocationKeyDetail>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(d => d.AllocationKeyId == parentId.Value)
+                .ToListAsync(cancellationToken);
+            foreach (var detail in details)
+            {
+                await EnsureParentAsync<RevenueAllocationDestination>(local, remote, detail.DestinationId, cancellationToken);
+                await using var detailCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+                var detailExists = await detailCtx.Set<RevenueAllocationKeyDetail>()
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .AnyAsync(d => d.Id == detail.Id, cancellationToken);
+                UpsertScalars(detailCtx, detail, detailExists);
+                await detailCtx.SaveChangesAsync(cancellationToken);
+            }
+
+            return;
+        }
+
+        if (localParent is WithholdingConfiguration configuration)
+        {
+            await EnsureParentAsync<AcademicYear>(local, remote, configuration.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<WithholdingType>(local, remote, configuration.WithholdingTypeId, cancellationToken);
+            await EnsureParentAsync<FeeType>(local, remote, configuration.FeeTypeId, cancellationToken);
+            await EnsureParentAsync<FeeInstallment>(local, remote, configuration.FeeInstallmentId, cancellationToken);
+            await EnsureParentAsync<FeePricingCategory>(local, remote, configuration.PricingCategoryId, cancellationToken);
+        }
+
+        UpsertScalars(parentCtx, localParent, remoteExists: false);
+        await parentCtx.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Upsert uniquement les scalaires / FK — jamais via une instance locale trackée avec navigations.
+    /// </summary>
+    private static void UpsertScalars<TEntity>(SchoolDbContext remote, TEntity source, bool remoteExists)
+        where TEntity : AuditableEntity, new()
+    {
+        var stub = new TEntity();
+        var entry = remote.Entry(stub);
+        entry.CurrentValues.SetValues(source);
+
+        // Ne pas laisser les collections vides (ex. Payment.Lines) participer au graphe.
+        foreach (var navigation in entry.Navigations)
+        {
+            if (navigation.Metadata.IsCollection)
+            {
+                navigation.CurrentValue = null;
+            }
+        }
+
+        if (remoteExists)
+        {
+            entry.State = EntityState.Modified;
+            entry.Property(e => e.Id).IsModified = false;
+        }
+        else
+        {
+            entry.State = EntityState.Added;
+        }
+    }
+
+    private static string FormatException(Exception ex)
+    {
+        var parts = new List<string>();
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                parts.Add(current.Message.Trim());
+            }
+        }
+
+        return parts.Count == 0 ? ex.GetType().Name : string.Join(" -> ", parts.Distinct());
     }
 
     private static async Task AdvanceWatermarksAsync(

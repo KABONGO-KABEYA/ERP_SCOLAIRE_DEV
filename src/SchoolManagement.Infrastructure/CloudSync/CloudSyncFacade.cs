@@ -18,8 +18,14 @@ public sealed class CloudSyncFacade : ICloudSyncFacade
 
     public async Task<CloudSyncRunResultDto> SynchronizeNowAsync(
         bool criticalOnly = false,
+        bool requeueDeadLetters = true,
         CancellationToken cancellationToken = default)
     {
+        if (requeueDeadLetters)
+        {
+            await _engine.RequeueFailedUnitsAsync(cancellationToken);
+        }
+
         await _engine.TryBootstrapFullSyncIfNeededAsync(cancellationToken);
 
         if (!criticalOnly)
@@ -27,6 +33,11 @@ public sealed class CloudSyncFacade : ICloudSyncFacade
             await _engine.EnqueueCatchUpAsync(cancellationToken);
         }
 
-        return await _engine.DrainAsync(criticalOnly, maxUnits: criticalOnly ? 100 : 200, cancellationToken);
+        // Beaucoup d'unités peuvent être en file après un requeue (paiements).
+        // Lots plus petits pour éviter les timeouts HTTP côté client Desktop.
+        return await _engine.DrainAsync(
+            criticalOnly,
+            maxUnits: criticalOnly ? 25 : 80,
+            cancellationToken);
     }
 }

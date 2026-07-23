@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../../core/api/api_error_message.dart';
 import '../../core/auth/auth_storage.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
@@ -60,7 +61,7 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = resolveDashboardErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

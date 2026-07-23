@@ -24,6 +24,9 @@ public interface ICloudSyncEngine
     /// Une seule fois : sync complète legacy si aucune outbox/watermark (migration v1 → v2).
     /// </summary>
     Task<bool> TryBootstrapFullSyncIfNeededAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Repasse Failed / DeadLetter en Pending pour rejouer après correctif.</summary>
+    Task<int> RequeueFailedUnitsAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Enfilement des changements métier vers l'outbox (appelé après SaveChanges).</summary>

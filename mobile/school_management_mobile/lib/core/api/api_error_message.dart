@@ -36,9 +36,47 @@ String resolveApiErrorMessage(Object error) {
     if (statusCode == 400) {
       return 'Vérifiez l\'identifiant et le mot de passe saisis.';
     }
+    if (statusCode == 403) {
+      return 'Action non autorisée sur ce serveur.';
+    }
+    if (statusCode != null && statusCode >= 500) {
+      return 'Le serveur Cloud a rencontré une erreur. Réessayez dans un instant.';
+    }
   }
 
   return 'Connexion impossible. Vérifiez vos identifiants.';
+}
+
+/// Message d'erreur pour écrans métier (dashboard, listes…), pas seulement le login.
+String resolveDashboardErrorMessage(Object error) {
+  if (error is DioException) {
+    final responseData = error.response?.data;
+    if (responseData is Map<String, dynamic>) {
+      final apiMessage = responseData['message'] ?? responseData['Message'];
+      if (apiMessage is String && apiMessage.trim().isNotEmpty) {
+        return apiMessage.trim();
+      }
+    }
+
+    final statusCode = error.response?.statusCode;
+    if (statusCode != null && statusCode >= 500) {
+      return 'Le serveur Cloud a rencontré une erreur. Réessayez dans un instant.';
+    }
+    if (statusCode == 403) {
+      return 'Lecture seule Cloud : cette action n\'est pas disponible.';
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'Impossible de joindre le serveur. Vérifiez votre connexion Internet.';
+    }
+  }
+
+  final raw = error.toString();
+  if (_isGenericDioMessage(raw) || raw.startsWith('DioException')) {
+    return 'Impossible de charger les données. Réessayez.';
+  }
+  return raw;
 }
 
 bool _isGenericDioMessage(String message) {

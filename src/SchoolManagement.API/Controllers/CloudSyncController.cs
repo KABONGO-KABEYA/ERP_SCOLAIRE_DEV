@@ -33,9 +33,10 @@ public sealed class CloudSyncController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<CloudSyncRunResultDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SynchronizeNow(
         [FromQuery] bool criticalOnly = false,
+        [FromQuery] bool requeueDeadLetters = true,
         CancellationToken cancellationToken = default)
     {
-        var result = await _facade.SynchronizeNowAsync(criticalOnly, cancellationToken);
+        var result = await _facade.SynchronizeNowAsync(criticalOnly, requeueDeadLetters, cancellationToken);
         return Ok(ApiResponse<CloudSyncRunResultDto>.Ok(result, result.Message));
     }
 }

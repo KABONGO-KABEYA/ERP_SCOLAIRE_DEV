@@ -227,7 +227,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Patches de schéma idempotents : aussi en Production (Docker Cloud),
+// sinon la BD cloud reste en retard (ex. DefaultFeeTypeId) → HTTP 500.
 {
     using var scope = app.Services.CreateScope();
     var brandingSchema = new DocumentBrandingSchemaInitializer(
@@ -305,8 +306,11 @@ if (app.Environment.IsDevelopment())
         scope.ServiceProvider.GetRequiredService<ILogger<SchoolDefaultFeeSchemaInitializer>>());
     await schoolDefaultFeeSchema.EnsureCreatedAsync();
 
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAsync();
+    if (app.Environment.IsDevelopment())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

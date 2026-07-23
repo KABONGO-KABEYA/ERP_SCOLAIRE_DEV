@@ -2139,7 +2139,7 @@ public sealed class CloudSyncApiService : ApiServiceBase, ICloudSyncApiService
         bool criticalOnly = false,
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.CloudSync.DTOs.CloudSyncRunResultDto>(
-            $"api/v1/cloud-sync/synchronize?criticalOnly={criticalOnly}",
+            $"api/v1/cloud-sync/synchronize?criticalOnly={criticalOnly}&requeueDeadLetters=true",
             new { },
             cancellationToken);
 }
