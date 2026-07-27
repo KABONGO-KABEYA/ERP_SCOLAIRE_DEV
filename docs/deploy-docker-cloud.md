@@ -153,17 +153,23 @@ Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
 
-Si les logs montrent `SQL_CONNECTION_STRING is empty` → la variable n’est **pas** définie dans Coolify (cause actuelle).
+Si les logs montrent `SQL Server target: 161.97.105.22` alors que SQL tourne **dans Coolify** :
+tu pointes encore l’ancienne base distante. Corrige `SQL_CONNECTION_STRING` de l’**application API** :
 
-Healthcheck Coolify :
+```env
+# Même serveur Coolify que le conteneur sqlserver (réseau Docker interne)
+SQL_CONNECTION_STRING=Server=sqlserver,1433;Database=SchoolManagementRDC;User Id=sa;Password=MEME_MOT_DE_PASSE_QUE_MSSQL_SA_PASSWORD;TrustServerCertificate=True;Encrypt=True
+```
 
-| Champ | Valeur |
-|-------|--------|
-| Path | `/api/v1/health` |
-| Port | `1804` |
-| Return code | `200` |
+Règles :
+- Le mot de passe doit être **exactement** celui de `MSSQL_SA_PASSWORD` du service SQL
+- N’utilise **pas** `161.97.105.22` si SQL est le conteneur local Coolify
+- Port SQL = **1433** (interne) ; port public API = **1804**
+- Sur le service SQL Coolify : retire le domaine `https://app.coolify.io` (inutile pour une base)
+- Crée la base si besoin (Terminal SQL) :
+  ` /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '...' -C -Q "IF DB_ID('SchoolManagementRDC') IS NULL CREATE DATABASE SchoolManagementRDC;" `
 
-Après ajout des variables : **Redeploy**.
+Après correction des variables de l’**API** : **Redeploy** l’API.
 
 ## Variables utiles
 
