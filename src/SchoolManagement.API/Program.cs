@@ -36,8 +36,27 @@ var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory
 // Docker / cloud : priorité à la connection string d'environnement (sans DPAPI).
 var envConnectionString =
     builder.Configuration.GetConnectionString("Default")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? Environment.GetEnvironmentVariable("SQL_CONNECTION_STRING")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+
+// Alias JWT issus de .env / Coolify (JWT_SECRET_KEY → Jwt__SecretKey)
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:SecretKey"])
+    && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_SECRET_KEY")))
+{
+    builder.Configuration["Jwt:SecretKey"] = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+}
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Issuer"])
+    && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_ISSUER")))
+{
+    builder.Configuration["Jwt:Issuer"] = Environment.GetEnvironmentVariable("JWT_ISSUER");
+}
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Audience"])
+    && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_AUDIENCE")))
+{
+    builder.Configuration["Jwt:Audience"] = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+}
 
 string sqlConnectionString;
 DatabaseConnectionTestResult databaseTestResult;
