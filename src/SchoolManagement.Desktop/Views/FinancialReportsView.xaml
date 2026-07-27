@@ -95,15 +95,6 @@
                                            SelectedItem="{Binding SelectedCalendarYear, Mode=TwoWay}"
                                            Visibility="{Binding IsMonthPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         <erp:ErpComboField Margin="0,0,10,10"
-                                           DisplayMemberPath="Label"
-                                           FieldWidth="160"
-                                           HorizontalAlignment="Left"
-                                           IconKind="CalendarRange"
-                                           ItemsSource="{Binding AcademicYears}"
-                                           Label="Année scolaire"
-                                           MaxDropDownHeight="140"
-                                           SelectedItem="{Binding FilterYear, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="Name"
                                            FieldWidth="160"
                                            HorizontalAlignment="Left"

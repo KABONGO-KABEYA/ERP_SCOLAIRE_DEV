@@ -47,6 +47,82 @@ public class ParentController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<ParentPaymentDto>>.Ok(payments));
     }
 
+    [HttpGet("children/{studentId:guid}/payment-summary")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<ParentPaymentSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildPaymentSummary(Guid studentId, CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var summary = await _parentService.GetChildPaymentSummaryAsync(guardianId, studentId, cancellationToken);
+        return Ok(ApiResponse<ParentPaymentSummaryDto>.Ok(summary));
+    }
+
+    [HttpGet("children/{studentId:guid}/fee-situations")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(ApiResponse<ParentFeeSituationsResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildFeeSituations(
+        Guid studentId,
+        [FromQuery] Guid? academicYearId,
+        CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var situations = await _parentService.GetChildFeeSituationsAsync(
+            guardianId, studentId, academicYearId, cancellationToken);
+        return Ok(ApiResponse<ParentFeeSituationsResultDto>.Ok(situations));
+    }
+
+    [HttpGet("children/{studentId:guid}/grades")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(ApiResponse<ParentGradesOverviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildGrades(Guid studentId, CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var grades = await _parentService.GetChildGradesAsync(guardianId, studentId, cancellationToken);
+        return Ok(ApiResponse<ParentGradesOverviewDto>.Ok(grades));
+    }
+
+    [HttpGet("children/{studentId:guid}/bulletins/{academicPeriodId:guid}/pdf")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportChildBulletinPdf(
+        Guid studentId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var bytes = await _parentService.ExportChildBulletinPdfAsync(
+            guardianId, studentId, academicPeriodId, cancellationToken);
+        return File(bytes, "application/pdf", $"bulletin-{academicPeriodId:N}.pdf");
+    }
+
+    [HttpGet("children/{studentId:guid}/photo")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    public async Task<IActionResult> GetChildPhoto(Guid studentId, CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var photo = await _parentService.OpenChildPhotoAsync(guardianId, studentId, cancellationToken);
+        if (photo is null)
+        {
+            return NotFound();
+        }
+
+        return File(photo.Value.Stream, photo.Value.MimeType, photo.Value.FileName);
+    }
+
+    [HttpGet("payments/{paymentId:guid}/receipt/pdf")]
+    [Authorize(Policy = Permissions.PaymentsRead)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportPaymentReceiptPdf(
+        Guid paymentId,
+        [FromQuery] Guid? feeTypeId,
+        CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var bytes = await _parentService.ExportChildPaymentReceiptPdfAsync(
+            guardianId, paymentId, feeTypeId, cancellationToken);
+        return File(bytes, "application/pdf", $"recu-{paymentId:N}.pdf");
+    }
+
     [HttpGet("children/{studentId:guid}/bulletins")]
     [Authorize(Policy = Permissions.GradesRead)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentBulletinSummaryDto>>), StatusCodes.Status200OK)]
@@ -55,6 +131,27 @@ public class ParentController : ControllerBase
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
         var bulletins = await _parentService.GetChildBulletinsAsync(guardianId, studentId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentBulletinSummaryDto>>.Ok(bulletins));
+    }
+
+    [HttpGet("children/{studentId:guid}/attendance")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentAttendanceDayDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildAttendance(Guid studentId, CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var attendance = await _parentService.GetChildAttendanceAsync(guardianId, studentId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<ParentAttendanceDayDto>>.Ok(attendance));
+    }
+
+    [HttpGet("children/{studentId:guid}/communications")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentCommunicationDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildCommunications(Guid studentId, CancellationToken cancellationToken)
+    {
+        var guardianId = await ResolveGuardianIdAsync(cancellationToken);
+        var communications = await _parentService.GetChildCommunicationsAsync(
+            guardianId, studentId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<ParentCommunicationDto>>.Ok(communications));
     }
 
     private async Task<Guid> ResolveGuardianIdAsync(CancellationToken cancellationToken)

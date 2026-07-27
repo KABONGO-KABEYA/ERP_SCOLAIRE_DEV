@@ -35,6 +35,24 @@ public class Payment : AuditableEntity, IAggregateRoot
 
     public Guid? ReceivedByUserId { get; set; }
 
+    /// <summary>Devise du frais (référentiel FinDevise) — snapshot au moment du paiement.</summary>
+    public Guid? FeeCurrencyId { get; set; }
+
+    /// <summary>Devise réellement utilisée pour le paiement.</summary>
+    public Guid? PaymentCurrencyId { get; set; }
+
+    /// <summary>Taux de change appliqué (null si même devise).</summary>
+    public Guid? ExchangeRateId { get; set; }
+
+    /// <summary>Montant exprimé dans la devise du frais.</summary>
+    public decimal? FeeCurrencyAmount { get; set; }
+
+    /// <summary>Montant exprimé dans la devise de paiement.</summary>
+    public decimal? PaymentCurrencyAmount { get; set; }
+
+    /// <summary>Taux utilisé (figé, jamais recalculé).</summary>
+    public decimal? AppliedExchangeRate { get; set; }
+
     public Student Student { get; set; } = null!;
 
     public AcademicYear AcademicYear { get; set; } = null!;

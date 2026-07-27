@@ -59,6 +59,9 @@ String resolveDashboardErrorMessage(Object error) {
     }
 
     final statusCode = error.response?.statusCode;
+    if (statusCode == 401) {
+      return 'Session expirée. Veuillez vous reconnecter.';
+    }
     if (statusCode != null && statusCode >= 500) {
       return 'Le serveur Cloud a rencontré une erreur. Réessayez dans un instant.';
     }

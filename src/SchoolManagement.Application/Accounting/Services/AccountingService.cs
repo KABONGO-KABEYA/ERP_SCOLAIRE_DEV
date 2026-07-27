@@ -12,18 +12,30 @@ public sealed class AccountingService : IAccountingService
 {
     private readonly IRepository<ExpenseRequest> _requestRepository;
     private readonly IRepository<ExpensePayment> _paymentRepository;
+    private readonly IRepository<RevenueAllocationEntry> _entryRepository;
+    private readonly IRepository<RevenueAllocationKey> _keyRepository;
+    private readonly IRepository<RevenueAllocationKeyDetail> _keyDetailRepository;
     private readonly IRepository<RevenueAllocationDestination> _destinationRepository;
+    private readonly IRepository<Payment> _tuitionPaymentRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
 
     public AccountingService(
         IRepository<ExpenseRequest> requestRepository,
         IRepository<ExpensePayment> paymentRepository,
+        IRepository<RevenueAllocationEntry> entryRepository,
+        IRepository<RevenueAllocationKey> keyRepository,
+        IRepository<RevenueAllocationKeyDetail> keyDetailRepository,
         IRepository<RevenueAllocationDestination> destinationRepository,
+        IRepository<Payment> tuitionPaymentRepository,
         IRepository<AcademicYear> yearRepository)
     {
         _requestRepository = requestRepository;
         _paymentRepository = paymentRepository;
+        _entryRepository = entryRepository;
+        _keyRepository = keyRepository;
+        _keyDetailRepository = keyDetailRepository;
         _destinationRepository = destinationRepository;
+        _tuitionPaymentRepository = tuitionPaymentRepository;
         _yearRepository = yearRepository;
     }
 
@@ -64,7 +76,116 @@ public sealed class AccountingService : IAccountingService
 
         return new ExpensePaymentSearchResultDto(
             await MapPaymentsAsync(schoolId, pageItems, cancellationToken),
-            items.Count);
+            items.Count,
+            items.Sum(p => p.Amount));
+    }
+
+    public async Task<IReadOnlyList<ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureYearAsync(schoolId, academicYearId, cancellationToken);
+
+        var keyedDestinationIds = await GetKeyedDestinationIdsAsync(schoolId, academicYearId, cancellationToken);
+        if (keyedDestinationIds.Count == 0)
+        {
+            return [];
+        }
+
+        var destinations = (await _destinationRepository.FindAsync(
+                d => d.SchoolId == schoolId && d.IsActive && keyedDestinationIds.Contains(d.Id),
+                cancellationToken))
+            .OrderBy(d => d.Name)
+            .ToList();
+
+        var allocationEntries = (await _entryRepository.FindAsync(
+                e => e.SchoolId == schoolId && e.AcademicYearId == academicYearId,
+                cancellationToken))
+            .ToList();
+
+        var allocatedByDestination = allocationEntries
+            .GroupBy(e => e.DestinationId)
+            .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
+
+        var expensePayments = (await _paymentRepository.FindAsync(
+                p => p.SchoolId == schoolId && p.AcademicYearId == academicYearId,
+                cancellationToken))
+            .ToList();
+
+        var spentByDestination = expensePayments
+            .GroupBy(p => p.DestinationId)
+            .ToDictionary(g => g.Key, g => g.Sum(p => p.Amount));
+
+        // Devise du compte = majoritaire sur les recettes allouées, sinon sur les dépenses.
+        var tuitionPaymentIds = allocationEntries
+            .Select(e => e.PaymentId)
+            .Distinct()
+            .ToList();
+        var tuitionPayments = tuitionPaymentIds.Count == 0
+            ? []
+            : (await _tuitionPaymentRepository.FindAsync(
+                    p => tuitionPaymentIds.Contains(p.Id),
+                    cancellationToken))
+                .ToDictionary(p => p.Id);
+
+        var currencyByDestination = new Dictionary<Guid, Currency>();
+        foreach (var group in allocationEntries.GroupBy(e => e.DestinationId))
+        {
+            var currencies = group
+                .Select(e => tuitionPayments.TryGetValue(e.PaymentId, out var pay) ? pay.Currency : (Currency?)null)
+                .Where(c => c.HasValue)
+                .Select(c => c!.Value)
+                .ToList();
+            if (currencies.Count == 0)
+                continue;
+
+            currencyByDestination[group.Key] = currencies
+                .GroupBy(c => c)
+                .OrderByDescending(x => x.Count())
+                .ThenBy(x => x.Key)
+                .Select(x => x.Key)
+                .First();
+        }
+
+        foreach (var group in expensePayments.GroupBy(p => p.DestinationId))
+        {
+            if (currencyByDestination.ContainsKey(group.Key))
+                continue;
+
+            currencyByDestination[group.Key] = group
+                .GroupBy(p => p.Currency)
+                .OrderByDescending(x => x.Count())
+                .ThenBy(x => x.Key)
+                .Select(x => x.Key)
+                .First();
+        }
+
+        var schoolDefaultCurrency = tuitionPayments.Values
+            .Select(p => p.Currency)
+            .Concat(expensePayments.Select(p => p.Currency))
+            .GroupBy(c => c)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .DefaultIfEmpty(Currency.CDF)
+            .First();
+
+        return destinations.Select(d =>
+        {
+            allocatedByDestination.TryGetValue(d.Id, out var allocated);
+            spentByDestination.TryGetValue(d.Id, out var spent);
+            var currency = currencyByDestination.TryGetValue(d.Id, out var cur)
+                ? cur
+                : schoolDefaultCurrency;
+            return new ExpenseDestinationBalanceDto(
+                d.Id,
+                d.Code,
+                d.Name,
+                allocated,
+                spent,
+                allocated - spent,
+                currency.ToString());
+        }).ToList();
     }
 
     public async Task<ExpenseRequestDto> CreateExpenseRequestAsync(
@@ -137,8 +258,42 @@ public sealed class AccountingService : IAccountingService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.Label))
+        {
+            throw new DomainException("Le libellé de la dépense est obligatoire.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.BeneficiaryName))
+        {
+            throw new DomainException("Le nom du bénéficiaire est obligatoire.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AuthorizedByName))
+        {
+            throw new DomainException("Le nom de la personne ayant autorisé la dépense est obligatoire.");
+        }
+
+        if (request.Amount <= 0)
+        {
+            throw new DomainException("Le montant de la dépense doit être supérieur à zéro.");
+        }
+
         await EnsureDestinationAsync(schoolId, request.DestinationId, cancellationToken);
         await EnsureYearAsync(schoolId, request.AcademicYearId, cancellationToken);
+
+        var balances = await GetExpenseBalancesAsync(schoolId, request.AcademicYearId, cancellationToken);
+        var balance = balances.FirstOrDefault(b => b.DestinationId == request.DestinationId);
+        if (balance is null)
+        {
+            throw new DomainException(
+                "Ce compte n'apparaît dans aucune clé de répartition active pour l'année scolaire sélectionnée.");
+        }
+
+        if (request.Amount > balance.AvailableAmount)
+        {
+            throw new DomainException(
+                $"Montant supérieur au solde disponible ({balance.AvailableAmount:N2} {request.Currency}) sur le compte « {balance.DestinationName} ».");
+        }
 
         ExpenseRequest? linkedRequest = null;
         if (request.ExpenseRequestId.HasValue)
@@ -158,6 +313,8 @@ public sealed class AccountingService : IAccountingService
             ExpenseRequestId = request.ExpenseRequestId,
             Reference = await GeneratePaymentReferenceAsync(schoolId, cancellationToken),
             Label = request.Label.Trim(),
+            BeneficiaryName = request.BeneficiaryName.Trim(),
+            AuthorizedByName = request.AuthorizedByName.Trim(),
             Amount = request.Amount,
             Currency = request.Currency,
             ExpenseDate = request.ExpenseDate,
@@ -173,6 +330,32 @@ public sealed class AccountingService : IAccountingService
         }
 
         return (await MapPaymentsAsync(schoolId, [entity], cancellationToken)).Single();
+    }
+
+    private async Task<HashSet<Guid>> GetKeyedDestinationIdsAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        CancellationToken cancellationToken)
+    {
+        var activeKeyIds = (await _keyRepository.FindAsync(
+                k => k.SchoolId == schoolId
+                     && k.AcademicYearId == academicYearId
+                     && k.IsActive
+                     && k.EndDate == null,
+                cancellationToken))
+            .Select(k => k.Id)
+            .ToHashSet();
+
+        if (activeKeyIds.Count == 0)
+        {
+            return [];
+        }
+
+        return (await _keyDetailRepository.FindAsync(
+                d => activeKeyIds.Contains(d.AllocationKeyId),
+                cancellationToken))
+            .Select(d => d.DestinationId)
+            .ToHashSet();
     }
 
     private async Task<List<ExpenseRequest>> FilterRequestsAsync(
@@ -339,6 +522,8 @@ public sealed class AccountingService : IAccountingService
                 p.Id,
                 p.Reference,
                 p.Label,
+                p.BeneficiaryName,
+                p.AuthorizedByName,
                 p.Amount,
                 p.Currency.ToString(),
                 p.ExpenseDate,

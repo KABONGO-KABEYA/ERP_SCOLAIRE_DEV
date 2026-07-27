@@ -5,6 +5,7 @@ using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Students.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -22,8 +23,11 @@ public partial class AcademicViewModel : ViewModelBase
         _academicApiService = academicApiService;
         _schoolApiService = schoolApiService;
         _studentApiService = studentApiService;
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = InitializeAsync();
     }
+
+    private void OnGlobalAcademicYearChanged() => _ = LoadClassRoomsAsync();
 
     public ObservableCollection<ClassRoomDto> ClassRooms { get; } = [];
     public ObservableCollection<CourseDto> Courses { get; } = [];
@@ -31,8 +35,6 @@ public partial class AcademicViewModel : ViewModelBase
     public ObservableCollection<StudentDto> Students { get; } = [];
 
     [ObservableProperty] private IReadOnlyList<SectionDto> _sections = [];
-    [ObservableProperty] private IReadOnlyList<AcademicYearDto> _academicYears = [];
-    [ObservableProperty] private AcademicYearDto? _selectedYear;
     [ObservableProperty] private SectionDto? _selectedSection;
     [ObservableProperty] private ClassRoomDto? _selectedClass;
     [ObservableProperty] private StudentDto? _selectedStudent;
@@ -44,7 +46,6 @@ public partial class AcademicViewModel : ViewModelBase
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _isBusy;
 
-    partial void OnSelectedYearChanged(AcademicYearDto? value) => _ = LoadClassRoomsAsync();
     partial void OnSelectedClassChanged(ClassRoomDto? value) => _ = LoadCoursesAndEnrollmentsAsync();
 
     [RelayCommand]
@@ -54,8 +55,6 @@ public partial class AcademicViewModel : ViewModelBase
         try
         {
             Sections = await _academicApiService.GetSectionsAsync();
-            AcademicYears = await _schoolApiService.GetAcademicYearsAsync();
-            SelectedYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
             SelectedSection = Sections.FirstOrDefault();
 
             var students = await _studentApiService.SearchAsync(new StudentSearchRequest(
@@ -74,11 +73,20 @@ public partial class AcademicViewModel : ViewModelBase
     [RelayCommand]
     private async Task LoadClassRoomsAsync()
     {
-        if (SelectedYear is null) return;
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null)
+        {
+            ClassRooms.Clear();
+            Courses.Clear();
+            Enrollments.Clear();
+            StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
+            return;
+        }
+
         IsBusy = true;
         try
         {
-            var items = await _academicApiService.GetClassRoomsAsync(SelectedYear.Id);
+            var items = await _academicApiService.GetClassRoomsAsync(yearId.Value);
             ClassRooms.Clear();
             foreach (var c in items) ClassRooms.Add(c);
             SelectedClass = ClassRooms.FirstOrDefault();
@@ -95,7 +103,8 @@ public partial class AcademicViewModel : ViewModelBase
     [RelayCommand]
     private async Task LoadCoursesAndEnrollmentsAsync()
     {
-        if (SelectedClass is null || SelectedYear is null) return;
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (SelectedClass is null || yearId is null) return;
         IsBusy = true;
         try
         {
@@ -103,7 +112,7 @@ public partial class AcademicViewModel : ViewModelBase
             Courses.Clear();
             foreach (var c in courses) Courses.Add(c);
 
-            var enrollments = await _academicApiService.GetEnrollmentsAsync(SelectedClass.Id, SelectedYear.Id);
+            var enrollments = await _academicApiService.GetEnrollmentsAsync(SelectedClass.Id, yearId.Value);
             Enrollments.Clear();
             foreach (var e in enrollments) Enrollments.Add(e);
         }
@@ -114,9 +123,10 @@ public partial class AcademicViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateClassRoomAsync()
     {
-        if (SelectedYear is null || SelectedSection is null || string.IsNullOrWhiteSpace(NewClassCode) || string.IsNullOrWhiteSpace(NewClassName))
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null || SelectedSection is null || string.IsNullOrWhiteSpace(NewClassCode) || string.IsNullOrWhiteSpace(NewClassName))
         {
-            StatusMessage = "Complétez année, section, code et nom de la classe.";
+            StatusMessage = "Complétez l'année (barre du haut), la section, le code et le nom de la classe.";
             return;
         }
 
@@ -124,7 +134,7 @@ public partial class AcademicViewModel : ViewModelBase
         try
         {
             await _academicApiService.CreateClassRoomAsync(new CreateClassRoomRequest(
-                SelectedYear.Id, SelectedSection.Id, NewClassCode, NewClassName, NewClassLevel, 40));
+                yearId.Value, SelectedSection.Id, NewClassCode, NewClassName, NewClassLevel, 40));
             NewClassCode = string.Empty;
             NewClassName = string.Empty;
             StatusMessage = "Classe créée.";
@@ -160,9 +170,10 @@ public partial class AcademicViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateEnrollmentAsync()
     {
-        if (SelectedStudent is null || SelectedClass is null || SelectedYear is null)
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (SelectedStudent is null || SelectedClass is null || yearId is null)
         {
-            StatusMessage = "Sélectionnez élève et classe.";
+            StatusMessage = "Sélectionnez élève et classe (année via la barre du haut).";
             return;
         }
 
@@ -170,7 +181,7 @@ public partial class AcademicViewModel : ViewModelBase
         try
         {
             await _academicApiService.CreateEnrollmentAsync(new CreateEnrollmentRequest(
-                SelectedStudent.Id, SelectedYear.Id, SelectedClass.Id, DateOnly.FromDateTime(DateTime.Today)));
+                SelectedStudent.Id, yearId.Value, SelectedClass.Id, DateOnly.FromDateTime(DateTime.Today)));
             StatusMessage = "Inscription créée.";
             await LoadCoursesAndEnrollmentsAsync();
         }

@@ -36,4 +36,9 @@ public interface IAccountingService
         CreateExpensePaymentRequest request,
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        CancellationToken cancellationToken = default);
 }

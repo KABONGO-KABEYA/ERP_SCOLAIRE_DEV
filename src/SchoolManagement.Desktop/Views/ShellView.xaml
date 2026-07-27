@@ -146,22 +146,29 @@
                                 VerticalAlignment="Center">
                         <Border Background="#E8EFFF"
                                 CornerRadius="10"
-                                Padding="12,8"
-                                Margin="0,0,12,0">
-                            <StackPanel Orientation="Horizontal">
+                                Padding="8,4"
+                                Margin="0,0,12,0"
+                                MinWidth="200">
+                            <DockPanel LastChildFill="True">
                                 <materialDesign:PackIcon Kind="CalendarRange"
                                                          Width="18"
                                                          Height="18"
+                                                         Margin="4,0,4,0"
                                                          Foreground="#1E5EFF"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Margin="8,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontFamily="Segoe UI"
-                                           FontSize="13"
-                                           FontWeight="Medium"
-                                           Foreground="#1E5EFF"
-                                           Text="{Binding CurrentAcademicYearLabel}" />
-                            </StackPanel>
+                                                         VerticalAlignment="Center"
+                                                         DockPanel.Dock="Left" />
+                                <ComboBox ItemsSource="{Binding WorkingAcademicYears}"
+                                          SelectedItem="{Binding SelectedWorkingAcademicYear, Mode=TwoWay}"
+                                          DisplayMemberPath="Label"
+                                          BorderThickness="0"
+                                          Background="Transparent"
+                                          FontFamily="Segoe UI"
+                                          FontSize="13"
+                                          FontWeight="Medium"
+                                          Foreground="#1E5EFF"
+                                          VerticalContentAlignment="Center"
+                                          ToolTip="Changer l'année scolaire de travail (globale)" />
+                            </DockPanel>
                         </Border>
 
                         <Button Width="40"

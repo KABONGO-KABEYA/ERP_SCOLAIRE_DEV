@@ -10,6 +10,12 @@ public static class ApiRoutes
     public const string Payments = $"{Base}/payments";
     public const string RevenueAllocation = $"{Base}/revenue-allocation";
     public const string Withholdings = $"{Base}/withholdings";
+    public const string Currencies = $"{Base}/currencies";
+    public const string ExchangeRates = $"{Base}/exchange-rates";
+    public const string ExchangeRateTypes = $"{Base}/exchange-rate-types";
+    public const string SchoolCurrencies = $"{Base}/school-currencies";
+    public const string StudentCards = $"{Base}/cards";
+    public const string CardTemplates = $"{Base}/card-templates";
     public const string Accounting = $"{Base}/accounting";
     public const string Finance = $"{Base}/finance";
     public const string Reports = $"{Base}/reports";

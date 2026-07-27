@@ -272,28 +272,57 @@ public static class FeeTypeStatementPdfGenerator
         string currency)
     {
         var remainingColor = s.TotalRemaining <= 0 ? GreenPaid : RedDue;
-        container.Border(1).BorderColor(BorderBlue).Background(SoftBlue).Padding(6).Row(row =>
-        {
-            row.ConstantItem(78).AlignMiddle()
-                .Text("Récapitulatif :").Bold().FontSize(8).FontColor(Navy);
+        var showFx = s.PaymentCurrencyAmount.HasValue
+            && !string.IsNullOrWhiteSpace(s.PaymentCurrencyCode)
+            && !string.Equals(s.FeeCurrencyCode, s.PaymentCurrencyCode, StringComparison.OrdinalIgnoreCase);
 
-            row.RelativeItem().AlignMiddle().Row(r =>
+        container.Column(column =>
+        {
+            column.Item().Border(1).BorderColor(BorderBlue).Background(SoftBlue).Padding(6).Row(row =>
             {
-                r.RelativeItem().AlignCenter().Text(text =>
+                row.ConstantItem(78).AlignMiddle()
+                    .Text("Récapitulatif :").Bold().FontSize(8).FontColor(Navy);
+
+                row.RelativeItem().AlignMiddle().Row(r =>
                 {
-                    text.Span($"Prévu ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
-                    text.Span(s.TotalExpected.ToString("N2", culture)).Bold().FontSize(10).FontColor(PrimaryBlue);
+                    r.RelativeItem().AlignCenter().Text(text =>
+                    {
+                        text.Span($"Prévu ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
+                        text.Span(s.TotalExpected.ToString("N2", culture)).Bold().FontSize(10).FontColor(PrimaryBlue);
+                    });
+                    r.RelativeItem().AlignCenter().Text(text =>
+                    {
+                        text.Span($"Payé ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
+                        text.Span(s.TotalPaid.ToString("N2", culture)).Bold().FontSize(10).FontColor(GreenPaid);
+                    });
+                    r.RelativeItem().AlignCenter().Text(text =>
+                    {
+                        text.Span($"Reste ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
+                        text.Span(s.TotalRemaining.ToString("N2", culture)).Bold().FontSize(10).FontColor(remainingColor);
+                    });
                 });
-                r.RelativeItem().AlignCenter().Text(text =>
+            });
+
+            if (!showFx)
+                return;
+
+            column.Item().PaddingTop(4).Border(1).BorderColor(BorderBlue).Background(LightBlue).Padding(6).Column(col =>
+            {
+                var feeCode = s.FeeCurrencyCode ?? currency;
+                var payCode = s.PaymentCurrencyCode!;
+                var feeAmt = s.FeeCurrencyAmount ?? s.TotalPaid;
+                col.Item().Text(text =>
                 {
-                    text.Span($"Payé ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
-                    text.Span(s.TotalPaid.ToString("N2", culture)).Bold().FontSize(10).FontColor(GreenPaid);
+                    text.Span($"{feeAmt.ToString("N2", culture)} {feeCode}").Bold().FontSize(9).FontColor(Navy);
+                    text.Span("  ·  Payé : ").FontSize(8).FontColor(TextMuted);
+                    text.Span($"{s.PaymentCurrencyAmount!.Value.ToString("N2", culture)} {payCode}").Bold().FontSize(9).FontColor(GreenPaid);
                 });
-                r.RelativeItem().AlignCenter().Text(text =>
+                if (s.AppliedExchangeRate.HasValue)
                 {
-                    text.Span($"Reste ({currency}) ").FontSize(6.5f).FontColor(TextMuted);
-                    text.Span(s.TotalRemaining.ToString("N2", culture)).Bold().FontSize(10).FontColor(remainingColor);
-                });
+                    col.Item().PaddingTop(2).Text(
+                            $"Taux : 1 {feeCode} = {s.AppliedExchangeRate.Value.ToString("N6", culture)} {payCode}")
+                        .FontSize(7.5f).FontColor(TextMuted);
+                }
             });
         });
     }

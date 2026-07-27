@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
@@ -169,6 +170,9 @@ class _TeacherGradeEntryScreenState extends ConsumerState<TeacherGradeEntryScree
                                 controller: row.controller,
                                 enabled: !row.isAbsent,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                                ],
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   isDense: true,

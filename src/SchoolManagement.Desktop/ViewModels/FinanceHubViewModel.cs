@@ -10,7 +10,6 @@ public enum FinanceSection
     Encaissements = 0,
     CategoriesTarifaires = 1,
     Rapports = 2,
-    DemandesPaiement = 3,
     Depenses = 4,
     SituationPaiements = 5
 }
@@ -23,14 +22,12 @@ public partial class FinanceHubViewModel : ViewModelBase
         PricingCategoryAssignmentViewModel pricingCategoryAssignment,
         FinancialReportsViewModel financialReports,
         PaymentSituationReportViewModel paymentSituationReport,
-        ExpenseRequestsViewModel expenseRequests,
         ExpensePaymentsViewModel expensePayments)
     {
         Encaissements = encaissements;
         PricingCategoryAssignment = pricingCategoryAssignment;
         FinancialReports = financialReports;
         PaymentSituationReport = paymentSituationReport;
-        ExpenseRequests = expenseRequests;
         ExpensePayments = expensePayments;
         ApplyNavigation(FinanceNavCatalog.DefaultItem);
     }
@@ -43,8 +40,6 @@ public partial class FinanceHubViewModel : ViewModelBase
 
     public PaymentSituationReportViewModel PaymentSituationReport { get; }
 
-    public ExpenseRequestsViewModel ExpenseRequests { get; }
-
     public ExpensePaymentsViewModel ExpensePayments { get; }
 
     [ObservableProperty] private FinanceSection _selectedSection = FinanceSection.Encaissements;
@@ -53,7 +48,6 @@ public partial class FinanceHubViewModel : ViewModelBase
     public bool IsCategoriesTarifairesSelected => SelectedSection == FinanceSection.CategoriesTarifaires;
     public bool IsRapportsSelected => SelectedSection == FinanceSection.Rapports;
     public bool IsSituationPaiementsSelected => SelectedSection == FinanceSection.SituationPaiements;
-    public bool IsDemandesPaiementSelected => SelectedSection == FinanceSection.DemandesPaiement;
     public bool IsDepensesSelected => SelectedSection == FinanceSection.Depenses;
 
     public string? ActiveNavKey { get; private set; }
@@ -79,7 +73,6 @@ public partial class FinanceHubViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsCategoriesTarifairesSelected));
         OnPropertyChanged(nameof(IsRapportsSelected));
         OnPropertyChanged(nameof(IsSituationPaiementsSelected));
-        OnPropertyChanged(nameof(IsDemandesPaiementSelected));
         OnPropertyChanged(nameof(IsDepensesSelected));
 
         if (value == FinanceSection.Rapports)
@@ -89,6 +82,10 @@ public partial class FinanceHubViewModel : ViewModelBase
         else if (value == FinanceSection.SituationPaiements)
         {
             _ = PaymentSituationReport.EnsureInitializedAsync();
+        }
+        else if (value == FinanceSection.Depenses)
+        {
+            _ = ExpensePayments.EnsureInitializedAsync();
         }
     }
 

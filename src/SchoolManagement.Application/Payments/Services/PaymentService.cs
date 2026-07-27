@@ -2,6 +2,8 @@ namespace SchoolManagement.Application.Payments.Services;
 
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.CurrencyManagement.DTOs;
+using SchoolManagement.Application.CurrencyManagement.Interfaces;
 using SchoolManagement.Application.Payments.DTOs;
 using SchoolManagement.Application.Payments.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
@@ -12,6 +14,7 @@ using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
+using SchoolManagement.Shared.Constants;
 
 public sealed class PaymentService : IPaymentService
 {
@@ -30,6 +33,7 @@ public sealed class PaymentService : IPaymentService
     private readonly IRepository<RevenueAllocationEntry> _allocationEntryRepository;
     private readonly IRevenueAllocationService _revenueAllocationService;
     private readonly IWithholdingService _withholdingService;
+    private readonly ICurrencyService _currencyService;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -49,6 +53,7 @@ public sealed class PaymentService : IPaymentService
         IRepository<RevenueAllocationEntry> allocationEntryRepository,
         IRevenueAllocationService revenueAllocationService,
         IWithholdingService withholdingService,
+        ICurrencyService currencyService,
         ICurrentUserService currentUser,
         IUnitOfWork unitOfWork)
     {
@@ -67,6 +72,7 @@ public sealed class PaymentService : IPaymentService
         _allocationEntryRepository = allocationEntryRepository;
         _revenueAllocationService = revenueAllocationService;
         _withholdingService = withholdingService;
+        _currencyService = currencyService;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
     }
@@ -90,6 +96,8 @@ public sealed class PaymentService : IPaymentService
         var totalAmount = request.Lines.Sum(l => l.Amount);
         var receiptNumber = $"REC-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpperInvariant()}";
 
+        var fx = await ResolvePaymentFxSnapshotAsync(schoolId, request, totalAmount, cancellationToken);
+
         var payment = new Payment
         {
             SchoolId = schoolId,
@@ -106,7 +114,13 @@ public sealed class PaymentService : IPaymentService
             Status = PaymentStatus.Complet,
             PaymentMethod = null,
             Notes = request.Notes,
-            ReceivedByUserId = userId
+            ReceivedByUserId = userId,
+            FeeCurrencyId = fx.FeeCurrencyId,
+            PaymentCurrencyId = fx.PaymentCurrencyId,
+            ExchangeRateId = fx.ExchangeRateId,
+            FeeCurrencyAmount = fx.FeeCurrencyAmount,
+            PaymentCurrencyAmount = fx.PaymentCurrencyAmount,
+            AppliedExchangeRate = fx.AppliedExchangeRate
         };
 
         await _paymentRepository.AddAsync(payment, cancellationToken);
@@ -917,7 +931,15 @@ public sealed class PaymentService : IPaymentService
             payment.Status,
             payment.Notes,
             lineDtos,
-            payment.CreatedAt);
+            payment.CreatedAt,
+            payment.FeeCurrencyId,
+            payment.PaymentCurrencyId,
+            payment.ExchangeRateId,
+            payment.FeeCurrencyAmount,
+            payment.PaymentCurrencyAmount,
+            payment.AppliedExchangeRate,
+            await ResolveCurrencyCodeAsync(payment.FeeCurrencyId, cancellationToken),
+            await ResolveCurrencyCodeAsync(payment.PaymentCurrencyId, cancellationToken));
     }
 
     private static PaymentDto MapPaymentDto(Payment payment, string studentName) =>
@@ -932,5 +954,94 @@ public sealed class PaymentService : IPaymentService
             payment.Status,
             payment.Notes,
             null,
-            payment.CreatedAt);
+            payment.CreatedAt,
+            payment.FeeCurrencyId,
+            payment.PaymentCurrencyId,
+            payment.ExchangeRateId,
+            payment.FeeCurrencyAmount,
+            payment.PaymentCurrencyAmount,
+            payment.AppliedExchangeRate);
+
+    private async Task<string?> ResolveCurrencyCodeAsync(Guid? currencyId, CancellationToken cancellationToken)
+    {
+        if (!currencyId.HasValue)
+            return null;
+        try
+        {
+            var currencies = await _currencyService.SearchCurrenciesAsync(activeOnly: null, cancellationToken: cancellationToken);
+            return currencies.FirstOrDefault(c => c.Id == currencyId.Value)?.Code;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<PaymentFxSnapshot> ResolvePaymentFxSnapshotAsync(
+        Guid schoolId,
+        CreatePaymentRequest request,
+        decimal feeAmount,
+        CancellationToken cancellationToken)
+    {
+        var feeCurrency = request.FeeCurrencyId.HasValue
+            ? (await _currencyService.SearchCurrenciesAsync(activeOnly: true, cancellationToken: cancellationToken))
+                .FirstOrDefault(c => c.Id == request.FeeCurrencyId.Value)
+            : await _currencyService.ResolveByEnumCodeAsync(request.Currency.ToString(), cancellationToken);
+
+        feeCurrency ??= await _currencyService.GetMainCurrencyAsync(schoolId, cancellationToken);
+
+        var paymentCurrency = request.PaymentCurrencyId.HasValue
+            ? (await _currencyService.SearchCurrenciesAsync(activeOnly: true, cancellationToken: cancellationToken))
+                .FirstOrDefault(c => c.Id == request.PaymentCurrencyId.Value)
+            : feeCurrency;
+
+        paymentCurrency ??= feeCurrency;
+
+        var allowed = await _currencyService.GetAllowedCurrenciesAsync(schoolId, paymentOnly: true, cancellationToken);
+        if (allowed.Count > 0 && allowed.All(a => a.CurrencyId != paymentCurrency.Id))
+            throw new DomainException($"La devise de paiement '{paymentCurrency.Code}' n'est pas autorisée pour cet établissement.");
+
+        if (feeCurrency.Id == paymentCurrency.Id)
+        {
+            return new PaymentFxSnapshot(
+                feeCurrency.Id,
+                paymentCurrency.Id,
+                null,
+                feeAmount,
+                feeAmount,
+                1m);
+        }
+
+        decimal? overrideRate = null;
+        if (request.OverrideExchangeRate.HasValue)
+        {
+            if (!_currentUser.HasPermission(Permissions.PaymentFxOverride) && !_currentUser.IsAdministrator)
+                throw new DomainException("Vous n'êtes pas autorisé à modifier le taux pendant un paiement.");
+            overrideRate = request.OverrideExchangeRate;
+        }
+
+        var conversion = await _currencyService.ConvertAsync(
+            new CurrencyConversionRequest(
+                feeCurrency.Id,
+                paymentCurrency.Id,
+                feeAmount,
+                OverrideRate: overrideRate),
+            cancellationToken);
+
+        return new PaymentFxSnapshot(
+            feeCurrency.Id,
+            paymentCurrency.Id,
+            conversion.ExchangeRateId,
+            conversion.SourceAmount,
+            conversion.TargetAmount,
+            conversion.AppliedRate);
+    }
+
+    private sealed record PaymentFxSnapshot(
+        Guid FeeCurrencyId,
+        Guid PaymentCurrencyId,
+        Guid? ExchangeRateId,
+        decimal FeeCurrencyAmount,
+        decimal PaymentCurrencyAmount,
+        decimal AppliedExchangeRate);
 }

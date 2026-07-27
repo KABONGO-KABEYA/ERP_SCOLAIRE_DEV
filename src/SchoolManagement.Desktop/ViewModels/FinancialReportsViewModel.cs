@@ -91,6 +91,18 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
         SelectedPeriod = PeriodOptions[0];
         ApplyPeriodDates(SelectedPeriod.Kind);
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
+    }
+
+    private void OnGlobalAcademicYearChanged()
+    {
+        if (!IsInitialized || _suppressFilterReload)
+        {
+            return;
+        }
+
+        _ = ReloadClassRoomsAsync();
+        _ = SearchAsync();
     }
 
     public ObservableCollection<ReportPeriodOption> PeriodOptions { get; }
@@ -98,8 +110,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
     public ObservableCollection<ReportMonthOption> MonthOptions { get; }
 
     public ObservableCollection<ReportCalendarYearOption> CalendarYears { get; } = [];
-
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
 
     public ObservableCollection<SectionDto> Sections { get; } = [];
 
@@ -144,7 +154,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
     [ObservableProperty] private ReportPeriodOption? _selectedPeriod;
     [ObservableProperty] private ReportMonthOption? _selectedMonth;
     [ObservableProperty] private ReportCalendarYearOption? _selectedCalendarYear;
-    [ObservableProperty] private AcademicYearDto? _filterYear;
     [ObservableProperty] private SectionDto? _filterSection;
     [ObservableProperty] private FeeTypeDto? _filterFeeType;
     [ObservableProperty] private ReportClassOption? _filterClassRoom;
@@ -242,20 +251,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
         }
     }
 
-    partial void OnFilterYearChanged(AcademicYearDto? value)
-    {
-        if (_suppressFilterReload)
-        {
-            return;
-        }
-
-        _ = ReloadClassRoomsAsync();
-        if (IsInitialized)
-        {
-            _ = SearchAsync();
-        }
-    }
-
     partial void OnFilterFeeTypeChanged(FeeTypeDto? value)
     {
         if (_suppressFilterReload || !IsInitialized)
@@ -309,12 +304,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            AcademicYears.Clear();
-            foreach (var year in await _schoolApi.GetAcademicYearsAsync())
-            {
-                AcademicYears.Add(year);
-            }
-
             Sections.Clear();
             _organizedSectionNames.Clear();
             var structure = await _wizardApi.GetStructureOptionsAsync();
@@ -336,7 +325,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
             _defaultFeeTypeId = school?.DefaultFeeTypeId;
             _suppressPeriodReload = true;
             _suppressFilterReload = true;
-            FilterYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
             FilterFeeType = DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
             ApplyPeriodDates(SelectedPeriod?.Kind ?? RealizedReceiptsPeriodKind.Day);
             _suppressFilterReload = false;
@@ -612,7 +600,6 @@ public partial class FinancialReportsViewModel : ViewModelBase
         FilterFeeType = DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
         FilterSection = null;
         FilterClassRoom = null;
-        FilterYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
         _suppressMonthReload = true;
         SelectedMonth = MonthOptions.First(m => m.Month == DateTime.Today.Month);
         SelectedCalendarYear = CalendarYears.FirstOrDefault(y => y.Year == DateTime.Today.Year)
@@ -752,7 +739,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         return new RealizedReceiptsRequest(
             from,
             to,
-            FilterYear?.Id,
+            AcademicYearRefreshBridge.SelectedYearId,
             FilterFeeType?.Id,
             FilterClassRoom?.Id,
             FilterSection?.Id,
@@ -765,7 +752,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         var from = DateOnly.FromDateTime(FilterFromDate!.Value);
         var to = DateOnly.FromDateTime(FilterToDate!.Value);
         return new RevenueAllocationSearchRequest(
-            FilterYear?.Id,
+            AcademicYearRefreshBridge.SelectedYearId,
             from,
             to,
             StudentId: null,
@@ -784,7 +771,8 @@ public partial class FinancialReportsViewModel : ViewModelBase
             structure ??= await _wizardApi.GetStructureOptionsAsync();
             _structureAcademicYearId = structure.AcademicYearId;
 
-            if (FilterYear is null || FilterYear.Id == structure.AcademicYearId)
+            var yearId = AcademicYearRefreshBridge.SelectedYearId;
+            if (yearId is null || yearId == structure.AcademicYearId)
             {
                 _allClassRooms = structure.Classes
                     .Select(c => new ReportClassOption(
@@ -797,7 +785,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
             }
             else
             {
-                _allClassRooms = (await _academicApi.GetClassRoomsAsync(FilterYear.Id))
+                _allClassRooms = (await _academicApi.GetClassRoomsAsync(yearId.Value))
                     .Where(c => _organizedSectionNames.Count == 0
                         || _organizedSectionNames.Contains((c.SectionName ?? string.Empty).Trim()))
                     .Select(c => new ReportClassOption(

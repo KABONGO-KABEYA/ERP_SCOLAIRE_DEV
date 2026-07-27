@@ -13,8 +13,14 @@ public class PaymentConfiguration : AuditableEntityConfiguration<Payment>
         builder.Property(p => p.ReceiptNumber).HasMaxLength(50).IsRequired();
         builder.Property(p => p.PaymentMethod).IsRequired(false);
         builder.Property(p => p.TotalAmount).HasPrecision(18, 2);
+        builder.Property(p => p.FeeCurrencyAmount).HasPrecision(18, 2);
+        builder.Property(p => p.PaymentCurrencyAmount).HasPrecision(18, 2);
+        builder.Property(p => p.AppliedExchangeRate).HasPrecision(18, 6);
         builder.Property(p => p.Currency).HasConversion<int>();
         builder.Property(p => p.Status).HasConversion<int>();
+        builder.HasOne<CurrencyDefinition>().WithMany().HasForeignKey(p => p.FeeCurrencyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<CurrencyDefinition>().WithMany().HasForeignKey(p => p.PaymentCurrencyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ExchangeRate>().WithMany().HasForeignKey(p => p.ExchangeRateId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.Student).WithMany().HasForeignKey(p => p.StudentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.AcademicYear).WithMany().HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.CashRegister).WithMany().HasForeignKey(p => p.CashRegisterId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
@@ -182,7 +188,9 @@ public class ExpensePaymentConfiguration : AuditableEntityConfiguration<ExpenseP
         base.Configure(builder);
         builder.ToTable("FinDepense");
         builder.Property(p => p.Reference).HasMaxLength(40).IsRequired();
-        builder.Property(p => p.Label).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.Label).HasMaxLength(500).IsRequired();
+        builder.Property(p => p.BeneficiaryName).HasMaxLength(150).IsRequired();
+        builder.Property(p => p.AuthorizedByName).HasMaxLength(150).IsRequired();
         builder.Property(p => p.Amount).HasPrecision(18, 2);
         builder.Property(p => p.Currency).HasConversion<int>();
         builder.HasOne(p => p.School).WithMany().HasForeignKey(p => p.SchoolId).OnDelete(DeleteBehavior.Restrict);

@@ -41,15 +41,6 @@
             </ContentControl.ContentTemplate>
         </ContentControl>
 
-        <ContentControl Content="{Binding ExpenseRequests}"
-                        Visibility="{Binding IsDemandesPaiementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <ContentControl.ContentTemplate>
-                <DataTemplate DataType="{x:Type vm:ExpenseRequestsViewModel}">
-                    <views:ExpenseRequestsView />
-                </DataTemplate>
-            </ContentControl.ContentTemplate>
-        </ContentControl>
-
         <ContentControl Content="{Binding ExpensePayments}"
                         Visibility="{Binding IsDepensesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
             <ContentControl.ContentTemplate>

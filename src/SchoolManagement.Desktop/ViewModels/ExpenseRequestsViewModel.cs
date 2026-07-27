@@ -3,8 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Accounting.DTOs;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
-using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
@@ -14,26 +14,24 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
 {
     private readonly IAccountingApiService _accountingApi;
     private readonly IRevenueAllocationApiService _allocationApi;
-    private readonly ISchoolApiService _schoolApi;
 
     public ExpenseRequestsViewModel(
         IAccountingApiService accountingApi,
-        IRevenueAllocationApiService allocationApi,
-        ISchoolApiService schoolApi)
+        IRevenueAllocationApiService allocationApi)
     {
         _accountingApi = accountingApi;
         _allocationApi = allocationApi;
-        _schoolApi = schoolApi;
         RequestDate = DateOnly.FromDateTime(DateTime.Today);
         StatusMessage = "Consultez et gérez les demandes de paiement.";
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = InitializeAsync();
     }
 
+    private void OnGlobalAcademicYearChanged() => _ = SearchAsync();
+
     public ObservableCollection<ExpenseRequestDto> Requests { get; } = [];
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
     public ObservableCollection<RevenueDestinationDto> Destinations { get; } = [];
 
-    [ObservableProperty] private AcademicYearDto? _selectedAcademicYear;
     [ObservableProperty] private RevenueDestinationDto? _selectedDestination;
     [ObservableProperty] private ExpenseRequestDto? _selectedRequest;
     [ObservableProperty] private string _newTitle = string.Empty;
@@ -52,23 +50,12 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanApprove));
     }
 
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value) => _ = SearchAsync();
-
     [RelayCommand]
     private async Task InitializeAsync()
     {
         IsBusy = true;
         try
         {
-            var years = await _schoolApi.GetAcademicYearsAsync();
-            AcademicYears.Clear();
-            foreach (var year in years)
-            {
-                AcademicYears.Add(year);
-            }
-
-            SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
             var destinations = await _allocationApi.GetDestinationsAsync(activeOnly: true);
             Destinations.Clear();
             foreach (var destination in destinations)
@@ -92,8 +79,10 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SearchAsync()
     {
-        if (SelectedAcademicYear is null)
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null)
         {
+            StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
             return;
         }
 
@@ -101,7 +90,7 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
         try
         {
             var result = await _accountingApi.SearchExpenseRequestsAsync(new ExpenseSearchRequest(
-                SelectedAcademicYear.Id,
+                yearId.Value,
                 PageSize: 200));
             Requests.Clear();
             foreach (var item in result.Items)
@@ -124,9 +113,10 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateAsync()
     {
-        if (SelectedAcademicYear is null || SelectedDestination is null)
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null || SelectedDestination is null)
         {
-            StatusMessage = "Sélectionnez l'année scolaire et le compte bénéficiaire.";
+            StatusMessage = "Sélectionnez l'année scolaire (barre du haut) et le compte bénéficiaire.";
             return;
         }
 
@@ -140,7 +130,7 @@ public partial class ExpenseRequestsViewModel : ViewModelBase
         try
         {
             await _accountingApi.CreateExpenseRequestAsync(new CreateExpenseRequestRequest(
-                SelectedAcademicYear.Id,
+                yearId.Value,
                 SelectedDestination.Id,
                 NewTitle.Trim(),
                 NewDescription?.Trim(),

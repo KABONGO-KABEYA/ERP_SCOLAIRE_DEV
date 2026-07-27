@@ -79,7 +79,9 @@ public sealed class AccountingSchemaInitializer
                 [DestinationId] uniqueidentifier NOT NULL,
                 [ExpenseRequestId] uniqueidentifier NULL,
                 [Reference] nvarchar(40) NOT NULL,
-                [Label] nvarchar(200) NOT NULL,
+                [Label] nvarchar(500) NOT NULL,
+                [BeneficiaryName] nvarchar(150) NOT NULL,
+                [AuthorizedByName] nvarchar(150) NOT NULL,
                 [Amount] decimal(18,2) NOT NULL,
                 [Currency] int NOT NULL,
                 [ExpenseDate] date NOT NULL,
@@ -100,6 +102,38 @@ public sealed class AccountingSchemaInitializer
                 ON [FinDepense] ([SchoolId], [Reference]) WHERE [IsDeleted] = 0;
             CREATE INDEX [IX_FinDepense_School_Date_Destination]
                 ON [FinDepense] ([SchoolId], [ExpenseDate], [DestinationId]) WHERE [IsDeleted] = 0;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'BeneficiaryName') IS NULL
+        BEGIN
+            ALTER TABLE [FinDepense] ADD [BeneficiaryName] nvarchar(150) NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'AuthorizedByName') IS NULL
+        BEGIN
+            ALTER TABLE [FinDepense] ADD [AuthorizedByName] nvarchar(150) NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'Label') IS NOT NULL
+        BEGIN
+            ALTER TABLE [FinDepense] ALTER COLUMN [Label] nvarchar(500) NOT NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'BeneficiaryName') IS NOT NULL
+        BEGIN
+            UPDATE [FinDepense] SET [BeneficiaryName] = N'—' WHERE [BeneficiaryName] IS NULL OR LTRIM(RTRIM([BeneficiaryName])) = N'';
+            ALTER TABLE [FinDepense] ALTER COLUMN [BeneficiaryName] nvarchar(150) NOT NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'AuthorizedByName') IS NOT NULL
+        BEGIN
+            UPDATE [FinDepense] SET [AuthorizedByName] = N'—' WHERE [AuthorizedByName] IS NULL OR LTRIM(RTRIM([AuthorizedByName])) = N'';
+            ALTER TABLE [FinDepense] ALTER COLUMN [AuthorizedByName] nvarchar(150) NOT NULL;
         END
         """
     ];

@@ -84,7 +84,7 @@ class AuthStorage {
     if (await isTeacher) return '/teacher/assignments';
     if (await canManageEnrollments) return '/secretary/home';
     if (await isPromoteur || await isDirection) return '/promoteur/dashboard';
-    return '/children';
+    return '/parent/home';
   }
 
   static Future<void> clear() => _storage.deleteAll();

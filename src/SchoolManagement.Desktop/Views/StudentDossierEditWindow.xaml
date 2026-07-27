@@ -100,7 +100,7 @@
                                     <erp:ErpTextField Grid.Row="0" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" Label="Postnom" Text="{Binding MiddleName, UpdateSourceTrigger=PropertyChanged}" />
                                     <erp:ErpTextField Grid.Row="1" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Prénom" Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" />
                                     <erp:ErpComboField Grid.Row="1" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" IsRequired="True" ItemsSource="{Binding Genders}" Label="Sexe" SelectedItem="{Binding Gender, Mode=TwoWay}" />
-                                    <erp:ErpDateField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" Label="Date de naissance" SelectedDate="{Binding DateOfBirth, Mode=TwoWay}" ShowBadges="False" />
+                                    <erp:ErpDateField Grid.Row="2" Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" IsRequired="True" DateValidationMode="BirthDate" Label="Date de naissance" SelectedDate="{Binding DateOfBirth, Mode=TwoWay}" ShowBadges="False" />
                                     <erp:ErpTextField Grid.Row="2" Grid.Column="1" Margin="0,0,0,18" HorizontalAlignment="Stretch" Label="Lieu de naissance" Text="{Binding PlaceOfBirth, UpdateSourceTrigger=PropertyChanged}" />
                                 </Grid>
                             </Grid>
@@ -159,7 +159,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="N° ordre" Text="{Binding OrderNumber, TargetNullValue=''}" />
+                            <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" HorizontalAlignment="Stretch" Label="N° ordre" Text="{Binding OrderNumber, TargetNullValue=''}" ValidationMode="Integer" />
                             <erp:ErpDateField Grid.Column="1"
                                               HorizontalAlignment="Stretch"
                                               DateValidationMode="EnrollmentDate"

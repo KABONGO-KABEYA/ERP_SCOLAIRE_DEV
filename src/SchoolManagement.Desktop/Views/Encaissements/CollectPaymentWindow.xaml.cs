@@ -13,6 +13,7 @@ public partial class CollectPaymentWindow : Window
         StudentPaymentSituationDto situation,
         IPaymentApiService paymentApi,
         IFinanceApiService financeApi,
+        ICurrencyApiService currencyApi,
         IAuthSessionService authSession,
         IStudentDossierPathResolver dossierPathResolver,
         IFeeTypeStatementPrintService statementPrint)
@@ -22,6 +23,7 @@ public partial class CollectPaymentWindow : Window
             situation,
             paymentApi,
             financeApi,
+            currencyApi,
             authSession,
             dossierPathResolver,
             statementPrint);

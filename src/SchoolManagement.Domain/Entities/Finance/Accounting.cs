@@ -55,6 +55,12 @@ public class ExpensePayment : AuditableEntity, IAggregateRoot
 
     public string Label { get; set; } = string.Empty;
 
+    /// <summary>Nom de la personne ou structure qui reçoit le paiement.</summary>
+    public string BeneficiaryName { get; set; } = string.Empty;
+
+    /// <summary>Nom de la personne ayant autorisé la dépense.</summary>
+    public string AuthorizedByName { get; set; } = string.Empty;
+
     public decimal Amount { get; set; }
 
     public Currency Currency { get; set; } = Currency.CDF;

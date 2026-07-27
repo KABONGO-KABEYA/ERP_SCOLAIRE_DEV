@@ -24,6 +24,8 @@ public sealed record ExpensePaymentDto(
     Guid Id,
     string Reference,
     string Label,
+    string BeneficiaryName,
+    string AuthorizedByName,
     decimal Amount,
     string Currency,
     DateOnly ExpenseDate,
@@ -47,6 +49,8 @@ public sealed record CreateExpensePaymentRequest(
     Guid AcademicYearId,
     Guid DestinationId,
     string Label,
+    string BeneficiaryName,
+    string AuthorizedByName,
     decimal Amount,
     Currency Currency,
     DateOnly ExpenseDate,
@@ -67,4 +71,15 @@ public sealed record ExpenseRequestSearchResultDto(
 
 public sealed record ExpensePaymentSearchResultDto(
     IReadOnlyList<ExpensePaymentDto> Items,
-    int TotalCount);
+    int TotalCount,
+    decimal TotalAmount = 0m);
+
+/// <summary>Solde d'un compte bénéficiaire pour l'imputation des dépenses.</summary>
+public sealed record ExpenseDestinationBalanceDto(
+    Guid DestinationId,
+    string DestinationCode,
+    string DestinationName,
+    decimal AllocatedAmount,
+    decimal SpentAmount,
+    decimal AvailableAmount,
+    string Currency = "CDF");

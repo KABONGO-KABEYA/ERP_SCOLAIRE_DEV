@@ -22,13 +22,7 @@
 
             <Border Margin="{StaticResource ErpSectionSpacing}" Style="{StaticResource ErpCard}">
                 <StackPanel>
-                    <ComboBox Width="220"
-                              DisplayMemberPath="Label"
-                              ItemsSource="{Binding AcademicYears}"
-                              SelectedItem="{Binding SelectedYear}"
-                              Style="{StaticResource ErpComboBox}"
-                              materialDesign:HintAssist.Hint="Année scolaire" />
-                    <TextBlock Margin="0,8,0,0" Style="{StaticResource ErpBodySecondary}" Text="{Binding StatusMessage}" />
+                    <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding StatusMessage}" />
                 </StackPanel>
             </Border>
 

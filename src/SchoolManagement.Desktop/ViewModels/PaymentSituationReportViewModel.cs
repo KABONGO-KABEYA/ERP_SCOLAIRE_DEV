@@ -11,6 +11,7 @@ using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Models;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using Microsoft.Win32;
 
 namespace SchoolManagement.Desktop.ViewModels;
@@ -65,9 +66,9 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
 
         SituationFilters =
         [
-            new SituationFilterOption(PaymentSituationReportFilter.All, "Tous les élèves"),
-            new SituationFilterOption(PaymentSituationReportFilter.InOrder, "Élèves en ordre"),
-            new SituationFilterOption(PaymentSituationReportFilter.NotInOrder, "Élèves non en ordre")
+            new SituationFilterOption(PaymentSituationReportFilter.All, "Tout le monde"),
+            new SituationFilterOption(PaymentSituationReportFilter.InOrder, "En ordre seulement"),
+            new SituationFilterOption(PaymentSituationReportFilter.NotInOrder, "Non en ordre seulement")
         ];
         ScopeKinds =
         [
@@ -86,11 +87,19 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         SelectedScopeKind = ScopeKinds[0];
         SelectedSortKind = SortKinds[0];
         StatusMessage = "Sélectionnez les critères puis générez l'état.";
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
+    }
+
+    private void OnGlobalAcademicYearChanged()
+    {
+        if (_initialized && !_suppressReload)
+        {
+            _ = ReloadStructureAsync();
+        }
     }
 
     public ObservableCollection<PaymentSituationSectionGroup> SectionGroups { get; } = [];
     public ObservableCollection<PaymentSituationColumnHeader> InstallmentHeaders { get; } = [];
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
     public ObservableCollection<FeeTypeDto> FeeTypes { get; } = [];
     public ObservableCollection<SectionDto> Sections { get; } = [];
     public ObservableCollection<EnrollmentClassOptionDto> ClassRooms { get; } = [];
@@ -102,7 +111,6 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
     public IReadOnlyList<ScopeKindOption> ScopeKinds { get; }
     public IReadOnlyList<SortKindOption> SortKinds { get; }
 
-    [ObservableProperty] private AcademicYearDto? _selectedAcademicYear;
     [ObservableProperty] private FeeTypeDto? _selectedFeeType;
     [ObservableProperty] private SituationFilterOption? _selectedSituationFilter;
     [ObservableProperty] private ScopeKindOption? _selectedScopeKind;
@@ -113,6 +121,7 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
     [ObservableProperty] private FeePricingCategoryDto? _selectedPricingCategory;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isFiltersExpanded = true;
+    [ObservableProperty] private bool _isStudyOptionFilterEnabled;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private PaymentSituationReportResultDto? _lastResult;
 
@@ -131,14 +140,6 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         OnPropertyChanged(nameof(TotalsSummary));
     }
 
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value)
-    {
-        if (!_suppressReload)
-        {
-            _ = ReloadStructureAsync();
-        }
-    }
-
     partial void OnSelectedFeeTypeChanged(FeeTypeDto? value)
     {
         if (!_suppressReload)
@@ -148,6 +149,15 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
     }
 
     partial void OnSelectedSectionChanged(SectionDto? value)
+    {
+        if (!_suppressReload)
+        {
+            RefreshStudyOptions();
+            RefreshClassRooms();
+        }
+    }
+
+    partial void OnSelectedStudyOptionChanged(StudyOptionFilterItem? value)
     {
         if (!_suppressReload)
         {
@@ -179,13 +189,13 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
             SelectedScopeKind = ScopeKinds[0];
             SelectedSortKind = SortKinds[0];
             SelectedSection = null;
-            SelectedStudyOption = StudyOptions.FirstOrDefault();
             SelectedPricingCategory = null;
             foreach (var installment in Installments)
             {
                 installment.IsSelected = false;
             }
 
+            RefreshStudyOptions();
             RefreshClassRooms();
             SelectedClassRoom = null;
             LastResult = null;
@@ -202,9 +212,9 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
     [RelayCommand]
     private async Task GenerateAsync()
     {
-        if (SelectedAcademicYear is null || SelectedFeeType is null)
+        if (AcademicYearRefreshBridge.SelectedYearId is null || SelectedFeeType is null)
         {
-            StatusMessage = "Année scolaire et type de frais sont obligatoires.";
+            StatusMessage = "Année scolaire (barre du haut) et type de frais sont obligatoires.";
             return;
         }
 
@@ -409,7 +419,7 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
             : null;
 
         return new PaymentSituationReportRequest(
-            SelectedAcademicYear!.Id,
+            AcademicYearRefreshBridge.SelectedYearId!.Value,
             SelectedFeeType!.Id,
             SelectedScopeKind?.Value ?? PaymentSituationScopeKind.EntireFeeType,
             installmentIds,
@@ -418,7 +428,7 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
             SelectedSection?.Id,
             PedagogicalClassId: null,
             SelectedClassRoom?.ClassRoomId,
-            SelectedStudyOption?.Value,
+            IsStudyOptionFilterEnabled ? SelectedStudyOption?.Value : null,
             SelectedPricingCategory?.Id,
             SelectedSortKind?.Value ?? PaymentSituationSortKind.Name);
     }
@@ -429,15 +439,6 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         _suppressReload = true;
         try
         {
-            var years = await _schoolApi.GetAcademicYearsAsync();
-            AcademicYears.Clear();
-            foreach (var year in years.OrderByDescending(y => y.StartDate))
-            {
-                AcademicYears.Add(year);
-            }
-
-            SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
             var catalog = await _schoolFeeApi.GetCatalogAsync();
             FeeTypes.Clear();
             foreach (var fee in catalog.FeeTypes.Where(f => f.IsActive).OrderBy(f => f.Name))
@@ -473,8 +474,9 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
 
     private async Task ReloadStructureAsync()
     {
-        if (SelectedAcademicYear is null)
+        if (AcademicYearRefreshBridge.SelectedYearId is null)
         {
+            StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
             return;
         }
 
@@ -484,18 +486,6 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
             _allClasses = options.Classes.Where(c => c.IsSelectable).ToList();
             _structureSections = options.Sections.ToList();
 
-            StudyOptions.Clear();
-            StudyOptions.Add(new StudyOptionFilterItem(null, "Toutes les options"));
-            foreach (var option in _allClasses
-                         .Select(c => c.StudyOption)
-                         .Where(o => !string.IsNullOrWhiteSpace(o))
-                         .Distinct(StringComparer.OrdinalIgnoreCase)
-                         .OrderBy(o => o))
-            {
-                StudyOptions.Add(new StudyOptionFilterItem(option, option!));
-            }
-
-            SelectedStudyOption = StudyOptions[0];
             RefreshSectionsAndClasses();
         }
         catch (Exception ex)
@@ -513,7 +503,59 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         }
 
         SelectedSection = null;
+        RefreshStudyOptions();
         RefreshClassRooms();
+    }
+
+    private void RefreshStudyOptions()
+    {
+        StudyOptions.Clear();
+        StudyOptions.Add(new StudyOptionFilterItem(null, "Toutes les options"));
+
+        IEnumerable<EnrollmentClassOptionDto> sectionClasses = _allClasses;
+        if (SelectedSection is not null)
+        {
+            sectionClasses = sectionClasses.Where(c => c.SectionId == SelectedSection.Id);
+        }
+
+        var classList = sectionClasses.ToList();
+        var organizesOptions = SelectedSection is not null && SectionOrganizesOptions(classList);
+        IsStudyOptionFilterEnabled = organizesOptions;
+
+        if (organizesOptions)
+        {
+            foreach (var option in classList
+                         .Select(c => c.StudyOption)
+                         .Where(o => !string.IsNullOrWhiteSpace(o))
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderBy(o => o))
+            {
+                StudyOptions.Add(new StudyOptionFilterItem(option, option!));
+            }
+        }
+
+        SelectedStudyOption = StudyOptions[0];
+    }
+
+    /// <summary>
+    /// Une section « organise les options » s'il existe plusieurs options distinctes
+    /// (ou un mélange option / sans option) parmi ses classes.
+    /// </summary>
+    private static bool SectionOrganizesOptions(IReadOnlyList<EnrollmentClassOptionDto> classes)
+    {
+        if (classes.Count == 0)
+        {
+            return false;
+        }
+
+        var options = classes
+            .Select(c => c.StudyOption)
+            .Where(option => !string.IsNullOrWhiteSpace(option))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return options.Count > 1
+               || (options.Count == 1 && classes.Any(c => string.IsNullOrWhiteSpace(c.StudyOption)));
     }
 
     private void RefreshClassRooms()
@@ -525,7 +567,7 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
             query = query.Where(c => c.SectionId == SelectedSection.Id);
         }
 
-        if (!string.IsNullOrWhiteSpace(SelectedStudyOption?.Value))
+        if (IsStudyOptionFilterEnabled && !string.IsNullOrWhiteSpace(SelectedStudyOption?.Value))
         {
             query = query.Where(c =>
                 string.Equals(c.StudyOption, SelectedStudyOption.Value, StringComparison.OrdinalIgnoreCase));

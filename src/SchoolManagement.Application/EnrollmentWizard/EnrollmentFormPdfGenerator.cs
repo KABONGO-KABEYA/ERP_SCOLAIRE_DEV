@@ -43,6 +43,7 @@ public static class EnrollmentFormPdfGenerator
                         row.RelativeItem(3).Element(c => BuildSideColumn(c, form, loadImage));
                     });
                     column.Item().Element(c => BuildGuardiansSection(c, form));
+                    column.Item().Element(c => BuildParentAccessSection(c, form));
                     column.Item().Element(c => BuildMedicalSection(c, form));
                     column.Item().Element(c => BuildDocumentsSection(c, form));
                     column.Item().Element(c => BuildSignatures(c, form, loadImage));
@@ -186,6 +187,55 @@ public static class EnrollmentFormPdfGenerator
                     table.Cell().Element(CellValue).Text(guardian.Phone ?? "—");
                     table.Cell().Element(CellValue).Text(guardian.Email ?? "—");
                     table.Cell().Element(CellValue).Text(guardian.Profession ?? "—");
+                }
+            });
+        });
+    }
+
+    private static void BuildParentAccessSection(IContainer container, EnrollmentFormDocumentDto form)
+    {
+        var accounts = form.ParentAccessAccounts ?? [];
+        container.Column(col =>
+        {
+            col.Item().Element(c => SectionTitle(c, "Accès application mobile (parent)"));
+            if (accounts.Count == 0)
+            {
+                col.Item().Text("Aucun compte d'accès parent généré pour cette inscription.").FontColor(TextMuted);
+                return;
+            }
+
+            col.Item().Text("Remettre ces identifiants au responsable pour se connecter à l'application mobile.")
+                .FontColor(TextMuted).FontSize(8);
+            col.Item().PaddingTop(3).Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.RelativeColumn(3);
+                    columns.RelativeColumn(2);
+                    columns.RelativeColumn(2);
+                    columns.RelativeColumn(3);
+                });
+
+                table.Cell().Element(CellHeader).Text("Responsable");
+                table.Cell().Element(CellHeader).Text("Identifiant");
+                table.Cell().Element(CellHeader).Text("Mot de passe");
+                table.Cell().Element(CellHeader).Text("Remarque");
+
+                foreach (var account in accounts)
+                {
+                    var password = string.IsNullOrWhiteSpace(account.TemporaryPassword)
+                        ? "———"
+                        : account.TemporaryPassword;
+                    var remark = !string.IsNullOrWhiteSpace(account.TemporaryPassword)
+                        ? "À changer à la 1ère connexion"
+                        : account.MustChangePassword
+                            ? "Mot de passe déjà communiqué / à réinitialiser"
+                            : "Compte existant";
+
+                    table.Cell().Element(CellValue).Text(account.GuardianFullName);
+                    table.Cell().Element(CellValue).Text(account.UserName).SemiBold();
+                    table.Cell().Element(CellValue).Text(password).SemiBold();
+                    table.Cell().Element(CellValue).Text(remark).FontSize(7).FontColor(TextMuted);
                 }
             });
         });

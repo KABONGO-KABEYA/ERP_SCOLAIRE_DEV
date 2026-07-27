@@ -17,7 +17,13 @@ public sealed record CreatePaymentRequest(
     Currency Currency,
     string? Notes,
     IReadOnlyList<PaymentLineRequest> Lines,
-    DateTime? PaymentDate = null);
+    DateTime? PaymentDate = null,
+    /// <summary>Devise de paiement (référentiel). Si null, = devise du frais / Currency enum.</summary>
+    Guid? PaymentCurrencyId = null,
+    /// <summary>Devise du frais (référentiel). Si null, dérivée de Currency / lignes.</summary>
+    Guid? FeeCurrencyId = null,
+    /// <summary>Taux forcé (nécessite permission payment-fx.update côté API).</summary>
+    decimal? OverrideExchangeRate = null);
 
 public sealed record PaymentLineDto(
     Guid Id,
@@ -41,7 +47,15 @@ public sealed record PaymentDto(
     PaymentStatus Status,
     string? Notes = null,
     IReadOnlyList<PaymentLineDto>? Lines = null,
-    DateTime? CreatedAt = null);
+    DateTime? CreatedAt = null,
+    Guid? FeeCurrencyId = null,
+    Guid? PaymentCurrencyId = null,
+    Guid? ExchangeRateId = null,
+    decimal? FeeCurrencyAmount = null,
+    decimal? PaymentCurrencyAmount = null,
+    decimal? AppliedExchangeRate = null,
+    string? FeeCurrencyCode = null,
+    string? PaymentCurrencyCode = null);
 
 /// <summary>Détail d'un paiement avec lignes (consultation / reçu / annulation).</summary>
 public sealed record PaymentDetailDto(
@@ -56,7 +70,15 @@ public sealed record PaymentDetailDto(
     PaymentStatus Status,
     string? Notes,
     IReadOnlyList<PaymentLineDto> Lines,
-    DateTime? CreatedAt = null);
+    DateTime? CreatedAt = null,
+    Guid? FeeCurrencyId = null,
+    Guid? PaymentCurrencyId = null,
+    Guid? ExchangeRateId = null,
+    decimal? FeeCurrencyAmount = null,
+    decimal? PaymentCurrencyAmount = null,
+    decimal? AppliedExchangeRate = null,
+    string? FeeCurrencyCode = null,
+    string? PaymentCurrencyCode = null);
 
 public sealed record PaymentSearchRequest(
     Guid? StudentId = null,

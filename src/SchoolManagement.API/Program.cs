@@ -296,6 +296,16 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<PaymentCashRegisterSchemaInitializer>>());
     await paymentCashRegisterSchema.EnsureCreatedAsync();
 
+    var currencySchema = new CurrencySchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CurrencySchemaInitializer>>());
+    await currencySchema.EnsureCreatedAsync();
+
+    var studentCardSchema = new StudentCardSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<StudentCardSchemaInitializer>>());
+    await studentCardSchema.EnsureCreatedAsync();
+
     var cloudSyncSchema = new CloudSyncSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<CloudSyncSchemaInitializer>>());

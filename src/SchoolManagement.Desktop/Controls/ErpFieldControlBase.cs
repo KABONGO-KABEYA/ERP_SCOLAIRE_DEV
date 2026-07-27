@@ -9,7 +9,11 @@ public enum ErpFieldValidationMode
     None,
     Required,
     Email,
-    Phone
+    Phone,
+    /// <summary>Entier : chiffres uniquement.</summary>
+    Integer,
+    /// <summary>Décimal : chiffres + une virgule ou un point.</summary>
+    Decimal
 }
 
 public static class ErpFieldValidation
@@ -58,6 +62,27 @@ public static class ErpFieldValidation
         if (!IsValidPhone(value))
         {
             error = "Numéro de téléphone invalide.";
+            return false;
+        }
+
+        return true;
+    }
+
+    public static bool ValidateNumeric(string? value, ErpFieldValidationMode mode, out string? error)
+    {
+        error = null;
+        if (mode is not (ErpFieldValidationMode.Integer or ErpFieldValidationMode.Decimal)
+            || string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        var numericMode = NumericInput.FromValidationMode(mode);
+        if (!NumericInput.IsValidNumericText(value.Trim(), numericMode))
+        {
+            error = mode == ErpFieldValidationMode.Integer
+                ? "Saisissez uniquement des chiffres."
+                : "Saisissez un nombre valide (chiffres et séparateur décimal).";
             return false;
         }
 

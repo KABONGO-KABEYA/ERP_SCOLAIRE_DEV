@@ -8,6 +8,7 @@ using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.Geography.DTOs;
+using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
@@ -963,7 +964,7 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
 
                 StatusMessage = updateMessage;
                 MessageBox.Show(
-                    $"{updateMessage}\n\nLa fiche d'inscription PDF a été régénérée automatiquement dans le dossier élève.",
+                    $"{updateMessage}\n\nLa fiche d'inscription PDF a été régénérée automatiquement dans le dossier élève.{FormatParentAccessDetails(updateResult.ParentAccessAccounts)}",
                     "Modification enregistrée",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -984,7 +985,7 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
 
             StatusMessage = successMessage;
             MessageBox.Show(
-                $"{successMessage}\n\nLa fiche d'inscription PDF a été enregistrée automatiquement dans le dossier élève.",
+                $"{successMessage}\n\nLa fiche d'inscription PDF a été enregistrée automatiquement dans le dossier élève.{FormatParentAccessDetails(result.ParentAccessAccounts)}",
                 "Inscription réussie",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1581,6 +1582,35 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
             ? $"{successMessage} Recherchez un autre élève à réinscrire."
             : $"{successMessage} Saisissez un nouvel élève.";
         await Task.CompletedTask;
+    }
+
+    private static string FormatParentAccessDetails(IReadOnlyList<ParentAppAccessCredentialDto>? accounts)
+    {
+        if (accounts is null || accounts.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>
+        {
+            string.Empty,
+            "Accès application mobile parent :"
+        };
+
+        foreach (var account in accounts)
+        {
+            if (account.WasCreated && !string.IsNullOrWhiteSpace(account.TemporaryPassword))
+            {
+                lines.Add(
+                    $"• {account.GuardianFullName} — identifiant : {account.UserName} / mot de passe temporaire : {account.TemporaryPassword} (à changer à la 1ère connexion)");
+            }
+            else
+            {
+                lines.Add($"• {account.GuardianFullName} — compte déjà existant : {account.UserName}");
+            }
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     private async Task EnsureRegistrationNumberAsync()

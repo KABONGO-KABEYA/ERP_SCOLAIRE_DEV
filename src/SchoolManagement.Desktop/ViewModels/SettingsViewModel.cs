@@ -27,6 +27,7 @@ public partial class SettingsViewModel : ViewModelBase
         SchoolFeeConfigurationViewModel schoolFeeConfiguration,
         RevenueAllocationConfigViewModel revenueAllocationConfig,
         WithholdingConfigViewModel withholdingConfig,
+        CurrencyManagementViewModel currencyManagement,
         CloudSyncDashboardViewModel cloudSyncDashboard)
     {
         _schoolApiService = schoolApiService;
@@ -38,6 +39,7 @@ public partial class SettingsViewModel : ViewModelBase
         SchoolFeeConfiguration = schoolFeeConfiguration;
         RevenueAllocationConfig = revenueAllocationConfig;
         WithholdingConfig = withholdingConfig;
+        CurrencyManagement = currencyManagement;
         CloudSyncDashboard = cloudSyncDashboard;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
@@ -70,6 +72,9 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Frais scolaires", "CashMultiple", SettingsSection.FraisScolaires),
                     new SettingsNodeViewModel("Répartition des recettes", "ChartPie", SettingsSection.RepartitionRecettes),
                     new SettingsNodeViewModel("Retenues", "PercentOutline", SettingsSection.Retenues),
+                    new SettingsNodeViewModel("Monnaies", "CurrencyUsd", SettingsSection.Monnaies),
+                    new SettingsNodeViewModel("Taux de change", "SwapHorizontal", SettingsSection.TauxChange),
+                    new SettingsNodeViewModel("Historique des taux", "History", SettingsSection.HistoriqueTaux),
                     new SettingsNodeViewModel("Matières", "BookEducation", SettingsSection.Matieres),
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
@@ -286,6 +291,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public WithholdingConfigViewModel WithholdingConfig { get; }
 
+    public CurrencyManagementViewModel CurrencyManagement { get; }
+
     public CloudSyncDashboardViewModel CloudSyncDashboard { get; }
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
@@ -312,6 +319,17 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsRetenuesSelected => SelectedSettingsNode?.Section == SettingsSection.Retenues;
 
+    public bool IsMonnaiesSelected => SelectedSettingsNode?.Section == SettingsSection.Monnaies;
+
+    public bool IsTauxChangeSelected => SelectedSettingsNode?.Section == SettingsSection.TauxChange;
+
+    public bool IsDevisesEtablissementSelected => SelectedSettingsNode?.Section == SettingsSection.DevisesEtablissement;
+
+    public bool IsHistoriqueTauxSelected => SelectedSettingsNode?.Section == SettingsSection.HistoriqueTaux;
+
+    public bool IsCurrencySectionSelected =>
+        IsMonnaiesSelected || IsTauxChangeSelected || IsHistoriqueTauxSelected;
+
     public bool IsSyncCloudSelected => SelectedSettingsNode?.Section == SettingsSection.SyncCloud;
 
     public bool IsScrollableSettingsContent =>
@@ -320,6 +338,7 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsFraisScolairesSelected
         && !IsRepartitionRecettesSelected
         && !IsRetenuesSelected
+        && !IsCurrencySectionSelected
         && !IsSyncCloudSelected;
 
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
@@ -345,16 +364,22 @@ public partial class SettingsViewModel : ViewModelBase
         "frais-scolaires" => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
         "repartition-recettes" => "Destinations financières et clés de répartition par année scolaire.",
         "retenues" => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
+        "monnaies" => "Catalogue global des devises (USD, CDF, EUR…) : création, activation et désactivation.",
+        "taux-change" => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
+        "historique-taux" => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
         "sync-cloud" => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
         _ => SelectedSettingsNode?.Section switch
         {
-            SettingsSection.Etablissement => "Informations générales, logos, en-têtes, signatures et identité documentaire de l'établissement.",
+            SettingsSection.Etablissement => "Informations générales, devises autorisées, logos, en-têtes, signatures et identité documentaire de l'établissement.",
             SettingsSection.Reglement => "Rédigez et enregistrez le règlement d'ordre intérieur de l'établissement.",
             SettingsSection.StructurePedagogique => "Activez uniquement les classes réellement organisées dans l'établissement. Toute la structure officielle RDC est déjà présente dans le système.",
             SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
             SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
             SettingsSection.RepartitionRecettes => "Destinations financières et clés de répartition par année scolaire.",
             SettingsSection.Retenues => "Configurez les retenues (pourcentage ou montant fixe) appliquées lors des encaissements.",
+            SettingsSection.Monnaies => "Catalogue global des devises (USD, CDF, EUR…) : création, activation et désactivation.",
+            SettingsSection.TauxChange => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
+            SettingsSection.HistoriqueTaux => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
             SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
             SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
@@ -401,6 +426,21 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 WithholdingConfig.LoadCommand.Execute(null);
             }
+            else if (item.Key == "etablissement")
+            {
+                DocumentBranding.LoadCommand.Execute(null);
+                CurrencyManagement.SetMode(CurrencyManagementMode.DevisesEtablissement);
+            }
+            else if (item.Key is "monnaies" or "taux-change" or "historique-taux")
+            {
+                var mode = item.Key switch
+                {
+                    "taux-change" => CurrencyManagementMode.TauxChange,
+                    "historique-taux" => CurrencyManagementMode.HistoriqueTaux,
+                    _ => CurrencyManagementMode.Monnaies
+                };
+                CurrencyManagement.SetMode(mode);
+            }
             else if (item.Key == "sync-cloud")
             {
                 CloudSyncDashboard.LoadCommand.Execute(null);
@@ -415,6 +455,11 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
         OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
         OnPropertyChanged(nameof(IsRetenuesSelected));
+        OnPropertyChanged(nameof(IsMonnaiesSelected));
+        OnPropertyChanged(nameof(IsTauxChangeSelected));
+        OnPropertyChanged(nameof(IsDevisesEtablissementSelected));
+        OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
+        OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
@@ -494,6 +539,11 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsFraisScolairesSelected));
         OnPropertyChanged(nameof(IsRepartitionRecettesSelected));
         OnPropertyChanged(nameof(IsRetenuesSelected));
+        OnPropertyChanged(nameof(IsMonnaiesSelected));
+        OnPropertyChanged(nameof(IsTauxChangeSelected));
+        OnPropertyChanged(nameof(IsDevisesEtablissementSelected));
+        OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
+        OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
@@ -513,6 +563,18 @@ public partial class SettingsViewModel : ViewModelBase
         else if (value?.Section == SettingsSection.Reglement)
         {
             _ = LoadRegulationAsync();
+        }
+        else if (value?.Section is SettingsSection.Monnaies
+            or SettingsSection.TauxChange
+            or SettingsSection.HistoriqueTaux)
+        {
+            var mode = value.Section switch
+            {
+                SettingsSection.TauxChange => CurrencyManagementMode.TauxChange,
+                SettingsSection.HistoriqueTaux => CurrencyManagementMode.HistoriqueTaux,
+                _ => CurrencyManagementMode.Monnaies
+            };
+            CurrencyManagement.SetMode(mode);
         }
         else if (value?.Section == SettingsSection.Matieres)
         {
@@ -537,6 +599,7 @@ public partial class SettingsViewModel : ViewModelBase
         else if (value?.Section == SettingsSection.Etablissement)
         {
             DocumentBranding.LoadCommand.Execute(null);
+            CurrencyManagement.SetMode(CurrencyManagementMode.DevisesEtablissement);
         }
         else if (value?.Section == SettingsSection.SyncCloud)
         {
@@ -654,10 +717,10 @@ public partial class SettingsViewModel : ViewModelBase
             StatusMessage = "Année scolaire créée.";
             await LoadAcademicYearsAsync();
             SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.Id == year.Id) ?? SelectedAcademicYear;
-            if (setAsCurrent || year.IsCurrent)
-            {
-                AcademicYearRefreshBridge.NotifyCurrentYearChanged();
-            }
+            var years = await _schoolApiService.GetAcademicYearsAsync();
+            AcademicYearRefreshBridge.ReplaceYears(
+                years,
+                preferSelectedId: setAsCurrent || year.IsCurrent ? year.Id : AcademicYearRefreshBridge.SelectedYearId);
         }
         catch (Exception ex)
         {
@@ -684,7 +747,8 @@ public partial class SettingsViewModel : ViewModelBase
             await _schoolApiService.SetCurrentAcademicYearAsync(SelectedAcademicYear.Id);
             StatusMessage = "Année courante mise à jour.";
             await LoadAcademicYearsAsync();
-            AcademicYearRefreshBridge.NotifyCurrentYearChanged();
+            var years = await _schoolApiService.GetAcademicYearsAsync();
+            AcademicYearRefreshBridge.ReplaceYears(years, preferSelectedId: SelectedAcademicYear.Id);
         }
         catch (Exception ex)
         {
@@ -1464,7 +1528,11 @@ public enum SettingsSection
     Enseignants = 8,
     RepartitionRecettes = 10,
     Retenues = 11,
-    SyncCloud = 12
+    SyncCloud = 12,
+    Monnaies = 13,
+    TauxChange = 14,
+    DevisesEtablissement = 15,
+    HistoriqueTaux = 16
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

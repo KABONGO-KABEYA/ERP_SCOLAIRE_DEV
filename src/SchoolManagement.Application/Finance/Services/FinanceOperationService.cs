@@ -79,6 +79,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var year = await ResolveYearAsync(schoolId, request.AcademicYearId, cancellationToken);
         var enrollments = await LoadActiveEnrollmentsAsync(schoolId, year.Id, cancellationToken);
         enrollments = await ApplyStructureFiltersAsync(
+            schoolId,
             enrollments,
             request.SectionId,
             request.PedagogicalClassId,
@@ -254,6 +255,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
 
         var enrollments = await LoadActiveEnrollmentsAsync(schoolId, year.Id, cancellationToken);
         enrollments = await ApplyStructureFiltersAsync(
+            schoolId,
             enrollments,
             request.SectionId,
             request.PedagogicalClassId,
@@ -652,6 +654,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var year = await ResolveYearAsync(schoolId, request.AcademicYearId, cancellationToken);
         var enrollments = await LoadActiveEnrollmentsAsync(schoolId, year.Id, cancellationToken);
         enrollments = await ApplyStructureFiltersAsync(
+            schoolId,
             enrollments,
             request.SectionId,
             request.PedagogicalClassId,
@@ -968,6 +971,7 @@ public sealed class FinanceOperationService : IFinanceOperationService
     }
 
     private async Task<List<Enrollment>> ApplyStructureFiltersAsync(
+        Guid schoolId,
         List<Enrollment> enrollments,
         Guid? sectionId,
         Guid? pedagogicalClassId,
@@ -988,7 +992,30 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var rooms = (await _classRoomRepository.FindAsync(c => roomIds.Contains(c.Id), cancellationToken)).ToList();
         if (sectionId.HasValue)
         {
-            rooms = rooms.Where(r => r.SectionId == sectionId.Value).ToList();
+            // Sections can be duplicated across years / structure rebuilds. Match by name
+            // (same approach as StudentService) so "Primaire" includes all classrooms
+            // linked to any Primaire section record.
+            var selectedSection = (await _sectionRepository.FindAsync(
+                    s => s.Id == sectionId.Value && s.SchoolId == schoolId,
+                    cancellationToken))
+                .FirstOrDefault();
+
+            if (selectedSection is not null)
+            {
+                var matchingSectionIds = (await _sectionRepository.FindAsync(
+                        s => s.SchoolId == schoolId,
+                        cancellationToken))
+                    .Where(s =>
+                        string.Equals(s.Name.Trim(), selectedSection.Name.Trim(), StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(s.Code.Trim(), selectedSection.Code.Trim(), StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.Id)
+                    .ToHashSet();
+                rooms = rooms.Where(r => matchingSectionIds.Contains(r.SectionId)).ToList();
+            }
+            else
+            {
+                rooms = rooms.Where(r => r.SectionId == sectionId.Value).ToList();
+            }
         }
 
         if (pedagogicalClassId.HasValue)

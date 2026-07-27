@@ -34,7 +34,7 @@ public partial class ErpDateField : UserControl
         DependencyProperty.Register(nameof(ShowBadges), typeof(bool), typeof(ErpDateField), new PropertyMetadata(true, OnShowBadgesChanged));
     public static readonly DependencyProperty DateValidationModeProperty =
         DependencyProperty.Register(nameof(DateValidationMode), typeof(ErpDateValidationMode), typeof(ErpDateField),
-            new PropertyMetadata(ErpDateValidationMode.BirthDate, OnValidationModeChanged));
+            new PropertyMetadata(ErpDateValidationMode.None, OnValidationModeChanged));
 
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }

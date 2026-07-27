@@ -103,6 +103,18 @@ public class SchoolDbContext : DbContext
     public DbSet<WithholdingType> WithholdingTypes => Set<WithholdingType>();
     public DbSet<WithholdingConfiguration> WithholdingConfigurations => Set<WithholdingConfiguration>();
     public DbSet<WithholdingApplication> WithholdingApplications => Set<WithholdingApplication>();
+    public DbSet<CurrencyDefinition> CurrencyDefinitions => Set<CurrencyDefinition>();
+    public DbSet<SchoolCurrency> SchoolCurrencies => Set<SchoolCurrency>();
+    public DbSet<ExchangeRateType> ExchangeRateTypes => Set<ExchangeRateType>();
+    public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+    public DbSet<ExchangeRateHistory> ExchangeRateHistories => Set<ExchangeRateHistory>();
+
+    // Cartes élèves
+    public DbSet<CardTemplate> CardTemplates => Set<CardTemplate>();
+    public DbSet<CardSchoolSettings> CardSchoolSettings => Set<CardSchoolSettings>();
+    public DbSet<StudentCard> StudentCards => Set<StudentCard>();
+    public DbSet<StudentCardHistory> StudentCardHistories => Set<StudentCardHistory>();
+    public DbSet<StudentCardPrintLog> StudentCardPrintLogs => Set<StudentCardPrintLog>();
 
     // Sécurité
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();

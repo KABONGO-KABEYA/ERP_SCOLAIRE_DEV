@@ -30,6 +30,7 @@ public sealed class DatabaseSeeder
         await SeedPermissionsAsync(cancellationToken);
         await SeedAdminUserAsync(cancellationToken);
         await SeedParentDemoAsync(cancellationToken);
+        await SeedKabeyaParentAsync(cancellationToken);
         await SeedDemoAcademicStructureAsync(cancellationToken);
         await SeedTeacherDemoAsync(cancellationToken);
         await SeedDirectionDemoAsync(cancellationToken);
@@ -44,12 +45,15 @@ public sealed class DatabaseSeeder
                 continue;
             }
 
-            var parts = code.Split('.');
+            var lastDot = code.LastIndexOf('.');
+            var module = lastDot > 0 ? code[..lastDot] : code;
+            var actionToken = lastDot > 0 ? code[(lastDot + 1)..] : "read";
+
             _context.Permissions.Add(new Permission
             {
                 Code = code,
-                Module = parts[0],
-                Action = Enum.Parse<PermissionAction>(parts[1], ignoreCase: true),
+                Module = module,
+                Action = ParsePermissionAction(actionToken),
                 Description = code
             });
         }
@@ -58,17 +62,27 @@ public sealed class DatabaseSeeder
         _logger.LogInformation("Permissions système initialisées.");
     }
 
+    private static PermissionAction ParsePermissionAction(string actionToken) =>
+        actionToken.Trim().ToLowerInvariant() switch
+        {
+            "read" => PermissionAction.Read,
+            "create" => PermissionAction.Create,
+            "update" => PermissionAction.Update,
+            "delete" => PermissionAction.Delete,
+            "export" => PermissionAction.Export,
+            "approve" => PermissionAction.Approve,
+            "print" => PermissionAction.Print,
+            "renew" => PermissionAction.Renew,
+            "declare-lost" => PermissionAction.Update,
+            _ => throw new ArgumentException($"Action de permission inconnue : '{actionToken}'.")
+        };
+
     private async Task SeedAdminUserAsync(CancellationToken cancellationToken)
     {
         var school = await _context.Schools.FirstOrDefaultAsync(cancellationToken);
         if (school is null)
         {
             _logger.LogWarning("Aucune école trouvée — exécutez 003_SeedData.sql d'abord.");
-            return;
-        }
-
-        if (await _context.UserAccounts.AnyAsync(u => u.UserName == "admin", cancellationToken))
-        {
             return;
         }
 
@@ -99,6 +113,13 @@ public sealed class DatabaseSeeder
                     PermissionId = permission.Id
                 });
             }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        if (await _context.UserAccounts.AnyAsync(u => u.UserName == "admin", cancellationToken))
+        {
+            return;
         }
 
         var adminUser = new UserAccount
@@ -236,6 +257,113 @@ public sealed class DatabaseSeeder
 
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Compte parent démo créé (parent / Parent@2026).");
+    }
+
+    /// <summary>
+    /// Compte mobile pour le tuteur réel KABEYA VISA (enfants déjà inscrits en base).
+    /// </summary>
+    private async Task SeedKabeyaParentAsync(CancellationToken cancellationToken)
+    {
+        const string userName = "parent.kabeya";
+        if (await _context.UserAccounts.AnyAsync(u => u.UserName == userName, cancellationToken))
+        {
+            return;
+        }
+
+        var school = await _context.Schools.FirstOrDefaultAsync(cancellationToken);
+        if (school is null)
+        {
+            return;
+        }
+
+        var parentRole = await _context.Roles.FirstOrDefaultAsync(
+            r => r.SchoolId == school.Id && r.Code == "PARENT", cancellationToken);
+        if (parentRole is null)
+        {
+            return;
+        }
+
+        var guardians = await _context.Guardians
+            .Where(g => g.SchoolId == school.Id &&
+                        (g.LastName.Contains("KABEYA") || g.FirstName.Contains("KABEYA")))
+            .ToListAsync(cancellationToken);
+
+        if (guardians.Count == 0)
+        {
+            _logger.LogWarning("Aucun tuteur KABEYA trouvé — compte parent.kabeya non créé.");
+            return;
+        }
+
+        var guardianIds = guardians.Select(g => g.Id).ToList();
+        var linkedGuardianIds = (await _context.StudentGuardians
+                .Where(sg => guardianIds.Contains(sg.GuardianId))
+                .Select(sg => sg.GuardianId)
+                .Distinct()
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        var guardian = guardians
+            .OrderByDescending(g => linkedGuardianIds.Contains(g.Id))
+            .ThenByDescending(g =>
+                g.LastName.Equals("KABEYA", StringComparison.OrdinalIgnoreCase)
+                && g.FirstName.Equals("VISA", StringComparison.OrdinalIgnoreCase))
+            .First();
+
+        var childCount = await _context.StudentGuardians
+            .CountAsync(sg => sg.GuardianId == guardian.Id, cancellationToken);
+
+        var parentUser = new UserAccount
+        {
+            SchoolId = school.Id,
+            UserName = userName,
+            Email = guardian.Email ?? $"{userName}@ecole.rdc",
+            PasswordHash = _passwordHasher.Hash("Parent@2026"),
+            FirstName = guardian.FirstName,
+            LastName = guardian.LastName,
+            Phone = guardian.Phone,
+            IsActive = true,
+            GuardianId = guardian.Id
+        };
+        _context.UserAccounts.Add(parentUser);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        if (!await _context.UserRoleAssignments.AnyAsync(
+                ur => ur.UserId == parentUser.Id && ur.RoleId == parentRole.Id, cancellationToken))
+        {
+            _context.UserRoleAssignments.Add(new UserRoleAssignment
+            {
+                UserId = parentUser.Id,
+                RoleId = parentRole.Id
+            });
+        }
+
+        var readPermissions = await _context.Permissions
+            .Where(p => p.Code == Permissions.PaymentsRead
+                        || p.Code == Permissions.GradesRead
+                        || p.Code == Permissions.ReportsRead
+                        || p.Code == Permissions.StudentsRead)
+            .ToListAsync(cancellationToken);
+
+        foreach (var permission in readPermissions)
+        {
+            if (!await _context.RolePermissions.AnyAsync(
+                    rp => rp.RoleId == parentRole.Id && rp.PermissionId == permission.Id, cancellationToken))
+            {
+                _context.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = parentRole.Id,
+                    PermissionId = permission.Id
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation(
+            "Compte parent KABEYA créé ({UserName} / Parent@2026) — tuteur {LastName} {FirstName}, {ChildCount} enfant(s).",
+            userName,
+            guardian.LastName,
+            guardian.FirstName,
+            childCount);
     }
 
     private async Task SeedDemoAcademicStructureAsync(CancellationToken cancellationToken)

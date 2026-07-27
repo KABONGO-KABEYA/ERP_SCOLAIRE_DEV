@@ -17,7 +17,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _userController = TextEditingController(text: 'admin');
+  final _userController = TextEditingController(text: 'parent.kabeya');
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;

@@ -1,16 +1,12 @@
 <UserControl x:Class="SchoolManagement.Desktop.Controls.Encaissements.PaymentAmountCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
     <Border Style="{StaticResource ErpCard}" Padding="16,14">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                <StackPanel Orientation="Horizontal">
+        <StackPanel>
+            <DockPanel LastChildFill="False" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <materialDesign:PackIcon Width="22"
                                              Height="22"
                                              Margin="0,0,8,0"
@@ -20,59 +16,143 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="15"
                                FontWeight="SemiBold"
-                               Text="Montant à répartir" />
+                               Text="Montant et conversion" />
                 </StackPanel>
-                <TextBlock Margin="30,4,0,0"
-                           Style="{StaticResource ErpBodySecondary}"
-                           Text="Répartition automatique sur les tranches selon les règles définies."
-                           TextWrapping="Wrap" />
-                <TextBlock Margin="30,6,0,0"
-                           Foreground="{StaticResource ErpDangerBrush}"
-                           TextWrapping="Wrap"
-                           Text="Aucune tranche configurée pour cette classe / catégorie / type de frais">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasNoInstallments}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               Style="{StaticResource ErpBodySecondary}"
+                               Text="Devise de paiement" />
+                    <ComboBox Width="110"
+                              MinHeight="36"
+                              ItemsSource="{Binding PaymentCurrencies}"
+                              SelectedItem="{Binding SelectedPaymentCurrency}"
+                              DisplayMemberPath="CurrencyCode" />
+                </StackPanel>
+            </DockPanel>
 
-            <Border Grid.Column="1"
-                    Width="180"
-                    Height="44"
-                    VerticalAlignment="Center"
-                    Background="#F8FAFC"
-                    BorderBrush="#E2E8F0"
-                    BorderThickness="1"
-                    CornerRadius="10">
-                <DockPanel LastChildFill="True">
-                    <Border DockPanel.Dock="Left"
-                            MinWidth="52"
-                            Padding="10,0"
-                            Background="#EEF2FF"
-                            CornerRadius="10,0,0,10">
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource ErpPrimaryBrush}"
-                                   Text="{Binding CurrencyLabel}" />
+            <TextBlock Margin="0,0,0,10"
+                       Foreground="{StaticResource ErpDangerBrush}"
+                       TextWrapping="Wrap"
+                       Text="Aucune tranche configurée pour cette classe / catégorie / type de frais">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasNoInstallments}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <UniformGrid Columns="3">
+                <!-- Zone 1 : montant à répartir -->
+                <StackPanel Margin="0,0,10,0">
+                    <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Montant à répartir" />
+                    <Border Height="44"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <DockPanel LastChildFill="True">
+                            <Border DockPanel.Dock="Left"
+                                    MinWidth="56"
+                                    Padding="10,0"
+                                    Background="#EEF2FF"
+                                    CornerRadius="10,0,0,10">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource ErpPrimaryBrush}"
+                                           Text="{Binding PaymentCurrencyLabel}" />
+                            </Border>
+                            <TextBox Margin="6,0,10,0"
+                                     FontSize="18"
+                                     FontWeight="SemiBold"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     VerticalContentAlignment="Center"
+                                     controls:NumericInput.Mode="Decimal"
+                                     Text="{Binding AmountToDistributeText, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
                     </Border>
-                    <TextBox Margin="6,0,10,0"
-                             FontSize="18"
-                             FontWeight="SemiBold"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding AmountToDistributeText, UpdateSourceTrigger=PropertyChanged}" />
-                </DockPanel>
-            </Border>
-        </Grid>
+                </StackPanel>
+
+                <!-- Zone 2 : taux (base de données) -->
+                <StackPanel Margin="0,0,10,0">
+                    <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Taux appliqué" />
+                    <Border Height="44"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <DockPanel LastChildFill="True">
+                            <Border DockPanel.Dock="Left"
+                                    MinWidth="56"
+                                    Padding="8,0"
+                                    Background="#EEF2FF"
+                                    CornerRadius="10,0,0,10">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource ErpPrimaryBrush}"
+                                           Text="Taux" />
+                            </Border>
+                            <TextBox Margin="6,0,10,0"
+                                     FontSize="16"
+                                     FontWeight="SemiBold"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     VerticalContentAlignment="Center"
+                                     IsReadOnly="{Binding IsRateReadOnly}"
+                                     controls:NumericInput.Mode="Decimal"
+                                     Text="{Binding AppliedRateText, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Zone 3 : montant converti -->
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Montant converti" />
+                    <Border Height="44"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <DockPanel LastChildFill="True">
+                            <Border DockPanel.Dock="Left"
+                                    MinWidth="56"
+                                    Padding="10,0"
+                                    Background="#EEF2FF"
+                                    CornerRadius="10,0,0,10">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource ErpPrimaryBrush}"
+                                           Text="{Binding FeeCurrencyLabel}" />
+                            </Border>
+                            <TextBox Margin="6,0,10,0"
+                                     FontSize="18"
+                                     FontWeight="SemiBold"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     VerticalContentAlignment="Center"
+                                     IsReadOnly="True"
+                                     Text="{Binding ConvertedAmountText}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </UniformGrid>
+
+            <TextBlock Margin="0,10,0,0"
+                       Text="{Binding ExchangeRateHint}"
+                       Style="{StaticResource ErpBodySecondary}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
     </Border>
 </UserControl>

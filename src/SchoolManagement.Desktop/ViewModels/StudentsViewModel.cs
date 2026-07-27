@@ -40,12 +40,17 @@ public partial class StudentsViewModel : ViewModelBase
         _dossierPathResolver = dossierPathResolver;
         _studentListPrintService = studentListPrintService;
         StatusMessage = "Utilisez les filtres puis cliquez sur « Afficher » pour lister les élèves.";
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = LoadFilterOptionsAsync();
     }
 
-    public ObservableCollection<StudentDto> Students { get; } = [];
+    private void OnGlobalAcademicYearChanged()
+    {
+        RefreshClassRoomOptions();
+        QueueSearch();
+    }
 
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
+    public ObservableCollection<StudentDto> Students { get; } = [];
 
     public ObservableCollection<SectionDto> Sections { get; } = [];
 
@@ -66,9 +71,6 @@ public partial class StudentsViewModel : ViewModelBase
 
     [ObservableProperty]
     private StudentDto? _selectedStudent;
-
-    [ObservableProperty]
-    private AcademicYearDto? _selectedAcademicYear;
 
     [ObservableProperty]
     private SectionDto? _selectedSection;
@@ -133,21 +135,11 @@ public partial class StudentsViewModel : ViewModelBase
 
     partial void OnSelectedStudyOptionChanged(string? value) => RefreshClassRoomOptions();
 
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value) => RefreshClassRoomOptions();
-
     [RelayCommand]
     private async Task LoadFilterOptionsAsync()
     {
         try
         {
-            AcademicYears.Clear();
-            foreach (var year in await _schoolApiService.GetAcademicYearsAsync())
-            {
-                AcademicYears.Add(year);
-            }
-
-            SelectedAcademicYear ??= AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
             var structure = await _wizardApiService.GetStructureOptionsAsync();
             _structureClassRooms.Clear();
             _structureClassRooms.AddRange(structure.Classes);
@@ -236,7 +228,7 @@ public partial class StudentsViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedAcademicYear is null
+        if (AcademicYearRefreshBridge.SelectedYearId is null
             && SelectedSection is null
             && SelectedPedagogicalClass is null
             && SelectedClassRoom is null
@@ -265,7 +257,7 @@ public partial class StudentsViewModel : ViewModelBase
         {
             var result = await _studentApiService.SearchAsync(new StudentSearchRequest(
                 string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
-                SelectedAcademicYear?.Id,
+                AcademicYearRefreshBridge.SelectedYearId,
                 SelectedSection?.Id,
                 SelectedPedagogicalClass?.Id,
                 SelectedClassRoom?.Id,
@@ -309,7 +301,6 @@ public partial class StudentsViewModel : ViewModelBase
         SelectedPedagogicalClass = null;
         SelectedClassRoom = null;
         SelectedStudyOption = null;
-        SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
         IncludeInscrits = true;
         IncludeExcluded = false;
         IncludeAbandoned = false;
@@ -494,7 +485,7 @@ public partial class StudentsViewModel : ViewModelBase
         {
             var result = await _studentApiService.SearchAsync(new StudentSearchRequest(
                 string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
-                SelectedAcademicYear?.Id,
+                AcademicYearRefreshBridge.SelectedYearId,
                 SelectedSection?.Id,
                 SelectedPedagogicalClass?.Id,
                 SelectedClassRoom?.Id,
@@ -547,7 +538,7 @@ public partial class StudentsViewModel : ViewModelBase
         }
 
         var scope = string.Join(", ", parts);
-        var year = SelectedAcademicYear?.Label ?? "année courante";
+        var year = AcademicYearRefreshBridge.SelectedYear?.Label ?? "année courante";
         var filters = new List<string> { $"Élèves {scope}", $"Année : {year}" };
 
         if (SelectedSection is not null)
@@ -625,8 +616,9 @@ public partial class StudentsViewModel : ViewModelBase
         ClassRooms.Clear();
         SelectedClassRoom = null;
 
-        var currentYearId = AcademicYears.FirstOrDefault(y => y.IsCurrent)?.Id;
-        var useStructure = SelectedAcademicYear is null || SelectedAcademicYear.Id == currentYearId;
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        var currentYearId = AcademicYearRefreshBridge.Years.FirstOrDefault(y => y.IsCurrent)?.Id;
+        var useStructure = yearId is null || yearId == currentYearId;
 
         if (useStructure)
         {
@@ -656,9 +648,9 @@ public partial class StudentsViewModel : ViewModelBase
         }
 
         var rooms = _lookupClassRooms.AsEnumerable();
-        if (SelectedAcademicYear is not null)
+        if (yearId is not null)
         {
-            rooms = rooms.Where(r => r.AcademicYearId == SelectedAcademicYear.Id);
+            rooms = rooms.Where(r => r.AcademicYearId == yearId);
         }
 
         foreach (var room in rooms.OrderBy(r => r.Name))

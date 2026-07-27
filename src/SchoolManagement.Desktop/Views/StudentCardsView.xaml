@@ -1,0 +1,413 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.StudentCardsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid Margin="20" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="280" />
+        </Grid.RowDefinitions>
+
+        <!-- En-tête -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Style="{StaticResource ErpPageTitle}" Text="Cartes élèves" />
+                <TextBlock Margin="0,4,0,0"
+                           Style="{StaticResource ErpBodySecondary}"
+                           Text="Identifiants universels, QR sécurisé, historique et cycle de vie des cartes" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <Button Margin="0,0,8,0"
+                        Padding="14,6"
+                        Command="{Binding OpenTemplateDesignerCommand}"
+                        Content="Concepteur"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button Margin="0,0,8,0"
+                        Padding="14,6"
+                        Command="{Binding OpenNewTemplateDesignerCommand}"
+                        Content="Nouveau modèle"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button Margin="0,0,8,0"
+                        Padding="14,6"
+                        Command="{Binding PrintFilteredCommand}"
+                        Content="Imprimer…"
+                        Style="{StaticResource ErpSecondaryButton}" />
+                <Button Margin="0,0,8,0"
+                        Padding="14,6"
+                        Command="{Binding ToggleCreatePanelCommand}"
+                        Content="Créer des cartes"
+                        Style="{StaticResource ErpPrimaryButton}" />
+                <Button Padding="14,6"
+                        Command="{Binding RefreshAllCommand}"
+                        Content="Actualiser"
+                        Style="{StaticResource ErpSecondaryButton}" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- KPI -->
+        <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,12">
+            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ActiveCount}" />
+                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Actives" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ExpiredCount}" />
+                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Expirées" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding LostCount}" />
+                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Perdues" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding StolenCount}" />
+                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Volées" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ErpStatCard}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ToRenewCount}" />
+                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="À renouveler (30 j)" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Création -->
+        <Border Grid.Row="2"
+                Margin="0,0,0,10"
+                Padding="12,10"
+                Background="#F8FAFC"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="10"
+                Visibility="{Binding IsCreatePanelOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Margin="0,0,0,8"
+                           FontWeight="SemiBold"
+                           Text="Créer des cartes" />
+                <WrapPanel>
+                    <erp:ErpComboField Width="200"
+                                       Margin="0,0,12,8"
+                                       DisplayMemberPath="Label"
+                                       ItemsSource="{Binding CreateScopes}"
+                                       Label="Périmètre"
+                                       SelectedItem="{Binding SelectedCreateScope, Mode=TwoWay}" />
+                    <erp:ErpComboField Width="220"
+                                       Margin="0,0,12,8"
+                                       DisplayMemberPath="Name"
+                                       ItemsSource="{Binding Templates}"
+                                       Label="Modèle"
+                                       SelectedItem="{Binding SelectedCreateTemplate, Mode=TwoWay}" />
+                    <CheckBox Margin="0,18,12,8"
+                              Content="Activer immédiatement"
+                              IsChecked="{Binding CreateActivateImmediately}"
+                              VerticalAlignment="Center" />
+                    <CheckBox Margin="0,18,12,8"
+                              Content="Ignorer élèves déjà équipés"
+                              IsChecked="{Binding CreateSkipExisting}"
+                              VerticalAlignment="Center"
+                              Visibility="{Binding IsCreateBulkScope, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </WrapPanel>
+
+                <!-- Élève unique -->
+                <WrapPanel Visibility="{Binding IsCreateStudentScope, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <erp:ErpTextField Width="260"
+                                      Margin="0,0,12,8"
+                                      Label="Rechercher un élève"
+                                      Text="{Binding CreateStudentSearch, UpdateSourceTrigger=PropertyChanged}" />
+                    <erp:ErpComboField Width="280"
+                                       Margin="0,0,12,8"
+                                       DisplayMemberPath="FullName"
+                                       ItemsSource="{Binding StudentSuggestions}"
+                                       Label="Élève"
+                                       SelectedItem="{Binding SelectedCreateStudent, Mode=TwoWay}" />
+                </WrapPanel>
+
+                <!-- Classe -->
+                <WrapPanel Visibility="{Binding IsCreateClassScope, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <erp:ErpComboField Width="360"
+                                       Margin="0,0,12,8"
+                                       DisplayMemberPath="FullDisplayName"
+                                       ItemsSource="{Binding CreateClassRooms}"
+                                       Label="Classe / local"
+                                       SelectedItem="{Binding SelectedCreateClassRoom, Mode=TwoWay}" />
+                </WrapPanel>
+
+                <!-- Section -->
+                <WrapPanel Visibility="{Binding IsCreateSectionScope, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <erp:ErpComboField Width="280"
+                                       Margin="0,0,12,8"
+                                       DisplayMemberPath="Name"
+                                       ItemsSource="{Binding CreateSections}"
+                                       Label="Section"
+                                       SelectedItem="{Binding SelectedCreateSection, Mode=TwoWay}" />
+                </WrapPanel>
+
+                <!-- École -->
+                <TextBlock Margin="0,0,0,8"
+                           FontSize="12"
+                           Foreground="#6B7280"
+                           Text="Toutes les inscriptions actives de l'année scolaire sélectionnée (barre du haut)."
+                           TextWrapping="Wrap"
+                           Visibility="{Binding IsCreateSchoolScope, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Button Margin="0,0,8,0"
+                            Padding="14,6"
+                            Command="{Binding CreateCardCommand}"
+                            Content="{Binding CreateActionLabel}"
+                            Style="{StaticResource ErpPrimaryButton}" />
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="#6B7280"
+                               Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste + fiche -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="420" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Padding="12,10"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <DockPanel LastChildFill="True">
+                            <Button DockPanel.Dock="Right"
+                                    Padding="10,4"
+                                    Command="{Binding ToggleFiltersCommand}"
+                                    Content="{Binding FiltersToggleLabel}"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                            <TextBlock VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding FiltersHeaderText}" />
+                        </DockPanel>
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <WrapPanel>
+                                <erp:ErpTextField Width="240"
+                                                  Margin="0,0,12,8"
+                                                  Label="Recherche"
+                                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <erp:ErpComboField Width="200"
+                                                   Margin="0,0,12,8"
+                                                   DisplayMemberPath="Label"
+                                                   ItemsSource="{Binding StatusFilters}"
+                                                   Label="Statut"
+                                                   SelectedItem="{Binding SelectedStatusFilter, Mode=TwoWay}" />
+                                <erp:ErpComboField Width="200"
+                                                   Margin="0,0,12,8"
+                                                   DisplayMemberPath="Name"
+                                                   ItemsSource="{Binding CreateSections}"
+                                                   Label="Section"
+                                                   SelectedItem="{Binding FilterSection, Mode=TwoWay}" />
+                                <erp:ErpComboField Width="260"
+                                                   Margin="0,0,12,8"
+                                                   DisplayMemberPath="FullDisplayName"
+                                                   ItemsSource="{Binding FilterClassRooms}"
+                                                   Label="Classe"
+                                                   SelectedItem="{Binding FilterClassRoom, Mode=TwoWay}" />
+                                <Button Margin="0,12,8,8"
+                                        Padding="14,6"
+                                        Command="{Binding ApplyFiltersCommand}"
+                                        Content="Afficher"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="0,12,0,8"
+                                        Padding="14,6"
+                                        Command="{Binding ClearFiltersCommand}"
+                                        Content="Réinitialiser"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                            </WrapPanel>
+                            <TextBlock FontSize="12"
+                                       Style="{StaticResource ErpBodySecondary}"
+                                       Text="{Binding StatusMessage}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              Style="{StaticResource ErpDataGrid}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Cards}"
+                              SelectedItem="{Binding SelectedCard, Mode=TwoWay}"
+                              SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="*" Binding="{Binding StudentFullName}" Header="Élève" />
+                            <DataGridTextColumn Width="120" Binding="{Binding ClassName}" Header="Classe" />
+                            <DataGridTextColumn Width="140" Binding="{Binding CardNumber}" Header="N° carte" />
+                            <DataGridTextColumn Width="100" Binding="{Binding Status}" Header="Statut" />
+                            <DataGridTextColumn Width="110"
+                                                Binding="{Binding PrintedAt, StringFormat=\{0:dd/MM/yyyy\}}"
+                                                Header="Impression" />
+                            <DataGridTextColumn Width="110"
+                                                Binding="{Binding ExpiresAt, StringFormat=\{0:dd/MM/yyyy\}}"
+                                                Header="Expiration" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="2" Margin="0,8,0,0" LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Padding="10,4"
+                                    Command="{Binding PreviousPageCommand}"
+                                    Content="Préc."
+                                    IsEnabled="{Binding CanGoPreviousPage}"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                            <Button Margin="8,0,0,0"
+                                    Padding="10,4"
+                                    Command="{Binding NextPageCommand}"
+                                    Content="Suiv."
+                                    IsEnabled="{Binding CanGoNextPage}"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </StackPanel>
+                        <TextBlock VerticalAlignment="Center"
+                                   Style="{StaticResource ErpBodySecondary}"
+                                   Text="{Binding PaginationLabel}" />
+                    </DockPanel>
+                </Grid>
+            </Border>
+
+            <!-- Détail -->
+            <Border Grid.Column="2"
+                    Padding="12,10"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="Fiche carte" />
+                        <TextBlock Margin="0,4,0,8"
+                                   Style="{StaticResource ErpBodySecondary}"
+                                   Text="Sélectionnez une ligne pour afficher le détail."
+                                   Visibility="{Binding HasDetail, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                        <StackPanel Visibility="{Binding HasDetail, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Margin="0,8,0,2" FontWeight="SemiBold" Text="{Binding SelectedDetail.CardNumber}" />
+                            <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding SelectedDetail.StudentFullName}" />
+                            <TextBlock Margin="0,6,0,0" Text="{Binding SelectedDetail.RegistrationNumber, StringFormat=Matricule : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.ClassName, StringFormat=Classe : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.StudyOption, StringFormat=Option : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.Status, StringFormat=Statut : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.AcademicYearLabel, StringFormat=Année : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.TemplateName, StringFormat=Modèle : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.Version, StringFormat=Version : {0}}" />
+                            <TextBlock Text="{Binding SelectedDetail.PrintCount, StringFormat=Impressions : {0}}" />
+                            <TextBlock Margin="0,8,0,0"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       Text="{Binding QrDisplay}"
+                                       TextWrapping="Wrap" />
+
+                            <WrapPanel Margin="0,12,0,0">
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding PreviewSelectedCommand}"
+                                        Content="Aperçu"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding PrintSelectedCommand}"
+                                        Content="Imprimer"
+                                        Style="{StaticResource ErpPrimaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding ReprintSelectedCommand}"
+                                        Content="Réimprimer"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding RenewSelectedCommand}"
+                                        Content="Renouveler"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding DeclareLostCommand}"
+                                        Content="Perdue"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding DeclareStolenCommand}"
+                                        Content="Volée"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding DeactivateSelectedCommand}"
+                                        Content="Désactiver"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                            </WrapPanel>
+                            <CheckBox Margin="0,0,0,12"
+                                      Content="Renouvellement : conserver le QR"
+                                      IsChecked="{Binding RenewKeepQr}" />
+
+                            <TextBlock Margin="0,4,0,6" FontWeight="SemiBold" Text="Historique" />
+                            <ItemsControl ItemsSource="{Binding Histories}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,6"
+                                                Padding="8"
+                                                Background="#F8FAFC"
+                                                CornerRadius="6">
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding Action}" />
+                                                <TextBlock FontSize="11"
+                                                           Foreground="#6B7280"
+                                                           Text="{Binding OccurredAt, StringFormat=\{0:dd/MM/yyyy HH:mm\}}" />
+                                                <TextBlock FontSize="12"
+                                                           Text="{Binding Notes}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Margin="0,8,0,6" FontWeight="SemiBold" Text="Impressions" />
+                            <ItemsControl ItemsSource="{Binding PrintLogs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Margin="0,0,0,4"
+                                                   FontSize="12"
+                                                   Text="{Binding PrintedAt, StringFormat=\{0:dd/MM/yyyy HH:mm\}}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

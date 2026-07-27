@@ -30,6 +30,7 @@ public sealed class FeeTypeStatementService : IFeeTypeStatementService
     private readonly IRepository<StudentGuardian> _studentGuardianRepository;
     private readonly IRepository<Guardian> _guardianRepository;
     private readonly IRepository<UserAccount> _userRepository;
+    private readonly IRepository<CurrencyDefinition> _currencyRepository;
     private readonly ISchoolFeeService _schoolFeeService;
     private readonly IDocumentPrintBrandingResolver _brandingResolver;
     private readonly IDocumentBrandingStorageService _brandingStorage;
@@ -50,6 +51,7 @@ public sealed class FeeTypeStatementService : IFeeTypeStatementService
         IRepository<StudentGuardian> studentGuardianRepository,
         IRepository<Guardian> guardianRepository,
         IRepository<UserAccount> userRepository,
+        IRepository<CurrencyDefinition> currencyRepository,
         ISchoolFeeService schoolFeeService,
         IDocumentPrintBrandingResolver brandingResolver,
         IDocumentBrandingStorageService brandingStorage)
@@ -69,6 +71,7 @@ public sealed class FeeTypeStatementService : IFeeTypeStatementService
         _studentGuardianRepository = studentGuardianRepository;
         _guardianRepository = guardianRepository;
         _userRepository = userRepository;
+        _currencyRepository = currencyRepository;
         _schoolFeeService = schoolFeeService;
         _brandingResolver = brandingResolver;
         _brandingStorage = brandingStorage;
@@ -279,6 +282,11 @@ public sealed class FeeTypeStatementService : IFeeTypeStatementService
             feeType.Id,
             feeType.Name,
             feeType.Currency,
+            await ResolveCurrencyCodeAsync(anchorPayment?.FeeCurrencyId, feeType.Currency.ToString(), cancellationToken),
+            await ResolveCurrencyCodeAsync(anchorPayment?.PaymentCurrencyId, feeType.Currency.ToString(), cancellationToken),
+            anchorPayment?.FeeCurrencyAmount,
+            anchorPayment?.PaymentCurrencyAmount,
+            anchorPayment?.AppliedExchangeRate,
             school.Name,
             motto,
             string.IsNullOrWhiteSpace(address) ? null : address,
@@ -290,6 +298,17 @@ public sealed class FeeTypeStatementService : IFeeTypeStatementService
             situations.Sum(s => s.AmountExpected),
             situations.Sum(s => s.AmountPaid),
             situations.Sum(s => s.Remaining));
+    }
+
+    private async Task<string?> ResolveCurrencyCodeAsync(
+        Guid? currencyId,
+        string fallback,
+        CancellationToken cancellationToken)
+    {
+        if (!currencyId.HasValue)
+            return fallback;
+        var entity = await _currencyRepository.GetByIdAsync(currencyId.Value, cancellationToken);
+        return entity?.Code ?? fallback;
     }
 
     private static string BuildStatementNumber(DateTime paymentDate, Guid primaryId, Guid? secondaryId = null)

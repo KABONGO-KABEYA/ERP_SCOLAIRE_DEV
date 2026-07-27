@@ -1,78 +1,693 @@
 <UserControl x:Class="SchoolManagement.Desktop.Views.ExpensePaymentsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls">
-    <Grid Margin="0" Style="{StaticResource ErpFadeIn}">
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="#F8FAFC">
+    <UserControl.Resources>
+        <DropShadowEffect x:Key="ExpenseCardShadow"
+                          BlurRadius="20"
+                          ShadowDepth="2"
+                          Direction="270"
+                          Opacity="0.06"
+                          Color="#000000" />
+
+        <Style x:Key="ExpenseCard" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E5E7EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Effect" Value="{StaticResource ExpenseCardShadow}" />
+        </Style>
+
+        <Style x:Key="ExpenseChip" TargetType="Border">
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="ExpenseActionIconButton" TargetType="Button" BasedOn="{StaticResource MaterialDesignIconButton}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="#64748B" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="8,0,8,12" Style="{StaticResource ErpFadeIn}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="240" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="320" />
         </Grid.RowDefinitions>
 
+        <!-- 1. Filtres -->
         <Border Grid.Row="0"
-                Margin="0,0,0,8"
+                Margin="0,0,0,12"
                 Padding="12,10"
                 Background="White"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"
                 CornerRadius="10">
             <StackPanel>
-                <TextBlock FontSize="14"
-                           FontWeight="SemiBold"
-                           Foreground="#1F2937"
-                           Text="Nouvelle dépense" />
-                <UniformGrid Columns="4" Margin="0,10,0,0">
-                    <erp:ErpComboField Margin="0,0,12,12"
-                                       DisplayMemberPath="Label"
-                                       ItemsSource="{Binding AcademicYears}"
-                                       Label="Année scolaire"
-                                       SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
-                    <erp:ErpComboField Margin="0,0,12,12"
-                                       DisplayMemberPath="Name"
-                                       ItemsSource="{Binding Destinations}"
-                                       Label="Compte bénéficiaire"
-                                       SelectedItem="{Binding SelectedDestination, Mode=TwoWay}" />
-                    <erp:ErpTextField Margin="0,0,12,12"
-                                      Label="Libellé"
-                                      Text="{Binding NewLabel, UpdateSourceTrigger=PropertyChanged}" />
-                    <erp:ErpTextField Margin="0,0,0,12"
-                                      Label="Montant"
-                                      Text="{Binding NewAmount, UpdateSourceTrigger=PropertyChanged}" />
-                </UniformGrid>
-                <StackPanel Orientation="Horizontal">
-                    <Button Margin="0,0,8,0"
-                            Command="{Binding CreateCommand}"
-                            Content="Enregistrer la dépense"
-                            Style="{StaticResource ErpPrimaryButton}" />
-                    <Button Command="{Binding SearchCommand}"
-                            Content="Actualiser"
-                            Style="{StaticResource ErpSecondaryButton}" />
+                <DockPanel LastChildFill="True">
+                    <Button HorizontalAlignment="Right"
+                            Command="{Binding ToggleFiltersCommand}"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource ErpSecondaryButton}"
+                            Padding="10,4"
+                            Content="{Binding FiltersToggleLabel}" />
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="#1F2937"
+                               Text="Filtres de recherche" />
+                </DockPanel>
+
+                <StackPanel Margin="0,10,0,0"
+                            Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <WrapPanel>
+                        <erp:ErpComboField Margin="0,0,10,10"
+                                           DisplayMemberPath="DisplayName"
+                                           FieldWidth="200"
+                                           HorizontalAlignment="Left"
+                                           IconKind="WalletOutline"
+                                           ItemsSource="{Binding FilterDestinations}"
+                                           Label="Compte"
+                                           SelectedItem="{Binding FilterDestination, Mode=TwoWay}" />
+                        <erp:ErpDateField Margin="0,0,10,10"
+                                          DateValidationMode="None"
+                                          FieldWidth="140"
+                                          HorizontalAlignment="Left"
+                                          Label="Du"
+                                          SelectedDate="{Binding FilterFromDate, Mode=TwoWay}"
+                                          ShowBadges="False"
+                                          ShowValidation="False" />
+                        <erp:ErpDateField Margin="0,0,10,10"
+                                          DateValidationMode="None"
+                                          FieldWidth="140"
+                                          HorizontalAlignment="Left"
+                                          Label="Au"
+                                          SelectedDate="{Binding FilterToDate, Mode=TwoWay}"
+                                          ShowBadges="False"
+                                          ShowValidation="False" />
+                        <erp:ErpComboField Margin="0,0,10,10"
+                                           DisplayMemberPath="Label"
+                                           FieldWidth="120"
+                                           HorizontalAlignment="Left"
+                                           IconKind="CurrencyUsd"
+                                           ItemsSource="{Binding FilterCurrencies}"
+                                           Label="Devise"
+                                           SelectedItem="{Binding FilterCurrency, Mode=TwoWay}" />
+                        <erp:ErpComboField Margin="0,0,10,10"
+                                           DisplayMemberPath="Label"
+                                           FieldWidth="160"
+                                           HorizontalAlignment="Left"
+                                           IconKind="TagOutline"
+                                           ItemsSource="{Binding Categories}"
+                                           Label="Catégorie"
+                                           SelectedItem="{Binding FilterCategory, Mode=TwoWay}" />
+                        <erp:ErpComboField Margin="0,0,10,10"
+                                           DisplayMemberPath="Label"
+                                           FieldWidth="140"
+                                           HorizontalAlignment="Left"
+                                           IconKind="ClipboardListOutline"
+                                           ItemsSource="{Binding Statuses}"
+                                           Label="Statut"
+                                           SelectedItem="{Binding FilterStatus, Mode=TwoWay}" />
+                    </WrapPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Padding="14,6"
+                                Command="{Binding SearchCommand}"
+                                Content="Rechercher"
+                                Style="{StaticResource ErpPrimaryButton}" />
+                        <Button Margin="8,0,0,0"
+                                Padding="14,6"
+                                Command="{Binding ResetFiltersCommand}"
+                                Content="Réinitialiser"
+                                Style="{StaticResource ErpSecondaryButton}" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="1"
-                BorderBrush="#E5E7EB"
-                BorderThickness="1"
-                CornerRadius="10">
-            <DataGrid CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      IsReadOnly="True"
-                      ItemsSource="{Binding Payments}"
-                      Style="{StaticResource ErpDataGrid}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Binding="{Binding Reference}" Header="Réf." Width="120" />
-                    <DataGridTextColumn Binding="{Binding Label}" Header="Libellé" Width="*" MinWidth="160" />
-                    <DataGridTextColumn Binding="{Binding DestinationName}" Header="Compte" Width="140" />
-                    <DataGridTextColumn Binding="{Binding Amount, StringFormat=N2}" Header="Montant" Width="100" />
-                    <DataGridTextColumn Binding="{Binding ExpenseDate, StringFormat=dd/MM/yyyy}" Header="Date" Width="100" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
+        <!-- 2. KPI -->
+        <UniformGrid Grid.Row="1" Margin="0,0,0,12" Columns="4">
+            <Border Margin="0,0,8,0"
+                    Padding="10,8"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <DockPanel LastChildFill="True">
+                    <Border Width="28"
+                            Height="28"
+                            Margin="0,0,8,0"
+                            Background="#DBEAFE"
+                            CornerRadius="8"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="14"
+                                                 Height="14"
+                                                 Kind="WalletOutline"
+                                                 Foreground="#1E40AF"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="10" Foreground="#64748B" Text="Total des dépenses" />
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#0F172A" Text="{Binding TotalAmountKpi}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border Margin="0,0,8,0"
+                    Padding="10,8"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <DockPanel LastChildFill="True">
+                    <Border Width="28"
+                            Height="28"
+                            Margin="0,0,8,0"
+                            Background="#DCFCE7"
+                            CornerRadius="8"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="14"
+                                                 Height="14"
+                                                 Kind="ReceiptTextOutline"
+                                                 Foreground="#16A34A"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="10" Foreground="#64748B" Text="Nombre de dépenses" />
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#0F172A" Text="{Binding TotalCount}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border Margin="0,0,8,0"
+                    Padding="10,8"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <DockPanel LastChildFill="True">
+                    <Border Width="28"
+                            Height="28"
+                            Margin="0,0,8,0"
+                            Background="#EDE9FE"
+                            CornerRadius="8"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="14"
+                                                 Height="14"
+                                                 Kind="CashMultiple"
+                                                 Foreground="#7C3AED"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="10" Foreground="#64748B" Text="Moyenne" />
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#0F172A" Text="{Binding AverageAmountKpi}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border Padding="10,8"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <DockPanel LastChildFill="True">
+                    <Border Width="28"
+                            Height="28"
+                            Margin="0,0,8,0"
+                            Background="#FFEDD5"
+                            CornerRadius="8"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="14"
+                                                 Height="14"
+                                                 Kind="PiggyBankOutline"
+                                                 Foreground="#F59E0B"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="10" Foreground="#64748B" Text="Disponible" />
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#0F172A" Text="{Binding AvailableBalanceKpi}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </UniformGrid>
 
-        <TextBlock Grid.Row="2"
-                   Margin="0,8,0,0"
-                   Foreground="#6B7280"
-                   Text="{Binding StatusMessage}" />
+        <!-- 3. Corps : liste à gauche | formulaire pleine hauteur à droite -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="6.2*" MinWidth="480" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="3.8*" MinWidth="360" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Gauche : liste + barre compte -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource ExpenseCard}">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <TextBlock Margin="0,0,0,10"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#0F172A"
+                                       Text="Liste des dépenses" />
+                            <DockPanel LastChildFill="False">
+                                <StackPanel DockPanel.Dock="Right"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button Margin="0,0,8,0"
+                                            Padding="14,6"
+                                            Command="{Binding StartNewExpenseCommand}"
+                                            Style="{StaticResource ErpPrimaryButton}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Plus"
+                                                                     Margin="0,0,6,0"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="Nouvelle dépense" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Margin="0,0,8,0"
+                                            Padding="14,6"
+                                            Command="{Binding ExportListCommand}"
+                                            Content="Exporter"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <Button Padding="14,6"
+                                            Command="{Binding PrintListCommand}"
+                                            Content="Imprimer"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                </StackPanel>
+                                <erp:ErpSearchField Width="320"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Placeholder="Référence, libellé, bénéficiaire…"
+                                                    Text="{Binding ListSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <TextBlock DockPanel.Dock="Bottom"
+                                   Margin="0,10,0,0"
+                                   FontSize="12"
+                                   Foreground="#64748B"
+                                   Text="{Binding PaginationLabel}" />
+
+                        <DataGrid ItemsSource="{Binding Payments}"
+                                  SelectedItem="{Binding SelectedPayment, Mode=TwoWay}"
+                                  Style="{StaticResource ErpDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single"
+                                  EnableRowVirtualization="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Width="95"
+                                                    Binding="{Binding ExpenseDate, StringFormat=dd/MM/yyyy}"
+                                                    Header="Date" />
+                                <DataGridTextColumn Width="110"
+                                                    Binding="{Binding Reference}"
+                                                    Header="N° Pièce">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#1E40AF" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="*"
+                                                    MinWidth="140"
+                                                    Binding="{Binding Label}"
+                                                    Header="Libellé" />
+                                <DataGridTextColumn Width="120"
+                                                    Binding="{Binding BeneficiaryName}"
+                                                    Header="Bénéficiaire" />
+                                <DataGridTextColumn Width="140"
+                                                    Binding="{Binding DestinationName}"
+                                                    Header="Compte" />
+                                <DataGridTextColumn Width="100"
+                                                    Binding="{Binding Amount, StringFormat=N2}"
+                                                    Header="Montant">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#16A34A" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Width="70"
+                                                    Binding="{Binding Currency}"
+                                                    Header="Devise" />
+                                <DataGridTemplateColumn Width="100" Header="Statut">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#DCFCE7" Style="{StaticResource ExpenseChip}">
+                                                <TextBlock FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#166534"
+                                                           Text="{Binding StatusLabel}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Width="100"
+                                                    Binding="{Binding UserDisplay}"
+                                                    Header="Utilisateur" />
+                                <DataGridTemplateColumn Width="110" Header="Actions">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Command="{Binding DataContext.ViewPaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource ExpenseActionIconButton}"
+                                                        ToolTip="Voir">
+                                                    <materialDesign:PackIcon Kind="EyeOutline" />
+                                                </Button>
+                                                <Button Command="{Binding DataContext.EditPaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource ExpenseActionIconButton}"
+                                                        ToolTip="Modifier">
+                                                    <materialDesign:PackIcon Kind="PencilOutline" />
+                                                </Button>
+                                                <Button Command="{Binding DataContext.DeletePaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource ExpenseActionIconButton}"
+                                                        ToolTip="Supprimer">
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" />
+                                                </Button>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Margin="0,8,0,0"
+                        Padding="10,6"
+                        Background="White"
+                        BorderBrush="#E5E7EB"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Left"
+                                    Margin="0,0,16,0"
+                                    VerticalAlignment="Center"
+                                    MinWidth="120">
+                            <TextBlock FontSize="10" Foreground="#64748B" Text="Compte" />
+                            <TextBlock FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#1E40AF"
+                                       Text="{Binding SelectedAccountTitle}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Right"
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Right">
+                            <TextBlock HorizontalAlignment="Right"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Text="{Binding ExecutionRatePercent, StringFormat={}{0:0.##}%}" />
+                            <TextBlock FontSize="9" Foreground="#64748B" Text="Exécution" />
+                        </StackPanel>
+                        <UniformGrid Columns="3" VerticalAlignment="Center">
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock FontSize="10" Foreground="#64748B" Text="Budget" />
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding AllocatedAmountDisplay}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock FontSize="10" Foreground="#64748B" Text="Dépensé" />
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#DC2626" Text="{Binding SpentAmountDisplay}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock FontSize="10" Foreground="#64748B" Text="Disponible" />
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#16A34A" Text="{Binding AvailableBalanceKpi}" />
+                            </StackPanel>
+                        </UniformGrid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- Droite : formulaire pleine hauteur -->
+            <Border Grid.Column="2" Style="{StaticResource ExpenseCard}" Padding="14">
+                <DockPanel LastChildFill="True">
+                    <!-- Pied du formulaire figé -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <Border Margin="0,0,0,8"
+                                Padding="10,8"
+                                Background="#EFF6FF"
+                                BorderBrush="#BFDBFE"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <UniformGrid Columns="3">
+                                <StackPanel Margin="0,0,6,0">
+                                    <TextBlock FontSize="9" Foreground="#64748B" Text="Avant" />
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding AvailableBalanceKpi}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,6,0">
+                                    <TextBlock FontSize="9" Foreground="#64748B" Text="Dépense" />
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding ParsedAmountDisplay}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock FontSize="9" Foreground="#64748B" Text="Après" />
+                                    <TextBlock FontSize="12" FontWeight="Bold" Text="{Binding BalanceAfterDisplay}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#0F172A" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBalanceNegative}" Value="True">
+                                                        <Setter Property="Foreground" Value="#DC2626" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </UniformGrid>
+                        </Border>
+
+                        <WrapPanel>
+                            <Button Margin="0,0,6,6"
+                                    Padding="12,8"
+                                    Command="{Binding CreateCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource ErpSuccessButton}" />
+                            <Button Margin="0,0,6,6"
+                                    Padding="12,8"
+                                    Command="{Binding CreateAndNewCommand}"
+                                    Content="Enregistrer &amp; nouveau"
+                                    Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="0,0,0,6"
+                                    Padding="12,8"
+                                    Command="{Binding CancelFormCommand}"
+                                    Content="Annuler"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Champs scrollables -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  CanContentScroll="False">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,12"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#0F172A"
+                                       Text="Nouvelle dépense" />
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <erp:ErpComboField Grid.Column="0"
+                                                   HorizontalAlignment="Stretch"
+                                                   DisplayMemberPath="DisplayName"
+                                                   ItemsSource="{Binding Destinations}"
+                                                   Label="Compte *"
+                                                   SelectedItem="{Binding SelectedDestination, Mode=TwoWay}" />
+                                <erp:ErpDateField Grid.Column="2"
+                                                  HorizontalAlignment="Stretch"
+                                                  DateValidationMode="None"
+                                                  Label="Date *"
+                                                  SelectedDate="{Binding ExpenseDate, Mode=TwoWay}"
+                                                  ShowBadges="False"
+                                                  ShowValidation="False" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.4*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <erp:ErpTextField Grid.Column="0"
+                                                  HorizontalAlignment="Stretch"
+                                                  IconKind="Cash"
+                                                  Label="Montant *"
+                                                  Text="{Binding NewAmountText, UpdateSourceTrigger=PropertyChanged}"
+                                                  ValidationMode="Decimal" />
+                                <erp:ErpComboField Grid.Column="2"
+                                                   HorizontalAlignment="Stretch"
+                                                   DisplayMemberPath="Label"
+                                                   ItemsSource="{Binding Currencies}"
+                                                   Label="Devise"
+                                                   SelectedItem="{Binding SelectedCurrency, Mode=TwoWay}" />
+                            </Grid>
+
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#374151"
+                                       Text="Libellé de la dépense *" />
+                            <TextBox Margin="0,0,0,10"
+                                     MinHeight="64"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     materialDesign:HintAssist.Hint="Description de la dépense"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding NewLabel, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <DockPanel Margin="0,0,0,10" LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Right"
+                                            Margin="8,18,0,0"
+                                            Orientation="Horizontal">
+                                    <Button Style="{StaticResource ExpenseActionIconButton}"
+                                            ToolTip="Rechercher un bénéficiaire">
+                                        <materialDesign:PackIcon Kind="Magnify" />
+                                    </Button>
+                                    <Button Style="{StaticResource ExpenseActionIconButton}"
+                                            ToolTip="Ajouter">
+                                        <materialDesign:PackIcon Kind="Plus" />
+                                    </Button>
+                                </StackPanel>
+                                <erp:ErpTextField IconKind="AccountOutline"
+                                                  HorizontalAlignment="Stretch"
+                                                  Label="Bénéficiaire *"
+                                                  Text="{Binding NewBeneficiaryName, UpdateSourceTrigger=PropertyChanged}" />
+                            </DockPanel>
+
+                            <erp:ErpTextField Margin="0,0,0,10"
+                                              HorizontalAlignment="Stretch"
+                                              IconKind="AccountCheckOutline"
+                                              Label="Autorisé par"
+                                              Text="{Binding NewAuthorizedByName, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <erp:ErpTextField Grid.Column="0"
+                                                  HorizontalAlignment="Stretch"
+                                                  IconKind="FileDocumentOutline"
+                                                  Label="Référence / N° pièce"
+                                                  Text="{Binding NewReference, UpdateSourceTrigger=PropertyChanged}" />
+                                <erp:ErpComboField Grid.Column="2"
+                                                   HorizontalAlignment="Stretch"
+                                                   DisplayMemberPath="Label"
+                                                   ItemsSource="{Binding Categories}"
+                                                   Label="Catégorie"
+                                                   SelectedItem="{Binding NewCategory, Mode=TwoWay}" />
+                            </Grid>
+
+                            <TextBlock Margin="0,4,0,8"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#374151"
+                                       Text="Pièce justificative" />
+
+                            <Border Margin="0,0,0,8"
+                                    Padding="10"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Visibility="{Binding HasAttachment, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding ClearAttachmentCommand}"
+                                            Style="{StaticResource ExpenseActionIconButton}">
+                                        <materialDesign:PackIcon Kind="Close" />
+                                    </Button>
+                                    <materialDesign:PackIcon DockPanel.Dock="Left"
+                                                             Width="28"
+                                                             Height="28"
+                                                             Margin="0,0,10,0"
+                                                             Kind="FilePdfBox"
+                                                             Foreground="#DC2626"
+                                                             VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock FontWeight="SemiBold"
+                                                   Text="{Binding AttachmentFileName}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock FontSize="11"
+                                                   Foreground="#64748B"
+                                                   Text="{Binding AttachmentSizeLabel}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,12"
+                                    Padding="14"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#CBD5E1"
+                                    BorderThickness="1.5"
+                                    CornerRadius="10"
+                                    Cursor="Hand"
+                                    MouseLeftButtonUp="AttachmentDropZone_Click">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Width="26"
+                                                             Height="26"
+                                                             Kind="CloudUploadOutline"
+                                                             Foreground="#64748B"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,6,0,0"
+                                               HorizontalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               Text="Glisser-déposer ou cliquer pour joindre" />
+                                    <Button Margin="0,8,0,0"
+                                            Padding="12,6"
+                                            HorizontalAlignment="Center"
+                                            Command="{Binding BrowseAttachmentCommand}"
+                                            Content="Parcourir…"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#374151"
+                                       Text="Observations" />
+                            <TextBox MinHeight="56"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     materialDesign:HintAssist.Hint="Notes internes"
+                                     Style="{StaticResource ErpTextBox}"
+                                     Text="{Binding NewObservations, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

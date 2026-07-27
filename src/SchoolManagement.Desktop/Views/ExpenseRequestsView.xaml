@@ -21,12 +21,7 @@
                            FontWeight="SemiBold"
                            Foreground="#1F2937"
                            Text="Nouvelle demande de paiement" />
-                <UniformGrid Columns="4" Margin="0,10,0,0">
-                    <erp:ErpComboField Margin="0,0,12,12"
-                                       DisplayMemberPath="Label"
-                                       ItemsSource="{Binding AcademicYears}"
-                                       Label="Année scolaire"
-                                       SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
+                <UniformGrid Columns="3" Margin="0,10,0,0">
                     <erp:ErpComboField Margin="0,0,12,12"
                                        DisplayMemberPath="Name"
                                        ItemsSource="{Binding Destinations}"
@@ -37,7 +32,8 @@
                                       Text="{Binding NewTitle, UpdateSourceTrigger=PropertyChanged}" />
                     <erp:ErpTextField Margin="0,0,0,12"
                                       Label="Montant"
-                                      Text="{Binding NewAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                      Text="{Binding NewAmount, UpdateSourceTrigger=PropertyChanged}"
+                                      ValidationMode="Decimal" />
                 </UniformGrid>
                 <StackPanel Orientation="Horizontal">
                     <Button Margin="0,0,8,0"

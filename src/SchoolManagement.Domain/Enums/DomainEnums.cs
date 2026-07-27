@@ -95,7 +95,9 @@ public enum PermissionAction
     Update = 3,
     Delete = 4,
     Export = 5,
-    Approve = 6
+    Approve = 6,
+    Print = 7,
+    Renew = 8
 }
 
 public enum EvaluationType

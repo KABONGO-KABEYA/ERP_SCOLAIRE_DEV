@@ -55,34 +55,34 @@
 
                 <StackPanel Margin="0,10,0,0"
                             Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <UniformGrid Columns="3" Margin="0,0,0,10">
-                        <erp:ErpComboField Margin="0,0,12,12"
-                                           DisplayMemberPath="Label"
-                                           FieldWidth="240"
-                                           HorizontalAlignment="Stretch"
-                                           IconKind="CalendarRange"
-                                           ItemsSource="{Binding AcademicYears}"
-                                           Label="Année scolaire"
-                                           SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
+                    <UniformGrid Columns="4" Margin="0,0,0,10">
                         <erp:ErpComboField Margin="0,0,12,12"
                                            DisplayMemberPath="Name"
-                                           FieldWidth="240"
+                                           FieldWidth="200"
                                            HorizontalAlignment="Stretch"
                                            IconKind="School"
                                            ItemsSource="{Binding Sections}"
                                            Label="Section"
                                            SelectedItem="{Binding SelectedSection, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,0,12"
+                        <erp:ErpComboField Margin="0,0,12,12"
+                                           DisplayMemberPath="DisplayName"
+                                           FieldWidth="200"
+                                           HorizontalAlignment="Stretch"
+                                           IconKind="GoogleClassroom"
+                                           ItemsSource="{Binding PedagogicalClasses}"
+                                           Label="Classe"
+                                           SelectedItem="{Binding SelectedPedagogicalClass, Mode=TwoWay}" />
+                        <erp:ErpComboField Margin="0,0,12,12"
                                            DisplayMemberPath="Name"
-                                           FieldWidth="240"
+                                           FieldWidth="200"
                                            HorizontalAlignment="Stretch"
                                            IconKind="CashMultiple"
                                            ItemsSource="{Binding FeeTypes}"
                                            Label="Type de frais"
                                            SelectedItem="{Binding SelectedFeeType, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,12,0"
+                        <erp:ErpComboField Margin="0,0,0,12"
                                            DisplayMemberPath="Label"
-                                           FieldWidth="240"
+                                           FieldWidth="200"
                                            HorizontalAlignment="Stretch"
                                            IconKind="TagOutline"
                                            ItemsSource="{Binding PaymentStatuses}"

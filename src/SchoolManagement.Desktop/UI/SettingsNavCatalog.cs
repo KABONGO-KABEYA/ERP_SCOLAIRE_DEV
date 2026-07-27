@@ -47,7 +47,10 @@ public static class SettingsNavCatalog
             [
                 new SettingsNavItem { Key = "frais-scolaires", Title = "Frais scolaires", IconKind = "CashMultiple", Section = SettingsSection.FraisScolaires },
                 new SettingsNavItem { Key = "repartition-recettes", Title = "Répartition des recettes", IconKind = "ChartPie", Section = SettingsSection.RepartitionRecettes },
-                new SettingsNavItem { Key = "retenues", Title = "Retenues", IconKind = "PercentOutline", Section = SettingsSection.Retenues }
+                new SettingsNavItem { Key = "retenues", Title = "Retenues", IconKind = "PercentOutline", Section = SettingsSection.Retenues },
+                new SettingsNavItem { Key = "monnaies", Title = "Monnaies", IconKind = "CurrencyUsd", Section = SettingsSection.Monnaies },
+                new SettingsNavItem { Key = "taux-change", Title = "Taux de change", IconKind = "SwapHorizontal", Section = SettingsSection.TauxChange },
+                new SettingsNavItem { Key = "historique-taux", Title = "Historique des taux", IconKind = "History", Section = SettingsSection.HistoriqueTaux }
             ]
         },
         new SettingsNavGroup

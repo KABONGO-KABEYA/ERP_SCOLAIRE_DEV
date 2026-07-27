@@ -138,7 +138,8 @@ public sealed record CompleteEnrollmentResultDto(
     string StudentFullName,
     string ClassName,
     decimal TotalDue,
-    string Message);
+    string Message,
+    IReadOnlyList<SchoolManagement.Application.Parent.DTOs.ParentAppAccessCredentialDto>? ParentAccessAccounts = null);
 
 public sealed record StudentDossierEditDto(
     Guid StudentId,
@@ -153,7 +154,8 @@ public sealed record UpdateStudentDossierResultDto(
     Guid EnrollmentId,
     string RegistrationNumber,
     string StudentFullName,
-    string Message);
+    string Message,
+    IReadOnlyList<SchoolManagement.Application.Parent.DTOs.ParentAppAccessCredentialDto>? ParentAccessAccounts = null);
 
 public sealed record GeneratedRegistrationNumberDto(string RegistrationNumber);
 
@@ -263,7 +265,8 @@ public sealed record EnrollmentFormDocumentDto(
     EnrollmentFormGuardianDto? Father,
     EnrollmentFormGuardianDto? Mother,
     EnrollmentFormGuardianDto? LegalGuardian,
-    IReadOnlyList<EnrollmentFormGuardianDto> Guardians)
+    IReadOnlyList<EnrollmentFormGuardianDto> Guardians,
+    IReadOnlyList<SchoolManagement.Application.Parent.DTOs.ParentAppAccessCredentialDto>? ParentAccessAccounts = null)
 {
     public string FullName => StudentDisplayName.Format(LastName, MiddleName, FirstName);
 

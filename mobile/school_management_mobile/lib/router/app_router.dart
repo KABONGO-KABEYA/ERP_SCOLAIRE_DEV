@@ -5,8 +5,23 @@ import 'package:go_router/go_router.dart';
 import '../core/auth/auth_storage.dart';
 import '../core/providers/app_providers.dart';
 import '../features/auth/login_screen.dart';
-import '../features/parent/children_screen.dart';
-import '../features/parent/child_detail_screen.dart';
+import '../features/parent/attendance_screen.dart';
+import '../features/parent/bulletins_screen.dart';
+import '../features/parent/change_password_screen.dart';
+import '../features/parent/communications_screen.dart';
+import '../features/parent/dashboard_screen.dart';
+import '../features/parent/notes_screen.dart';
+import '../features/parent/notifications_screen.dart';
+import '../features/parent/parent_shell_screen.dart';
+import '../features/parent/payments_screen.dart';
+import '../features/parent/profile_screen.dart';
+import '../features/parent/subscription_screen.dart';
+import '../features/parent/premium_subscription/screens/payment_confirm_screen.dart';
+import '../features/parent/premium_subscription/screens/payment_method_screen.dart';
+import '../features/parent/premium_subscription/screens/payment_status_screen.dart';
+import '../features/parent/premium_subscription/screens/payment_success_screen.dart';
+import '../features/parent/premium_subscription/screens/phone_entry_screen.dart';
+import '../features/parent/premium_subscription/screens/subscription_history_screen.dart';
 import '../features/teacher/assignments_screen.dart';
 import '../features/teacher/class_screen.dart';
 import '../features/teacher/evaluations_screen.dart';
@@ -36,6 +51,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (!loggedIn && !onLogin) return '/login';
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
 
+      if (state.matchedLocation == '/children') {
+        return '/parent/home';
+      }
+
       final canEnroll = await AuthStorage.canManageEnrollments;
       final writePolicy = ref.read(writePolicyProvider);
       if (state.matchedLocation.startsWith('/secretary/enrollment') &&
@@ -49,13 +68,107 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/children', builder: (_, __) => const ChildrenScreen()),
       GoRoute(
-        path: '/children/:studentId',
-        builder: (context, state) => ChildDetailScreen(
-          studentId: state.pathParameters['studentId']!,
-          studentName: state.uri.queryParameters['name'] ?? 'Élève',
-        ),
+        path: '/children',
+        redirect: (_, __) => '/parent/home',
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            ParentShellScreen(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/home',
+                builder: (_, __) => const ParentDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/payments',
+                builder: (_, __) => const ParentPaymentsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/notes',
+                builder: (_, __) => const ParentNotesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/bulletins',
+                builder: (_, __) => const ParentBulletinsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/communications',
+                builder: (_, __) => const ParentCommunicationsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/notifications',
+                builder: (_, __) => const ParentNotificationsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/parent/profile',
+                builder: (_, __) => const ParentProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/parent/subscription',
+        builder: (_, __) => const ParentSubscriptionScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/payment-method',
+        builder: (_, __) => const PremiumPaymentMethodScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/phone',
+        builder: (_, __) => const PremiumPhoneEntryScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/confirm',
+        builder: (_, __) => const PremiumPaymentConfirmScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/status',
+        builder: (_, __) => const PremiumPaymentStatusScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/success',
+        builder: (_, __) => const PremiumPaymentSuccessScreen(),
+      ),
+      GoRoute(
+        path: '/parent/subscription/history',
+        builder: (_, __) => const PremiumSubscriptionHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/parent/attendance',
+        builder: (_, __) => const ParentAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/parent/change-password',
+        builder: (_, __) => const ParentChangePasswordScreen(),
       ),
       GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
       GoRoute(path: '/promoteur/dashboard', builder: (_, __) => const PromoteurDashboardScreen()),

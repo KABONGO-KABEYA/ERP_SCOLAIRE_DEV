@@ -999,6 +999,247 @@ public sealed class WithholdingApiService : ApiServiceBase, IWithholdingApiServi
     }
 }
 
+public sealed class CurrencyApiService : ApiServiceBase, ICurrencyApiService
+{
+    public CurrencyApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto>> SearchCurrenciesAsync(
+        string? search = null,
+        bool? activeOnly = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search)) parts.Add($"search={Uri.EscapeDataString(search)}");
+        if (activeOnly.HasValue) parts.Add($"activeOnly={activeOnly.Value}");
+        var q = parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts);
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto>>(
+            $"api/v1/currencies{q}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto> CreateCurrencyAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveCurrencyDefinitionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto>(
+            "api/v1/currencies", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto> UpdateCurrencyAsync(
+        Guid id,
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveCurrencyDefinitionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto>(
+            $"api/v1/currencies/{id}", request, cancellationToken);
+
+    public Task SetCurrencyActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken = default) =>
+        PostAsync<object>(
+            $"api/v1/currencies/{id}/{(isActive ? "activate" : "deactivate")}",
+            new { },
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto>> GetSchoolCurrenciesAsync(
+        bool paymentOnly = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto>>(
+            $"api/v1/school-currencies?paymentOnly={paymentOnly}", cancellationToken);
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto> UpsertSchoolCurrencyAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveSchoolCurrencyRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto>(
+            "api/v1/school-currencies", request, cancellationToken);
+
+    public Task RemoveSchoolCurrencyAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/school-currencies/{id}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto>> GetRateTypesAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto>>(
+            $"api/v1/exchange-rate-types?activeOnly={activeOnly}", cancellationToken);
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto> CreateRateTypeAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateTypeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto>(
+            "api/v1/exchange-rate-types", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto>> SearchExchangeRatesAsync(
+        Guid? sourceCurrencyId = null,
+        Guid? targetCurrencyId = null,
+        Guid? rateTypeId = null,
+        bool? activeOnly = null,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (sourceCurrencyId.HasValue) parts.Add($"sourceCurrencyId={sourceCurrencyId}");
+        if (targetCurrencyId.HasValue) parts.Add($"targetCurrencyId={targetCurrencyId}");
+        if (rateTypeId.HasValue) parts.Add($"rateTypeId={rateTypeId}");
+        if (activeOnly.HasValue) parts.Add($"activeOnly={activeOnly}");
+        var q = parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts);
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto>>(
+            $"api/v1/exchange-rates{q}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto> CreateExchangeRateAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto>(
+            "api/v1/exchange-rates", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto> UpdateExchangeRateAsync(
+        Guid id,
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto>(
+            $"api/v1/exchange-rates/{id}", request, cancellationToken);
+
+    public Task ActivateExchangeRateAsync(Guid id, CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"api/v1/exchange-rates/{id}/activate", new { }, cancellationToken);
+
+    public Task DeactivateExchangeRateAsync(Guid id, CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"api/v1/exchange-rates/{id}/deactivate", new { }, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateHistoryDto>> GetHistoryAsync(
+        Guid? exchangeRateId = null,
+        int take = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string> { $"take={take}" };
+        if (exchangeRateId.HasValue) parts.Add($"exchangeRateId={exchangeRateId}");
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateHistoryDto>>(
+            $"api/v1/exchange-rates/history?{string.Join("&", parts)}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyConversionResultDto> ConvertAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyConversionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyConversionResultDto>(
+            "api/v1/exchange-rates/convert", request, cancellationToken);
+}
+
+public sealed class StudentCardApiService : ApiServiceBase, IStudentCardApiService
+{
+    public StudentCardApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDashboardDto> GetDashboardAsync(
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var q = academicYearId.HasValue ? $"?academicYearId={academicYearId}" : string.Empty;
+        return GetAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDashboardDto>(
+            $"api/v1/cards/dashboard{q}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Shared.Models.PagedResult<SchoolManagement.Application.StudentCards.DTOs.StudentCardListItemDto>> SearchAsync(
+        SchoolManagement.Application.StudentCards.DTOs.StudentCardSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>
+        {
+            $"page={request.Page}",
+            $"pageSize={request.PageSize}"
+        };
+        if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
+        if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
+        if (request.Status.HasValue) parts.Add($"status={request.Status}");
+        if (!string.IsNullOrWhiteSpace(request.Search)) parts.Add($"search={Uri.EscapeDataString(request.Search)}");
+        return GetAsync<SchoolManagement.Shared.Models.PagedResult<SchoolManagement.Application.StudentCards.DTOs.StudentCardListItemDto>>(
+            $"api/v1/cards?{string.Join("&", parts)}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> GetByIdAsync(
+        Guid cardId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> CreateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.CreateStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            "api/v1/cards", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.BulkCreateStudentCardsResult> BulkCreateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.BulkCreateStudentCardsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.BulkCreateStudentCardsResult>(
+            "api/v1/cards/bulk", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.PrintStudentCardsResult> PrintAsync(
+        SchoolManagement.Application.StudentCards.DTOs.PrintStudentCardsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.PrintStudentCardsResult>(
+            "api/v1/cards/print", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> ReprintAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.ReprintStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/reprint", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> RenewAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.RenewStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/renew", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeclareLostAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeclareCardIncidentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/lost", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeclareStolenAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeclareCardIncidentRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/stolen", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeactivateAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeactivateStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/deactivate", request, cancellationToken);
+
+    public Task SoftDeleteAsync(Guid cardId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/cards/{cardId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto>> ListTemplatesAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto>>(
+            $"api/v1/card-templates?activeOnly={activeOnly}", cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto> CreateTemplateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardTemplateRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto>(
+            "api/v1/card-templates", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto> UpdateTemplateAsync(
+        Guid templateId,
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardTemplateRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto>(
+            $"api/v1/card-templates/{templateId}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto> GetSettingsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto>(
+            "api/v1/cards/settings", cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto> SaveSettingsAsync(
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardSchoolSettingsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto>(
+            "api/v1/cards/settings", request, cancellationToken);
+}
+
 public sealed class FinanceApiService : ApiServiceBase, IFinanceApiService
 {
     public FinanceApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
@@ -2122,6 +2363,12 @@ public sealed class AccountingApiService : ApiServiceBase, IAccountingApiService
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto>(
             "api/v1/accounting/expense-payments", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Accounting.DTOs.ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
+        Guid academicYearId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Accounting.DTOs.ExpenseDestinationBalanceDto>>(
+            $"api/v1/accounting/expense-balances?academicYearId={academicYearId}", cancellationToken);
 }
 
 public sealed class CloudSyncApiService : ApiServiceBase, ICloudSyncApiService

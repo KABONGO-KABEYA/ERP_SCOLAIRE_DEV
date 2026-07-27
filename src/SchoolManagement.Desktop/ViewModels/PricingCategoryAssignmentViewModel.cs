@@ -5,8 +5,8 @@ using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Academic.DTOs;
 using SchoolManagement.Application.Finance.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
-using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views;
 
 namespace SchoolManagement.Desktop.ViewModels;
@@ -15,7 +15,6 @@ namespace SchoolManagement.Desktop.ViewModels;
 public partial class PricingCategoryAssignmentViewModel : ViewModelBase
 {
     private readonly IFinanceApiService _financeApi;
-    private readonly ISchoolApiService _schoolApi;
     private readonly ISchoolFeeApiService _schoolFeeApi;
     private readonly IEnrollmentWizardApiService _wizardApi;
     private readonly IAuthSessionService _authSession;
@@ -23,24 +22,28 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
 
     public PricingCategoryAssignmentViewModel(
         IFinanceApiService financeApi,
-        ISchoolApiService schoolApi,
         ISchoolFeeApiService schoolFeeApi,
         IEnrollmentWizardApiService wizardApi,
         IAuthSessionService authSession)
     {
         _financeApi = financeApi;
-        _schoolApi = schoolApi;
         _schoolFeeApi = schoolFeeApi;
         _wizardApi = wizardApi;
         _authSession = authSession;
         StatusMessage = "À l'inscription, chaque élève est affecté à la catégorie « Générale ».";
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = InitializeAsync();
+    }
+
+    private void OnGlobalAcademicYearChanged()
+    {
+        CurrentPage = 1;
+        QueueSearch();
     }
 
     public bool CanAssignPricingCategory => _authSession.IsAdministrator;
 
     public ObservableCollection<StudentPricingAssignmentDto> Students { get; } = [];
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
     public ObservableCollection<SectionDto> Sections { get; } = [];
     public ObservableCollection<FeePricingCategoryDto> PricingCategories { get; } = [];
 
@@ -48,7 +51,6 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private StudentPricingAssignmentDto? _selectedStudent;
-    [ObservableProperty] private AcademicYearDto? _selectedAcademicYear;
     [ObservableProperty] private SectionDto? _selectedSection;
     [ObservableProperty] private FeePricingCategoryDto? _selectedPricingCategoryFilter;
     [ObservableProperty] private FeePricingCategoryDto? _selectedPricingCategoryEdit;
@@ -69,12 +71,6 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
     partial void OnCurrentPageChanged(int value) => NotifyPagination();
     partial void OnTotalPagesChanged(int value) => NotifyPagination();
     partial void OnSearchTextChanged(string value) => QueueSearch();
-
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value)
-    {
-        CurrentPage = 1;
-        QueueSearch();
-    }
 
     partial void OnSelectedSectionChanged(SectionDto? value)
     {
@@ -108,7 +104,6 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
     private async Task ClearFiltersAsync()
     {
         SearchText = string.Empty;
-        SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
         SelectedSection = null;
         SelectedPricingCategoryFilter = null;
         CurrentPage = 1;
@@ -211,14 +206,6 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            AcademicYears.Clear();
-            foreach (var year in await _schoolApi.GetAcademicYearsAsync())
-            {
-                AcademicYears.Add(year);
-            }
-
-            SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
             Sections.Clear();
             var structure = await _wizardApi.GetStructureOptionsAsync();
             foreach (var section in structure.Sections.OrderBy(s => s.Name))
@@ -272,11 +259,12 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
 
     private async Task SearchAsync()
     {
-        if (SelectedAcademicYear is null)
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null)
         {
             Students.Clear();
             StudentsFoundCount = 0;
-            StatusMessage = "Sélectionnez une année scolaire.";
+            StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
             return;
         }
 
@@ -284,7 +272,7 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
         try
         {
             var result = await _financeApi.SearchPricingAssignmentsAsync(new StudentPricingAssignmentSearchRequest(
-                SelectedAcademicYear.Id,
+                yearId.Value,
                 SelectedSection?.Id,
                 null,
                 null,

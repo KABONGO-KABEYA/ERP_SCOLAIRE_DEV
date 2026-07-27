@@ -35,6 +35,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="280" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -48,13 +49,10 @@
                 CornerRadius="10">
             <StackPanel>
                 <DockPanel LastChildFill="True">
-                    <Button Width="32"
-                            Height="32"
-                            Padding="0"
-                            HorizontalAlignment="Right"
+                    <Button HorizontalAlignment="Right"
                             Command="{Binding ToggleFiltersCommand}"
                             DockPanel.Dock="Right"
-                            Style="{StaticResource MaterialDesignIconButton}"
+                            Style="{StaticResource ErpIconButton}"
                             ToolTip="{Binding FiltersToggleLabel}">
                         <materialDesign:PackIcon Width="18"
                                                  Height="18"
@@ -71,13 +69,6 @@
                             Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <WrapPanel>
                         <erp:ErpComboField Margin="0,0,10,10"
-                                           DisplayMemberPath="Label"
-                                           FieldWidth="170"
-                                           IconKind="CalendarMonth"
-                                           ItemsSource="{Binding AcademicYears}"
-                                           Label="Année scolaire *"
-                                           SelectedItem="{Binding SelectedAcademicYear, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="Name"
                                            FieldWidth="180"
                                            IconKind="Cash"
@@ -93,10 +84,10 @@
                                            SelectedItem="{Binding SelectedScopeKind, Mode=TwoWay}" />
                         <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="Label"
-                                           FieldWidth="180"
+                                           FieldWidth="200"
                                            IconKind="AccountCheck"
                                            ItemsSource="{Binding SituationFilters}"
-                                           Label="Situation"
+                                           Label="Élèves à afficher"
                                            SelectedItem="{Binding SelectedSituationFilter, Mode=TwoWay}" />
                         <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="Label"
@@ -116,19 +107,21 @@
                                            Label="Section / Site"
                                            SelectedItem="{Binding SelectedSection, Mode=TwoWay}" />
                         <erp:ErpComboField Margin="0,0,10,10"
+                                           DisplayMemberPath="Label"
+                                           FieldWidth="160"
+                                           IconKind="ShapeOutline"
+                                           IsEnabled="{Binding IsStudyOptionFilterEnabled}"
+                                           ItemsSource="{Binding StudyOptions}"
+                                           Label="Option"
+                                           SelectedItem="{Binding SelectedStudyOption, Mode=TwoWay}"
+                                           Visibility="{Binding IsStudyOptionFilterEnabled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="FullDisplayName"
                                            FieldWidth="200"
                                            IconKind="GoogleClassroom"
                                            ItemsSource="{Binding ClassRooms}"
                                            Label="Classe / Promotion"
                                            SelectedItem="{Binding SelectedClassRoom, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,10,10"
-                                           DisplayMemberPath="Label"
-                                           FieldWidth="160"
-                                           IconKind="ShapeOutline"
-                                           ItemsSource="{Binding StudyOptions}"
-                                           Label="Option"
-                                           SelectedItem="{Binding SelectedStudyOption, Mode=TwoWay}" />
                         <erp:ErpComboField Margin="0,0,10,10"
                                            DisplayMemberPath="Name"
                                            FieldWidth="170"
@@ -167,31 +160,62 @@
                     </Border>
 
                     <StackPanel Orientation="Horizontal">
-                        <Button Margin="0,0,8,0"
+                        <Button Padding="14,6"
                                 Command="{Binding GenerateCommand}"
                                 Content="Générer"
-                                Style="{StaticResource MaterialDesignRaisedButton}" />
-                        <Button Margin="0,0,8,0"
+                                Style="{StaticResource ErpPrimaryButton}" />
+                        <Button Margin="8,0,0,0"
+                                Padding="14,6"
                                 Command="{Binding ResetFiltersCommand}"
                                 Content="Réinitialiser"
-                                Style="{StaticResource MaterialDesignOutlinedButton}" />
-                        <Button Margin="0,0,8,0"
-                                Command="{Binding PrintCommand}"
-                                Content="Imprimer"
-                                Style="{StaticResource MaterialDesignOutlinedButton}" />
-                        <Button Margin="0,0,8,0"
-                                Command="{Binding ExportPdfCommand}"
-                                Content="Exporter PDF"
-                                Style="{StaticResource MaterialDesignOutlinedButton}" />
-                        <Button Command="{Binding ExportExcelCommand}"
-                                Content="Exporter Excel"
-                                Style="{StaticResource MaterialDesignOutlinedButton}" />
+                                Style="{StaticResource ErpSecondaryButton}" />
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
         </Border>
 
-        <UniformGrid Grid.Row="1"
+        <Border Grid.Row="1"
+                Margin="0,0,0,8"
+                Padding="10,8"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="10">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Padding="14,6"
+                            Command="{Binding PrintCommand}"
+                            Content="Imprimer"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding ExportPdfCommand}"
+                            Content="PDF"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding ExportExcelCommand}"
+                            Content="Excel"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="#1F2937"
+                               Text="Actions" />
+                    <TextBlock Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               MaxWidth="520"
+                               Foreground="#6B7280"
+                               Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <UniformGrid Grid.Row="2"
                      Margin="0,0,0,8"
                      Columns="3"
                      Visibility="{Binding HasResult, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -233,7 +257,7 @@
             </Border>
         </UniformGrid>
 
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Background="White"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"
@@ -495,7 +519,7 @@
             </ScrollViewer>
         </Border>
 
-        <DockPanel Grid.Row="3" Margin="0,8,0,0">
+        <DockPanel Grid.Row="4" Margin="0,8,0,0">
             <ProgressBar Width="120"
                          Height="4"
                          DockPanel.Dock="Right"

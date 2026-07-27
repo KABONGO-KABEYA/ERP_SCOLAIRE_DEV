@@ -87,6 +87,17 @@ public sealed class AccountingController : ControllerBase
         return Ok(ApiResponse<ExpensePaymentDto>.Ok(result, "Dépense enregistrée."));
     }
 
+    [HttpGet("expense-balances")]
+    [Authorize(Policy = Permissions.AccountingRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ExpenseDestinationBalanceDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetExpenseBalances(
+        [FromQuery] Guid academicYearId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.GetExpenseBalancesAsync(RequireSchoolId(), academicYearId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<ExpenseDestinationBalanceDto>>.Ok(result));
+    }
+
     private Guid RequireSchoolId() =>
         _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
 }

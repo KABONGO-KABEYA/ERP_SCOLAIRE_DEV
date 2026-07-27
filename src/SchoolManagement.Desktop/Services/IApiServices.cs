@@ -260,6 +260,146 @@ public interface IWithholdingApiService
         CancellationToken cancellationToken = default);
 }
 
+public interface ICurrencyApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto>> SearchCurrenciesAsync(
+        string? search = null,
+        bool? activeOnly = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto> CreateCurrencyAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveCurrencyDefinitionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyDefinitionDto> UpdateCurrencyAsync(
+        Guid id,
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveCurrencyDefinitionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task SetCurrencyActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto>> GetSchoolCurrenciesAsync(
+        bool paymentOnly = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.SchoolCurrencyDto> UpsertSchoolCurrencyAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveSchoolCurrencyRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task RemoveSchoolCurrencyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto>> GetRateTypesAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateTypeDto> CreateRateTypeAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateTypeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto>> SearchExchangeRatesAsync(
+        Guid? sourceCurrencyId = null,
+        Guid? targetCurrencyId = null,
+        Guid? rateTypeId = null,
+        bool? activeOnly = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto> CreateExchangeRateAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateDto> UpdateExchangeRateAsync(
+        Guid id,
+        SchoolManagement.Application.CurrencyManagement.DTOs.SaveExchangeRateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ActivateExchangeRateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeactivateExchangeRateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.CurrencyManagement.DTOs.ExchangeRateHistoryDto>> GetHistoryAsync(
+        Guid? exchangeRateId = null,
+        int take = 200,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyConversionResultDto> ConvertAsync(
+        SchoolManagement.Application.CurrencyManagement.DTOs.CurrencyConversionRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IStudentCardApiService
+{
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDashboardDto> GetDashboardAsync(
+        Guid? academicYearId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Shared.Models.PagedResult<SchoolManagement.Application.StudentCards.DTOs.StudentCardListItemDto>> SearchAsync(
+        SchoolManagement.Application.StudentCards.DTOs.StudentCardSearchRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> GetByIdAsync(
+        Guid cardId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> CreateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.CreateStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.BulkCreateStudentCardsResult> BulkCreateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.BulkCreateStudentCardsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.PrintStudentCardsResult> PrintAsync(
+        SchoolManagement.Application.StudentCards.DTOs.PrintStudentCardsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> ReprintAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.ReprintStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> RenewAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.RenewStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeclareLostAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeclareCardIncidentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeclareStolenAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeclareCardIncidentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeactivateAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.DeactivateStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task SoftDeleteAsync(Guid cardId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto>> ListTemplatesAsync(
+        bool activeOnly = false,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto> CreateTemplateAsync(
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.CardTemplateDto> UpdateTemplateAsync(
+        Guid templateId,
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto> GetSettingsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.CardSchoolSettingsDto> SaveSettingsAsync(
+        SchoolManagement.Application.StudentCards.DTOs.SaveCardSchoolSettingsRequest request,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IFinanceApiService
 {
     Task<SchoolManagement.Application.Finance.DTOs.StudentPaymentSituationSearchResultDto> SearchPaymentSituationsAsync(
@@ -779,6 +919,10 @@ public interface IAccountingApiService
 
     Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> CreateExpensePaymentAsync(
         SchoolManagement.Application.Accounting.DTOs.CreateExpensePaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Accounting.DTOs.ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
+        Guid academicYearId,
         CancellationToken cancellationToken = default);
 }
 

@@ -156,6 +156,69 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Devises autorisées pour l'établissement -->
+                <Border Margin="0,10,0,0"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource SchoolFeeStudentsLikePanel}"
+                        DataContext="{Binding CurrencyManagement}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <materialDesign:PackIcon Margin="0,0,8,0"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                     Kind="CashMultiple" />
+                            <TextBlock FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#1F2937"
+                                       Text="Devises de l'établissement"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Margin="0,0,0,10"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="Définissez la devise principale et les devises acceptées pour les paiements. Une seule devise principale par établissement."
+                                   TextWrapping="Wrap" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <DataGrid ItemsSource="{Binding SchoolCurrencies}"
+                                      SelectedItem="{Binding SelectedSchoolCurrency}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      MaxHeight="220"
+                                      Style="{StaticResource ErpDataGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Code" Binding="{Binding CurrencyCode}" Width="80" />
+                                    <DataGridTextColumn Header="Libellé" Binding="{Binding CurrencyName}" Width="*" />
+                                    <DataGridCheckBoxColumn Header="Principale" Binding="{Binding IsPrimary}" Width="90" />
+                                    <DataGridCheckBoxColumn Header="Paiement" Binding="{Binding AllowPayment}" Width="90" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border Grid.Column="1" Margin="12,0,0,0" Style="{StaticResource SchoolFeeSectionCard}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource SchoolFeeSectionTitle}" Text="Autoriser une devise" Margin="0,0,0,12" />
+                                    <erp:ErpComboField Label="Devise"
+                                                       ItemsSource="{Binding Currencies}"
+                                                       SelectedItem="{Binding SchoolCurrencyPick}"
+                                                       DisplayMemberPath="Code"
+                                                       Margin="0,0,0,8" />
+                                    <CheckBox Content="Devise principale" IsChecked="{Binding SchoolCurrencyIsPrimary}" Margin="0,0,0,6" />
+                                    <CheckBox Content="Autoriser paiement" IsChecked="{Binding SchoolCurrencyAllowPayment}" Margin="0,0,0,12" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Enregistrer" Command="{Binding SaveSchoolCurrencyCommand}" Style="{StaticResource ErpPrimaryButton}" Margin="0,0,8,0" />
+                                        <Button Content="Retirer" Command="{Binding RemoveSchoolCurrencyCommand}" Style="{StaticResource ErpSecondaryButton}" />
+                                    </StackPanel>
+                                    <TextBlock Margin="0,10,0,0"
+                                               Text="{Binding StatusMessage}"
+                                               Foreground="{StaticResource ErpPrimaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <!-- Identité documentaire -->
                 <Border Margin="0,10,0,0"
                         HorizontalAlignment="Stretch"

@@ -2,34 +2,31 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Reports.DTOs;
-using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
 public partial class StatisticsViewModel : ViewModelBase
 {
     private readonly IReportApiService _reportApiService;
-    private readonly ISchoolApiService _schoolApiService;
 
-    public StatisticsViewModel(IReportApiService reportApiService, ISchoolApiService schoolApiService)
+    public StatisticsViewModel(IReportApiService reportApiService)
     {
         _reportApiService = reportApiService;
-        _schoolApiService = schoolApiService;
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = LoadAsync();
     }
+
+    private void OnGlobalAcademicYearChanged() => _ = LoadAsync();
 
     public ObservableCollection<EnrollmentByClassDto> EnrollmentByClass { get; } = [];
     public ObservableCollection<ClassAverageReportDto> ClassAverages { get; } = [];
 
     [ObservableProperty] private DashboardStatsDto? _dashboard;
     [ObservableProperty] private FinancialSummaryDto? _financialSummary;
-    [ObservableProperty] private IReadOnlyList<AcademicYearDto> _academicYears = [];
-    [ObservableProperty] private AcademicYearDto? _selectedYear;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _isBusy;
-
-    partial void OnSelectedYearChanged(AcademicYearDto? value) => _ = LoadAsync();
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -38,16 +35,17 @@ public partial class StatisticsViewModel : ViewModelBase
         StatusMessage = null;
         try
         {
-            if (AcademicYears.Count == 0)
+            var yearId = AcademicYearRefreshBridge.SelectedYearId;
+            if (yearId is null)
             {
-                AcademicYears = await _schoolApiService.GetAcademicYearsAsync();
-                SelectedYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
+                StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
+                return;
             }
 
             Dashboard = await _reportApiService.GetDashboardAsync();
-            FinancialSummary = await _reportApiService.GetFinancialSummaryAsync(SelectedYear?.Id);
+            FinancialSummary = await _reportApiService.GetFinancialSummaryAsync(yearId);
 
-            var enrollment = await _reportApiService.GetEnrollmentByClassAsync(SelectedYear?.Id);
+            var enrollment = await _reportApiService.GetEnrollmentByClassAsync(yearId);
             EnrollmentByClass.Clear();
             foreach (var item in enrollment) EnrollmentByClass.Add(item);
 

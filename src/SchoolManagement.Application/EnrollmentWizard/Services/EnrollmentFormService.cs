@@ -6,7 +6,9 @@ using SchoolManagement.Application.DocumentBranding.Interfaces;
 using SchoolManagement.Application.EnrollmentWizard;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.EnrollmentWizard.Interfaces;
+using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
@@ -26,6 +28,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
     private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
     private readonly IRepository<StudentStatusHistory> _statusHistoryRepository;
     private readonly IRepository<StudentDocument> _studentDocumentRepository;
+    private readonly IRepository<UserAccount> _userRepository;
     private readonly IDocumentPrintBrandingResolver _brandingResolver;
     private readonly IDocumentBrandingStorageService _brandingStorage;
     private readonly ICurrentUserService _currentUser;
@@ -45,6 +48,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         IRepository<ClassFeeAmount> classFeeAmountRepository,
         IRepository<StudentStatusHistory> statusHistoryRepository,
         IRepository<StudentDocument> studentDocumentRepository,
+        IRepository<UserAccount> userRepository,
         IDocumentPrintBrandingResolver brandingResolver,
         IDocumentBrandingStorageService brandingStorage,
         ICurrentUserService currentUser,
@@ -63,6 +67,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         _classFeeAmountRepository = classFeeAmountRepository;
         _statusHistoryRepository = statusHistoryRepository;
         _studentDocumentRepository = studentDocumentRepository;
+        _userRepository = userRepository;
         _brandingResolver = brandingResolver;
         _brandingStorage = brandingStorage;
         _currentUser = currentUser;
@@ -139,6 +144,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
         var branding = await _brandingResolver.ResolveAsync(schoolId, DocumentBrandingType.FicheInscription, cancellationToken);
         var age = EnrollmentBusinessRules.CalculateAge(student.DateOfBirth, enrollment.EnrollmentDate);
         var address = student.Address;
+        var parentAccessAccounts = await LoadParentAccessAccountsAsync(schoolId, student.Id, cancellationToken);
 
         return new EnrollmentFormDocumentDto(
             school.Name,
@@ -188,7 +194,48 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
             father,
             mother,
             legalGuardian,
-            guardians);
+            guardians,
+            parentAccessAccounts);
+    }
+
+    private async Task<IReadOnlyList<ParentAppAccessCredentialDto>> LoadParentAccessAccountsAsync(
+        Guid schoolId,
+        Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        var links = (await _studentGuardianRepository.FindAsync(l => l.StudentId == studentId, cancellationToken)).ToList();
+        if (links.Count == 0)
+        {
+            return [];
+        }
+
+        var guardianIds = links.Select(l => l.GuardianId).Distinct().ToList();
+        var guardians = (await _guardianRepository.FindAsync(
+            g => guardianIds.Contains(g.Id),
+            cancellationToken)).ToDictionary(g => g.Id);
+
+        var users = (await _userRepository.FindAsync(
+            u => u.SchoolId == schoolId && u.GuardianId.HasValue && guardianIds.Contains(u.GuardianId.Value),
+            cancellationToken)).ToList();
+
+        var results = new List<ParentAppAccessCredentialDto>();
+        foreach (var user in users.Where(u => u.GuardianId.HasValue))
+        {
+            guardians.TryGetValue(user.GuardianId!.Value, out var guardian);
+            var fullName = guardian is null
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : $"{guardian.FirstName} {guardian.LastName}".Trim();
+
+            results.Add(new ParentAppAccessCredentialDto(
+                user.GuardianId.Value,
+                fullName,
+                user.UserName,
+                TemporaryPassword: null,
+                WasCreated: false,
+                user.MustChangePassword));
+        }
+
+        return results;
     }
 
     private async Task<IReadOnlyList<EnrollmentFormGuardianDto>> BuildGuardiansAsync(
@@ -297,9 +344,15 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
     public async Task<StoredEnrollmentFileDto> SaveToStudentDossierAsync(
         Guid schoolId,
         Guid enrollmentId,
+        IReadOnlyList<ParentAppAccessCredentialDto>? parentAccessAccounts = null,
         CancellationToken cancellationToken = default)
     {
         var form = await GetFormAsync(schoolId, enrollmentId, cancellationToken);
+        if (parentAccessAccounts is { Count: > 0 })
+        {
+            form = form with { ParentAccessAccounts = parentAccessAccounts };
+        }
+
         var pdfBytes = EnrollmentFormPdfGenerator.BuildPdfBytes(form, TryLoadImage);
         await using var stream = new MemoryStream(pdfBytes);
         var saved = await _studentDossierStorage.SaveStudentFileAsync(

@@ -485,6 +485,14 @@
 
         <Grid Grid.Row="0"
               Margin="20,16"
+              Visibility="{Binding IsCurrencySectionSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:CurrencyManagementControl HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                DataContext="{Binding CurrencyManagement}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
               Visibility="{Binding IsSyncCloudSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
             <controls:CloudSyncDashboardControl HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Stretch"

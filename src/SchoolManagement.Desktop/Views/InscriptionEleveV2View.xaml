@@ -208,6 +208,7 @@
                                                       HorizontalAlignment="Stretch"
                                                       IsCompatibilityOk="{Binding AgeCompatibilityOk}"
                                                       IsRequired="True"
+                                                      DateValidationMode="BirthDate"
                                                       Label="Date de naissance"
                                                       SelectedDate="{Binding DateOfBirth, Mode=TwoWay}"
                                                       ShowBadges="False" />
@@ -393,7 +394,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" FieldWidth="160" HorizontalAlignment="Stretch" IconKind="Numeric" Label="N° ordre" Text="{Binding OrderNumber, TargetNullValue=''}" />
+                            <erp:ErpTextField Grid.Column="0" Margin="{StaticResource ErpFormCellMargin}" FieldWidth="160" HorizontalAlignment="Stretch" IconKind="Numeric" Label="N° ordre" Text="{Binding OrderNumber, TargetNullValue=''}" ValidationMode="Integer" />
                             <erp:ErpDateField Grid.Column="1"
                                               Margin="{StaticResource ErpFormCellMargin}"
                                               FieldWidth="180"

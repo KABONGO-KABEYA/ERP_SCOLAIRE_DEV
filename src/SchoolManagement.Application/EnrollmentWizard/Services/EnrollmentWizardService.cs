@@ -7,6 +7,8 @@ using SchoolManagement.Application.Common.Models;
 using SchoolManagement.Application.Common.Storage;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.EnrollmentWizard.Interfaces;
+using SchoolManagement.Application.Parent.DTOs;
+using SchoolManagement.Application.Parent.Interfaces;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Application.Geography.Interfaces;
@@ -46,6 +48,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
     private readonly IStudentDossierStorageService _studentDossierStorage;
     private readonly IAddressService _addressService;
     private readonly IEnrollmentFormService _enrollmentFormService;
+    private readonly IParentAccessProvisioningService _parentAccessProvisioning;
     private readonly IUnitOfWork _unitOfWork;
 
     public EnrollmentWizardService(
@@ -72,6 +75,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         IStudentDossierStorageService studentDossierStorage,
         IAddressService addressService,
         IEnrollmentFormService enrollmentFormService,
+        IParentAccessProvisioningService parentAccessProvisioning,
         IUnitOfWork unitOfWork)
     {
         _yearRepository = yearRepository;
@@ -97,6 +101,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         _studentDossierStorage = studentDossierStorage;
         _addressService = addressService;
         _enrollmentFormService = enrollmentFormService;
+        _parentAccessProvisioning = parentAccessProvisioning;
         _unitOfWork = unitOfWork;
     }
 
@@ -663,11 +668,16 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        await ReplaceGuardiansAsync(
+        var linkedGuardians = await ReplaceGuardiansAsync(
             schoolId,
             student.Id,
             request.Guardians,
             request.ResidenceAddress,
+            cancellationToken);
+
+        var parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
+            schoolId,
+            linkedGuardians,
             cancellationToken);
 
         var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
@@ -743,6 +753,9 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             balanceLineCount > 0
                 ? $"Dossier financier initialisé ({balanceLineCount} solde(s), dû {totalDue:N2} {currency})"
                 : "Frais scolaires : aucun tarif applicable pour la classe (soldes non créés)",
+            parentAccessAccounts.Count > 0
+                ? $"Accès application parent : {parentAccessAccounts.Count} compte(s)"
+                : "Aucun accès application parent (pas de tuteur renseigné)",
             "Dossier de présence prêt",
             "Dossier d'examens prêt",
             "Dossier de bulletins prêt",
@@ -763,7 +776,11 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         var ficheMessage = string.Empty;
         try
         {
-            await _enrollmentFormService.SaveToStudentDossierAsync(schoolId, enrollment.Id, cancellationToken);
+            await _enrollmentFormService.SaveToStudentDossierAsync(
+                schoolId,
+                enrollment.Id,
+                parentAccessAccounts,
+                cancellationToken);
             ficheMessage = " Fiche d'inscription (PDF) enregistrée dans le dossier élève.";
         }
         catch
@@ -780,6 +797,8 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             ? $"Inscription validée. Dossier financier initialisé (dû {totalDue:N2} {currency})."
             : "Inscription validée. Aucun tarif applicable pour cette classe — configurez les frais scolaires (catégorie GENERAL) pour cette classe.";
 
+        var parentAccessMessage = BuildParentAccessMessage(parentAccessAccounts);
+
         return new CompleteEnrollmentResultDto(
             student.Id,
             enrollment.Id,
@@ -787,7 +806,8 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             StudentDisplayName.Format(student),
             className,
             totalDue,
-            financialMessage + ficheMessage);
+            financialMessage + ficheMessage + parentAccessMessage,
+            parentAccessAccounts);
     }
 
     private async Task<EnrollmentFeeSummaryDto?> ResolveEnrollmentFeeSummaryAsync(
@@ -1206,7 +1226,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         return parts.Count == 0 ? null : string.Join(" | ", parts);
     }
 
-    private async Task ReplaceGuardiansAsync(
+    private async Task<IReadOnlyList<Guardian>> ReplaceGuardiansAsync(
         Guid schoolId,
         Guid studentId,
         IReadOnlyList<GuardianInputDto> guardians,
@@ -1223,6 +1243,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         var cities = await _addressService.GetCityNamesAsync(cancellationToken);
         var communes = await _addressService.GetCommuneNamesAsync(cancellationToken);
         var linkedGuardianIds = new HashSet<Guid>();
+        var linkedGuardians = new List<Guardian>();
 
         foreach (var input in guardians.Where(g =>
                      !string.IsNullOrWhiteSpace(g.FirstName) || !string.IsNullOrWhiteSpace(g.LastName)))
@@ -1240,6 +1261,8 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             {
                 continue;
             }
+
+            linkedGuardians.Add(guardian);
 
             if (!schoolGuardians.Any(g => g.Id == guardian.Id))
             {
@@ -1290,6 +1313,24 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         {
             await _studentGuardianRepository.DeleteAsync(link, cancellationToken);
         }
+
+        return linkedGuardians;
+    }
+
+    internal static string BuildParentAccessMessage(IReadOnlyList<ParentAppAccessCredentialDto> accounts)
+    {
+        if (accounts.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var created = accounts.Count(a => a.WasCreated);
+        if (created == 0)
+        {
+            return $" Accès application parent déjà existant ({accounts.Count} compte(s)).";
+        }
+
+        return $" Accès application parent créés ({created} nouveau(x) compte(s)).";
     }
 
     private async Task<Guardian> CreateGuardianAsync(

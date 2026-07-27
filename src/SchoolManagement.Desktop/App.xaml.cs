@@ -120,10 +120,13 @@ public partial class App : System.Windows.Application
         services.AddTransient<IEnrollmentFormPrintService, EnrollmentFormPrintService>();
         services.AddTransient<IFeeTypeStatementPrintService, FeeTypeStatementPrintService>();
         services.AddTransient<IStudentListPrintService, StudentListPrintService>();
+        services.AddTransient<IStudentCardPrintService, StudentCardPrintService>();
         services.AddTransient<IStudentApiService, StudentApiService>();
         services.AddTransient<IPaymentApiService, PaymentApiService>();
         services.AddTransient<IRevenueAllocationApiService, RevenueAllocationApiService>();
         services.AddTransient<IWithholdingApiService, WithholdingApiService>();
+        services.AddTransient<ICurrencyApiService, CurrencyApiService>();
+        services.AddTransient<IStudentCardApiService, StudentCardApiService>();
         services.AddTransient<ICloudSyncApiService, CloudSyncApiService>();
         services.AddTransient<IFinanceApiService, FinanceApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
@@ -169,8 +172,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<SchoolFeeConfigurationViewModel>();
         services.AddTransient<RevenueAllocationConfigViewModel>();
         services.AddTransient<WithholdingConfigViewModel>();
+        services.AddTransient<CurrencyManagementViewModel>();
         services.AddTransient<CloudSyncDashboardViewModel>();
         services.AddTransient<StudentsViewModel>();
+        services.AddTransient<StudentCardsViewModel>();
+        services.AddTransient<CardTemplateDesignerViewModel>();
         services.AddTransient<StudentDossierEditViewModel>();
         services.AddTransient<EnrollmentWizardViewModel>();
         services.AddTransient<PaymentsViewModel>();
@@ -178,7 +184,6 @@ public partial class App : System.Windows.Application
         services.AddTransient<PricingCategoryAssignmentViewModel>();
         services.AddTransient<FinancialReportsViewModel>();
         services.AddTransient<PaymentSituationReportViewModel>();
-        services.AddTransient<ExpenseRequestsViewModel>();
         services.AddTransient<ExpensePaymentsViewModel>();
         services.AddTransient<FinanceHubViewModel>();
         services.AddTransient<GradesViewModel>();

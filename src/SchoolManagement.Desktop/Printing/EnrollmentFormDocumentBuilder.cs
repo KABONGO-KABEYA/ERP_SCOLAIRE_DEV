@@ -147,10 +147,11 @@ public static class EnrollmentFormDocumentBuilder
         var section = new Section { Margin = new Thickness(0, 0, 3, 0) };
         section.Blocks.Add(SectionBlock("1. IDENTIFICATION DE L'ÉLÈVE", BuildIdentityGrid(form)));
         section.Blocks.Add(SectionBlock("2. FILIATION", BuildFiliationGrid(form)));
-        section.Blocks.Add(SectionBlock("3. INFORMATIONS SCOLAIRES", BuildScolariteGrid(form)));
-        section.Blocks.Add(SectionBlock("4. DOCUMENTS FOURNIS", BuildDocumentsGrid(form)));
-        section.Blocks.Add(SectionBlock("5. RENSEIGNEMENTS MÉDICAUX", BuildMedicalGrid(form)));
-        section.Blocks.Add(SectionBlock("6. OBSERVATIONS", BuildObservationsBlock(form)));
+        section.Blocks.Add(SectionBlock("3. ACCÈS APPLICATION MOBILE", BuildParentAccessBlock(form)));
+        section.Blocks.Add(SectionBlock("4. INFORMATIONS SCOLAIRES", BuildScolariteGrid(form)));
+        section.Blocks.Add(SectionBlock("5. DOCUMENTS FOURNIS", BuildDocumentsGrid(form)));
+        section.Blocks.Add(SectionBlock("6. RENSEIGNEMENTS MÉDICAUX", BuildMedicalGrid(form)));
+        section.Blocks.Add(SectionBlock("7. OBSERVATIONS", BuildObservationsBlock(form)));
         return section;
     }
 
@@ -206,6 +207,52 @@ public static class EnrollmentFormDocumentBuilder
             ("E-mail", form.LegalGuardian?.Email ?? "—"),
             ("", ""));
         section.Blocks.Add(legalTable);
+
+        return section;
+    }
+
+    private static Block BuildParentAccessBlock(EnrollmentFormDocumentDto form)
+    {
+        var accounts = form.ParentAccessAccounts ?? [];
+        var section = new Section { Margin = new Thickness(0) };
+
+        if (accounts.Count == 0)
+        {
+            section.Blocks.Add(new Paragraph(new Run("Aucun compte d'accès parent généré.")
+            {
+                FontSize = FontBody,
+                FontStyle = FontStyles.Italic
+            })
+            {
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            return section;
+        }
+
+        section.Blocks.Add(new Paragraph(new Run(
+            "Remettre ces identifiants au responsable pour se connecter à l'application mobile.")
+        {
+            FontSize = FontBody,
+            FontStyle = FontStyles.Italic
+        })
+        {
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        foreach (var account in accounts)
+        {
+            var password = string.IsNullOrWhiteSpace(account.TemporaryPassword)
+                ? "———"
+                : account.TemporaryPassword!;
+            var remark = !string.IsNullOrWhiteSpace(account.TemporaryPassword)
+                ? "À changer à la 1ère connexion"
+                : "Compte existant / mot de passe déjà communiqué";
+
+            var table = TwoColumnFieldTable();
+            AddTwoColRow(table, ("Responsable", account.GuardianFullName), ("Identifiant", account.UserName));
+            AddTwoColRow(table, ("Mot de passe", password), ("Remarque", remark));
+            section.Blocks.Add(table);
+        }
 
         return section;
     }

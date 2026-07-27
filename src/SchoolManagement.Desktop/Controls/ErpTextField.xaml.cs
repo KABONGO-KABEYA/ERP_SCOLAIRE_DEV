@@ -46,7 +46,7 @@ public partial class ErpTextField : UserControl
 
     public static readonly DependencyProperty ValidationModeProperty =
         DependencyProperty.Register(nameof(ValidationMode), typeof(ErpFieldValidationMode), typeof(ErpTextField),
-            new PropertyMetadata(ErpFieldValidationMode.None, OnValidationPropertyChanged));
+            new PropertyMetadata(ErpFieldValidationMode.None, OnValidationModeChanged));
 
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
@@ -66,6 +66,7 @@ public partial class ErpTextField : UserControl
         Loaded += (_, _) =>
         {
             UpdateLayoutSizing();
+            ApplyNumericInputMode();
             RefreshValidation();
         };
     }
@@ -107,6 +108,25 @@ public partial class ErpTextField : UserControl
         {
             field.RefreshValidation();
         }
+    }
+
+    private static void OnValidationModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpTextField field)
+        {
+            field.ApplyNumericInputMode();
+            field.RefreshValidation();
+        }
+    }
+
+    private void ApplyNumericInputMode()
+    {
+        if (!IsLoaded || InputTextBox is null)
+        {
+            return;
+        }
+
+        NumericInput.SetMode(InputTextBox, NumericInput.FromValidationMode(ValidationMode));
     }
 
     private void RefreshValidation()
@@ -160,6 +180,14 @@ public partial class ErpTextField : UserControl
         {
             ApplyVisualState("Error");
             ErrorMessage = phoneError ?? string.Empty;
+            IsValid = false;
+            return;
+        }
+
+        if (!ErpFieldValidation.ValidateNumeric(value, ValidationMode, out var numericError))
+        {
+            ApplyVisualState("Error");
+            ErrorMessage = numericError ?? string.Empty;
             IsValid = false;
             return;
         }

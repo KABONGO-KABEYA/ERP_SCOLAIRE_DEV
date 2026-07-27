@@ -22,7 +22,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   final snap = ref.watch(connectionModeProvider);
   final raw = snap.baseUrl ?? ApiConfig.effectiveLocalBaseUrl;
   final url = ApiConfig.isValidBaseUrl(raw) ? ApiConfig.normalize(raw) : ApiConfig.effectiveLocalBaseUrl;
-  return ApiClient(baseUrl: url);
+  return ApiClient(
+    baseUrl: url,
+    onSessionExpired: () => ref.read(authStateProvider.notifier).setLoggedIn(false),
+  );
 });
 
 final parentRepositoryProvider =

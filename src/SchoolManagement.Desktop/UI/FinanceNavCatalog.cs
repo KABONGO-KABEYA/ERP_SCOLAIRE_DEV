@@ -79,14 +79,6 @@ public static class FinanceNavCatalog
             [
                 new FinanceNavItem
                 {
-                    Key = "demandes-paiement",
-                    Title = "Demandes de paiement",
-                    IconKind = "FileDocumentEditOutline",
-                    Section = FinanceSection.DemandesPaiement,
-                    Subtitle = "Demandes de décaissement et workflow d'approbation"
-                },
-                new FinanceNavItem
-                {
                     Key = "depenses",
                     Title = "Dépenses",
                     IconKind = "CashMinus",

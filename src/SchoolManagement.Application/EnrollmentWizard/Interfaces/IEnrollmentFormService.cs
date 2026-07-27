@@ -1,6 +1,7 @@
 namespace SchoolManagement.Application.EnrollmentWizard.Interfaces;
 
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
+using SchoolManagement.Application.Parent.DTOs;
 
 public interface IEnrollmentFormService
 {
@@ -12,5 +13,6 @@ public interface IEnrollmentFormService
     Task<StoredEnrollmentFileDto> SaveToStudentDossierAsync(
         Guid schoolId,
         Guid enrollmentId,
+        IReadOnlyList<ParentAppAccessCredentialDto>? parentAccessAccounts = null,
         CancellationToken cancellationToken = default);
 }

@@ -236,7 +236,8 @@
                                     <erp:ErpTextField HorizontalAlignment="Stretch"
                                                       IconKind="AccountGroup"
                                                       Label="Capacité"
-                                                      Text="{Binding LocalCapacityText, UpdateSourceTrigger=PropertyChanged}" />
+                                                      Text="{Binding LocalCapacityText, UpdateSourceTrigger=PropertyChanged}"
+                                                      ValidationMode="Integer" />
                                     <erp:ErpTextField HorizontalAlignment="Stretch"
                                                       IconKind="NoteTextOutline"
                                                       Label="Observations"

@@ -8,8 +8,10 @@ using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views;
 using SchoolManagement.Desktop.Views.Encaissements;
+using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -23,11 +25,13 @@ public partial class EncaissementsViewModel : ViewModelBase
     private readonly IPaymentApiService _paymentApi;
     private readonly IRevenueAllocationApiService _allocationApi;
     private readonly IWithholdingApiService _withholdingApi;
+    private readonly ICurrencyApiService _currencyApi;
     private readonly IAuthSessionService _authSession;
     private readonly IStudentDossierPathResolver _dossierPathResolver;
     private readonly IFeeTypeStatementPrintService _statementPrint;
     private CancellationTokenSource? _searchCts;
     private bool _suppressSearch;
+    private readonly List<PedagogicalClassFilterItem> _allPedagogicalClasses = [];
 
     private Guid? _defaultFeeTypeId;
 
@@ -39,6 +43,7 @@ public partial class EncaissementsViewModel : ViewModelBase
         IPaymentApiService paymentApi,
         IRevenueAllocationApiService allocationApi,
         IWithholdingApiService withholdingApi,
+        ICurrencyApiService currencyApi,
         IAuthSessionService authSession,
         IStudentDossierPathResolver dossierPathResolver,
         IFeeTypeStatementPrintService statementPrint)
@@ -50,6 +55,7 @@ public partial class EncaissementsViewModel : ViewModelBase
         _paymentApi = paymentApi;
         _allocationApi = allocationApi;
         _withholdingApi = withholdingApi;
+        _currencyApi = currencyApi;
         _authSession = authSession;
         _dossierPathResolver = dossierPathResolver;
         _statementPrint = statementPrint;
@@ -63,12 +69,19 @@ public partial class EncaissementsViewModel : ViewModelBase
             new PaymentStatusFilterItem(PaymentSituationStatus.Credit, "Crédit")
         ];
         SelectedPaymentStatusFilter = PaymentStatuses[0];
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = InitializeAsync();
     }
 
+    private void OnGlobalAcademicYearChanged()
+    {
+        CurrentPage = 1;
+        QueueSearch();
+    }
+
     public ObservableCollection<StudentPaymentSituationDto> Students { get; } = [];
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
     public ObservableCollection<SectionDto> Sections { get; } = [];
+    public ObservableCollection<PedagogicalClassFilterItem> PedagogicalClasses { get; } = [];
     public ObservableCollection<FeeTypeDto> FeeTypes { get; } = [];
     public IReadOnlyList<PaymentStatusFilterItem> PaymentStatuses { get; }
 
@@ -76,8 +89,8 @@ public partial class EncaissementsViewModel : ViewModelBase
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private StudentPaymentSituationDto? _selectedStudent;
-    [ObservableProperty] private AcademicYearDto? _selectedAcademicYear;
     [ObservableProperty] private SectionDto? _selectedSection;
+    [ObservableProperty] private PedagogicalClassFilterItem? _selectedPedagogicalClass;
     [ObservableProperty] private FeeTypeDto? _selectedFeeType;
     [ObservableProperty] private PaymentStatusFilterItem? _selectedPaymentStatusFilter;
     [ObservableProperty] private bool _isFiltersExpanded = true;
@@ -100,18 +113,19 @@ public partial class EncaissementsViewModel : ViewModelBase
 
     partial void OnSearchTextChanged(string value) => QueueSearch();
 
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value)
+    partial void OnSelectedSectionChanged(SectionDto? value)
     {
         if (_suppressSearch)
         {
             return;
         }
 
+        RefreshPedagogicalClassOptions(preserveSelection: false);
         CurrentPage = 1;
         QueueSearch();
     }
 
-    partial void OnSelectedSectionChanged(SectionDto? value)
+    partial void OnSelectedPedagogicalClassChanged(PedagogicalClassFilterItem? value)
     {
         if (_suppressSearch)
         {
@@ -157,8 +171,9 @@ public partial class EncaissementsViewModel : ViewModelBase
         try
         {
             SearchText = string.Empty;
-            SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
             SelectedSection = null;
+            SelectedPedagogicalClass = null;
+            RefreshPedagogicalClassOptions(preserveSelection: false);
             SelectedFeeType = ResolveDefaultFeeType();
             SelectedPaymentStatusFilter = PaymentStatuses[0];
             CurrentPage = 1;
@@ -356,6 +371,7 @@ public partial class EncaissementsViewModel : ViewModelBase
                     student,
                     _paymentApi,
                     _financeApi,
+                    _currencyApi,
                     _authSession,
                     _dossierPathResolver,
                     _statementPrint)
@@ -410,20 +426,32 @@ public partial class EncaissementsViewModel : ViewModelBase
         _suppressSearch = true;
         try
         {
-            AcademicYears.Clear();
-            foreach (var year in await _schoolApi.GetAcademicYearsAsync())
-            {
-                AcademicYears.Add(year);
-            }
-
-            SelectedAcademicYear = AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
             Sections.Clear();
             var structure = await _wizardApi.GetStructureOptionsAsync();
             foreach (var section in structure.Sections.OrderBy(s => s.Name))
             {
                 Sections.Add(section);
             }
+
+            _allPedagogicalClasses.Clear();
+            var pedagogicalClasses = await _schoolApi.GetPedagogicalClassesAsync(enabledOnly: true);
+            foreach (var cls in pedagogicalClasses.Where(c => c.IsEnabled).OrderBy(c => c.DisplayName))
+            {
+                var sectionId = ResolveSectionIdForProgram(cls.Program, Sections);
+                if (sectionId == Guid.Empty)
+                {
+                    continue;
+                }
+
+                _allPedagogicalClasses.Add(new PedagogicalClassFilterItem(
+                    cls.Id,
+                    cls.DisplayName,
+                    sectionId,
+                    cls.StudyOption,
+                    cls.Program));
+            }
+
+            RefreshPedagogicalClassOptions(preserveSelection: false);
 
             FeeTypes.Clear();
             var catalog = await _schoolFeeApi.GetCatalogAsync();
@@ -448,6 +476,47 @@ public partial class EncaissementsViewModel : ViewModelBase
         }
 
         await SearchAsync();
+    }
+
+    private void RefreshPedagogicalClassOptions(bool preserveSelection)
+    {
+        var previousId = preserveSelection ? SelectedPedagogicalClass?.Id : null;
+        PedagogicalClasses.Clear();
+        IEnumerable<PedagogicalClassFilterItem> query = _allPedagogicalClasses;
+        if (SelectedSection is not null)
+        {
+            query = query.Where(c => c.SectionId == SelectedSection.Id);
+        }
+
+        foreach (var item in query.OrderBy(c => c.DisplayName))
+        {
+            PedagogicalClasses.Add(item);
+        }
+
+        if (previousId is Guid id)
+        {
+            SelectedPedagogicalClass = PedagogicalClasses.FirstOrDefault(c => c.Id == id);
+        }
+        else if (!preserveSelection)
+        {
+            SelectedPedagogicalClass = null;
+        }
+    }
+
+    private static Guid ResolveSectionIdForProgram(SchoolProgram program, IEnumerable<SectionDto> sections)
+    {
+        var code = program switch
+        {
+            SchoolProgram.Maternelle => "MAT",
+            SchoolProgram.Primaire => "PRI",
+            SchoolProgram.CTEB => "CTEB",
+            SchoolProgram.Humanites => "HUM",
+            SchoolProgram.HumanitesProfessionnelles => "HPRO",
+            SchoolProgram.FilieresSpecialisees => "FS",
+            _ => "PRI"
+        };
+
+        return sections.FirstOrDefault(s => s.Code.Equals(code, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
     }
 
     private FeeTypeDto? ResolveDefaultFeeType() =>
@@ -480,11 +549,12 @@ public partial class EncaissementsViewModel : ViewModelBase
 
     private async Task SearchAsync()
     {
-        if (SelectedAcademicYear is null)
+        var yearId = AcademicYearRefreshBridge.SelectedYearId;
+        if (yearId is null)
         {
             Students.Clear();
             StudentsFoundCount = 0;
-            StatusMessage = "Sélectionnez une année scolaire.";
+            StatusMessage = "Aucune année scolaire sélectionnée (barre du haut).";
             return;
         }
 
@@ -502,9 +572,9 @@ public partial class EncaissementsViewModel : ViewModelBase
         try
         {
             var result = await _financeApi.SearchPaymentSituationsAsync(new StudentPaymentSituationSearchRequest(
-                SelectedAcademicYear.Id,
+                yearId.Value,
                 SelectedSection?.Id,
-                null,
+                SelectedPedagogicalClass?.Id,
                 null,
                 null,
                 SelectedFeeType.Id,

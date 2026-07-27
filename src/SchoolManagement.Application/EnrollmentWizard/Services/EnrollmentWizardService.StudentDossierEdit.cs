@@ -164,11 +164,16 @@ public sealed partial class EnrollmentWizardService
         await ApplyStudentFieldsAsync(student, request, cancellationToken);
         await _studentRepository.UpdateAsync(student, cancellationToken);
 
-        await ReplaceGuardiansAsync(
+        var linkedGuardians = await ReplaceGuardiansAsync(
             schoolId,
             student.Id,
             request.Guardians,
             request.ResidenceAddress,
+            cancellationToken);
+
+        var parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
+            schoolId,
+            linkedGuardians,
             cancellationToken);
 
         enrollment.ClassRoomId = request.Scolarite.ClassRoomId;
@@ -199,7 +204,11 @@ public sealed partial class EnrollmentWizardService
         var ficheMessage = string.Empty;
         try
         {
-            await _enrollmentFormService.SaveToStudentDossierAsync(schoolId, enrollment.Id, cancellationToken);
+            await _enrollmentFormService.SaveToStudentDossierAsync(
+                schoolId,
+                enrollment.Id,
+                parentAccessAccounts,
+                cancellationToken);
             ficheMessage = " Fiche d'inscription (PDF) régénérée dans le dossier élève.";
         }
         catch
@@ -212,7 +221,8 @@ public sealed partial class EnrollmentWizardService
             enrollment.Id,
             student.RegistrationNumber,
             StudentDisplayName.Format(student),
-            "Dossier élève mis à jour." + ficheMessage);
+            "Dossier élève mis à jour." + ficheMessage + BuildParentAccessMessage(parentAccessAccounts),
+            parentAccessAccounts);
     }
 
     private async Task<EnrollmentValidationResultDto> ValidateStudentDossierUpdateInternalAsync(

@@ -282,6 +282,7 @@
                                                               HorizontalAlignment="Stretch"
                                                               IsCompatibilityOk="{Binding AgeCompatibilityOk}"
                                                               IsRequired="True"
+                                                              DateValidationMode="BirthDate"
                                                               Label="Date de naissance"
                                                               SelectedDate="{Binding DateOfBirth, Mode=TwoWay}"
                                                               ShowBadges="False" />
@@ -564,7 +565,7 @@
                                 </Border>
 
                                 <WrapPanel Margin="0,12,0,0">
-                                    <TextBox Width="120" Margin="0,0,12,12" materialDesign:HintAssist.Hint="N° ordre" Style="{StaticResource ErpTextBox}" Text="{Binding OrderNumber, TargetNullValue=''}" />
+                                    <TextBox Width="120" Margin="0,0,12,12" materialDesign:HintAssist.Hint="N° ordre" Style="{StaticResource ErpTextBox}" Text="{Binding OrderNumber, TargetNullValue=''}" erp:NumericInput.Mode="Integer" />
                                     <DatePicker Width="180" Margin="0,0,12,12" SelectedDate="{Binding EnrollmentDate}" Style="{StaticResource ErpDatePicker}" />
                                     <ComboBox Width="220"
                                               Margin="0,0,12,12"
