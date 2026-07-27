@@ -89,7 +89,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         SelectedCalendarYear = CalendarYears.FirstOrDefault(y => y.Year == currentYear) ?? CalendarYears.LastOrDefault();
         _suppressMonthReload = false;
 
-        SelectedPeriod = PeriodOptions[0];
+        SelectedPeriod = PeriodOptions[2]; // Mensuel par défaut → plus de données visibles
         ApplyPeriodDates(SelectedPeriod.Kind);
         AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
     }
@@ -464,7 +464,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
             GrandTotal = result.GrandTotal;
             PaymentCount = result.PaymentCount;
-            StatusMessage = $"{result.PivotRows.Count} élève(s) — total {result.GrandTotal:N2}";
+            StatusMessage = result.PaymentCount == 0
+                ? "Aucune recette pour cette période. Élargissez la période ou vérifiez le type de frais."
+                : $"{result.PivotRows.Count} élève(s) — total {result.GrandTotal:N2}";
         }
         catch (Exception ex)
         {
@@ -596,7 +598,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
     {
         _suppressPeriodReload = true;
         _suppressFilterReload = true;
-        SelectedPeriod = PeriodOptions[0];
+        SelectedPeriod = PeriodOptions[2]; // Mensuel — évite un jour vide hors encaissements
         FilterFeeType = DefaultFeeTypeHelper.Resolve(FeeTypes, _defaultFeeTypeId);
         FilterSection = null;
         FilterClassRoom = null;
@@ -605,7 +607,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         SelectedCalendarYear = CalendarYears.FirstOrDefault(y => y.Year == DateTime.Today.Year)
             ?? CalendarYears.LastOrDefault();
         _suppressMonthReload = false;
-        ApplyPeriodDates(RealizedReceiptsPeriodKind.Day);
+        ApplyPeriodDates(RealizedReceiptsPeriodKind.Month);
         ClearDateErrors();
         _suppressFilterReload = false;
         _suppressPeriodReload = false;
@@ -641,7 +643,10 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
             var bytes = await _reportApi.ExportRealizedReceiptsPdfAsync(BuildRequest());
             await File.WriteAllBytesAsync(dialog.FileName, bytes);
-            StatusMessage = $"Export PDF enregistré : {dialog.FileName}";
+            var printed = ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Rapport financier");
+            StatusMessage = printed
+                ? $"Export PDF enregistré et envoyé à l'impression : {dialog.FileName}"
+                : $"Export PDF enregistré : {dialog.FileName}";
         }
         catch (Exception ex)
         {

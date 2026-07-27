@@ -557,7 +557,10 @@ public partial class WithholdingConfigViewModel : ViewModelBase
             IsBusy = true;
             var bytes = await _withholdingApi.ExportPdfAsync(BuildSearchRequest(pageSize: 5000));
             await File.WriteAllBytesAsync(dialog.FileName, bytes);
-            SetStatus("Export PDF généré.", FeeStatusMessageKind.Success);
+            var printed = ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Retenues");
+            SetStatus(
+                printed ? "Export PDF généré et envoyé à l'impression." : "Export PDF généré.",
+                FeeStatusMessageKind.Success);
         }
         catch (Exception ex)
         {

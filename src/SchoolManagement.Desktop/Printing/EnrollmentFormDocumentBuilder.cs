@@ -90,13 +90,21 @@ public static class EnrollmentFormDocumentBuilder
 
         if (headerPath is not null)
         {
-            var image = CreateImage(headerPath, ContentWidth - 8, 58, Stretch.Uniform);
+            var leftMm = (double)form.Branding.HeaderMarginLeftMm;
+            var rightMm = (double)form.Branding.HeaderMarginRightMm;
+            var heightMm = form.Branding.HeaderMaxHeightMm is > 0
+                ? (double)form.Branding.HeaderMaxHeightMm.Value
+                : 20;
+            // ~3.78 px/mm à 96 DPI ; étirement pleine largeur (pas centré)
+            var heightPx = Math.Clamp(heightMm * 3.78, 30, 220);
+            var widthPx = Math.Max(40, ContentWidth - 8 - leftMm * 3.78 - rightMm * 3.78);
+            var image = CreateImage(headerPath, widthPx, heightPx, Stretch.Fill);
             if (image is not null)
             {
                 wrapper.Blocks.Add(new Paragraph(new InlineUIContainer(image))
                 {
-                    TextAlignment = TextAlignment.Center,
-                    Margin = new Thickness(CellPad, CellPad, CellPad, 0),
+                    TextAlignment = TextAlignment.Left,
+                    Margin = new Thickness(CellPad + leftMm * 3.78, CellPad, CellPad + rightMm * 3.78, 0),
                     LineHeight = 1
                 });
             }

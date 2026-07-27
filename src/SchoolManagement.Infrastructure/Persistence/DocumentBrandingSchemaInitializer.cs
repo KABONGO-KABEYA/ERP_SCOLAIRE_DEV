@@ -91,6 +91,24 @@ public sealed class DocumentBrandingSchemaInitializer
         END
         """,
         """
+        IF COL_LENGTH(N'EcoleEntete', N'MarginLeftMm') IS NULL
+        BEGIN
+            ALTER TABLE [EcoleEntete] ADD [MarginLeftMm] decimal(9,2) NOT NULL CONSTRAINT [DF_EcoleEntete_MarginLeftMm] DEFAULT 0;
+        END
+        """,
+        """
+        IF COL_LENGTH(N'EcoleEntete', N'MarginRightMm') IS NULL
+        BEGIN
+            ALTER TABLE [EcoleEntete] ADD [MarginRightMm] decimal(9,2) NOT NULL CONSTRAINT [DF_EcoleEntete_MarginRightMm] DEFAULT 0;
+        END
+        """,
+        """
+        IF COL_LENGTH(N'EcoleEntete', N'MaxHeightMm') IS NULL
+        BEGIN
+            ALTER TABLE [EcoleEntete] ADD [MaxHeightMm] decimal(9,2) NULL;
+        END
+        """,
+        """
         IF OBJECT_ID(N'EcoleSignature', N'U') IS NULL
         BEGIN
             CREATE TABLE [EcoleSignature] (

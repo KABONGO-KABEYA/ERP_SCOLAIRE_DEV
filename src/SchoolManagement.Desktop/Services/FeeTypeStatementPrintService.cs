@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Printing;
 using System.Windows;
@@ -7,6 +6,7 @@ using System.Windows.Documents;
 using Microsoft.Win32;
 using SchoolManagement.Application.Payments.DTOs;
 using SchoolManagement.Desktop.Printing;
+using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views.Encaissements;
 
 namespace SchoolManagement.Desktop.Services;
@@ -184,19 +184,7 @@ public sealed class FeeTypeStatementPrintService : IFeeTypeStatementPrintService
         }
 
         await File.WriteAllBytesAsync(dialog.FileName, bytes, cancellationToken);
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
-        }
-        catch
-        {
-            MessageBox.Show(
-                $"PDF enregistré :\n{dialog.FileName}",
-                "Export PDF",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
+        ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Relevé de paiement");
     }
 
     private static string SanitizeFileName(string value)

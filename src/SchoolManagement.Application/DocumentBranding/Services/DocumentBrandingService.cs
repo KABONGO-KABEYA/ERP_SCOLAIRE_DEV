@@ -158,6 +158,9 @@ public sealed class DocumentBrandingService : IDocumentBrandingService
             WidthPx = request.WidthPx,
             HeightPx = request.HeightPx,
             ResolutionDpi = request.ResolutionDpi,
+            MarginLeftMm = NormalizeMargin(request.MarginLeftMm),
+            MarginRightMm = NormalizeMargin(request.MarginRightMm),
+            MaxHeightMm = NormalizeMaxHeight(request.MaxHeightMm),
             IsActive = request.IsActive
         };
 
@@ -192,6 +195,9 @@ public sealed class DocumentBrandingService : IDocumentBrandingService
         entity.WidthPx = request.WidthPx;
         entity.HeightPx = request.HeightPx;
         entity.ResolutionDpi = request.ResolutionDpi;
+        entity.MarginLeftMm = NormalizeMargin(request.MarginLeftMm);
+        entity.MarginRightMm = NormalizeMargin(request.MarginRightMm);
+        entity.MaxHeightMm = NormalizeMaxHeight(request.MaxHeightMm);
         entity.IsActive = request.IsActive;
         await _headerRepository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -395,7 +401,24 @@ public sealed class DocumentBrandingService : IDocumentBrandingService
         {
             throw new DomainException("L'image complète est obligatoire pour ce mode.");
         }
+
+        if (request.MarginLeftMm < 0 || request.MarginLeftMm > 40
+            || request.MarginRightMm < 0 || request.MarginRightMm > 40)
+        {
+            throw new DomainException("Les marges de l'en-tête doivent être entre 0 et 40 mm.");
+        }
+
+        if (request.MaxHeightMm is < 8 or > 60)
+        {
+            throw new DomainException("La hauteur max de l'en-tête doit être entre 8 et 60 mm.");
+        }
     }
+
+    private static decimal NormalizeMargin(decimal value) =>
+        Math.Clamp(value, 0m, 40m);
+
+    private static decimal? NormalizeMaxHeight(decimal? value) =>
+        value is null ? null : Math.Clamp(value.Value, 8m, 60m);
 
     private static void ValidateSignatureRequest(SaveSchoolSignatureRequest request, string? imagePath)
     {
@@ -456,7 +479,10 @@ public sealed class DocumentBrandingService : IDocumentBrandingService
             entity.WidthPx,
             entity.HeightPx,
             entity.ResolutionDpi,
-            entity.IsActive);
+            entity.IsActive,
+            entity.MarginLeftMm,
+            entity.MarginRightMm,
+            entity.MaxHeightMm);
     }
 
     private static SchoolSignatureDto MapSignature(SchoolSignature entity)

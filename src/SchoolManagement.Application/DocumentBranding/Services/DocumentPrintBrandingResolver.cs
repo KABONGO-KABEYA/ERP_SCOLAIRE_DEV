@@ -51,10 +51,16 @@ public sealed class DocumentPrintBrandingResolver : IDocumentPrintBrandingResolv
         string? headerImagePath = null;
         string? primaryLogoPath = primaryLogo?.ImagePath;
         HeaderPrintMode? printMode = null;
+        decimal marginLeftMm = 0;
+        decimal marginRightMm = 0;
+        decimal? maxHeightMm = null;
 
         if (header is not null)
         {
             printMode = header.PrintMode;
+            marginLeftMm = header.MarginLeftMm;
+            marginRightMm = header.MarginRightMm;
+            maxHeightMm = header.MaxHeightMm;
             if (header.PrintMode == HeaderPrintMode.FullImage)
             {
                 headerImagePath = header.ImagePath;
@@ -104,7 +110,10 @@ public sealed class DocumentPrintBrandingResolver : IDocumentPrintBrandingResolv
             primaryLogoPath,
             footer,
             signatures,
-            stamps);
+            stamps,
+            marginLeftMm,
+            marginRightMm,
+            maxHeightMm);
     }
 
     private static SchoolSignatureDto MapSignatureDto(SchoolSignature entity)

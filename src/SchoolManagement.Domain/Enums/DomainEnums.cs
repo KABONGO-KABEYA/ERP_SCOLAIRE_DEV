@@ -69,6 +69,7 @@ public enum DocumentBrandingType
     RelevePoints = 8,
     Palmares = 9,
     FicheInscription = 10,
+    RapportFinancier = 11,
     Autre = 99
 }
 

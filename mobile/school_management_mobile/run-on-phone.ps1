@@ -8,8 +8,8 @@
 # Comportement normal :
 #   - Local = IP LAN du PC (meme Wi-Fi que l'ecole)
 #   - Hors Wi-Fi ecole => bascule Cloud (lecture seule)
-#   - Cloud par defaut = Docker local :8080 via tunnel USB (tant que le VPS public n'est pas pret)
-#   - 4G sans USB : deployer l'API Cloud sur VPS, puis -CloudApiUrl "http(s)://IP_OU_DOMAINE:8080"
+#   - Cloud par defaut = Docker local :1804 via tunnel USB (tant que le VPS public n'est pas pret)
+#   - 4G sans USB : deployer l'API Cloud sur VPS, puis -CloudApiUrl "http(s)://IP_OU_DOMAINE:1804"
 param(
     [string]$LocalApiUrl = "",
     [string]$CloudApiUrl = "",
@@ -65,7 +65,9 @@ function Get-LanApiBaseUrl {
 
 # Cloud Docker local (test bascule) via USB. Ne force PAS le mode Local hors Wi-Fi.
 & $adb -s $DeviceId reverse --remove tcp:5041 2>$null | Out-Null
-& $adb -s $DeviceId reverse tcp:8080 tcp:8080
+& $adb -s $DeviceId reverse --remove tcp:1804 2>$null | Out-Null
+& $adb -s $DeviceId reverse --remove tcp:8080 2>$null | Out-Null
+& $adb -s $DeviceId reverse tcp:1804 tcp:1804
 
 if ($UsbLocalTunnel) {
     & $adb -s $DeviceId reverse tcp:5041 tcp:5041
@@ -89,7 +91,7 @@ if ($CloudApiUrl) {
     $defines += "--dart-define=CLOUD_API_BASE_URL=$($env:CLOUD_API_BASE_URL)"
 } else {
     # Docker Cloud sur le PC, joignable hors Wi-Fi tant que le USB est branche.
-    $defines += "--dart-define=CLOUD_API_BASE_URL=http://127.0.0.1:8080"
+    $defines += "--dart-define=CLOUD_API_BASE_URL=http://127.0.0.1:1804"
 }
 
 Write-Host "Defines: $($defines -join ' ')"

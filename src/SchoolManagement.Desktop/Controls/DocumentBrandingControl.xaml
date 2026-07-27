@@ -112,8 +112,64 @@
                             </Border>
                             <ComboBox Margin="0,0,0,8" DisplayMemberPath="Label" ItemsSource="{Binding PrintModes}" SelectedValue="{Binding HeaderPrintMode}" SelectedValuePath="Value" materialDesign:HintAssist.Hint="Mode d'impression" />
                             <CheckBox Content="Actif" IsChecked="{Binding HeaderIsActive}" Margin="0,0,0,8" />
-                            <Border Margin="0,0,0,12" MinHeight="120" Background="#F8FAFC" CornerRadius="8">
-                                <Image MaxHeight="120" Source="{Binding HeaderPreviewPath, Converter={StaticResource PathToImageSourceConverter}}" Stretch="Uniform" />
+
+                            <TextBlock Margin="0,4,0,2" FontWeight="SemiBold" Text="Ajustement de l'en-tête (aligné sur les tableaux)" />
+                            <TextBlock Margin="0,0,0,8" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap"
+                                       Text="L'image s'étire de gauche à droite sur la même largeur que les tableaux. Réglez les marges pour un ajustement fin." />
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding HeaderMarginLeftMm, StringFormat=Marge gauche : {0:0.#} mm}" />
+                                    <Slider Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding HeaderMarginLeftMm, Mode=TwoWay}" />
+                                </StackPanel>
+                                <TextBox Grid.Column="1" VerticalAlignment="Center"
+                                         materialDesign:HintAssist.Hint="mm"
+                                         Style="{StaticResource ErpTextBox}"
+                                         Text="{Binding HeaderMarginLeftMm, UpdateSourceTrigger=PropertyChanged, StringFormat=0.#}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding HeaderMarginRightMm, StringFormat=Marge droite : {0:0.#} mm}" />
+                                    <Slider Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding HeaderMarginRightMm, Mode=TwoWay}" />
+                                </StackPanel>
+                                <TextBox Grid.Column="1" VerticalAlignment="Center"
+                                         materialDesign:HintAssist.Hint="mm"
+                                         Style="{StaticResource ErpTextBox}"
+                                         Text="{Binding HeaderMarginRightMm, UpdateSourceTrigger=PropertyChanged, StringFormat=0.#}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding HeaderMaxHeightMm, StringFormat=Hauteur : {0:0.#} mm}" />
+                                    <Slider Minimum="8" Maximum="50" TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding HeaderMaxHeightMm, Mode=TwoWay}" />
+                                </StackPanel>
+                                <TextBox Grid.Column="1" VerticalAlignment="Center"
+                                         materialDesign:HintAssist.Hint="mm"
+                                         Style="{StaticResource ErpTextBox}"
+                                         Text="{Binding HeaderMaxHeightMm, UpdateSourceTrigger=PropertyChanged, StringFormat=0.#}" />
+                            </Grid>
+
+                            <Border Margin="0,0,0,12" MinHeight="100" Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8"
+                                    Padding="{Binding HeaderPreviewPadding}">
+                                <Border Background="#F8FAFC" CornerRadius="4">
+                                    <Image Height="{Binding HeaderPreviewHeight}"
+                                           HorizontalAlignment="Stretch"
+                                           Source="{Binding HeaderPreviewPath, Converter={StaticResource PathToImageSourceConverter}}"
+                                           Stretch="Fill" />
+                                </Border>
                             </Border>
                             <StackPanel Orientation="Horizontal">
                                 <Button Command="{Binding PickHeaderImageCommand}" Content="Importer" Style="{StaticResource ErpSecondaryButton}" />

@@ -27,7 +27,10 @@ public sealed record SchoolDocumentHeaderDto(
     int? WidthPx,
     int? HeightPx,
     int? ResolutionDpi,
-    bool IsActive);
+    bool IsActive,
+    decimal MarginLeftMm = 0,
+    decimal MarginRightMm = 0,
+    decimal? MaxHeightMm = null);
 
 public sealed record SaveSchoolDocumentHeaderRequest(
     string Name,
@@ -37,7 +40,10 @@ public sealed record SaveSchoolDocumentHeaderRequest(
     int? HeightPx,
     int? ResolutionDpi,
     bool IsActive,
-    string? ApplicableDocumentTypes = null);
+    string? ApplicableDocumentTypes = null,
+    decimal MarginLeftMm = 0,
+    decimal MarginRightMm = 0,
+    decimal? MaxHeightMm = null);
 
 public sealed record SchoolSignatureDto(
     Guid Id,
@@ -97,7 +103,10 @@ public sealed record DocumentPrintBrandingDto(
     string? PrimaryLogoPath,
     SchoolDocumentFooterDto? Footer,
     IReadOnlyList<SchoolSignatureDto> Signatures,
-    IReadOnlyList<SchoolStampDto> Stamps);
+    IReadOnlyList<SchoolStampDto> Stamps,
+    decimal HeaderMarginLeftMm = 0,
+    decimal HeaderMarginRightMm = 0,
+    decimal? HeaderMaxHeightMm = null);
 
 public sealed record DocumentBrandingLookupDto(
     IReadOnlyList<DocumentBrandingTypeOptionDto> DocumentTypes,

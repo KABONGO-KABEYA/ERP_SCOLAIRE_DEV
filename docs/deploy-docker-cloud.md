@@ -13,7 +13,7 @@ PC école     → sync Local → SQL Cloud
 
 - Docker + Docker Compose v2
 - Une base SQL Cloud joignable (ex. `161.97.105.22`)
-- Ports ouverts sur le VPS : **8080** (ou 80/443 derrière un reverse proxy)
+- Ports ouverts sur le VPS : **1804** (ou 80/443 derrière un reverse proxy)
 
 ## 1. Préparer les secrets (sur le PC école)
 
@@ -44,7 +44,7 @@ Exemple :
 ```env
 SQL_CONNECTION_STRING=Server=161.97.105.22,1433;Database=SchoolManagementRDC;User Id=sa;Password=VOTRE_MDP;TrustServerCertificate=True;Encrypt=True
 JWT_SECRET_KEY=une-cle-secrete-tres-longue-aleatoire-32+
-API_HOST_PORT=8080
+API_HOST_PORT=1804
 ```
 
 ## 2. Lancer l'API (sur le VPS avec Docker)
@@ -61,12 +61,12 @@ Vérifier :
 
 ```bash
 docker compose ps
-curl http://127.0.0.1:8080/api/v1/health
+curl http://127.0.0.1:1804/api/v1/health
 ```
 
 ## 3. HTTPS (recommandé)
 
-Placez Caddy / Nginx / Traefik devant le conteneur pour `https://api.votredomaine.com` → `127.0.0.1:8080`.
+Placez Caddy / Nginx / Traefik devant le conteneur pour `https://api.votredomaine.com` → `127.0.0.1:1804`.
 
 ## 4. Sync depuis le PC école
 
@@ -94,7 +94,7 @@ Sans HTTPS encore (test) :
 ```powershell
 .\run-on-phone.ps1 `
   -LocalApiUrl "http://IP_PC_ECOLE:5041" `
-  -CloudApiUrl "http://IP_VPS:8080"
+  -CloudApiUrl "http://IP_VPS:1804"
 ```
 
 ## Profil optionnel : SQL dans Compose

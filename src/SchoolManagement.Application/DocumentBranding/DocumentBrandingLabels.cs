@@ -16,6 +16,7 @@ public static class DocumentBrandingLabels
         DocumentBrandingType.RelevePoints => "Relevé des points",
         DocumentBrandingType.Palmares => "Palmarès",
         DocumentBrandingType.FicheInscription => "Fiche d'inscription",
+        DocumentBrandingType.RapportFinancier => "Rapport financier",
         DocumentBrandingType.Autre => "Autre",
         _ => type.ToString()
     };
@@ -39,6 +40,7 @@ public static class DocumentBrandingLabels
         DocumentBrandingType.RelevePoints,
         DocumentBrandingType.Palmares,
         DocumentBrandingType.FicheInscription,
+        DocumentBrandingType.RapportFinancier,
         DocumentBrandingType.Autre
     ];
 }

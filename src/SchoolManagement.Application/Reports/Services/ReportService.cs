@@ -6,9 +6,13 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.DocumentBranding.DTOs;
+using SchoolManagement.Application.DocumentBranding.Interfaces;
 using SchoolManagement.Application.Finance.Interfaces;
 using SchoolManagement.Application.Reports.DTOs;
 using SchoolManagement.Application.Reports.Interfaces;
+using SchoolManagement.Application.RevenueAllocation.DTOs;
+using SchoolManagement.Application.RevenueAllocation.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
@@ -35,6 +39,10 @@ public sealed class ReportService : IReportService
     private readonly IRepository<StudentFeeBalance> _balanceRepository;
     private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
     private readonly IFinanceOperationService _financeOperationService;
+    private readonly IRevenueAllocationService _revenueAllocationService;
+    private readonly IRepository<School> _schoolRepository;
+    private readonly IDocumentPrintBrandingResolver _brandingResolver;
+    private readonly IDocumentBrandingStorageService _brandingStorage;
 
     public ReportService(
         IRepository<Student> studentRepository,
@@ -52,7 +60,11 @@ public sealed class ReportService : IReportService
         IRepository<AcademicYear> yearRepository,
         IRepository<StudentFeeBalance> balanceRepository,
         IRepository<ClassFeeAmount> classFeeAmountRepository,
-        IFinanceOperationService financeOperationService)
+        IFinanceOperationService financeOperationService,
+        IRevenueAllocationService revenueAllocationService,
+        IRepository<School> schoolRepository,
+        IDocumentPrintBrandingResolver brandingResolver,
+        IDocumentBrandingStorageService brandingStorage)
     {
         _studentRepository = studentRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -70,6 +82,10 @@ public sealed class ReportService : IReportService
         _balanceRepository = balanceRepository;
         _classFeeAmountRepository = classFeeAmountRepository;
         _financeOperationService = financeOperationService;
+        _revenueAllocationService = revenueAllocationService;
+        _schoolRepository = schoolRepository;
+        _brandingResolver = brandingResolver;
+        _brandingStorage = brandingStorage;
     }
 
     public async Task<DashboardStatsDto> GetDashboardAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -648,244 +664,97 @@ public sealed class ReportService : IReportService
         RealizedReceiptsRequest request,
         CancellationToken cancellationToken = default)
     {
-        QuestPDF.Settings.License = LicenseType.Community;
         var exportRequest = request with { Page = 1, PageSize = 2_000 };
         var result = await GetRealizedReceiptsAsync(schoolId, exportRequest, cancellationToken);
 
-        var document = Document.Create(container =>
+        var allocationRequest = new RevenueAllocationSearchRequest(
+            request.AcademicYearId,
+            request.FromDate,
+            request.ToDate,
+            StudentId: null,
+            PaymentId: null,
+            DestinationId: null,
+            FeeTypeId: request.FeeTypeId,
+            SectionId: request.SectionId,
+            ClassRoomId: request.ClassRoomId,
+            Page: 1,
+            PageSize: 2_000);
+
+        var allocations = await _revenueAllocationService.GetAllocationCashFlowAsync(
+            schoolId,
+            allocationRequest,
+            cancellationToken);
+        var withholdings = await _revenueAllocationService.GetWithholdingReportAsync(
+            schoolId,
+            allocationRequest,
+            cancellationToken);
+
+        var school = (await _schoolRepository.FindAsync(s => s.Id == schoolId, cancellationToken)).FirstOrDefault();
+        var schoolName = school?.Name ?? "Établissement scolaire";
+
+        var branding = await _brandingResolver.ResolveAsync(
+            schoolId,
+            DocumentBrandingType.RapportFinancier,
+            cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(branding.HeaderImagePath)
+            && string.IsNullOrWhiteSpace(branding.PrimaryLogoPath))
         {
-            container.Page(page =>
+            branding = await _brandingResolver.ResolveAsync(schoolId, DocumentBrandingType.Recu, cancellationToken);
+        }
+
+        string? feeTypeName = null;
+        if (request.FeeTypeId.HasValue)
+        {
+            feeTypeName = (await _feeTypeRepository.FindAsync(
+                    f => f.Id == request.FeeTypeId.Value && f.SchoolId == schoolId,
+                    cancellationToken))
+                .FirstOrDefault()?.Name;
+        }
+
+        if (branding.Footer is null && school is not null)
+        {
+            branding = branding with
             {
-                page.Margin(30);
-                page.Header().Column(col =>
-                {
-                    col.Item().Text("Recettes réalisées").SemiBold().FontSize(16);
-                    col.Item().Text($"Période du {result.FromDate:dd/MM/yyyy} au {result.ToDate:dd/MM/yyyy}")
-                        .FontSize(10).FontColor(Colors.Grey.Darken2);
-                });
+                Footer = new SchoolDocumentFooterDto(
+                    null,
+                    string.Join(", ", new[] { school.Address, school.City, school.Province }
+                        .Where(s => !string.IsNullOrWhiteSpace(s))),
+                    school.Phone,
+                    school.Email,
+                    school.Website,
+                    null,
+                    null,
+                    null)
+            };
+        }
 
-                page.Content().Column(col =>
-                {
-                    if (result.InstallmentColumns.Count > 0)
-                    {
-                        col.Item().PaddingBottom(12).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(2.2f);
-                                columns.RelativeColumn(1.6f);
-                                foreach (var _ in result.InstallmentColumns)
-                                {
-                                    columns.RelativeColumn(1.1f);
-                                }
+        return RealizedReceiptsPdfGenerator.BuildPdfBytes(
+            result,
+            allocations,
+            withholdings,
+            schoolName,
+            branding,
+            feeTypeName,
+            LoadBrandingImage);
+    }
 
-                                columns.RelativeColumn(1.1f);
-                            });
+    private byte[]? LoadBrandingImage(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath) || !_brandingStorage.FileExists(relativePath))
+        {
+            return null;
+        }
 
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Nom complet").SemiBold();
-                                header.Cell().Text("Classe").SemiBold();
-                                foreach (var installment in result.InstallmentColumns)
-                                {
-                                    header.Cell().AlignRight().Text(installment.InstallmentName).SemiBold();
-                                }
-
-                                header.Cell().AlignRight().Text("Total").SemiBold();
-                            });
-
-                            foreach (var row in result.PivotRows)
-                            {
-                                table.Cell().Text(row.StudentName);
-                                table.Cell().Text(row.ClassName);
-                                for (var i = 0; i < row.InstallmentAmounts.Count; i++)
-                                {
-                                    var amount = row.InstallmentAmounts[i];
-                                    table.Cell().AlignRight().Text(amount > 0 ? $"{amount:N2}" : "—");
-                                }
-
-                                table.Cell().AlignRight().Text($"{row.RowTotal:N2}");
-                            }
-                        });
-                    }
-
-                    if (result.DailyPivotRows.Count > 0)
-                    {
-                        col.Item().PaddingTop(16).Text("Détail journalier").SemiBold().FontSize(12);
-                        col.Item().PaddingTop(6).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(1.1f);
-                                columns.RelativeColumn(2f);
-                                columns.RelativeColumn(1.5f);
-                                foreach (var _ in result.InstallmentColumns)
-                                {
-                                    columns.RelativeColumn(1.4f);
-                                }
-
-                                columns.RelativeColumn(1f);
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Date").SemiBold();
-                                header.Cell().Text("Nom complet").SemiBold();
-                                header.Cell().Text("Classe").SemiBold();
-                                foreach (var installment in result.InstallmentColumns)
-                                {
-                                    header.Cell().Text(installment.InstallmentName).SemiBold();
-                                }
-
-                                header.Cell().AlignRight().Text("Total").SemiBold();
-                            });
-
-                            DateOnly? previousDate = null;
-                            foreach (var row in result.DailyPivotRows)
-                            {
-                                table.Cell().Text(previousDate == row.Date ? string.Empty : $"{row.Date:dd/MM/yyyy}");
-                                table.Cell().Text(row.StudentName);
-                                table.Cell().Text(row.ClassName);
-                                for (var i = 0; i < row.InstallmentDetails.Count; i++)
-                                {
-                                    var detail = row.InstallmentDetails[i];
-                                    table.Cell().Text(string.IsNullOrWhiteSpace(detail) ? "—" : detail);
-                                }
-
-                                table.Cell().AlignRight().Text($"{row.RowTotal:N2}");
-                                previousDate = row.Date;
-                            }
-                        });
-                    }
-
-                    if (result.DailyBuckets.Count > 0)
-                    {
-                        col.Item().PaddingTop(16).Text("Synthèse journalière").SemiBold().FontSize(12);
-                        col.Item().PaddingTop(6).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(2);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1);
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Jour").SemiBold();
-                                header.Cell().AlignRight().Text("Montant").SemiBold();
-                                header.Cell().AlignRight().Text("Nb").SemiBold();
-                            });
-
-                            foreach (var bucket in result.DailyBuckets)
-                            {
-                                table.Cell().Text($"{bucket.Date:dd/MM/yyyy}");
-                                table.Cell().AlignRight().Text($"{bucket.TotalAmount:N2}");
-                                table.Cell().AlignRight().Text(bucket.PaymentCount.ToString());
-                            }
-                        });
-                    }
-
-                    if (result.ByClass.Count > 0)
-                    {
-                        col.Item().PaddingTop(16).Text("Par classe").SemiBold().FontSize(12);
-                        col.Item().PaddingTop(6).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(2);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1);
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Classe").SemiBold();
-                                header.Cell().Text("Section").SemiBold();
-                                header.Cell().AlignRight().Text("Montant").SemiBold();
-                                header.Cell().AlignRight().Text("Nb").SemiBold();
-                            });
-
-                            foreach (var item in result.ByClass)
-                            {
-                                table.Cell().Text(item.ClassName);
-                                table.Cell().Text(item.SectionName);
-                                table.Cell().AlignRight().Text($"{item.TotalAmount:N2}");
-                                table.Cell().AlignRight().Text(item.PaymentCount.ToString());
-                            }
-                        });
-                    }
-
-                    if (result.ByFeeType.Count > 0)
-                    {
-                        col.Item().PaddingTop(16).Text("Par type de frais").SemiBold().FontSize(12);
-                        col.Item().PaddingTop(6).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(2.5f);
-                                columns.RelativeColumn(1);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1);
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Type de frais").SemiBold();
-                                header.Cell().Text("Devise").SemiBold();
-                                header.Cell().AlignRight().Text("Montant").SemiBold();
-                                header.Cell().AlignRight().Text("Nb").SemiBold();
-                            });
-
-                            foreach (var item in result.ByFeeType)
-                            {
-                                table.Cell().Text(item.FeeTypeName);
-                                table.Cell().Text(item.Currency);
-                                table.Cell().AlignRight().Text($"{item.TotalAmount:N2}");
-                                table.Cell().AlignRight().Text(item.PaymentCount.ToString());
-                            }
-                        });
-                    }
-
-                    if (result.BySection.Count > 0)
-                    {
-                        col.Item().PaddingTop(16).Text("Par section").SemiBold().FontSize(12);
-                        col.Item().PaddingTop(6).Table(table =>
-                        {
-                            table.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn(1.2f);
-                                columns.RelativeColumn(2.5f);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1);
-                            });
-
-                            table.Header(header =>
-                            {
-                                header.Cell().Text("Code").SemiBold();
-                                header.Cell().Text("Section").SemiBold();
-                                header.Cell().AlignRight().Text("Montant").SemiBold();
-                                header.Cell().AlignRight().Text("Nb").SemiBold();
-                            });
-
-                            foreach (var item in result.BySection)
-                            {
-                                table.Cell().Text(item.SectionCode);
-                                table.Cell().Text(item.SectionName);
-                                table.Cell().AlignRight().Text($"{item.TotalAmount:N2}");
-                                table.Cell().AlignRight().Text(item.PaymentCount.ToString());
-                            }
-                        });
-                    }
-                });
-
-                page.Footer().AlignRight().Text(
-                    $"Total : {result.GrandTotal:N2} — {result.PaymentCount} paiement(s)");
-            });
-        });
-
-        return document.GeneratePdf();
+        try
+        {
+            var absolute = _brandingStorage.ResolveAbsolutePath(relativePath);
+            return File.Exists(absolute) ? File.ReadAllBytes(absolute) : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<byte[]> ExportRealizedReceiptsExcelAsync(

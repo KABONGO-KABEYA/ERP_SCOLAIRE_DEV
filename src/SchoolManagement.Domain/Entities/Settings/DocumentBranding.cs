@@ -39,6 +39,15 @@ public class SchoolDocumentHeader : AuditableEntity, IAggregateRoot
 
     public int? ResolutionDpi { get; set; }
 
+    /// <summary>Marge gauche additionnelle de l'image d'en-tête (mm), au sein de la zone contenu.</summary>
+    public decimal MarginLeftMm { get; set; }
+
+    /// <summary>Marge droite additionnelle de l'image d'en-tête (mm), au sein de la zone contenu.</summary>
+    public decimal MarginRightMm { get; set; }
+
+    /// <summary>Hauteur max de l'image d'en-tête (mm). Null = hauteur automatique (~20 mm).</summary>
+    public decimal? MaxHeightMm { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public School School { get; set; } = null!;

@@ -29,6 +29,9 @@ public class SchoolDocumentHeaderConfiguration : AuditableEntityConfiguration<Sc
         builder.Property(x => x.ApplicableDocumentTypes).HasMaxLength(200);
         builder.Property(x => x.PrintMode).HasConversion<int>();
         builder.Property(x => x.ImagePath).HasMaxLength(500);
+        builder.Property(x => x.MarginLeftMm).HasPrecision(9, 2);
+        builder.Property(x => x.MarginRightMm).HasPrecision(9, 2);
+        builder.Property(x => x.MaxHeightMm).HasPrecision(9, 2);
         builder.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.SchoolId, x.DocumentType, x.Name });
     }

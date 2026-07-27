@@ -3,7 +3,7 @@
 # Usage :
 #   1. Copier .env.example → .env et renseigner les secrets
 #   2. docker compose up -d --build
-#   3. Tester : http://localhost:8080/api/v1/health
+#   3. Tester : http://localhost:1804/api/v1/health
 #
 # Le service `sql` est optionnel (profil "full").
 # En production, pointez SQL_CONNECTION_STRING vers votre SQL distant (ex. 161.97.105.22).
@@ -17,7 +17,7 @@ services:
     container_name: erp-api-cloud
     restart: unless-stopped
     ports:
-      - "${API_HOST_PORT:-8080}:8080"
+      - "${API_HOST_PORT:-1804}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://0.0.0.0:8080

@@ -5,6 +5,7 @@ using QRCoder;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SchoolManagement.Application.DocumentBranding;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 
 public static class EnrollmentFormPdfGenerator
@@ -57,10 +58,13 @@ public static class EnrollmentFormPdfGenerator
     {
         container.Border(1).BorderColor(BorderBlue).Background(LightBlue).Padding(8).Column(col =>
         {
-            var headerBytes = loadImage(form.Branding.HeaderImagePath) ?? loadImage(form.Branding.PrimaryLogoPath);
-            if (headerBytes is not null)
+            if (!DocumentPrintHeaderComposer.TryComposeFullWidthImage(col.Item(), form.Branding, loadImage))
             {
-                col.Item().AlignCenter().Height(48).Image(headerBytes).FitArea();
+                var headerBytes = loadImage(form.Branding.HeaderImagePath) ?? loadImage(form.Branding.PrimaryLogoPath);
+                if (headerBytes is not null)
+                {
+                    col.Item().Height(48).Image(headerBytes).FitUnproportionally();
+                }
             }
 
             col.Item().AlignCenter().Text(form.SchoolName).Bold().FontSize(12).FontColor(PrimaryBlue);

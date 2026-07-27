@@ -2113,6 +2113,12 @@ public sealed class DocumentBrandingApiService : ApiServiceBase, IDocumentBrandi
         if (request.WidthPx.HasValue) content.Add(new StringContent(request.WidthPx.Value.ToString()), "WidthPx");
         if (request.HeightPx.HasValue) content.Add(new StringContent(request.HeightPx.Value.ToString()), "HeightPx");
         if (request.ResolutionDpi.HasValue) content.Add(new StringContent(request.ResolutionDpi.Value.ToString()), "ResolutionDpi");
+        content.Add(new StringContent(request.MarginLeftMm.ToString(System.Globalization.CultureInfo.InvariantCulture)), "MarginLeftMm");
+        content.Add(new StringContent(request.MarginRightMm.ToString(System.Globalization.CultureInfo.InvariantCulture)), "MarginRightMm");
+        if (request.MaxHeightMm.HasValue)
+        {
+            content.Add(new StringContent(request.MaxHeightMm.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)), "MaxHeightMm");
+        }
         if (!string.IsNullOrWhiteSpace(request.ApplicableDocumentTypes))
         {
             content.Add(new StringContent(request.ApplicableDocumentTypes), "ApplicableDocumentTypes");

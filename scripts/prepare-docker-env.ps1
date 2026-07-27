@@ -9,7 +9,7 @@
 param(
     [string]$ApiDir = "",
     [string]$OutFile = "",
-    [int]$ApiHostPort = 8080
+    [int]$ApiHostPort = 1804
 )
 
 $ErrorActionPreference = "Stop"

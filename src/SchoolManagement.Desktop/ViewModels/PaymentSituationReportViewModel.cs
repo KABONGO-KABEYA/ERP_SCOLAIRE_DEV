@@ -336,7 +336,17 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         {
             var bytes = await exporter(BuildRequest());
             await File.WriteAllBytesAsync(dialog.FileName, bytes);
-            StatusMessage = $"Export {label} enregistré : {dialog.FileName}";
+            if (string.Equals(label, "PDF", StringComparison.OrdinalIgnoreCase))
+            {
+                var printed = ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Situation des paiements");
+                StatusMessage = printed
+                    ? $"Export PDF enregistré et envoyé à l'impression : {dialog.FileName}"
+                    : $"Export PDF enregistré : {dialog.FileName}";
+            }
+            else
+            {
+                StatusMessage = $"Export {label} enregistré : {dialog.FileName}";
+            }
         }
         catch (Exception ex)
         {

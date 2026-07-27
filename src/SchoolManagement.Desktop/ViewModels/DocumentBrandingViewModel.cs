@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -21,6 +22,7 @@ public partial class DocumentBrandingViewModel : ViewModelBase
     {
         _api = api;
         _pathResolver = pathResolver;
+        RefreshHeaderPreviewLayout();
     }
 
     public ObservableCollection<BrandingLogoItemViewModel> Logos { get; } = [];
@@ -50,6 +52,9 @@ public partial class DocumentBrandingViewModel : ViewModelBase
     [ObservableProperty] private bool _headerIsActive = true;
     [ObservableProperty] private string? _headerPendingImagePath;
     [ObservableProperty] private string? _headerPreviewPath;
+    [ObservableProperty] private double _headerMarginLeftMm;
+    [ObservableProperty] private double _headerMarginRightMm;
+    [ObservableProperty] private double _headerMaxHeightMm = 20;
 
     [ObservableProperty] private BrandingSignatureItemViewModel? _selectedSignature;
     [ObservableProperty] private string _signatureName = string.Empty;
@@ -99,8 +104,12 @@ public partial class DocumentBrandingViewModel : ViewModelBase
         SetHeaderDocumentTypeSelection(value.ApplicableDocumentTypes);
         HeaderPrintMode = value.PrintMode;
         HeaderIsActive = value.IsActive;
+        HeaderMarginLeftMm = (double)value.MarginLeftMm;
+        HeaderMarginRightMm = (double)value.MarginRightMm;
+        HeaderMaxHeightMm = (double)(value.MaxHeightMm ?? 20m);
         HeaderPendingImagePath = null;
         HeaderPreviewPath = value.PreviewPath;
+        RefreshHeaderPreviewLayout();
     }
 
     partial void OnSelectedSignatureChanged(BrandingSignatureItemViewModel? value)
@@ -326,7 +335,10 @@ public partial class DocumentBrandingViewModel : ViewModelBase
             null,
             null,
             HeaderIsActive,
-            DocumentBrandingTypeCodec.Serialize(selectedTypes));
+            DocumentBrandingTypeCodec.Serialize(selectedTypes),
+            (decimal)HeaderMarginLeftMm,
+            (decimal)HeaderMarginRightMm,
+            (decimal)HeaderMaxHeightMm);
         IsBusy = true;
         try
         {
@@ -523,8 +535,32 @@ public partial class DocumentBrandingViewModel : ViewModelBase
         SetHeaderDocumentTypeSelection([DocumentBrandingType.FicheInscription]);
         HeaderPrintMode = HeaderPrintMode.FullImage;
         HeaderIsActive = true;
+        HeaderMarginLeftMm = 0;
+        HeaderMarginRightMm = 0;
+        HeaderMaxHeightMm = 20;
         HeaderPendingImagePath = null;
         HeaderPreviewPath = null;
+        RefreshHeaderPreviewLayout();
+    }
+
+    partial void OnHeaderMarginLeftMmChanged(double value) => RefreshHeaderPreviewLayout();
+
+    partial void OnHeaderMarginRightMmChanged(double value) => RefreshHeaderPreviewLayout();
+
+    partial void OnHeaderMaxHeightMmChanged(double value) => RefreshHeaderPreviewLayout();
+
+    public Thickness HeaderPreviewPadding { get; private set; } = new(0);
+
+    public double HeaderPreviewHeight { get; private set; } = 72;
+
+    private void RefreshHeaderPreviewLayout()
+    {
+        var left = Math.Clamp(HeaderMarginLeftMm, 0, 30) * 2.5;
+        var right = Math.Clamp(HeaderMarginRightMm, 0, 30) * 2.5;
+        HeaderPreviewPadding = new Thickness(left, 8, right, 8);
+        HeaderPreviewHeight = Math.Clamp(HeaderMaxHeightMm, 8, 50) * 3.2;
+        OnPropertyChanged(nameof(HeaderPreviewPadding));
+        OnPropertyChanged(nameof(HeaderPreviewHeight));
     }
 
     private void SetHeaderDocumentTypeSelection(IEnumerable<DocumentBrandingType> selectedTypes)
@@ -611,6 +647,9 @@ public sealed class BrandingHeaderItemViewModel
         PrintMode = dto.PrintMode;
         PrintModeLabel = dto.PrintModeLabel;
         IsActive = dto.IsActive;
+        MarginLeftMm = dto.MarginLeftMm;
+        MarginRightMm = dto.MarginRightMm;
+        MaxHeightMm = dto.MaxHeightMm;
         PreviewPath = resolver.ResolveAbsolutePath(dto.ImagePath);
     }
 
@@ -623,6 +662,9 @@ public sealed class BrandingHeaderItemViewModel
     public IReadOnlyList<DocumentBrandingType> ApplicableDocumentTypes { get; }
     public string PrintModeLabel { get; }
     public bool IsActive { get; }
+    public decimal MarginLeftMm { get; }
+    public decimal MarginRightMm { get; }
+    public decimal? MaxHeightMm { get; }
     public string? PreviewPath { get; }
 }
 
