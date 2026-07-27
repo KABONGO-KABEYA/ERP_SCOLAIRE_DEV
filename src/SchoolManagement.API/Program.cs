@@ -14,14 +14,50 @@ using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Infrastructure.Seeding;
 using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// Console immédiat (Coolify) — avant UseSerilog / Build, sinon les fatals sont invisibles.
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
 
 static async Task FatalExitAsync(string messageTemplate, params object?[] args)
 {
-    Log.Fatal(messageTemplate, args);
-    await Log.CloseAndFlushAsync();
+    try
+    {
+        Log.Fatal(messageTemplate, args);
+        await Log.CloseAndFlushAsync();
+    }
+    catch
+    {
+        // ignore
+    }
+
+    try
+    {
+        Console.Error.WriteLine("FATAL: " + string.Join(" | ", args.Select(a => a?.ToString() ?? string.Empty)));
+        Console.Error.WriteLine(messageTemplate);
+    }
+    catch
+    {
+        Console.Error.WriteLine("FATAL: application startup failed. Check SQL_CONNECTION_STRING / Jwt__SecretKey / firewall SQL 1433.");
+    }
+
     Environment.Exit(1);
 }
+
+try
+{
+await RunAsync();
+}
+catch (Exception ex)
+{
+    await FatalExitAsync("Démarrage API échoué : {Error}", ex.ToString());
+}
+
+async Task RunAsync()
+{
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
@@ -30,6 +66,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.Console()
     .WriteTo.File("logs/api-.log", rollingInterval: RollingInterval.Day));
 
+Console.WriteLine("Boot: reading SQL / JWT environment...");
 var encryption = EncryptionServiceFactory.Create();
 var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory, encryption);
 
@@ -63,11 +100,12 @@ DatabaseConnectionTestResult databaseTestResult;
 if (!string.IsNullOrWhiteSpace(envConnectionString))
 {
     sqlConnectionString = envConnectionString.Trim();
+    Console.WriteLine("Boot: testing SQL_CONNECTION_STRING...");
     databaseTestResult = await DatabaseConnectionTester.TestConnectionStringAsync(sqlConnectionString);
     if (!databaseTestResult.IsSuccess)
     {
         await FatalExitAsync(
-            "Connexion SQL Server impossible via SQL_CONNECTION_STRING / ConnectionStrings:Default.{NewLine}{Error}",
+            "Connexion SQL Server impossible via SQL_CONNECTION_STRING.{NewLine}{Error}{NewLine}Vérifiez IP/firewall 1433 depuis le VPS Coolify.",
             Environment.NewLine,
             databaseTestResult.Message);
     }
@@ -350,12 +388,22 @@ app.UseMiddleware<CloudReadOnlyMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "ERP Scolaire API v1"));
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+// Pas de redirection HTTPS en Docker/Coolify (HTTP :1804)
+if (!string.Equals(
+        Environment.GetEnvironmentVariable("Deployment__Role"),
+        "Cloud",
+        StringComparison.OrdinalIgnoreCase)
+    && !app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+Console.WriteLine($"Boot: listening ready ({builder.Configuration["ASPNETCORE_URLS"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "urls-from-host"})");
 app.Run();
+} // RunAsync
 
 public partial class Program;
