@@ -110,6 +110,40 @@ docker compose --profile full up -d --build
 
 Puis créez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut aussi la provisionner selon le seed au démarrage).
 
+## Déploiement Coolify
+
+Coolify cherche un `Dockerfile` **à la racine** du dépôt (`bil-hids/adsco-monol`).
+
+Réglages recommandés dans Coolify :
+
+| Champ | Valeur |
+|-------|--------|
+| Build Pack | Dockerfile |
+| Base Directory | `/` (racine) |
+| Dockerfile Location | `Dockerfile` (ou `/Dockerfile`) |
+| Ports Exposes | `8080` (port **interne** du conteneur) |
+| Port public | `1804` → mappe vers `8080` |
+| Branch | `main` |
+
+Variables d'environnement obligatoires (Environment Variables) :
+
+```env
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://0.0.0.0:8080
+Deployment__Role=Cloud
+Deployment__ReadOnly=true
+FILE_STORAGE_ROOT=/app/data/files
+SQL_CONNECTION_STRING=Server=...;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
+Jwt__SecretKey=une-cle-secrete-tres-longue-32caracteres-min
+Jwt__Issuer=SchoolManagementRDC
+Jwt__Audience=SchoolManagementClients
+```
+
+Healthcheck : `http://127.0.0.1:8080/api/v1/health`  
+URL publique typique : `http://IP_VPS:1804`
+
+Après un push sur `main`, redéployer (Redeploy) pour prendre le commit qui contient le `Dockerfile` racine.
+
 ## Variables utiles
 
 | Variable | Rôle |
@@ -125,6 +159,7 @@ Puis créez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut auss
 
 | Symptôme | Action |
 |----------|--------|
+| `open Dockerfile: no such file or directory` | Utiliser le `Dockerfile` à la racine ; Redeploy après pull `main` |
 | API refuse de démarrer (SQL) | Vérifier IP/port/firewall SQL + chaîne dans `.env` |
 | Health 403 sur POST | Normal en Mode Cloud (sauf auth / notes) |
 | Téléphone hors ligne | Vérifier `CLOUD_API_BASE_URL` / `-CloudApiUrl` |
@@ -132,7 +167,8 @@ Puis créez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut auss
 
 ## Fichiers ajoutés
 
-- `src/SchoolManagement.API/Dockerfile`
+- `Dockerfile` (racine — Coolify / compose)
+- `src/SchoolManagement.API/Dockerfile` (alias compat)
 - `docker-compose.yml`
 - `.env.example`
 - `.dockerignore`

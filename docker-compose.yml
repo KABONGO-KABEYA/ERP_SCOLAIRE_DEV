@@ -12,7 +12,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: src/SchoolManagement.API/Dockerfile
+      dockerfile: Dockerfile
     image: erp-scolaire-api-cloud:latest
     container_name: erp-api-cloud
     restart: unless-stopped

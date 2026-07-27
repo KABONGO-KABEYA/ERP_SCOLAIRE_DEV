@@ -1,8 +1,5 @@
-# Conservé pour compatibilité. Préférer le Dockerfile à la racine du dépôt
-# (Coolify cherche Dockerfile à la racine par défaut).
-#
-# Build depuis la racine :
-#   docker build -t erp-api -f src/SchoolManagement.API/Dockerfile .
+# Build context = racine du dépôt (Coolify / docker compose).
+# Conteneur écoute sur 8080 ; mapper le port hôte distant (ex. 1804) → 8080.
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
