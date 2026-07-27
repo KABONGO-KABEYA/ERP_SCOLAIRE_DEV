@@ -114,36 +114,45 @@ Puis créez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut auss
 
 Coolify cherche un `Dockerfile` **à la racine** du dépôt (`bil-hids/adsco-monol`).
 
-Réglages recommandés dans Coolify :
+Deux ports distincts :
+
+| Rôle | Port | Exemple |
+|------|------|---------|
+| **API Cloud (public)** | **1804** | `http://IP_VPS:1804` — Coolify / Docker |
+| **SQL Server distant** | **1433** (souvent) | dans `SQL_CONNECTION_STRING` → `Server=161.97.105.22,1433;...` |
+
+Le **1804** est le port public de l’API (mobile / clients).  
+La base distante garde son port SQL (souvent **1433**) — ce n’est pas le même port.
+
+Réglages Coolify :
 
 | Champ | Valeur |
 |-------|--------|
 | Build Pack | Dockerfile |
 | Base Directory | `/` (racine) |
-| Dockerfile Location | `Dockerfile` (ou `/Dockerfile`) |
-| Ports Exposes | `8080` (port **interne** du conteneur) |
-| Port public | `1804` → mappe vers `8080` |
+| Dockerfile Location | `Dockerfile` |
+| Ports Exposes | **1804** |
+| Port public | **1804** |
 | Branch | `main` |
 
-Variables d'environnement obligatoires (Environment Variables) :
+Variables d'environnement obligatoires :
 
 ```env
 ASPNETCORE_ENVIRONMENT=Production
-ASPNETCORE_URLS=http://0.0.0.0:8080
+ASPNETCORE_URLS=http://0.0.0.0:1804
 Deployment__Role=Cloud
 Deployment__ReadOnly=true
 FILE_STORAGE_ROOT=/app/data/files
-SQL_CONNECTION_STRING=Server=...;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
+SQL_CONNECTION_STRING=Server=161.97.105.22,1433;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
 Jwt__SecretKey=une-cle-secrete-tres-longue-32caracteres-min
 Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
 
-Healthcheck : `http://127.0.0.1:8080/api/v1/health`  
-URL publique typique : `http://IP_VPS:1804`
+Healthcheck : `http://127.0.0.1:1804/api/v1/health`  
+URL publique : `http://IP_VPS:1804`
 
-Après un push sur `main`, redéployer (Redeploy) pour prendre le commit qui contient le `Dockerfile` racine.
-
+Après un push sur `main`, **Redeploy** pour prendre ce Dockerfile.
 ## Variables utiles
 
 | Variable | Rôle |

@@ -1,5 +1,6 @@
 # Build context = racine du dépôt (Coolify / docker compose).
-# Conteneur écoute sur 8080 ; mapper le port hôte distant (ex. 1804) → 8080.
+# Port public distant de l'API Cloud = 1804 (conteneur + hôte).
+# La base SQL distante reste sur son propre port (souvent 1433), via SQL_CONNECTION_STRING.
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -33,17 +34,17 @@ RUN apt-get update \
     && mkdir -p /app/data/files /app/logs \
     && chmod -R 777 /app/data /app/logs
 
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+ENV ASPNETCORE_URLS=http://0.0.0.0:1804 \
     ASPNETCORE_ENVIRONMENT=Production \
     FILE_STORAGE_ROOT=/app/data/files \
     Deployment__Role=Cloud \
     Deployment__ReadOnly=true
 
-EXPOSE 8080
+EXPOSE 1804
 
 COPY --from=build /app/publish .
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8080/api/v1/health || exit 1
+  CMD curl -fsS http://127.0.0.1:1804/api/v1/health || exit 1
 
 ENTRYPOINT ["dotnet", "SchoolManagement.API.dll"]

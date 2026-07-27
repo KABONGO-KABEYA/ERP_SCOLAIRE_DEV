@@ -17,10 +17,10 @@ services:
     container_name: erp-api-cloud
     restart: unless-stopped
     ports:
-      - "${API_HOST_PORT:-1804}:8080"
+      - "${API_HOST_PORT:-1804}:1804"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ASPNETCORE_URLS: http://0.0.0.0:1804
       Deployment__Role: Cloud
       Deployment__ReadOnly: "true"
       FILE_STORAGE_ROOT: /app/data/files
@@ -34,7 +34,7 @@ services:
       - erp_api_files:/app/data/files
       - erp_api_logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/v1/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:1804/api/v1/health"]
       interval: 30s
       timeout: 5s
       retries: 5

@@ -1,8 +1,5 @@
-# Conservé pour compatibilité. Préférer le Dockerfile à la racine du dépôt
-# (Coolify cherche Dockerfile à la racine par défaut).
-#
-# Build depuis la racine :
-#   docker build -t erp-api -f src/SchoolManagement.API/Dockerfile .
+# Conservé pour compatibilité. Préférer le Dockerfile à la racine du dépôt.
+# Port public API Cloud = 1804.
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -36,17 +33,17 @@ RUN apt-get update \
     && mkdir -p /app/data/files /app/logs \
     && chmod -R 777 /app/data /app/logs
 
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+ENV ASPNETCORE_URLS=http://0.0.0.0:1804 \
     ASPNETCORE_ENVIRONMENT=Production \
     FILE_STORAGE_ROOT=/app/data/files \
     Deployment__Role=Cloud \
     Deployment__ReadOnly=true
 
-EXPOSE 8080
+EXPOSE 1804
 
 COPY --from=build /app/publish .
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8080/api/v1/health || exit 1
+  CMD curl -fsS http://127.0.0.1:1804/api/v1/health || exit 1
 
 ENTRYPOINT ["dotnet", "SchoolManagement.API.dll"]
