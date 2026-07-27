@@ -135,7 +135,10 @@ Réglages Coolify :
 | Port public | **1804** |
 | Branch | `main` |
 
-Variables d'environnement **obligatoires** (sinon le conteneur quitte → healthcheck « unhealthy ») :
+Variables d'environnement **obligatoires** (sinon healthcheck « unhealthy ») :
+
+> Coolify → **Environment Variables** (runtime), pas seulement Build Variables.  
+> Modèle : fichier `coolify.env.example` à la racine du dépôt.
 
 ```env
 ASPNETCORE_ENVIRONMENT=Production
@@ -150,6 +153,8 @@ Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
 
+Si les logs montrent `SQL_CONNECTION_STRING is empty` → la variable n’est **pas** définie dans Coolify (cause actuelle).
+
 Healthcheck Coolify :
 
 | Champ | Valeur |
@@ -158,9 +163,9 @@ Healthcheck Coolify :
 | Port | `1804` |
 | Return code | `200` |
 
-Si le healthcheck reste unhealthy : ouvrir les **logs du conteneur** — cause #1 = `SQL_CONNECTION_STRING` manquante ou SQL inaccessible depuis le VPS (firewall 1433).
+Après ajout des variables : **Redeploy**.
 
-Après un push sur `main`, **Redeploy**.## Variables utiles
+## Variables utiles
 
 | Variable | Rôle |
 |----------|------|
