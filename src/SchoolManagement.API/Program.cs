@@ -16,6 +16,13 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+static async Task FatalExitAsync(string messageTemplate, params object?[] args)
+{
+    Log.Fatal(messageTemplate, args);
+    await Log.CloseAndFlushAsync();
+    Environment.Exit(1);
+}
+
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -40,11 +47,10 @@ if (!string.IsNullOrWhiteSpace(envConnectionString))
     databaseTestResult = await DatabaseConnectionTester.TestConnectionStringAsync(sqlConnectionString);
     if (!databaseTestResult.IsSuccess)
     {
-        Log.Fatal(
+        await FatalExitAsync(
             "Connexion SQL Server impossible via SQL_CONNECTION_STRING / ConnectionStrings:Default.{NewLine}{Error}",
             Environment.NewLine,
             databaseTestResult.Message);
-        return;
     }
 
     Log.Information("Connexion SQL Server validée via variable d'environnement (Docker/cloud).");
@@ -54,12 +60,11 @@ else
     (_, sqlConnectionString, databaseTestResult) = await databaseBootstrap.LoadValidateAndTestAsync();
     if (!databaseTestResult.IsSuccess)
     {
-        Log.Fatal(
+        await FatalExitAsync(
             "Connexion SQL Server impossible. Corrigez {ConfigFile} ou définissez SQL_CONNECTION_STRING.{NewLine}{Error}",
             DatabaseConfigurationManager.FileName,
             Environment.NewLine,
             databaseTestResult.Message);
-        return;
     }
 
     Log.Information("Connexion SQL Server validée via {ConfigFile}.", DatabaseConfigurationManager.FileName);
@@ -84,12 +89,11 @@ var fileStorageConfiguration = fileStorageManager.LoadConfiguration();
 var fileStorageValidation = fileStorageManager.Validate(fileStorageConfiguration);
 if (!fileStorageValidation.IsValid)
 {
-    Log.Fatal(
+    await FatalExitAsync(
         "Configuration fichiers invalide. Définissez FILE_STORAGE_ROOT ou corrigez {ConfigFile}.{NewLine}{Error}",
         FileStorageConfigurationManager.FileName,
         Environment.NewLine,
         string.Join(Environment.NewLine, fileStorageValidation.FieldErrors.Values));
-    return;
 }
 
 var fileStorageTestResult = new FileStoragePathTester().TestConfiguration(
@@ -98,12 +102,11 @@ var fileStorageTestResult = new FileStoragePathTester().TestConfiguration(
     requireWriteAccess: true);
 if (!fileStorageTestResult.IsSuccess)
 {
-    Log.Fatal(
+    await FatalExitAsync(
         "Dossier partagé inaccessible. Corrigez FILE_STORAGE_ROOT / {ConfigFile}.{NewLine}{Error}",
         FileStorageConfigurationManager.FileName,
         Environment.NewLine,
         fileStorageTestResult.Message);
-    return;
 }
 
 Log.Information("Dossier partagé validé.");

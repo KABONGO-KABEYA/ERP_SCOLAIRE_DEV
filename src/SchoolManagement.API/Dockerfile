@@ -1,5 +1,4 @@
-# Conservé pour compatibilité. Préférer le Dockerfile à la racine du dépôt.
-# Port public API Cloud = 1804.
+# Conservé pour compatibilité. Préférer le Dockerfile à la racine.
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
@@ -22,7 +21,9 @@ COPY src/SchoolManagement.API/ src/SchoolManagement.API/
 RUN dotnet publish src/SchoolManagement.API/SchoolManagement.API.csproj \
     -c Release \
     -o /app/publish \
-    --no-restore
+    --no-restore \
+ && cp src/SchoolManagement.API/docker-entrypoint.sh /app/publish/docker-entrypoint.sh \
+ && chmod +x /app/publish/docker-entrypoint.sh
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
@@ -33,7 +34,8 @@ RUN apt-get update \
     && mkdir -p /app/data/files /app/logs \
     && chmod -R 777 /app/data /app/logs
 
-ENV ASPNETCORE_URLS=http://0.0.0.0:1804 \
+ENV PORT=1804 \
+    ASPNETCORE_URLS=http://0.0.0.0:1804 \
     ASPNETCORE_ENVIRONMENT=Production \
     FILE_STORAGE_ROOT=/app/data/files \
     Deployment__Role=Cloud \
@@ -43,7 +45,7 @@ EXPOSE 1804
 
 COPY --from=build /app/publish .
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:1804/api/v1/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
+  CMD curl -fsS "http://127.0.0.1:${PORT:-1804}/api/v1/health" || exit 1
 
-ENTRYPOINT ["dotnet", "SchoolManagement.API.dll"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

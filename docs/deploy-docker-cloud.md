@@ -135,10 +135,11 @@ Réglages Coolify :
 | Port public | **1804** |
 | Branch | `main` |
 
-Variables d'environnement obligatoires :
+Variables d'environnement **obligatoires** (sinon le conteneur quitte → healthcheck « unhealthy ») :
 
 ```env
 ASPNETCORE_ENVIRONMENT=Production
+PORT=1804
 ASPNETCORE_URLS=http://0.0.0.0:1804
 Deployment__Role=Cloud
 Deployment__ReadOnly=true
@@ -149,11 +150,17 @@ Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
 
-Healthcheck : `http://127.0.0.1:1804/api/v1/health`  
-URL publique : `http://IP_VPS:1804`
+Healthcheck Coolify :
 
-Après un push sur `main`, **Redeploy** pour prendre ce Dockerfile.
-## Variables utiles
+| Champ | Valeur |
+|-------|--------|
+| Path | `/api/v1/health` |
+| Port | `1804` |
+| Return code | `200` |
+
+Si le healthcheck reste unhealthy : ouvrir les **logs du conteneur** — cause #1 = `SQL_CONNECTION_STRING` manquante ou SQL inaccessible depuis le VPS (firewall 1433).
+
+Après un push sur `main`, **Redeploy**.## Variables utiles
 
 | Variable | Rôle |
 |----------|------|
