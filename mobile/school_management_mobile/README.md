@@ -2,23 +2,25 @@
 
 Application Flutter pour parents, enseignants, direction, promoteur et secrétariat.
 
-## Modes de connexion (automatiques)
+## Modes de connexion (automatiques, sans câble USB)
 
-L'utilisateur **ne choisit jamais** le serveur. Au démarrage (et périodiquement) :
+L'utilisateur **ne choisit jamais** le serveur. Au démarrage, au changement Wi‑Fi/4G,
+et périodiquement :
 
-1. Test de l'**API Locale** → **Mode Local** (lecture + écriture)
-2. Sinon test de l'**API Cloud** → **Mode Cloud** (lecture seule ; notes enseignants autorisées)
-3. Sinon → **Hors ligne**
+1. Même Wi‑Fi que le PC serveur (API locale joignable) → **Mode Local** (lecture + écriture)
+2. Autre réseau (4G / autre Wi‑Fi) → **Mode Distant** (API publique, lecture seule + notes)
+3. Aucune connexion / serveurs down → **Mode Cache** (données déjà téléchargées)
 
 | Indicateur | Signification |
 |------------|---------------|
-| 🟢 Mode Local | Serveur de l'établissement — toutes opérations selon rôles |
-| 🔵 Mode Cloud | Copie synchronisée — consultation (+ notes si autorisé) |
-| 🔴 Hors ligne / Serveur inaccessible | Aucun serveur joignable |
+| 🟢 Mode Local | Même Wi‑Fi que le serveur établissement |
+| 🔵 Mode Distant | Autre réseau — VPS / Cloud public |
+| 🔴 Mode Cache | Hors ligne — consultation du cache local |
 
-**Important :** la 4G ne remplace pas le Wi‑Fi de l'école. L'IP locale (`192.168.x.x`)
-n'est pas accessible via Internet mobile. Pour consulter hors établissement, il faut
-configurer `CLOUD_API_BASE_URL` (API Cloud publique).
+**USB** sert uniquement à installer / debugger l'APK. La connexion API passe
+par le Wi‑Fi (local) ou Internet (distant) — pas par `adb reverse`.
+
+Par défaut : `CLOUD_API_BASE_URL=http://161.97.105.22:1804`.
 
 La base locale reste la **Source of Truth**. Le Cloud ne reçoit que la sync **Local → Cloud**.
 

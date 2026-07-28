@@ -28,7 +28,7 @@ public sealed class AccountingSchemaInitializer
         }
 
         _logger.LogInformation(
-            "Schéma comptabilité vérifié (FinDemandePaiement, FinDepense).");
+            "Schéma comptabilité vérifié (FinDemandePaiement, FinDepense, FinDepenseRepartitionDevise).");
     }
 
     private static readonly string[] Scripts =
@@ -135,6 +135,68 @@ public sealed class AccountingSchemaInitializer
             UPDATE [FinDepense] SET [AuthorizedByName] = N'—' WHERE [AuthorizedByName] IS NULL OR LTRIM(RTRIM([AuthorizedByName])) = N'';
             ALTER TABLE [FinDepense] ALTER COLUMN [AuthorizedByName] nvarchar(150) NOT NULL;
         END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'PrimaryCurrencyId') IS NULL
+        BEGIN
+            ALTER TABLE [FinDepense] ADD [PrimaryCurrencyId] uniqueidentifier NULL;
+            IF OBJECT_ID(N'FinDevise', N'U') IS NOT NULL
+            BEGIN
+                ALTER TABLE [FinDepense] ADD CONSTRAINT [FK_FinDepense_PrimaryCurrency]
+                    FOREIGN KEY ([PrimaryCurrencyId]) REFERENCES [FinDevise] ([Id]);
+            END
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepenseRepartitionDevise', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [FinDepenseRepartitionDevise] (
+                [Id] uniqueidentifier NOT NULL,
+                [SchoolId] uniqueidentifier NOT NULL,
+                [ExpensePaymentId] uniqueidentifier NOT NULL,
+                [CurrencyId] uniqueidentifier NOT NULL,
+                [Amount] decimal(18,2) NOT NULL,
+                [ExchangeRateId] uniqueidentifier NULL,
+                [AppliedExchangeRate] decimal(18,8) NOT NULL CONSTRAINT [DF_FinDepenseRepartitionDevise_Rate] DEFAULT(1),
+                [EquivalentInPrimaryCurrency] decimal(18,2) NOT NULL,
+                [SortOrder] int NOT NULL CONSTRAINT [DF_FinDepenseRepartitionDevise_Sort] DEFAULT(0),
+                [CreatedAt] datetime2 NOT NULL,
+                [CreatedBy] uniqueidentifier NULL,
+                [UpdatedAt] datetime2 NULL,
+                [UpdatedBy] uniqueidentifier NULL,
+                [IsDeleted] bit NOT NULL CONSTRAINT [DF_FinDepenseRepartitionDevise_IsDeleted] DEFAULT(0),
+                [DeletedAt] datetime2 NULL,
+                [DeletedBy] uniqueidentifier NULL,
+                CONSTRAINT [PK_FinDepenseRepartitionDevise] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_FinDepenseRepartitionDevise_Schools] FOREIGN KEY ([SchoolId]) REFERENCES [Schools] ([Id]),
+                CONSTRAINT [FK_FinDepenseRepartitionDevise_Depense] FOREIGN KEY ([ExpensePaymentId]) REFERENCES [FinDepense] ([Id]),
+                CONSTRAINT [FK_FinDepenseRepartitionDevise_Currency] FOREIGN KEY ([CurrencyId]) REFERENCES [FinDevise] ([Id])
+            );
+            CREATE UNIQUE INDEX [IX_FinDepenseRepartitionDevise_Payment_Currency]
+                ON [FinDepenseRepartitionDevise] ([ExpensePaymentId], [CurrencyId]) WHERE [IsDeleted] = 0;
+            CREATE INDEX [IX_FinDepenseRepartitionDevise_School_Payment]
+                ON [FinDepenseRepartitionDevise] ([SchoolId], [ExpensePaymentId]) WHERE [IsDeleted] = 0;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'ExternalReference') IS NULL
+            ALTER TABLE [FinDepense] ADD [ExternalReference] nvarchar(80) NULL;
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'Category') IS NULL
+            ALTER TABLE [FinDepense] ADD [Category] nvarchar(40) NULL;
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'Observations') IS NULL
+            ALTER TABLE [FinDepense] ADD [Observations] nvarchar(1000) NULL;
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'AttachmentFileName') IS NULL
+            ALTER TABLE [FinDepense] ADD [AttachmentFileName] nvarchar(260) NULL;
+        """,
+        """
+        IF OBJECT_ID(N'FinDepense', N'U') IS NOT NULL AND COL_LENGTH(N'FinDepense', N'AttachmentStoragePath') IS NULL
+            ALTER TABLE [FinDepense] ADD [AttachmentStoragePath] nvarchar(500) NULL;
         """
     ];
 }

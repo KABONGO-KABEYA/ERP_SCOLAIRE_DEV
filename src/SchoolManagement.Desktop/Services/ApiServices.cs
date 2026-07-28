@@ -2370,6 +2370,12 @@ public sealed class AccountingApiService : ApiServiceBase, IAccountingApiService
         PostAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto>(
             "api/v1/accounting/expense-payments", request, cancellationToken);
 
+    public Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> GetExpensePaymentByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto>(
+            $"api/v1/accounting/expense-payments/{id}", cancellationToken);
+
     public Task<IReadOnlyList<SchoolManagement.Application.Accounting.DTOs.ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
         Guid academicYearId,
         CancellationToken cancellationToken = default) =>

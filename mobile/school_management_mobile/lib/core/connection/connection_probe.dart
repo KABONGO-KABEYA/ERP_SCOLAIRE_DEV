@@ -18,7 +18,7 @@ class ConnectionProbe {
       return ConnectionSnapshot(
         mode: ConnectionMode.local,
         baseUrl: localHit,
-        message: 'Serveur local accessible ($localHit).',
+        message: 'Même réseau Wi‑Fi — serveur local ($localHit).',
         hasInternet: true,
       );
     }
@@ -27,7 +27,8 @@ class ConnectionProbe {
       return ConnectionSnapshot(
         mode: ConnectionMode.cloud,
         baseUrl: cloudUrl,
-        message: 'Serveur local hors portée — bascule Cloud (lecture seule).',
+        message:
+            'Hors Wi‑Fi école — serveur distant ($cloudUrl), lecture seule.',
         hasInternet: true,
       );
     }
@@ -37,7 +38,9 @@ class ConnectionProbe {
       return const ConnectionSnapshot(
         mode: ConnectionMode.offline,
         hasInternet: false,
-        message: 'Pas de connexion Internet. Activez le Wi‑Fi ou les données mobiles.',
+        message:
+            'Aucune connexion — Mode Cache. '
+            'Les dernières données téléchargées restent consultables.',
       );
     }
 
@@ -50,27 +53,25 @@ class ConnectionProbe {
         mode: ConnectionMode.offline,
         hasInternet: true,
         message:
-            'Internet OK, mais le serveur école ne répond pas '
-            '(testé : $tested). '
-            'Vérifiez que l\'API tourne et que vous êtes sur le même Wi‑Fi.',
+            'Internet OK, serveur école injoignable (testé : $tested). '
+            'Mode Cache actif. Rejoignez le Wi‑Fi de l\'établissement '
+            'ou configurez CLOUD_API_BASE_URL.',
       );
     }
 
-    return const ConnectionSnapshot(
+    return ConnectionSnapshot(
       mode: ConnectionMode.offline,
       hasInternet: true,
       message:
-          'Internet OK, mais ni le serveur local ni le Cloud ne répondent. '
-          'Réessayez dans un instant.',
+          'Internet OK, mais local ($tested) et distant ($cloudUrl) '
+          'ne répondent pas. Mode Cache — réessayez plus tard.',
     );
   }
 
   List<String> _localCandidates() {
-    // Uniquement l'URL locale configurée (IP LAN école).
-    // Pas de fallback 127.0.0.1 / tunnel USB : hors Wi‑Fi école → Cloud.
-    final primary = ApiConfig.effectiveLocalBaseUrl;
-    if (!ApiConfig.isValidBaseUrl(primary)) return const [];
-    return [primary];
+    // Toutes les IP LAN du PC (Ethernet + Wi‑Fi/hotspot).
+    // Jamais 127.0.0.1 : hors même sous-réseau → distant / cache.
+    return ApiConfig.localBaseUrlCandidates;
   }
 
   Future<String?> _firstHealthy(List<String> urls, Duration timeout) async {

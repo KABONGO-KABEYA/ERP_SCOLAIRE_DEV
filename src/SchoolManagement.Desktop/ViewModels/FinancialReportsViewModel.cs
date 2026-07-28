@@ -144,9 +144,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
     public ObservableCollection<AllocationCashFlowDailyGroupRow> AllocationDailyGroups { get; } = [];
 
-    public ObservableCollection<WithholdingReportTypeGroupRow> WithholdingGroups { get; } = [];
+    public ObservableCollection<AllocationCashFlowRowDto> AllocationTotalsByCurrency { get; } = [];
 
-    [ObservableProperty] private AllocationCashFlowRowDto? _allocationTotals;
+    public ObservableCollection<WithholdingReportTypeGroupRow> WithholdingGroups { get; } = [];
 
     [ObservableProperty] private decimal _withholdingGrandTotal;
     [ObservableProperty] private int _withholdingPaymentCount;
@@ -360,7 +360,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
             DailyPivotGroups.Clear();
             AllocationGlobalRows.Clear();
             AllocationDailyGroups.Clear();
-            AllocationTotals = null;
+            AllocationTotalsByCurrency.Clear();
             WithholdingGroups.Clear();
             WithholdingGrandTotal = 0;
             WithholdingPaymentCount = 0;
@@ -571,7 +571,11 @@ public partial class FinancialReportsViewModel : ViewModelBase
             });
         }
 
-        AllocationTotals = result.Totals;
+        AllocationTotalsByCurrency.Clear();
+        foreach (var total in result.TotalsByCurrency)
+        {
+            AllocationTotalsByCurrency.Add(total);
+        }
     }
 
     private void ApplyWithholdingReport(WithholdingReportResultDto result)

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -14,7 +15,16 @@ class ParentOfflineCache {
 
   static Future<ParentOfflineCache> init() async {
     if (_instance != null) return _instance!;
-    await Hive.initFlutter();
+    try {
+      await Hive.initFlutter();
+    } catch (_) {
+      // Windows / desktop : path_provider peut échouer — dossier local de secours.
+      final fallback = Directory('${Directory.systemTemp.path}/erp_mobile_cache');
+      if (!await fallback.exists()) {
+        await fallback.create(recursive: true);
+      }
+      Hive.init(fallback.path);
+    }
     final box = await Hive.openBox<String>(boxName);
     _instance = ParentOfflineCache._(box);
     return _instance!;

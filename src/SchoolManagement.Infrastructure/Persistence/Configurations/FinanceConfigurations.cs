@@ -155,9 +155,11 @@ public class RevenueAllocationEntryConfiguration : AuditableEntityConfiguration<
         builder.HasOne(e => e.FeeType).WithMany().HasForeignKey(e => e.FeeTypeId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.WithholdingType).WithMany().HasForeignKey(e => e.WithholdingTypeId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(e => e.AcademicYear).WithMany().HasForeignKey(e => e.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.Currency).WithMany().HasForeignKey(e => e.CurrencyId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasIndex(e => new { e.SchoolId, e.AllocatedAt });
         builder.HasIndex(e => e.PaymentId);
         builder.HasIndex(e => new { e.SchoolId, e.DestinationId, e.AcademicYearId });
+        builder.HasIndex(e => new { e.SchoolId, e.DestinationId, e.CurrencyId });
     }
 }
 
@@ -191,14 +193,38 @@ public class ExpensePaymentConfiguration : AuditableEntityConfiguration<ExpenseP
         builder.Property(p => p.Label).HasMaxLength(500).IsRequired();
         builder.Property(p => p.BeneficiaryName).HasMaxLength(150).IsRequired();
         builder.Property(p => p.AuthorizedByName).HasMaxLength(150).IsRequired();
+        builder.Property(p => p.ExternalReference).HasMaxLength(80);
+        builder.Property(p => p.Category).HasMaxLength(40);
+        builder.Property(p => p.Observations).HasMaxLength(1000);
+        builder.Property(p => p.AttachmentFileName).HasMaxLength(260);
+        builder.Property(p => p.AttachmentStoragePath).HasMaxLength(500);
         builder.Property(p => p.Amount).HasPrecision(18, 2);
         builder.Property(p => p.Currency).HasConversion<int>();
         builder.HasOne(p => p.School).WithMany().HasForeignKey(p => p.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.AcademicYear).WithMany().HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.Destination).WithMany().HasForeignKey(p => p.DestinationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.ExpenseRequest).WithMany().HasForeignKey(p => p.ExpenseRequestId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(p => p.PrimaryCurrency).WithMany().HasForeignKey(p => p.PrimaryCurrencyId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(p => p.Allocations).WithOne(a => a.ExpensePayment).HasForeignKey(a => a.ExpensePaymentId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(p => new { p.SchoolId, p.Reference }).IsUnique().HasFilter("[IsDeleted] = 0");
         builder.HasIndex(p => new { p.SchoolId, p.ExpenseDate, p.DestinationId }).HasFilter("[IsDeleted] = 0");
+    }
+}
+
+public class ExpensePaymentAllocationConfiguration : AuditableEntityConfiguration<ExpensePaymentAllocation>
+{
+    public override void Configure(EntityTypeBuilder<ExpensePaymentAllocation> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("FinDepenseRepartitionDevise");
+        builder.Property(a => a.Amount).HasPrecision(18, 2);
+        builder.Property(a => a.AppliedExchangeRate).HasPrecision(18, 8);
+        builder.Property(a => a.EquivalentInPrimaryCurrency).HasPrecision(18, 2);
+        builder.HasOne(a => a.School).WithMany().HasForeignKey(a => a.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.Currency).WithMany().HasForeignKey(a => a.CurrencyId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.ExchangeRate).WithMany().HasForeignKey(a => a.ExchangeRateId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(a => new { a.ExpensePaymentId, a.CurrencyId }).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(a => new { a.SchoolId, a.ExpensePaymentId }).HasFilter("[IsDeleted] = 0");
     }
 }
 

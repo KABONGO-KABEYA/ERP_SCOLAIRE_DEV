@@ -108,6 +108,12 @@ public class RevenueAllocationEntry : AuditableEntity, IAggregateRoot
 
     public Guid AcademicYearId { get; set; }
 
+    /// <summary>
+    /// Devise du montant réparti (référentiel FinDevise) — snapshot.
+    /// Sépare les fonds d'un même compte selon les devises des frais.
+    /// </summary>
+    public Guid? CurrencyId { get; set; }
+
     public decimal Amount { get; set; }
 
     public decimal? AppliedPercentage { get; set; }
@@ -131,4 +137,6 @@ public class RevenueAllocationEntry : AuditableEntity, IAggregateRoot
     public AcademicYear AcademicYear { get; set; } = null!;
 
     public School School { get; set; } = null!;
+
+    public CurrencyDefinition? Currency { get; set; }
 }

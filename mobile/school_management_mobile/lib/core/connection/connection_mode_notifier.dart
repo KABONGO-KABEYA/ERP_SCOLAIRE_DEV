@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'connection_mode.dart';
@@ -12,15 +13,20 @@ final connectionModeProvider =
   (ref) => ConnectionModeNotifier(ref.watch(connectionProbeProvider)),
 );
 
-/// Détection automatique Local → Cloud → Hors ligne.
+/// Détection automatique : même Wi‑Fi → Local → Distant → Mode Cache.
 class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   ConnectionModeNotifier(this._probe) : super(ConnectionSnapshot.detecting) {
     refresh();
     _timer = Timer.periodic(const Duration(seconds: 45), (_) => refresh(silent: true));
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((_) {
+      // Changement Wi‑Fi / 4G / hors ligne → re-sonde immédiate.
+      refresh(silent: true);
+    });
   }
 
   final ConnectionProbe _probe;
   Timer? _timer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   int _generation = 0;
 
   Future<void> refresh({bool silent = false}) async {
@@ -43,7 +49,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
       state = ConnectionSnapshot(
         mode: ConnectionMode.offline,
         hasInternet: false,
-        message: 'Erreur de détection : $e',
+        message: 'Erreur de détection : $e — Mode Cache si des données existent.',
       );
     }
   }
@@ -51,6 +57,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   @override
   void dispose() {
     _timer?.cancel();
+    _connectivitySub?.cancel();
     super.dispose();
   }
 }

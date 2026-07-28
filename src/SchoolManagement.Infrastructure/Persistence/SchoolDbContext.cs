@@ -100,6 +100,7 @@ public class SchoolDbContext : DbContext
     public DbSet<RevenueAllocationEntry> RevenueAllocationEntries => Set<RevenueAllocationEntry>();
     public DbSet<ExpenseRequest> ExpenseRequests => Set<ExpenseRequest>();
     public DbSet<ExpensePayment> ExpensePayments => Set<ExpensePayment>();
+    public DbSet<ExpensePaymentAllocation> ExpensePaymentAllocations => Set<ExpensePaymentAllocation>();
     public DbSet<WithholdingType> WithholdingTypes => Set<WithholdingType>();
     public DbSet<WithholdingConfiguration> WithholdingConfigurations => Set<WithholdingConfiguration>();
     public DbSet<WithholdingApplication> WithholdingApplications => Set<WithholdingApplication>();

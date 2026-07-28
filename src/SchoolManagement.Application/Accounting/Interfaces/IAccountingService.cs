@@ -37,6 +37,11 @@ public interface IAccountingService
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<ExpensePaymentDto> GetExpensePaymentByIdAsync(
+        Guid schoolId,
+        Guid expensePaymentId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
         Guid schoolId,
         Guid academicYearId,

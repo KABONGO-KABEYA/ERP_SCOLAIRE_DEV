@@ -8,22 +8,34 @@ using Microsoft.Win32;
 using SchoolManagement.Application.Accounting.DTOs;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
+using SchoolManagement.Desktop.Views;
 using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
 public sealed record ExpenseCurrencyOption(Currency Value, string Label);
 
+/// <summary>Compte unique (plusieurs devises possibles côté soldes).</summary>
 public sealed record ExpenseDestinationOption(
     Guid Id,
     string Code,
-    string Name,
+    string Name)
+{
+    /// <summary>Intitulé affiché (sans code compte).</summary>
+    public string DisplayName => Name;
+}
+
+/// <summary>Solde d'un compte pour une devise donnée.</summary>
+public sealed record ExpenseCurrencyBalanceLine(
+    Guid? CurrencyId,
+    string CurrencyCode,
     decimal AllocatedAmount,
     decimal SpentAmount,
-    decimal AvailableAmount,
-    string Currency = "CDF")
+    decimal AvailableAmount)
 {
-    public string DisplayName => string.IsNullOrWhiteSpace(Code) ? Name : $"{Code} — {Name}";
+    public string AllocatedDisplay => $"{AllocatedAmount:N2} {CurrencyCode}";
+    public string SpentDisplay => $"{SpentAmount:N2} {CurrencyCode}";
+    public string AvailableDisplay => $"{AvailableAmount:N2} {CurrencyCode}";
 }
 
 public sealed record ExpenseFilterOption(string Key, string Label);
@@ -38,24 +50,38 @@ public sealed record ExpensePaymentRow(
     public string Reference => Source.Reference;
     public string Label => Source.Label;
     public string BeneficiaryName => Source.BeneficiaryName;
-    public string DestinationName => string.IsNullOrWhiteSpace(Source.DestinationCode)
-        ? Source.DestinationName
-        : $"{Source.DestinationCode} — {Source.DestinationName}";
+    public string DestinationName => Source.DestinationName;
     public decimal Amount => Source.Amount;
     public string Currency => Source.Currency;
     public string UserDisplay => Source.AuthorizedByName;
+    public string? CategoryLabel => Source.CategoryLabel;
+    public string? ExternalReference => Source.ExternalReference;
+    public bool HasAttachment => Source.HasAttachment;
 }
 
 /// <summary>Gestion premium des dépenses — consultation + saisie pour comptables.</summary>
 public partial class ExpensePaymentsViewModel : ViewModelBase
 {
     private readonly IAccountingApiService _accountingApi;
+    private readonly ICurrencyApiService _currencyApi;
+    private readonly IAuthSessionService _authSession;
     private bool _initialized;
     private bool _suppressReload;
+    private List<ExpenseDestinationBalanceDto> _balanceRows = [];
+    private IReadOnlyList<CreateExpensePaymentAllocationLine>? _pendingAllocations;
+    private Guid? _pendingPrimaryCurrencyId;
+    private CancellationTokenSource? _autoSplitCts;
+    private bool _allocationDialogOpen;
+    private decimal? _dismissedAutoSplitAmount;
 
-    public ExpensePaymentsViewModel(IAccountingApiService accountingApi)
+    public ExpensePaymentsViewModel(
+        IAccountingApiService accountingApi,
+        ICurrencyApiService currencyApi,
+        IAuthSessionService authSession)
     {
         _accountingApi = accountingApi;
+        _currencyApi = currencyApi;
+        _authSession = authSession;
         ExpenseDate = DateTime.Today;
         SelectedCurrency = Currencies[0];
         FilterCurrency = FilterCurrencies[0];
@@ -75,6 +101,17 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     public ObservableCollection<ExpensePaymentRow> Payments { get; } = [];
     public ObservableCollection<ExpenseDestinationOption> Destinations { get; } = [];
     public ObservableCollection<ExpenseDestinationOption> FilterDestinations { get; } = [];
+    public ObservableCollection<ExpenseCurrencyBalanceLine> SelectedAccountBalances { get; } = [];
+
+    public bool HasSelectedAccountBalances => SelectedAccountBalances.Count > 0;
+
+    public bool HasPendingMultiCurrencyAllocation =>
+        _pendingAllocations is { Count: > 0 };
+
+    public string PendingAllocationSummary =>
+        !HasPendingMultiCurrencyAllocation
+            ? string.Empty
+            : $"Répartition multi-devises prête ({_pendingAllocations!.Count} devise(s)).";
 
     public IReadOnlyList<ExpenseCurrencyOption> Currencies { get; } =
     [
@@ -189,7 +226,6 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     partial void OnAvailableBalanceChanged(decimal value) => NotifyComputed();
     partial void OnAllocatedAmountChanged(decimal value) => NotifyComputed();
     partial void OnSpentAmountChanged(decimal value) => NotifyComputed();
-    partial void OnSelectedCurrencyChanged(ExpenseCurrencyOption? value) => NotifyComputed();
     partial void OnTotalCountChanged(int value)
     {
         OnPropertyChanged(nameof(TotalsSummary));
@@ -204,7 +240,11 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
         OnPropertyChanged(nameof(TotalAmountKpi));
         OnPropertyChanged(nameof(AverageAmountKpi));
     }
-    partial void OnNewAmountTextChanged(string value) => NotifyComputed();
+    partial void OnNewAmountTextChanged(string value)
+    {
+        NotifyComputed();
+        _ = ScheduleAutoOpenMultiCurrencyAllocationAsync();
+    }
     partial void OnAttachmentPathChanged(string? value) => OnPropertyChanged(nameof(HasAttachment));
     partial void OnListSearchTextChanged(string value)
     {
@@ -213,13 +253,18 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     }
     partial void OnSelectedDestinationChanged(ExpenseDestinationOption? value)
     {
+        RebuildSelectedAccountBalances();
         RefreshSelectedBalance();
         OnPropertyChanged(nameof(SelectedAccountTitle));
-        if (value is not null && value.Id != Guid.Empty)
-        {
-            SelectedAccountCurrency = value.Currency;
-            SelectedCurrency = Currencies.FirstOrDefault(c => c.Label == value.Currency) ?? SelectedCurrency;
-        }
+        OnPropertyChanged(nameof(HasSelectedAccountBalances));
+        _ = ScheduleAutoOpenMultiCurrencyAllocationAsync();
+    }
+
+    partial void OnSelectedCurrencyChanged(ExpenseCurrencyOption? value)
+    {
+        RefreshSelectedBalance();
+        NotifyComputed();
+        _ = ScheduleAutoOpenMultiCurrencyAllocationAsync();
     }
 
     private void NotifyComputed()
@@ -311,17 +356,22 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
             if (FilterCurrency is { Key: not "all" })
                 items = items.Where(p => p.Currency.Equals(FilterCurrency.Key, StringComparison.OrdinalIgnoreCase));
 
+            if (FilterCategory is { Key: not "all" })
+                items = items.Where(p =>
+                    string.Equals(p.Category, FilterCategory.Key, StringComparison.OrdinalIgnoreCase));
+
             if (!string.IsNullOrWhiteSpace(ListSearchText))
             {
                 var term = ListSearchText.Trim();
                 items = items.Where(p =>
                     p.Label.Contains(term, StringComparison.OrdinalIgnoreCase)
                     || p.Reference.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (p.ExternalReference?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     || p.BeneficiaryName.Contains(term, StringComparison.OrdinalIgnoreCase)
                     || p.DestinationName.Contains(term, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Statut/catégorie : UI prête ; les paiements enregistrés sont traités comme « Validée ».
+            // Statut : les dépenses enregistrées sont « Validée ».
             if (FilterStatus is { Key: "attente" or "annulee" })
                 items = [];
 
@@ -403,17 +453,66 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ViewPayment(ExpensePaymentRow? row)
+    private async Task ViewPaymentAsync(ExpensePaymentRow? row)
     {
         row ??= SelectedPayment;
         if (row is null) return;
-        MessageBox.Show(
-            $"Réf. : {row.Reference}\nDate : {row.ExpenseDate:dd/MM/yyyy}\nLibellé : {row.Label}\n"
-            + $"Bénéficiaire : {row.BeneficiaryName}\nCompte : {row.DestinationName}\n"
-            + $"Montant : {row.Amount:N2} {row.Currency}\nAutorisé par : {row.UserDisplay}",
-            "Détail de la dépense",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+
+        try
+        {
+            IsBusy = true;
+            var detail = await _accountingApi.GetExpensePaymentByIdAsync(row.Id);
+            var window = new ExpensePaymentDetailWindow(detail)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Détail de la dépense", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenMultiCurrencyAllocationAsync()
+    {
+        var amount = ParsedAmount;
+        if (amount <= 0)
+        {
+            StatusMessage = "Saisissez d'abord un montant de dépense.";
+            return;
+        }
+
+        if (SelectedDestination is null || SelectedAccountBalances.Count == 0)
+        {
+            StatusMessage = "Sélectionnez un compte avec des soldes disponibles.";
+            return;
+        }
+
+        var opened = await ShowAllocationDialogAsync(amount);
+        if (opened)
+        {
+            StatusMessage = PendingAllocationSummary + " Cliquez sur Enregistrer pour valider.";
+            OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+            OnPropertyChanged(nameof(PendingAllocationSummary));
+        }
+    }
+
+    [RelayCommand]
+    private void ClearPendingAllocation()
+    {
+        _pendingAllocations = null;
+        _pendingPrimaryCurrencyId = null;
+        _dismissedAutoSplitAmount = null;
+        OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+        OnPropertyChanged(nameof(PendingAllocationSummary));
+        StatusMessage = "Répartition multi-devises annulée.";
+        _ = ScheduleAutoOpenMultiCurrencyAllocationAsync();
     }
 
     [RelayCommand]
@@ -426,9 +525,14 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
         NewBeneficiaryName = row.BeneficiaryName;
         NewAuthorizedByName = row.UserDisplay;
         NewAmountText = row.Amount.ToString("N2", CultureInfo.CurrentCulture);
-        NewReference = row.Reference;
+        NewReference = row.ExternalReference ?? string.Empty;
+        NewObservations = row.Source.Observations ?? string.Empty;
         ExpenseDate = row.ExpenseDate.ToDateTime(TimeOnly.MinValue);
         SelectedCurrency = Currencies.FirstOrDefault(c => c.Label == row.Currency) ?? Currencies[0];
+        NewCategory = Categories.FirstOrDefault(c =>
+                          string.Equals(c.Key, row.Source.Category, StringComparison.OrdinalIgnoreCase))
+                      ?? Categories.Skip(1).FirstOrDefault()
+                      ?? Categories[0];
         StatusMessage = "Modification préparée dans le formulaire (ré-enregistrement = nouvelle écriture pour l’instant).";
     }
 
@@ -490,28 +594,53 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
             return;
         }
 
-        if (amount > AvailableBalance)
+        IReadOnlyList<CreateExpensePaymentAllocationLine>? allocations = _pendingAllocations;
+        Guid? primaryCurrencyId = _pendingPrimaryCurrencyId
+            ?? SelectedAccountBalances.FirstOrDefault(b =>
+                string.Equals(b.CurrencyCode, SelectedCurrency?.Label, StringComparison.OrdinalIgnoreCase))?.CurrencyId;
+
+        if (allocations is null && amount > AvailableBalance)
         {
-            var confirm = MessageBox.Show(
-                $"Le solde après dépense sera négatif ({BalanceAfterExpense:N2}).\nContinuer quand même ?",
-                "Solde insuffisant",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (confirm != MessageBoxResult.Yes) return;
+            if (SelectedAccountBalances.Count <= 1)
+            {
+                StatusMessage =
+                    $"Solde insuffisant en {DisplayCurrency} ({AvailableBalance:N2}). Aucune autre devise disponible sur ce compte.";
+                return;
+            }
+
+            // Ouverture automatique de la répartition (sans confirmation).
+            var ok = await ShowAllocationDialogAsync(amount);
+            if (!ok)
+            {
+                StatusMessage =
+                    $"Solde insuffisant en {DisplayCurrency}. Validez une répartition multi-devises pour enregistrer.";
+                return;
+            }
+
+            allocations = _pendingAllocations;
+            primaryCurrencyId = _pendingPrimaryCurrencyId ?? primaryCurrencyId;
+            OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+            OnPropertyChanged(nameof(PendingAllocationSummary));
         }
 
         IsBusy = true;
         try
         {
             var label = NewLabel.Trim();
-            if (!string.IsNullOrWhiteSpace(NewReference))
-                label = $"{label} [{NewReference.Trim()}]";
-            if (!string.IsNullOrWhiteSpace(NewObservations))
-                label = $"{label} — {NewObservations.Trim()}";
-            if (HasAttachment)
-                label = $"{label} (PJ: {AttachmentFileName})";
+            var categoryKey = NewCategory is null || NewCategory.Key == "all"
+                ? null
+                : NewCategory.Key;
 
-            await _accountingApi.CreateExpensePaymentAsync(new CreateExpensePaymentRequest(
+            string? attachmentStoragePath = null;
+            string? attachmentFileName = null;
+            if (HasAttachment && !string.IsNullOrWhiteSpace(AttachmentPath) && File.Exists(AttachmentPath))
+            {
+                (attachmentStoragePath, attachmentFileName) = StoreExpenseAttachmentLocally(
+                    yearId.Value,
+                    AttachmentPath);
+            }
+
+            var created = await _accountingApi.CreateExpensePaymentAsync(new CreateExpensePaymentRequest(
                 yearId.Value,
                 SelectedDestination.Id,
                 label,
@@ -519,19 +648,45 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
                 authorized,
                 amount,
                 SelectedCurrency?.Value ?? Currency.CDF,
-                DateOnly.FromDateTime(ExpenseDate.Value)));
+                DateOnly.FromDateTime(ExpenseDate.Value),
+                ExpenseRequestId: null,
+                PrimaryCurrencyId: primaryCurrencyId,
+                CurrencyAllocations: allocations,
+                ExternalReference: string.IsNullOrWhiteSpace(NewReference) ? null : NewReference.Trim(),
+                Category: categoryKey,
+                Observations: string.IsNullOrWhiteSpace(NewObservations) ? null : NewObservations.Trim(),
+                AttachmentFileName: attachmentFileName,
+                AttachmentStoragePath: attachmentStoragePath));
+
+            _pendingAllocations = null;
+            _pendingPrimaryCurrencyId = null;
+            _dismissedAutoSplitAmount = null;
+            OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+            OnPropertyChanged(nameof(PendingAllocationSummary));
+
+            var splitInfo = created.HasMultiCurrencyAllocation
+                ? $"\nRépartition : {created.Allocations?.Count ?? 0} devise(s)."
+                : string.Empty;
+
+            MessageBox.Show(
+                $"Dépense enregistrée.\nRéf. système : {created.Reference}\n"
+                + $"Montant : {created.Amount:N2} {created.Currency}\n"
+                + $"Compte : {created.DestinationName}{splitInfo}",
+                "Enregistrement",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
 
             if (keepFormOpen)
             {
                 var dest = SelectedDestination;
                 ClearFormFields();
                 SelectedDestination = dest;
-                StatusMessage = "Dépense enregistrée — formulaire prêt pour une nouvelle saisie.";
+                StatusMessage = $"Dépense {created.Reference} enregistrée — formulaire prêt pour une nouvelle saisie.";
             }
             else
             {
                 ClearFormFields();
-                StatusMessage = "Dépense enregistrée.";
+                StatusMessage = $"Dépense {created.Reference} enregistrée.";
             }
 
             await ReloadBalancesAndSearchAsync();
@@ -539,10 +694,150 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+            MessageBox.Show(ex.Message, "Enregistrement impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Copie la pièce justificative dans le stockage local partagé avec l'API.
+    /// </summary>
+    private static (string RelativePath, string FileName) StoreExpenseAttachmentLocally(
+        Guid academicYearId,
+        string sourcePath)
+    {
+        var root = Environment.GetEnvironmentVariable("FILE_STORAGE_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            root = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ERP_Administration_Scolaire",
+                "storage");
+        }
+
+        var fileName = Path.GetFileName(sourcePath);
+        var safeName = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}_{fileName}";
+        var relative = Path.Combine("depenses", academicYearId.ToString("N"), safeName);
+        var target = Path.Combine(root, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(sourcePath, target, overwrite: true);
+        return (relative.Replace('\\', '/'), fileName);
+    }
+
+    private async Task ScheduleAutoOpenMultiCurrencyAllocationAsync()
+    {
+        _autoSplitCts?.Cancel();
+        _autoSplitCts?.Dispose();
+        _autoSplitCts = new CancellationTokenSource();
+        var token = _autoSplitCts.Token;
+
+        try
+        {
+            // Laisse finir la saisie du montant avant d'ouvrir la fenêtre.
+            await Task.Delay(450, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (token.IsCancellationRequested || _allocationDialogOpen || IsBusy)
+            return;
+
+        var amount = ParsedAmount;
+        if (amount <= 0 || SelectedDestination is null)
+            return;
+
+        if (amount <= AvailableBalance)
+        {
+            _dismissedAutoSplitAmount = null;
+            return;
+        }
+
+        if (SelectedAccountBalances.Count <= 1)
+        {
+            StatusMessage =
+                $"Solde insuffisant en {DisplayCurrency} ({AvailableBalance:N2}). Aucune autre devise sur ce compte.";
+            return;
+        }
+
+        // Déjà une répartition validée pour ce montant, ou utilisateur a annulé pour ce montant.
+        if (HasPendingMultiCurrencyAllocation)
+            return;
+        if (_dismissedAutoSplitAmount.HasValue
+            && Math.Abs(_dismissedAutoSplitAmount.Value - amount) < 0.009m)
+            return;
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
+            return;
+
+        await dispatcher.InvokeAsync(async () =>
+        {
+            if (_allocationDialogOpen || HasPendingMultiCurrencyAllocation || amount <= AvailableBalance)
+                return;
+
+            StatusMessage =
+                $"Montant supérieur au solde {DisplayCurrency} — ouverture de la répartition multi-devises…";
+            var ok = await ShowAllocationDialogAsync(amount);
+            if (ok)
+            {
+                _dismissedAutoSplitAmount = null;
+                StatusMessage = PendingAllocationSummary + " Cliquez sur Enregistrer pour valider.";
+                OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+                OnPropertyChanged(nameof(PendingAllocationSummary));
+            }
+            else
+            {
+                _dismissedAutoSplitAmount = amount;
+                StatusMessage =
+                    "Répartition annulée. Ajustez le montant ou rouvrez via « Répartir sur plusieurs devises ».";
+            }
+        });
+    }
+
+    private async Task<bool> ShowAllocationDialogAsync(decimal amount)
+    {
+        if (_allocationDialogOpen)
+            return false;
+
+        var primaryCode = SelectedCurrency?.Label ?? "CDF";
+        var primaryId = SelectedAccountBalances.FirstOrDefault(b =>
+            string.Equals(b.CurrencyCode, primaryCode, StringComparison.OrdinalIgnoreCase))?.CurrencyId;
+
+        _allocationDialogOpen = true;
+        try
+        {
+            var window = new ExpenseMultiCurrencyAllocationWindow(
+                SelectedAccountTitle,
+                amount,
+                primaryCode,
+                primaryId,
+                SelectedAccountBalances.ToList(),
+                DateOnly.FromDateTime(ExpenseDate ?? DateTime.Today),
+                _currencyApi,
+                _authSession)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            var result = window.ShowDialog();
+            if (result == true && window.Confirmed && window.ConfirmedLines.Count > 0)
+            {
+                _pendingAllocations = window.ConfirmedLines;
+                _pendingPrimaryCurrencyId = primaryId;
+                _dismissedAutoSplitAmount = null;
+                return true;
+            }
+
+            return false;
+        }
+        finally
+        {
+            _allocationDialogOpen = false;
         }
     }
 
@@ -576,7 +871,15 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
         NewCategory = Categories.Skip(1).FirstOrDefault() ?? Categories[0];
         ExpenseDate = DateTime.Today;
         SelectedCurrency = Currencies[0];
-        ClearAttachment();
+        AttachmentPath = null;
+        AttachmentFileName = null;
+        AttachmentSizeLabel = null;
+        _pendingAllocations = null;
+        _pendingPrimaryCurrencyId = null;
+        _dismissedAutoSplitAmount = null;
+        OnPropertyChanged(nameof(HasPendingMultiCurrencyAllocation));
+        OnPropertyChanged(nameof(PendingAllocationSummary));
+        RefreshSelectedBalance();
     }
 
     private async Task ReloadBalancesAndSearchAsync()
@@ -589,8 +892,9 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     {
         Destinations.Clear();
         FilterDestinations.Clear();
-        FilterDestinations.Add(new ExpenseDestinationOption(
-            Guid.Empty, string.Empty, "Tous les comptes", 0, 0, 0, "CDF"));
+        SelectedAccountBalances.Clear();
+        _balanceRows = [];
+        FilterDestinations.Add(new ExpenseDestinationOption(Guid.Empty, string.Empty, "Tous les comptes"));
 
         var yearId = AcademicYearRefreshBridge.SelectedYearId;
         if (yearId is null)
@@ -604,31 +908,68 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
 
         try
         {
-            var balances = await _accountingApi.GetExpenseBalancesAsync(yearId.Value);
-            foreach (var balance in balances.OrderBy(b => b.DestinationName))
+            _balanceRows = (await _accountingApi.GetExpenseBalancesAsync(yearId.Value)).ToList();
+            foreach (var group in _balanceRows
+                         .GroupBy(b => b.DestinationId)
+                         .OrderBy(g => g.First().DestinationName))
             {
+                var first = group.First();
                 var option = new ExpenseDestinationOption(
-                    balance.DestinationId,
-                    balance.DestinationCode,
-                    balance.DestinationName,
-                    balance.AllocatedAmount,
-                    balance.SpentAmount,
-                    balance.AvailableAmount,
-                    balance.Currency);
+                    first.DestinationId,
+                    first.DestinationCode,
+                    first.DestinationName);
                 Destinations.Add(option);
                 FilterDestinations.Add(option);
             }
 
             SelectedDestination ??= Destinations.FirstOrDefault();
             FilterDestination ??= FilterDestinations.FirstOrDefault();
+            RebuildSelectedAccountBalances();
             RefreshSelectedBalance();
+            OnPropertyChanged(nameof(HasSelectedAccountBalances));
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
             SelectedDestination = null;
             FilterDestination = FilterDestinations.FirstOrDefault();
+            SelectedAccountBalances.Clear();
             RefreshSelectedBalance();
+            OnPropertyChanged(nameof(HasSelectedAccountBalances));
+        }
+    }
+
+    private void RebuildSelectedAccountBalances()
+    {
+        SelectedAccountBalances.Clear();
+        if (SelectedDestination is null || SelectedDestination.Id == Guid.Empty)
+        {
+            return;
+        }
+
+        foreach (var row in _balanceRows
+                     .Where(b => b.DestinationId == SelectedDestination.Id)
+                     .OrderBy(b => b.Currency))
+        {
+            SelectedAccountBalances.Add(new ExpenseCurrencyBalanceLine(
+                row.CurrencyId,
+                row.Currency,
+                row.AllocatedAmount,
+                row.SpentAmount,
+                row.AvailableAmount));
+        }
+
+        // Si la devise sélectionnée n'existe pas sur ce compte, bascule sur la 1re disponible.
+        if (SelectedAccountBalances.Count > 0)
+        {
+            var currentCode = SelectedCurrency?.Label;
+            var match = SelectedAccountBalances.FirstOrDefault(b =>
+                string.Equals(b.CurrencyCode, currentCode, StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+            {
+                var firstCode = SelectedAccountBalances[0].CurrencyCode;
+                SelectedCurrency = Currencies.FirstOrDefault(c => c.Label == firstCode) ?? SelectedCurrency;
+            }
         }
     }
 
@@ -640,15 +981,30 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
             AllocatedAmount = 0;
             SpentAmount = 0;
             SelectedAccountCurrency = SelectedCurrency?.Label ?? "CDF";
+            NotifyComputed();
             return;
         }
 
-        AllocatedAmount = SelectedDestination.AllocatedAmount;
-        SpentAmount = SelectedDestination.SpentAmount;
-        AvailableBalance = SelectedDestination.AvailableAmount;
-        SelectedAccountCurrency = string.IsNullOrWhiteSpace(SelectedDestination.Currency)
-            ? "CDF"
-            : SelectedDestination.Currency;
+        var currencyCode = SelectedCurrency?.Label ?? "CDF";
+        var line = SelectedAccountBalances.FirstOrDefault(b =>
+            string.Equals(b.CurrencyCode, currencyCode, StringComparison.OrdinalIgnoreCase))
+            ?? SelectedAccountBalances.FirstOrDefault();
+
+        if (line is null)
+        {
+            AvailableBalance = 0;
+            AllocatedAmount = 0;
+            SpentAmount = 0;
+            SelectedAccountCurrency = currencyCode;
+        }
+        else
+        {
+            AllocatedAmount = line.AllocatedAmount;
+            SpentAmount = line.SpentAmount;
+            AvailableBalance = line.AvailableAmount;
+            SelectedAccountCurrency = line.CurrencyCode;
+        }
+
         NotifyComputed();
     }
 }

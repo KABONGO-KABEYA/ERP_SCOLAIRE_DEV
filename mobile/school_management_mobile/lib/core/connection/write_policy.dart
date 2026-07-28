@@ -21,5 +21,5 @@ class WritePolicy {
   bool get canEnrollStudents => mode.allowsWrites;
 
   String get readOnlyHint =>
-      'Mode Cloud : consultation uniquement. Revenez sur le réseau de l\'école pour modifier.';
+      'Mode Distant : consultation uniquement. Revenez sur le Wi‑Fi de l\'école pour modifier.';
 }

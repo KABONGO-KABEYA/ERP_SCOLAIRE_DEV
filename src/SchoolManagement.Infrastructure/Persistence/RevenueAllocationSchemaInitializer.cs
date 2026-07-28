@@ -241,6 +241,7 @@ public sealed class RevenueAllocationSchemaInitializer
                 [FeeTypeId] uniqueidentifier NULL,
                 [WithholdingTypeId] uniqueidentifier NULL,
                 [AcademicYearId] uniqueidentifier NOT NULL,
+                [CurrencyId] uniqueidentifier NULL,
                 [Amount] decimal(18,2) NOT NULL,
                 [AppliedPercentage] decimal(18,4) NULL,
                 [CalculationType] int NOT NULL,
@@ -267,6 +268,10 @@ public sealed class RevenueAllocationSchemaInitializer
             CREATE INDEX [IX_FinRepartitionRecette_Payment] ON [FinRepartitionRecette] ([PaymentId]);
             CREATE INDEX [IX_FinRepartitionRecette_School_Date] ON [FinRepartitionRecette] ([SchoolId], [AllocatedAt]);
             CREATE INDEX [IX_FinRepartitionRecette_Dest_Year] ON [FinRepartitionRecette] ([SchoolId], [DestinationId], [AcademicYearId]);
+            IF OBJECT_ID(N'FinDevise', N'U') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinRepartitionRecette_Devise')
+                EXEC(N'ALTER TABLE [FinRepartitionRecette] WITH CHECK ADD CONSTRAINT [FK_FinRepartitionRecette_Devise] FOREIGN KEY ([CurrencyId]) REFERENCES [FinDevise] ([Id])');
+            CREATE INDEX [IX_FinRepartitionRecette_Dest_Currency] ON [FinRepartitionRecette] ([SchoolId], [DestinationId], [CurrencyId]);
         END
         """,
         // Compte principal + retenues : FeeTypeId nullable, WithholdingTypeId, AllocationKeyId nullable
@@ -313,6 +318,45 @@ public sealed class RevenueAllocationSchemaInitializer
 
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinCleRepartition_School_Retenue_Start' AND object_id = OBJECT_ID(N'FinCleRepartition'))
                 EXEC(N'CREATE INDEX [IX_FinCleRepartition_School_Retenue_Start] ON [FinCleRepartition] ([SchoolId], [WithholdingTypeId], [StartDate])');
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NULL
+        BEGIN
+            ALTER TABLE [FinRepartitionRecette] ADD [CurrencyId] uniqueidentifier NULL;
+        END
+        """,
+        """
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NOT NULL
+           AND OBJECT_ID(N'FinDevise', N'U') IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_FinRepartitionRecette_Devise')
+            EXEC(N'ALTER TABLE [FinRepartitionRecette] WITH CHECK ADD CONSTRAINT [FK_FinRepartitionRecette_Devise] FOREIGN KEY ([CurrencyId]) REFERENCES [FinDevise] ([Id])');
+        """,
+        """
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_FinRepartitionRecette_Dest_Currency' AND object_id = OBJECT_ID(N'FinRepartitionRecette'))
+            CREATE INDEX [IX_FinRepartitionRecette_Dest_Currency] ON [FinRepartitionRecette] ([SchoolId], [DestinationId], [CurrencyId]);
+        """,
+        """
+        -- Backfill devise depuis le paiement (frais) puis enum historique.
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NOT NULL
+           AND OBJECT_ID(N'Payments', N'U') IS NOT NULL
+        BEGIN
+            UPDATE e
+            SET e.[CurrencyId] = p.[FeeCurrencyId]
+            FROM [FinRepartitionRecette] e
+            INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
+            WHERE e.[CurrencyId] IS NULL AND p.[FeeCurrencyId] IS NOT NULL;
+
+            UPDATE e
+            SET e.[CurrencyId] = p.[PaymentCurrencyId]
+            FROM [FinRepartitionRecette] e
+            INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
+            WHERE e.[CurrencyId] IS NULL AND p.[PaymentCurrencyId] IS NOT NULL;
         END
         """,
         """

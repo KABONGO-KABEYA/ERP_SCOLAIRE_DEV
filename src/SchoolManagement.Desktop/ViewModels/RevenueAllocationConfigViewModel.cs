@@ -24,6 +24,7 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
     private int _destinationsLoadVersion;
     private int _keysLoadVersion;
     private int _catalogLoadVersion;
+    private bool _isAdjustingPercentage;
 
     public RevenueAllocationConfigViewModel(
         IRevenueAllocationApiService allocationApi,
@@ -137,6 +138,17 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
 
     public bool CanDeleteSelectedKey => SelectedKey?.CanDelete == true;
 
+    /// <summary>Clôturer uniquement une répartition encore ouverte.</summary>
+    public bool CanCloseSelectedKey => SelectedKey is { IsActive: true };
+
+    /// <summary>Réactiver une répartition clôturée (API activate).</summary>
+    public bool CanActivateSelectedKey => SelectedKey is { IsActive: false };
+
+    /// <summary>Total des % ≤ 100 (saisie) — l'enregistrement exige exactement 100 %.</summary>
+    public bool IsPercentageTotalWithinLimit => KeyPercentageTotal <= 100m + 0.0001m;
+
+    public bool IsPercentageTotalExact => Math.Abs(KeyPercentageTotal - 100m) <= 0.0001m;
+
     public bool HasAvailableDestinationsForKey => AvailableDestinationsForKey.Count > 0;
 
     public bool CanOpenAddDestinationPicker => HasAvailableDestinationsForKey;
@@ -147,8 +159,12 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
     partial void OnIsDestinationsPanelsExpandedChanged(bool value) =>
         OnPropertyChanged(nameof(DestinationsPanelsToggleLabel));
 
-    partial void OnKeyPercentageTotalChanged(decimal value) =>
+    partial void OnKeyPercentageTotalChanged(decimal value)
+    {
         OnPropertyChanged(nameof(KeyPercentageTotalDisplay));
+        OnPropertyChanged(nameof(IsPercentageTotalWithinLimit));
+        OnPropertyChanged(nameof(IsPercentageTotalExact));
+    }
 
     [RelayCommand]
     private void ToggleKeysConfiguration() => IsKeysConfigurationExpanded = !IsKeysConfigurationExpanded;
@@ -644,6 +660,23 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             return;
         }
 
+        RecalculatePercentageTotal();
+        if (KeyPercentageTotal > 100m + 0.0001m)
+        {
+            SetStatus(
+                $"Le total des pourcentages ne peut pas dépasser 100 % (actuellement {KeyPercentageTotal:N2} %).",
+                FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        if (!IsPercentageTotalExact)
+        {
+            SetStatus(
+                $"Le total des pourcentages doit être exactement 100 % (actuellement {KeyPercentageTotal:N2} %).",
+                FeeStatusMessageKind.Warning);
+            return;
+        }
+
         // Une seule clé par source / année : bascule en mise à jour si elle existe déjà.
         var existingForSelection = IsWithholdingSource
             ? AllocationKeys.FirstOrDefault(k =>
@@ -768,11 +801,80 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
             return;
         }
 
+        if (!SelectedKey.IsActive)
+        {
+            SetStatus("Cette répartition est déjà clôturée.", FeeStatusMessageKind.Warning);
+            return;
+        }
+
         IsBusy = true;
         try
         {
             await _allocationApi.CloseKeyAsync(SelectedKey.Id);
             SetStatus("Répartition clôturée. L'historique éventuel reste intact.", FeeStatusMessageKind.Success);
+            await LoadKeysAsync();
+            SelectedKey = AllocationKeys.FirstOrDefault(k => k.Id == SelectedKey.Id);
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ex.Message, FeeStatusMessageKind.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ActivateKeyAsync()
+    {
+        if (SelectedKey is null)
+        {
+            return;
+        }
+
+        if (SelectedKey.IsActive)
+        {
+            SetStatus("Cette répartition est déjà ouverte.", FeeStatusMessageKind.Info);
+            return;
+        }
+
+        RecalculatePercentageTotal();
+        if (KeyPercentageTotal > 100m + 0.0001m)
+        {
+            SetStatus(
+                $"Impossible de réactiver : le total dépasse 100 % ({KeyPercentageTotal:N2} %). Ajustez les lignes puis enregistrez.",
+                FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        if (!IsPercentageTotalExact)
+        {
+            SetStatus(
+                $"Impossible de réactiver : le total doit être exactement 100 % (actuellement {KeyPercentageTotal:N2} %). Enregistrez d'abord les pourcentages.",
+                FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            // Persiste d'abord les pourcentages éventuels, puis réouvre la clé.
+            if (SelectedKeyYear is not null && KeyStartDate is not null && KeyDetailRows.Count > 0)
+            {
+                var details = KeyDetailRows.Select((r, i) => new SaveRevenueAllocationKeyDetailRequest(
+                    r.DestinationId,
+                    r.Value,
+                    r.SortOrder > 0 ? r.SortOrder : i + 1)).ToList();
+                await _allocationApi.UpdateKeyAsync(SelectedKey.Id, new UpdateRevenueAllocationKeyRequest(
+                    KeyName.Trim(),
+                    string.IsNullOrWhiteSpace(KeyNotes) ? null : KeyNotes.Trim(),
+                    DateOnly.FromDateTime(KeyStartDate.Value),
+                    details));
+            }
+
+            await _allocationApi.ActivateKeyAsync(SelectedKey.Id);
+            SetStatus("Répartition réactivée (ouverte). Elle s'applique à nouveau aux nouveaux paiements.", FeeStatusMessageKind.Success);
             await LoadKeysAsync();
             SelectedKey = AllocationKeys.FirstOrDefault(k => k.Id == SelectedKey.Id);
         }
@@ -824,10 +926,51 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
 
     private void OnKeyDetailRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(KeyDetailEditorRow.Value))
+        if (e.PropertyName is not nameof(KeyDetailEditorRow.Value) || sender is not KeyDetailEditorRow row)
         {
-            RecalculatePercentageTotal();
+            return;
         }
+
+        if (_isAdjustingPercentage)
+        {
+            return;
+        }
+
+        // Empêche de dépasser 100 % : plafonne la ligne en cours.
+        var others = KeyDetailRows.Where(r => !ReferenceEquals(r, row)).Sum(r => r.Value);
+        var maxAllowed = Math.Max(0m, 100m - others);
+        if (row.Value < 0)
+        {
+            _isAdjustingPercentage = true;
+            try
+            {
+                row.Value = 0;
+            }
+            finally
+            {
+                _isAdjustingPercentage = false;
+            }
+
+            SetStatus("Un pourcentage ne peut pas être négatif.", FeeStatusMessageKind.Warning);
+        }
+        else if (row.Value > maxAllowed + 0.0001m)
+        {
+            _isAdjustingPercentage = true;
+            try
+            {
+                row.Value = maxAllowed;
+            }
+            finally
+            {
+                _isAdjustingPercentage = false;
+            }
+
+            SetStatus(
+                $"Le total ne peut pas dépasser 100 %. Maximum pour cette ligne : {maxAllowed:N2} %.",
+                FeeStatusMessageKind.Warning);
+        }
+
+        RecalculatePercentageTotal();
     }
 
     private void NotifyKeyUiState()
@@ -837,6 +980,10 @@ public partial class RevenueAllocationConfigViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsKeyReadOnly));
         OnPropertyChanged(nameof(CanCreateKeyForSelection));
         OnPropertyChanged(nameof(CanDeleteSelectedKey));
+        OnPropertyChanged(nameof(CanCloseSelectedKey));
+        OnPropertyChanged(nameof(CanActivateSelectedKey));
+        OnPropertyChanged(nameof(IsPercentageTotalWithinLimit));
+        OnPropertyChanged(nameof(IsPercentageTotalExact));
         OnPropertyChanged(nameof(CanOpenAddDestinationPicker));
         OnPropertyChanged(nameof(IsFeeTypeSource));
         OnPropertyChanged(nameof(IsWithholdingSource));

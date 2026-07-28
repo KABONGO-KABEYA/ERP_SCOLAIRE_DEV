@@ -243,6 +243,7 @@ public sealed class CloudDatabaseSyncService : ICloudDatabaseSyncService
         yield return (l, r, ct) => UpsertAsync<WithholdingApplication>(l, r, ct);
         yield return (l, r, ct) => UpsertAsync<ExpenseRequest>(l, r, ct);
         yield return (l, r, ct) => UpsertAsync<ExpensePayment>(l, r, ct);
+        yield return (l, r, ct) => UpsertAsync<ExpensePaymentAllocation>(l, r, ct);
 
         // Branding / audit (léger)
         yield return (l, r, ct) => UpsertAsync<SchoolLogo>(l, r, ct);

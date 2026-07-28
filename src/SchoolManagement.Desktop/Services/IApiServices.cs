@@ -921,6 +921,10 @@ public interface IAccountingApiService
         SchoolManagement.Application.Accounting.DTOs.CreateExpensePaymentRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Accounting.DTOs.ExpensePaymentDto> GetExpensePaymentByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SchoolManagement.Application.Accounting.DTOs.ExpenseDestinationBalanceDto>> GetExpenseBalancesAsync(
         Guid academicYearId,
         CancellationToken cancellationToken = default);

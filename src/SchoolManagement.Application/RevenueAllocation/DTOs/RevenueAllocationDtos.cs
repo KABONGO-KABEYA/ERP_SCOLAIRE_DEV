@@ -77,6 +77,8 @@ public sealed record RevenueAllocationEntryDto(
     Guid DestinationId,
     string DestinationCode,
     string DestinationName,
+    Guid? CurrencyId,
+    string CurrencyCode,
     decimal AllocatedAmount,
     decimal? AppliedPercentage,
     AllocationCalculationType CalculationType,
@@ -99,15 +101,32 @@ public sealed record RevenueAllocationSearchRequest(
     Guid? FeeTypeId,
     Guid? SectionId = null,
     Guid? ClassRoomId = null,
+    Guid? CurrencyId = null,
     int Page = 1,
     int PageSize = 50);
 
-public sealed record DestinationTotalDto(Guid DestinationId, string Code, string Name, decimal Total);
+public sealed record CurrencyTotalDto(Guid? CurrencyId, string CurrencyCode, decimal Total);
 
-public sealed record FeeTypeTotalDto(Guid FeeTypeId, string Code, string Name, decimal Total);
+public sealed record DestinationTotalDto(
+    Guid DestinationId,
+    string Code,
+    string Name,
+    Guid? CurrencyId,
+    string CurrencyCode,
+    decimal Total);
+
+public sealed record FeeTypeTotalDto(
+    Guid FeeTypeId,
+    string Code,
+    string Name,
+    Guid? CurrencyId,
+    string CurrencyCode,
+    decimal Total);
 
 public sealed record RevenueAllocationTotalsDto(
+    /// <summary>Somme brute (utile si une seule devise) — préférer <see cref="ByCurrency"/>.</summary>
     decimal GrandTotal,
+    IReadOnlyList<CurrencyTotalDto> ByCurrency,
     IReadOnlyList<DestinationTotalDto> ByDestination,
     IReadOnlyList<FeeTypeTotalDto> ByFeeType);
 
@@ -118,27 +137,33 @@ public sealed record RevenueAllocationSearchResultDto(
     int TotalCount,
     RevenueAllocationTotalsDto Totals);
 
-/// <summary>Ligne agrégée : compte bénéficiaire pour un type de frais.</summary>
+/// <summary>Ligne agrégée : compte bénéficiaire pour un type de frais (par devise).</summary>
 public sealed record FeeTypeAllocationDestinationSummaryDto(
     Guid DestinationId,
     string DestinationCode,
     string DestinationName,
+    Guid? CurrencyId,
+    string CurrencyCode,
     decimal Percentage,
     decimal AllocatedAmount);
 
-/// <summary>Groupe de répartition par type de frais (montants globaux).</summary>
+/// <summary>Groupe de répartition par type de frais × devise.</summary>
 public sealed record FeeTypeAllocationSummaryGroupDto(
     Guid FeeTypeId,
     string FeeTypeCode,
     string FeeTypeName,
+    Guid? CurrencyId,
+    string CurrencyCode,
     decimal FeeTypeTotal,
     IReadOnlyList<FeeTypeAllocationDestinationSummaryDto> Destinations);
 
-/// <summary>Solde d'un compte bénéficiaire (J-1, encaissements, dépenses, solde période).</summary>
+/// <summary>Solde d'un compte bénéficiaire dans une devise (J-1, encaissements, dépenses, solde période).</summary>
 public sealed record AllocationCashFlowRowDto(
     Guid DestinationId,
     string DestinationCode,
     string DestinationName,
+    Guid? CurrencyId,
+    string CurrencyCode,
     decimal PeriodJ1,
     decimal Encaissement,
     decimal DepenseP,
@@ -153,7 +178,7 @@ public sealed record AllocationCashFlowDailyGroupDto(
 public sealed record AllocationCashFlowResultDto(
     IReadOnlyList<AllocationCashFlowRowDto> GlobalRows,
     IReadOnlyList<AllocationCashFlowDailyGroupDto> DailyGroups,
-    AllocationCashFlowRowDto Totals);
+    IReadOnlyList<AllocationCashFlowRowDto> TotalsByCurrency);
 
 /// <summary>Ligne calculée (réutilisable Comptabilité / Budget / Caisse).</summary>
 public sealed record CalculatedAllocationLine(

@@ -1,0 +1,82 @@
+<Window x:Class="SchoolManagement.Desktop.Views.ExpensePaymentDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Détail de la dépense"
+        Height="480"
+        Width="720"
+        MinHeight="360"
+        MinWidth="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource ErpPageBackgroundBrush}"
+        FontFamily="{StaticResource ErpFontFamily}">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom"
+                Padding="16,10"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="0,1,0,0">
+            <Button HorizontalAlignment="Right"
+                    Padding="16,8"
+                    Content="Fermer"
+                    IsCancel="True"
+                    Style="{StaticResource ErpSecondaryButton}"
+                    Click="Close_OnClick" />
+        </Border>
+
+        <TabControl Margin="16" Padding="8">
+            <TabItem Header="Général">
+                <StackPanel Margin="8">
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Référence" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" FontWeight="SemiBold" Text="{Binding Reference}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Date" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding ExpenseDate, StringFormat=dd/MM/yyyy}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Libellé" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding Label}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Bénéficiaire" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding BeneficiaryName}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Compte" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding DestinationLabel}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Montant" />
+                    <TextBlock Margin="0,0,0,10" FontSize="16" FontWeight="Bold" Text="{Binding AmountDisplay}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Référence / N° pièce" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding ExternalReference}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Catégorie" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding CategoryLabel}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Observations" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding Observations}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Pièce justificative" />
+                    <TextBlock Margin="0,0,0,10" FontSize="14" Text="{Binding AttachmentLabel}" />
+                    <TextBlock FontSize="11" Foreground="#64748B" Text="Autorisé par" />
+                    <TextBlock FontSize="14" Text="{Binding AuthorizedByName}" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Répartition multi-devises">
+                <DockPanel Margin="8">
+                    <TextBlock DockPanel.Dock="Top"
+                               Margin="0,0,0,8"
+                               FontSize="12"
+                               Foreground="#64748B"
+                               Text="{Binding AllocationSummary}"
+                               TextWrapping="Wrap" />
+                    <DataGrid ItemsSource="{Binding Allocations}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              BorderBrush="#E5E7EB"
+                              BorderThickness="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Devise" Binding="{Binding CurrencyCode}" Width="80" />
+                            <DataGridTextColumn Header="Montant prélevé" Binding="{Binding AmountDisplay}" Width="130" />
+                            <DataGridTextColumn Header="Taux" Binding="{Binding RateDisplay}" Width="110" />
+                            <DataGridTextColumn Header="Sens" Binding="{Binding RateDirectionLabel}" Width="*" />
+                            <DataGridTextColumn Header="Équiv. principale" Binding="{Binding EquivalentDisplay}" Width="140" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

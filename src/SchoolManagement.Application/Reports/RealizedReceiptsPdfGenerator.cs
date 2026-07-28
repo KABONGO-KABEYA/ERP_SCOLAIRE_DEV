@@ -694,7 +694,8 @@ public static class RealizedReceiptsPdfGenerator
         {
             table.ColumnsDefinition(c =>
             {
-                c.RelativeColumn(2.4f);
+                c.RelativeColumn(2.2f);
+                c.RelativeColumn(0.7f);
                 c.RelativeColumn(1.1f);
                 c.RelativeColumn(1.1f);
                 c.RelativeColumn(1.1f);
@@ -703,6 +704,7 @@ public static class RealizedReceiptsPdfGenerator
             table.Header(h =>
             {
                 HeaderCell(h, "Compte bénéficiaire");
+                HeaderCell(h, "Devise");
                 HeaderCell(h, "Période J-1", alignRight: true);
                 HeaderCell(h, "Encaissement", alignRight: true);
                 HeaderCell(h, "Dépense P", alignRight: true);
@@ -714,18 +716,22 @@ public static class RealizedReceiptsPdfGenerator
                 var item = allocations.GlobalRows[i];
                 var bg = i % 2 == 1 ? Zebra : Colors.White;
                 BodyCell(table, item.DestinationName, bg);
+                BodyCell(table, item.CurrencyCode, bg);
                 BodyCell(table, item.PeriodJ1.ToString("N2", culture), bg, alignRight: true);
                 BodyCell(table, item.Encaissement.ToString("N2", culture), bg, alignRight: true);
                 BodyCell(table, item.DepenseP.ToString("N2", culture), bg, alignRight: true);
                 BodyCell(table, item.PeriodeP.ToString("N2", culture), bg, alignRight: true);
             }
 
-            var t = allocations.Totals;
-            table.Cell().Background(LightBlue).Padding(3).Text("Total").SemiBold().FontColor(PrimaryBlue);
-            table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.PeriodJ1.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
-            table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.Encaissement.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
-            table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.DepenseP.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
-            table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.PeriodeP.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
+            foreach (var t in allocations.TotalsByCurrency)
+            {
+                table.Cell().Background(LightBlue).Padding(3).Text(t.DestinationName).SemiBold().FontColor(PrimaryBlue);
+                table.Cell().Background(LightBlue).Padding(3).Text(t.CurrencyCode).SemiBold().FontColor(PrimaryBlue);
+                table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.PeriodJ1.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
+                table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.Encaissement.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
+                table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.DepenseP.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
+                table.Cell().Background(LightBlue).Padding(3).AlignRight().Text(t.PeriodeP.ToString("N2", culture)).SemiBold().FontColor(PrimaryBlue);
+            }
         });
     }
 
@@ -751,7 +757,8 @@ public static class RealizedReceiptsPdfGenerator
                 {
                     table.ColumnsDefinition(c =>
                     {
-                        c.RelativeColumn(2.4f);
+                        c.RelativeColumn(2.2f);
+                        c.RelativeColumn(0.7f);
                         c.RelativeColumn(1.1f);
                         c.RelativeColumn(1.1f);
                         c.RelativeColumn(1.1f);
@@ -760,6 +767,7 @@ public static class RealizedReceiptsPdfGenerator
                     table.Header(h =>
                     {
                         HeaderCell(h, "Compte bénéficiaire");
+                        HeaderCell(h, "Devise");
                         HeaderCell(h, "Période J-1", alignRight: true);
                         HeaderCell(h, "Encaissement", alignRight: true);
                         HeaderCell(h, "Dépense P", alignRight: true);
@@ -771,6 +779,7 @@ public static class RealizedReceiptsPdfGenerator
                         var item = group.Rows[i];
                         var bg = i % 2 == 1 ? Zebra : Colors.White;
                         BodyCell(table, item.DestinationName, bg);
+                        BodyCell(table, item.CurrencyCode, bg);
                         BodyCell(table, item.PeriodJ1.ToString("N2", culture), bg, alignRight: true);
                         BodyCell(table, item.Encaissement.ToString("N2", culture), bg, alignRight: true);
                         BodyCell(table, item.DepenseP.ToString("N2", culture), bg, alignRight: true);

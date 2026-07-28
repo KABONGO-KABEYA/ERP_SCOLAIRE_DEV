@@ -427,12 +427,24 @@
                                                     <TextBlock Margin="0,2,0,0"
                                                                FontSize="12"
                                                                Foreground="{StaticResource ErpTextSecondaryBrush}"
-                                                               Text="Doit atteindre exactement 100 %" />
+                                                               Text="Exactement 100 % — impossible de dépasser" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1"
-                                                           Style="{StaticResource SchoolFeeTotalAmount}"
                                                            Text="{Binding KeyPercentageTotalDisplay}"
-                                                           VerticalAlignment="Center" />
+                                                           VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource SchoolFeeTotalAmount}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsPercentageTotalWithinLimit}" Value="False">
+                                                                    <Setter Property="Foreground" Value="#DC2626" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsPercentageTotalExact}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#059669" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
                                             </Grid>
                                         </Border>
                                     </Grid>
@@ -574,11 +586,24 @@
                 </Button>
                 <Button Margin="8,0,0,0"
                         Command="{Binding CloseKeyCommand}"
+                        IsEnabled="{Binding CanCloseSelectedKey}"
                         Padding="14,7"
-                        Style="{StaticResource ErpSecondaryButton}">
+                        Style="{StaticResource ErpSecondaryButton}"
+                        ToolTip="Clôturer la répartition ouverte (historique conservé)">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Kind="LockOutline" />
                         <TextBlock VerticalAlignment="Center" Text="Clôturer" />
+                    </StackPanel>
+                </Button>
+                <Button Margin="8,0,0,0"
+                        Command="{Binding ActivateKeyCommand}"
+                        IsEnabled="{Binding CanActivateSelectedKey}"
+                        Padding="14,7"
+                        Style="{StaticResource ErpSecondaryButton}"
+                        ToolTip="Réouvrir une répartition clôturée (total à 100 % requis)">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Margin="0,0,8,0" VerticalAlignment="Center" Kind="LockOpenOutline" />
+                        <TextBlock VerticalAlignment="Center" Text="Réactiver" />
                     </StackPanel>
                 </Button>
                 <Button Margin="8,0,0,0"

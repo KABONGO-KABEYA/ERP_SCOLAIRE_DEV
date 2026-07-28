@@ -5,7 +5,7 @@ import '../theme/erp_theme.dart';
 import 'connection_mode.dart';
 import 'connection_mode_notifier.dart';
 
-/// Bandeau permanent : Local / Cloud / Hors ligne — tap = re-sonde immédiate.
+/// Bandeau permanent : Local / Distant / Mode Cache — tap = re-sonde immédiate.
 class ConnectionModeBanner extends ConsumerStatefulWidget {
   const ConnectionModeBanner({super.key});
 
@@ -32,9 +32,9 @@ class _ConnectionModeBannerState extends ConsumerState<ConnectionModeBanner> {
     final detecting = snap.mode == ConnectionMode.detecting || _tapping;
     final (color, icon) = switch (snap.mode) {
       ConnectionMode.detecting => (ErpColors.warning, Icons.hourglass_top),
-      ConnectionMode.local => (ErpColors.success, Icons.lan),
+      ConnectionMode.local => (ErpColors.success, Icons.wifi),
       ConnectionMode.cloud => (const Color(0xFF2563EB), Icons.cloud_outlined),
-      ConnectionMode.offline => (ErpColors.danger, Icons.cloud_off),
+      ConnectionMode.offline => (ErpColors.danger, Icons.offline_bolt_outlined),
     };
 
     return Material(

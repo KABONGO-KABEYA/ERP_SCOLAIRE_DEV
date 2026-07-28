@@ -765,7 +765,10 @@ public partial class EncaissementActionWindow : Window
         AllocationsGrid.ItemsSource = result.Items;
         StatusText.Text = result.TotalCount == 0
             ? "Aucune répartition trouvée."
-            : $"{result.TotalCount} écriture(s) — total {result.Totals.GrandTotal:N0}.";
+            : $"{result.TotalCount} écriture(s) — " +
+              (result.Totals.ByCurrency.Count == 0
+                  ? "total 0"
+                  : string.Join(" · ", result.Totals.ByCurrency.Select(c => $"{c.CurrencyCode} {c.Total:N0}")));
     }
 
     private async Task LoadWithholdingsAsync()

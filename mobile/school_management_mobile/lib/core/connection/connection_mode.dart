@@ -9,7 +9,7 @@ enum ConnectionMode {
   /// API cloud joignable, locale non — lecture seule (+ notes enseignant).
   cloud,
 
-  /// Aucune API joignable (Wi‑Fi école hors portée et/ou Cloud indisponible).
+  /// Aucune API joignable — consultation des données en cache local.
   offline,
 }
 
@@ -25,16 +25,17 @@ extension ConnectionModeX on ConnectionMode {
   String get label => switch (this) {
         ConnectionMode.detecting => 'Détection…',
         ConnectionMode.local => 'Mode Local',
-        ConnectionMode.cloud => 'Mode Cloud',
-        ConnectionMode.offline => 'Hors ligne',
+        ConnectionMode.cloud => 'Mode Distant',
+        ConnectionMode.offline => 'Mode Cache',
       };
 
   String get subtitle => switch (this) {
         ConnectionMode.detecting => 'Recherche du serveur…',
-        ConnectionMode.local => 'Connecté au serveur de l\'établissement.',
+        ConnectionMode.local => 'Même Wi‑Fi que le serveur — lecture + écriture.',
         ConnectionMode.cloud =>
-          'Connecté au Cloud — lecture seule (notes enseignants autorisées).',
-        ConnectionMode.offline => 'Aucun serveur disponible.',
+          'Autre réseau — serveur distant (lecture seule, notes autorisées).',
+        ConnectionMode.offline =>
+          'Pas de connexion — données en cache uniquement.',
       };
 }
 
@@ -57,7 +58,7 @@ class ConnectionSnapshot {
 
   String get displayLabel {
     if (mode == ConnectionMode.offline && hasInternet == true) {
-      return 'Serveur inaccessible';
+      return 'Mode Cache (serveurs injoignables)';
     }
     return mode.label;
   }

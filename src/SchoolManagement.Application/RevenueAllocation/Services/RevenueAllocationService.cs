@@ -6,6 +6,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.CurrencyManagement.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
 using SchoolManagement.Application.Withholdings.DTOs;
@@ -27,6 +28,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
     private readonly IRepository<RevenueAllocationKeyDetail> _detailRepository;
     private readonly IRepository<RevenueAllocationEntry> _entryRepository;
     private readonly IRepository<ExpensePayment> _expensePaymentRepository;
+    private readonly IRepository<ExpensePaymentAllocation> _expenseAllocationRepository;
     private readonly IRepository<Payment> _paymentRepository;
     private readonly IRepository<PaymentLine> _paymentLineRepository;
     private readonly IRepository<Enrollment> _enrollmentRepository;
@@ -37,6 +39,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
     private readonly IRepository<FeeType> _feeTypeRepository;
     private readonly IRepository<WithholdingType> _withholdingTypeRepository;
     private readonly IRepository<UserAccount> _userRepository;
+    private readonly IRepository<CurrencyDefinition> _currencyRepository;
+    private readonly ICurrencyService _currencyService;
     private readonly IRevenueAllocationEngine _engine;
     private readonly IWithholdingService _withholdingService;
     private readonly IUnitOfWork _unitOfWork;
@@ -47,6 +51,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         IRepository<RevenueAllocationKeyDetail> detailRepository,
         IRepository<RevenueAllocationEntry> entryRepository,
         IRepository<ExpensePayment> expensePaymentRepository,
+        IRepository<ExpensePaymentAllocation> expenseAllocationRepository,
         IRepository<Payment> paymentRepository,
         IRepository<PaymentLine> paymentLineRepository,
         IRepository<Enrollment> enrollmentRepository,
@@ -57,6 +62,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         IRepository<FeeType> feeTypeRepository,
         IRepository<WithholdingType> withholdingTypeRepository,
         IRepository<UserAccount> userRepository,
+        IRepository<CurrencyDefinition> currencyRepository,
+        ICurrencyService currencyService,
         IRevenueAllocationEngine engine,
         IWithholdingService withholdingService,
         IUnitOfWork unitOfWork)
@@ -66,6 +73,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         _detailRepository = detailRepository;
         _entryRepository = entryRepository;
         _expensePaymentRepository = expensePaymentRepository;
+        _expenseAllocationRepository = expenseAllocationRepository;
         _paymentRepository = paymentRepository;
         _paymentLineRepository = paymentLineRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -76,6 +84,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         _feeTypeRepository = feeTypeRepository;
         _withholdingTypeRepository = withholdingTypeRepository;
         _userRepository = userRepository;
+        _currencyRepository = currencyRepository;
+        _currencyService = currencyService;
         _engine = engine;
         _withholdingService = withholdingService;
         _unitOfWork = unitOfWork;
@@ -551,6 +561,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             return;
         }
 
+        var currencyId = await ResolveAllocationCurrencyIdAsync(schoolId, payment, cancellationToken);
+
         if (key is null)
         {
             await _entryRepository.AddAsync(new RevenueAllocationEntry
@@ -562,6 +574,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 FeeTypeId = feeTypeId,
                 WithholdingTypeId = withholdingTypeId,
                 AcademicYearId = payment.AcademicYearId,
+                CurrencyId = currencyId,
                 Amount = amount,
                 AppliedPercentage = 100m,
                 CalculationType = AllocationCalculationType.Pourcentage,
@@ -589,12 +602,46 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 FeeTypeId = feeTypeId,
                 WithholdingTypeId = withholdingTypeId,
                 AcademicYearId = payment.AcademicYearId,
+                CurrencyId = currencyId,
                 Amount = item.Amount,
                 AppliedPercentage = item.AppliedPercentage,
                 CalculationType = AllocationCalculationType.Pourcentage,
                 AllocatedAt = allocatedAt,
                 AllocatedByUserId = userId
             }, cancellationToken);
+        }
+    }
+
+    /// <summary>Devise du montant réparti = devise du frais (snapshot paiement).</summary>
+    private async Task<Guid?> ResolveAllocationCurrencyIdAsync(
+        Guid schoolId,
+        Payment payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.FeeCurrencyId.HasValue)
+        {
+            return payment.FeeCurrencyId;
+        }
+
+        if (payment.PaymentCurrencyId.HasValue)
+        {
+            return payment.PaymentCurrencyId;
+        }
+
+        var fromEnum = await _currencyService.ResolveByEnumCodeAsync(payment.Currency.ToString(), cancellationToken);
+        if (fromEnum is not null)
+        {
+            return fromEnum.Id;
+        }
+
+        try
+        {
+            var main = await _currencyService.GetMainCurrencyAsync(schoolId, cancellationToken);
+            return main.Id;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -643,13 +690,15 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             .ToDictionary(d => d.Id);
         var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
             .ToDictionary(f => f.Id);
+        var currencyLabels = await BuildCurrencyLabelMapAsync(filtered, cancellationToken);
 
         return filtered
             .Where(e => e.FeeTypeId.HasValue)
-            .GroupBy(e => e.FeeTypeId!.Value)
+            .GroupBy(e => (FeeTypeId: e.FeeTypeId!.Value, CurrencyId: e.CurrencyId))
             .Select(feeGroup =>
             {
-                feeTypes.TryGetValue(feeGroup.Key, out var feeType);
+                feeTypes.TryGetValue(feeGroup.Key.FeeTypeId, out var feeType);
+                var currencyCode = ResolveCurrencyCode(feeGroup.Key.CurrencyId, currencyLabels);
                 var feeTotal = feeGroup.Sum(e => e.Amount);
                 var destinationRows = feeGroup
                     .GroupBy(e => e.DestinationId)
@@ -668,6 +717,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                             destGroup.Key,
                             dest?.Code ?? "—",
                             dest?.Name ?? "—",
+                            feeGroup.Key.CurrencyId,
+                            currencyCode,
                             Math.Round(percentage, 2),
                             amount);
                     })
@@ -676,13 +727,16 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                     .ToList();
 
                 return new FeeTypeAllocationSummaryGroupDto(
-                    feeGroup.Key,
+                    feeGroup.Key.FeeTypeId,
                     feeType?.Code ?? "—",
                     feeType?.Name ?? "—",
+                    feeGroup.Key.CurrencyId,
+                    currencyCode,
                     feeTotal,
                     destinationRows);
             })
             .OrderBy(g => g.FeeTypeName)
+            .ThenBy(g => g.CurrencyCode)
             .ToList();
     }
 
@@ -736,6 +790,11 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 query = query.Where(e => e.DestinationId == request.DestinationId);
             }
 
+            if (request.CurrencyId.HasValue)
+            {
+                query = query.Where(e => e.CurrencyId == request.CurrencyId);
+            }
+
             return query;
         }
 
@@ -780,30 +839,49 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         var periodExpenses = FilterExpenses(expenses, fromDate, toDate).ToList();
         var openingExpenses = FilterExpenses(expenses, null, fromDate.AddDays(-1)).ToList();
 
-        // Lignes = comptes ayant reçu un partage sur la période (évent. + dépenses globales).
-        // Le total Encaissement = somme des parts = montant perçu (jamais supérieur).
-        var destinationIds = periodEntries.Select(e => e.DestinationId)
-            .Concat(periodExpenses.Select(p => p.DestinationId))
-            .Distinct()
-            .ToList();
-
-        // Conserver aussi les comptes avec solde J-1 pour le suivi de solde.
-        foreach (var id in openingEntries.Select(e => e.DestinationId)
-                     .Concat(openingExpenses.Select(p => p.DestinationId))
-                     .Distinct())
+        var currencyLabels = await BuildCurrencyLabelMapAsync(
+            baseEntries.Concat(periodEntries).Concat(openingEntries).ToList(),
+            cancellationToken);
+        var expenseCurrencyMap = await BuildExpenseCurrencyIdMapAsync(schoolId, periodExpenses.Concat(openingExpenses).ToList(), cancellationToken);
+        var expenseSpendLines = (await ExpandExpenseSpendLinesAsync(
+            schoolId,
+            periodExpenses.Concat(openingExpenses).ToList(),
+            expenseCurrencyMap,
+            cancellationToken)).ToList();
+        foreach (var currencyId in expenseSpendLines.Where(l => l.CurrencyId.HasValue).Select(l => l.CurrencyId!.Value).Distinct())
         {
-            if (!destinationIds.Contains(id))
+            if (!currencyLabels.ContainsKey(currencyId))
             {
-                destinationIds.Add(id);
+                var def = await _currencyRepository.GetByIdAsync(currencyId, cancellationToken);
+                if (def is not null)
+                {
+                    currencyLabels[def.Id] = def.Code;
+                }
             }
         }
 
-        if (request.DestinationId.HasValue && !destinationIds.Contains(request.DestinationId.Value))
+        static (Guid DestinationId, Guid? CurrencyId) KeyOf(Guid destinationId, Guid? currencyId) =>
+            (destinationId, currencyId);
+
+        var keys = periodEntries.Select(e => KeyOf(e.DestinationId, e.CurrencyId))
+            .Concat(openingEntries.Select(e => KeyOf(e.DestinationId, e.CurrencyId)))
+            .Concat(expenseSpendLines.Select(l => KeyOf(l.DestinationId, l.CurrencyId)))
+            .Distinct()
+            .ToList();
+
+        if (request.DestinationId.HasValue
+            && !keys.Any(k => k.DestinationId == request.DestinationId.Value))
         {
-            destinationIds.Add(request.DestinationId.Value);
+            keys.Add(KeyOf(request.DestinationId.Value, request.CurrencyId));
         }
 
-        AllocationCashFlowRowDto BuildRow(Guid destinationId, decimal j1Enc, decimal j1Dep, decimal enc, decimal dep)
+        AllocationCashFlowRowDto BuildRow(
+            Guid destinationId,
+            Guid? currencyId,
+            decimal j1Enc,
+            decimal j1Dep,
+            decimal enc,
+            decimal dep)
         {
             destinations.TryGetValue(destinationId, out var destination);
             var periodJ1 = j1Enc - j1Dep;
@@ -811,30 +889,57 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 destinationId,
                 destination?.Code ?? "—",
                 destination?.Name ?? "—",
+                currencyId,
+                ResolveCurrencyCode(currencyId, currencyLabels),
                 periodJ1,
                 enc,
                 dep,
                 periodJ1 + enc - dep);
         }
 
-        var globalRows = destinationIds
-            .Select(id => BuildRow(
-                id,
-                openingEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
-                openingExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount),
-                periodEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
-                periodExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount)))
-            .OrderBy(r => r.DestinationName)
+        decimal SumEntries(IEnumerable<RevenueAllocationEntry> source, Guid destinationId, Guid? currencyId) =>
+            source.Where(e => e.DestinationId == destinationId && e.CurrencyId == currencyId).Sum(e => e.Amount);
+
+        decimal SumExpenseLines(
+            IEnumerable<(Guid DestinationId, Guid? CurrencyId, decimal Amount, Guid PaymentId)> source,
+            Guid destinationId,
+            Guid? currencyId,
+            IReadOnlySet<Guid> paymentIds) =>
+            source.Where(l =>
+                    paymentIds.Contains(l.PaymentId)
+                    && l.DestinationId == destinationId
+                    && l.CurrencyId == currencyId)
+                .Sum(l => l.Amount);
+
+        var openingExpenseIds = openingExpenses.Select(p => p.Id).ToHashSet();
+        var periodExpenseIds = periodExpenses.Select(p => p.Id).ToHashSet();
+
+        var globalRows = keys
+            .Select(k => BuildRow(
+                k.DestinationId,
+                k.CurrencyId,
+                SumEntries(openingEntries, k.DestinationId, k.CurrencyId),
+                SumExpenseLines(expenseSpendLines, k.DestinationId, k.CurrencyId, openingExpenseIds),
+                SumEntries(periodEntries, k.DestinationId, k.CurrencyId),
+                SumExpenseLines(expenseSpendLines, k.DestinationId, k.CurrencyId, periodExpenseIds)))
+            .OrderBy(r => r.CurrencyCode)
+            .ThenBy(r => r.DestinationName)
             .ToList();
 
-        var totals = new AllocationCashFlowRowDto(
-            Guid.Empty,
-            "TOTAL",
-            "Total général",
-            globalRows.Sum(r => r.PeriodJ1),
-            globalRows.Sum(r => r.Encaissement),
-            globalRows.Sum(r => r.DepenseP),
-            globalRows.Sum(r => r.PeriodeP));
+        var totalsByCurrency = globalRows
+            .GroupBy(r => (r.CurrencyId, r.CurrencyCode))
+            .Select(g => new AllocationCashFlowRowDto(
+                Guid.Empty,
+                "TOTAL",
+                $"Total {g.Key.CurrencyCode}",
+                g.Key.CurrencyId,
+                g.Key.CurrencyCode,
+                g.Sum(r => r.PeriodJ1),
+                g.Sum(r => r.Encaissement),
+                g.Sum(r => r.DepenseP),
+                g.Sum(r => r.PeriodeP)))
+            .OrderBy(r => r.CurrencyCode)
+            .ToList();
 
         var dailyGroups = new List<AllocationCashFlowDailyGroupDto>();
         for (var date = fromDate; date <= toDate; date = date.AddDays(1))
@@ -845,12 +950,40 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 .ToHashSet();
             var dayEntries = baseEntries.Where(e => dayPaymentIds.Contains(e.PaymentId)).ToList();
             var dayExpenses = FilterExpenses(expenses, date, date).ToList();
-            var dayDestinationIds = dayEntries.Select(e => e.DestinationId)
-                .Concat(dayExpenses.Select(p => p.DestinationId))
+            var dayExpenseIds = dayExpenses.Select(p => p.Id).ToHashSet();
+            var expensesBeforeDay = FilterExpenses(expenses, null, date.AddDays(-1)).ToList();
+            var expensesBeforeDayIds = expensesBeforeDay.Select(p => p.Id).ToHashSet();
+
+            // Compléter les lignes de dépense pour les paiements du jour / veille non encore chargés.
+            var missingExpenseIds = dayExpenseIds
+                .Concat(expensesBeforeDayIds)
+                .Where(id => expenseSpendLines.All(l => l.PaymentId != id))
+                .ToList();
+            if (missingExpenseIds.Count > 0)
+            {
+                var missingPayments = dayExpenses.Concat(expensesBeforeDay)
+                    .Where(p => missingExpenseIds.Contains(p.Id))
+                    .GroupBy(p => p.Id)
+                    .Select(g => g.First())
+                    .ToList();
+                var map = await BuildExpenseCurrencyIdMapAsync(schoolId, missingPayments, cancellationToken);
+                foreach (var pair in map)
+                {
+                    expenseCurrencyMap[pair.Key] = pair.Value;
+                }
+
+                expenseSpendLines.AddRange(await ExpandExpenseSpendLinesAsync(
+                    schoolId, missingPayments, expenseCurrencyMap, cancellationToken));
+            }
+
+            var dayKeys = dayEntries.Select(e => KeyOf(e.DestinationId, e.CurrencyId))
+                .Concat(expenseSpendLines
+                    .Where(l => dayExpenseIds.Contains(l.PaymentId))
+                    .Select(l => KeyOf(l.DestinationId, l.CurrencyId)))
                 .Distinct()
                 .ToList();
 
-            if (dayDestinationIds.Count == 0)
+            if (dayKeys.Count == 0)
             {
                 continue;
             }
@@ -862,22 +995,23 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             var openingBeforeDay = baseEntries
                 .Where(e => openingBeforeDayPaymentIds.Contains(e.PaymentId))
                 .ToList();
-            var expensesBeforeDay = FilterExpenses(expenses, null, date.AddDays(-1)).ToList();
 
-            var rows = dayDestinationIds
-                .Select(id => BuildRow(
-                    id,
-                    openingBeforeDay.Where(e => e.DestinationId == id).Sum(e => e.Amount),
-                    expensesBeforeDay.Where(p => p.DestinationId == id).Sum(p => p.Amount),
-                    dayEntries.Where(e => e.DestinationId == id).Sum(e => e.Amount),
-                    dayExpenses.Where(p => p.DestinationId == id).Sum(p => p.Amount)))
-                .OrderBy(r => r.DestinationName)
+            var rows = dayKeys
+                .Select(k => BuildRow(
+                    k.DestinationId,
+                    k.CurrencyId,
+                    SumEntries(openingBeforeDay, k.DestinationId, k.CurrencyId),
+                    SumExpenseLines(expenseSpendLines, k.DestinationId, k.CurrencyId, expensesBeforeDayIds),
+                    SumEntries(dayEntries, k.DestinationId, k.CurrencyId),
+                    SumExpenseLines(expenseSpendLines, k.DestinationId, k.CurrencyId, dayExpenseIds)))
+                .OrderBy(r => r.CurrencyCode)
+                .ThenBy(r => r.DestinationName)
                 .ToList();
 
             dailyGroups.Add(new AllocationCashFlowDailyGroupDto(date, rows));
         }
 
-        return new AllocationCashFlowResultDto(globalRows, dailyGroups, totals);
+        return new AllocationCashFlowResultDto(globalRows, dailyGroups, totalsByCurrency);
     }
 
     public async Task<WithholdingReportResultDto> GetWithholdingReportAsync(
@@ -973,29 +1107,55 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             .ToDictionary(d => d.Id);
         var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
             .ToDictionary(f => f.Id);
+        var currencyLabels = await BuildCurrencyLabelMapAsync(entries, cancellationToken);
+
+        var byCurrency = entries
+            .GroupBy(e => e.CurrencyId)
+            .Select(g => new CurrencyTotalDto(
+                g.Key,
+                ResolveCurrencyCode(g.Key, currencyLabels),
+                g.Sum(x => x.Amount)))
+            .OrderBy(t => t.CurrencyCode)
+            .ToList();
 
         var byDest = entries
-            .GroupBy(e => e.DestinationId)
+            .GroupBy(e => (e.DestinationId, e.CurrencyId))
             .Select(g =>
             {
-                destinations.TryGetValue(g.Key, out var dest);
-                return new DestinationTotalDto(g.Key, dest?.Code ?? "—", dest?.Name ?? "—", g.Sum(x => x.Amount));
+                destinations.TryGetValue(g.Key.DestinationId, out var dest);
+                return new DestinationTotalDto(
+                    g.Key.DestinationId,
+                    dest?.Code ?? "—",
+                    dest?.Name ?? "—",
+                    g.Key.CurrencyId,
+                    ResolveCurrencyCode(g.Key.CurrencyId, currencyLabels),
+                    g.Sum(x => x.Amount));
             })
-            .OrderByDescending(t => t.Total)
+            .OrderBy(t => t.CurrencyCode)
+            .ThenByDescending(t => t.Total)
             .ToList();
 
         var byFee = entries
             .Where(e => e.FeeTypeId.HasValue)
-            .GroupBy(e => e.FeeTypeId!.Value)
+            .GroupBy(e => (FeeTypeId: e.FeeTypeId!.Value, e.CurrencyId))
             .Select(g =>
             {
-                feeTypes.TryGetValue(g.Key, out var fee);
-                return new FeeTypeTotalDto(g.Key, fee?.Code ?? "—", fee?.Name ?? "—", g.Sum(x => x.Amount));
+                feeTypes.TryGetValue(g.Key.FeeTypeId, out var fee);
+                return new FeeTypeTotalDto(
+                    g.Key.FeeTypeId,
+                    fee?.Code ?? "—",
+                    fee?.Name ?? "—",
+                    g.Key.CurrencyId,
+                    ResolveCurrencyCode(g.Key.CurrencyId, currencyLabels),
+                    g.Sum(x => x.Amount));
             })
-            .OrderByDescending(t => t.Total)
+            .OrderBy(t => t.CurrencyCode)
+            .ThenByDescending(t => t.Total)
             .ToList();
 
-        return new RevenueAllocationTotalsDto(entries.Sum(e => e.Amount), byDest, byFee);
+        // GrandTotal uniquement si une seule devise (évite de mélanger CDF + USD).
+        var grandTotal = byCurrency.Count == 1 ? byCurrency[0].Total : 0m;
+        return new RevenueAllocationTotalsDto(grandTotal, byCurrency, byDest, byFee);
     }
 
     public async Task<byte[]> ExportAllocationsExcelAsync(
@@ -1010,7 +1170,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         var sheet = workbook.Worksheets.Add("Répartitions");
         var headers = new[]
         {
-            "Reçu", "Élève", "Montant payé", "Destination", "Code", "Montant réparti",
+            "Reçu", "Élève", "Montant payé", "Destination", "Code", "Devise", "Montant réparti",
             "Pourcentage", "Type", "Clé", "Année", "Type frais", "Date", "Utilisateur"
         };
         for (var i = 0; i < headers.Length; i++)
@@ -1027,14 +1187,15 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
             sheet.Cell(row, 3).Value = item.PaymentAmount;
             sheet.Cell(row, 4).Value = item.DestinationName;
             sheet.Cell(row, 5).Value = item.DestinationCode;
-            sheet.Cell(row, 6).Value = item.AllocatedAmount;
-            sheet.Cell(row, 7).Value = item.AppliedPercentage;
-            sheet.Cell(row, 8).Value = item.CalculationType.ToString();
-            sheet.Cell(row, 9).Value = item.AllocationKeyName;
-            sheet.Cell(row, 10).Value = item.AcademicYearLabel;
-            sheet.Cell(row, 11).Value = item.FeeTypeName;
-            sheet.Cell(row, 12).Value = item.AllocatedAt;
-            sheet.Cell(row, 13).Value = item.AllocatedBy;
+            sheet.Cell(row, 6).Value = item.CurrencyCode;
+            sheet.Cell(row, 7).Value = item.AllocatedAmount;
+            sheet.Cell(row, 8).Value = item.AppliedPercentage;
+            sheet.Cell(row, 9).Value = item.CalculationType.ToString();
+            sheet.Cell(row, 10).Value = item.AllocationKeyName;
+            sheet.Cell(row, 11).Value = item.AcademicYearLabel;
+            sheet.Cell(row, 12).Value = item.FeeTypeName;
+            sheet.Cell(row, 13).Value = item.AllocatedAt;
+            sheet.Cell(row, 14).Value = item.AllocatedBy;
             row++;
         }
 
@@ -1066,6 +1227,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                         columns.RelativeColumn(2);
                         columns.RelativeColumn(2);
                         columns.RelativeColumn(2);
+                        columns.RelativeColumn(1);
                         columns.RelativeColumn(1.5f);
                         columns.RelativeColumn(1.5f);
                     });
@@ -1075,6 +1237,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                         header.Cell().Text("Reçu").SemiBold();
                         header.Cell().Text("Élève").SemiBold();
                         header.Cell().Text("Destination").SemiBold();
+                        header.Cell().Text("Devise").SemiBold();
                         header.Cell().AlignRight().Text("Montant").SemiBold();
                         header.Cell().Text("Date").SemiBold();
                     });
@@ -1084,12 +1247,16 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                         table.Cell().Text(item.ReceiptNumber);
                         table.Cell().Text(item.StudentName);
                         table.Cell().Text(item.DestinationName);
+                        table.Cell().Text(item.CurrencyCode);
                         table.Cell().AlignRight().Text($"{item.AllocatedAmount:N2}");
                         table.Cell().Text($"{item.AllocatedAt:dd/MM/yyyy}");
                     }
                 });
 
-                page.Footer().AlignRight().Text($"Total : {result.Totals.GrandTotal:N2}");
+                var totalsText = result.Totals.ByCurrency.Count == 0
+                    ? "Total : 0"
+                    : string.Join("  ·  ", result.Totals.ByCurrency.Select(c => $"{c.CurrencyCode} {c.Total:N2}"));
+                page.Footer().AlignRight().Text(totalsText);
             });
         });
 
@@ -1122,6 +1289,11 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         if (request.FeeTypeId.HasValue)
         {
             query = query.Where(e => e.FeeTypeId == request.FeeTypeId);
+        }
+
+        if (request.CurrencyId.HasValue)
+        {
+            query = query.Where(e => e.CurrencyId == request.CurrencyId);
         }
 
         if (request.StudentId.HasValue)
@@ -1300,6 +1472,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         var users = userIds.Count == 0
             ? new Dictionary<Guid, UserAccount>()
             : (await _userRepository.FindAsync(u => userIds.Contains(u.Id), cancellationToken)).ToDictionary(u => u.Id);
+        var currencyLabels = await BuildCurrencyLabelMapAsync(entries, cancellationToken);
 
         return entries.Select(e =>
         {
@@ -1326,6 +1499,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 e.DestinationId,
                 dest?.Code ?? "—",
                 dest?.Name ?? "—",
+                e.CurrencyId,
+                ResolveCurrencyCode(e.CurrencyId, currencyLabels),
                 e.Amount,
                 e.AppliedPercentage,
                 e.CalculationType,
@@ -1338,6 +1513,112 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                 e.AllocatedAt,
                 user is null ? null : $"{user.LastName} {user.FirstName}");
         }).ToList();
+    }
+
+    private async Task<Dictionary<Guid, string>> BuildCurrencyLabelMapAsync(
+        IReadOnlyList<RevenueAllocationEntry> entries,
+        CancellationToken cancellationToken)
+    {
+        var ids = entries.Where(e => e.CurrencyId.HasValue).Select(e => e.CurrencyId!.Value).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        return (await _currencyRepository.FindAsync(c => ids.Contains(c.Id), cancellationToken))
+            .ToDictionary(c => c.Id, c => c.Code);
+    }
+
+    private static string ResolveCurrencyCode(Guid? currencyId, IReadOnlyDictionary<Guid, string> labels)
+    {
+        if (currencyId.HasValue && labels.TryGetValue(currencyId.Value, out var code))
+        {
+            return code;
+        }
+
+        return currencyId.HasValue ? "?" : "—";
+    }
+
+    private async Task<List<(Guid DestinationId, Guid? CurrencyId, decimal Amount, Guid PaymentId)>> ExpandExpenseSpendLinesAsync(
+        Guid schoolId,
+        IReadOnlyList<ExpensePayment> expensePayments,
+        IReadOnlyDictionary<Guid, Guid?> expenseCurrencyMap,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<(Guid DestinationId, Guid? CurrencyId, decimal Amount, Guid PaymentId)>();
+        if (expensePayments.Count == 0)
+        {
+            return result;
+        }
+
+        var paymentIds = expensePayments.Select(p => p.Id).ToList();
+        var allocations = (await _expenseAllocationRepository.FindAsync(
+                a => a.SchoolId == schoolId && paymentIds.Contains(a.ExpensePaymentId),
+                cancellationToken))
+            .ToList();
+        var byPayment = allocations.GroupBy(a => a.ExpensePaymentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var payment in expensePayments)
+        {
+            if (byPayment.TryGetValue(payment.Id, out var lines) && lines.Count > 0)
+            {
+                foreach (var line in lines)
+                {
+                    result.Add((payment.DestinationId, line.CurrencyId, line.Amount, payment.Id));
+                }
+            }
+            else
+            {
+                result.Add((
+                    payment.DestinationId,
+                    expenseCurrencyMap.GetValueOrDefault(payment.Id) ?? payment.PrimaryCurrencyId,
+                    payment.Amount,
+                    payment.Id));
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<Guid, Guid?>> BuildExpenseCurrencyIdMapAsync(
+        Guid schoolId,
+        IReadOnlyList<ExpensePayment> expenses,
+        CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, Guid?>();
+        if (expenses.Count == 0)
+        {
+            return map;
+        }
+
+        var cache = new Dictionary<string, Guid?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var expense in expenses)
+        {
+            var code = expense.Currency.ToString();
+            if (!cache.TryGetValue(code, out var currencyId))
+            {
+                var resolved = await _currencyService.ResolveByEnumCodeAsync(code, cancellationToken);
+                currencyId = resolved?.Id;
+                if (currencyId is null)
+                {
+                    try
+                    {
+                        currencyId = (await _currencyService.GetMainCurrencyAsync(schoolId, cancellationToken)).Id;
+                    }
+                    catch
+                    {
+                        currencyId = null;
+                    }
+                }
+
+                cache[code] = currencyId;
+            }
+
+            map[expense.Id] = currencyId;
+        }
+
+        return map;
     }
 
     private async Task<RevenueAllocationKeyDto> MapKeyAsync(

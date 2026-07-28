@@ -54,7 +54,7 @@ class _SecretaryHomeScreenState extends ConsumerState<SecretaryHomeScreen> {
           Text(
             canEnroll
                 ? 'Consultez les dossiers et enregistrez les élèves depuis votre téléphone.'
-                : 'Mode Cloud : recherche et consultation OK. Les modifications (inscriptions, documents) nécessitent le réseau de l\'école.',
+                : 'Mode Distant : recherche et consultation OK. Les modifications (inscriptions, documents) nécessitent le Wi‑Fi de l\'école.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
           const SizedBox(height: 28),

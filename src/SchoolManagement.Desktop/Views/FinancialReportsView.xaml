@@ -801,11 +801,12 @@
                                     <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                                         <Grid Height="40">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" MinWidth="240" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" MinWidth="200" />
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0"
                                                        Margin="12,0,8,0"
@@ -814,27 +815,33 @@
                                                        Foreground="#374151"
                                                        Text="Compte bénéficiaire" />
                                             <TextBlock Grid.Column="1"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
+                                                       Margin="0,0,8,0"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Période J-1" />
+                                                       Text="Devise" />
                                             <TextBlock Grid.Column="2"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Encaissement" />
+                                                       Text="Période J-1" />
                                             <TextBlock Grid.Column="3"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Dépense P" />
+                                                       Text="Encaissement" />
                                             <TextBlock Grid.Column="4"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Dépense P" />
+                                            <TextBlock Grid.Column="5"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
@@ -850,32 +857,39 @@
                                                 <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
                                                     <Grid Height="36" Background="White">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" MinWidth="240" />
-                                                            <ColumnDefinition Width="140" />
-                                                            <ColumnDefinition Width="140" />
-                                                            <ColumnDefinition Width="140" />
-                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="*" MinWidth="200" />
+                                                            <ColumnDefinition Width="80" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0"
                                                                    Margin="12,0,8,0"
                                                                    VerticalAlignment="Center"
                                                                    Text="{Binding DestinationName}" />
                                                         <TextBlock Grid.Column="1"
-                                                                   Margin="0,0,12,0"
-                                                                   HorizontalAlignment="Right"
+                                                                   Margin="0,0,8,0"
                                                                    VerticalAlignment="Center"
-                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#1D4ED8"
+                                                                   Text="{Binding CurrencyCode}" />
                                                         <TextBlock Grid.Column="2"
                                                                    Margin="0,0,12,0"
                                                                    HorizontalAlignment="Right"
                                                                    VerticalAlignment="Center"
-                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
+                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
                                                         <TextBlock Grid.Column="3"
                                                                    Margin="0,0,12,0"
                                                                    HorizontalAlignment="Right"
                                                                    VerticalAlignment="Center"
-                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
                                                         <TextBlock Grid.Column="4"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="5"
                                                                    Margin="0,0,12,0"
                                                                    HorizontalAlignment="Right"
                                                                    VerticalAlignment="Center"
@@ -886,52 +900,65 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
-                                    <!-- Total aligné -->
-                                    <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
-                                        <Grid Height="40">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" MinWidth="240" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Margin="12,0,8,0"
-                                                       VerticalAlignment="Center"
-                                                       FontWeight="Bold"
-                                                       Foreground="#1E3A8A"
-                                                       Text="Total général" />
-                                            <TextBlock Grid.Column="1"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
-                                                       VerticalAlignment="Center"
-                                                       FontWeight="Bold"
-                                                       Foreground="#1E3A8A"
-                                                       Text="{Binding AllocationTotals.PeriodJ1, StringFormat=N2, TargetNullValue=0}" />
-                                            <TextBlock Grid.Column="2"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
-                                                       VerticalAlignment="Center"
-                                                       FontWeight="Bold"
-                                                       Foreground="#1E3A8A"
-                                                       Text="{Binding AllocationTotals.Encaissement, StringFormat=N2, TargetNullValue=0}" />
-                                            <TextBlock Grid.Column="3"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
-                                                       VerticalAlignment="Center"
-                                                       FontWeight="Bold"
-                                                       Foreground="#1E3A8A"
-                                                       Text="{Binding AllocationTotals.DepenseP, StringFormat=N2, TargetNullValue=0}" />
-                                            <TextBlock Grid.Column="4"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
-                                                       VerticalAlignment="Center"
-                                                       FontWeight="Bold"
-                                                       Foreground="#1E3A8A"
-                                                       Text="{Binding AllocationTotals.PeriodeP, StringFormat=N2, TargetNullValue=0}" />
-                                        </Grid>
-                                    </Border>
+                                    <!-- Totaux par devise (jamais mélangés) -->
+                                    <ItemsControl ItemsSource="{Binding AllocationTotalsByCurrency}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#EEF2FF" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0">
+                                                    <Grid Height="40">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" MinWidth="200" />
+                                                            <ColumnDefinition Width="80" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="120" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0"
+                                                                   Margin="12,0,8,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding DestinationName}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Margin="0,0,8,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding CurrencyCode}" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="3"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="4"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                        <TextBlock Grid.Column="5"
+                                                                   Margin="0,0,12,0"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#1E3A8A"
+                                                                   Text="{Binding PeriodeP, StringFormat=N2}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </Border>
 
@@ -950,11 +977,12 @@
                                     <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                                         <Grid Height="40">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" MinWidth="240" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" MinWidth="200" />
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0"
                                                        Margin="12,0,8,0"
@@ -963,27 +991,33 @@
                                                        Foreground="#374151"
                                                        Text="Compte bénéficiaire" />
                                             <TextBlock Grid.Column="1"
-                                                       Margin="0,0,12,0"
-                                                       HorizontalAlignment="Right"
+                                                       Margin="0,0,8,0"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Période J-1" />
+                                                       Text="Devise" />
                                             <TextBlock Grid.Column="2"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Encaissement" />
+                                                       Text="Période J-1" />
                                             <TextBlock Grid.Column="3"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
                                                        FontWeight="SemiBold"
                                                        Foreground="#374151"
-                                                       Text="Dépense P" />
+                                                       Text="Encaissement" />
                                             <TextBlock Grid.Column="4"
+                                                       Margin="0,0,12,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#374151"
+                                                       Text="Dépense P" />
+                                            <TextBlock Grid.Column="5"
                                                        Margin="0,0,12,0"
                                                        HorizontalAlignment="Right"
                                                        VerticalAlignment="Center"
@@ -1020,32 +1054,39 @@
                                                                 <Border BorderBrush="#F3F4F6" BorderThickness="0,0,0,1">
                                                                     <Grid Height="36" Background="White">
                                                                         <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="*" MinWidth="240" />
-                                                                            <ColumnDefinition Width="140" />
-                                                                            <ColumnDefinition Width="140" />
-                                                                            <ColumnDefinition Width="140" />
-                                                                            <ColumnDefinition Width="140" />
+                                                                            <ColumnDefinition Width="*" MinWidth="200" />
+                                                                            <ColumnDefinition Width="80" />
+                                                                            <ColumnDefinition Width="120" />
+                                                                            <ColumnDefinition Width="120" />
+                                                                            <ColumnDefinition Width="120" />
+                                                                            <ColumnDefinition Width="120" />
                                                                         </Grid.ColumnDefinitions>
                                                                         <TextBlock Grid.Column="0"
                                                                                    Margin="12,0,8,0"
                                                                                    VerticalAlignment="Center"
                                                                                    Text="{Binding DestinationName}" />
                                                                         <TextBlock Grid.Column="1"
-                                                                                   Margin="0,0,12,0"
-                                                                                   HorizontalAlignment="Right"
+                                                                                   Margin="0,0,8,0"
                                                                                    VerticalAlignment="Center"
-                                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
+                                                                                   FontWeight="SemiBold"
+                                                                                   Foreground="#1D4ED8"
+                                                                                   Text="{Binding CurrencyCode}" />
                                                                         <TextBlock Grid.Column="2"
                                                                                    Margin="0,0,12,0"
                                                                                    HorizontalAlignment="Right"
                                                                                    VerticalAlignment="Center"
-                                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
+                                                                                   Text="{Binding PeriodJ1, StringFormat=N2}" />
                                                                         <TextBlock Grid.Column="3"
                                                                                    Margin="0,0,12,0"
                                                                                    HorizontalAlignment="Right"
                                                                                    VerticalAlignment="Center"
-                                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                                                   Text="{Binding Encaissement, StringFormat=N2}" />
                                                                         <TextBlock Grid.Column="4"
+                                                                                   Margin="0,0,12,0"
+                                                                                   HorizontalAlignment="Right"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Text="{Binding DepenseP, StringFormat=N2}" />
+                                                                        <TextBlock Grid.Column="5"
                                                                                    Margin="0,0,12,0"
                                                                                    HorizontalAlignment="Right"
                                                                                    VerticalAlignment="Center"

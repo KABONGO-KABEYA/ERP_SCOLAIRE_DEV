@@ -94,7 +94,7 @@ class _TeacherGradeEntryScreenState extends ConsumerState<TeacherGradeEntryScree
   Future<void> _save() async {
     final policy = ref.read(writePolicyProvider);
     if (!policy.canSubmitGrades) {
-      setState(() => _error = 'Hors ligne : impossible d\'enregistrer les notes.');
+      setState(() => _error = 'Mode Cache : impossible d\'enregistrer les notes.');
       return;
     }
 

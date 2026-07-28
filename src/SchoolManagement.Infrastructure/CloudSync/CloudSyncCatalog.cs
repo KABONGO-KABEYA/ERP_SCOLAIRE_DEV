@@ -97,6 +97,7 @@ internal static class CloudSyncCatalog
         ("FinRetenueApplication", typeof(WithholdingApplication)),
         ("FinDemandePaiement", typeof(ExpenseRequest)),
         ("FinDepense", typeof(ExpensePayment)),
+        ("FinDepenseRepartitionDevise", typeof(ExpensePaymentAllocation)),
         ("EcoleLogo", typeof(SchoolLogo)),
         ("EcoleEntete", typeof(SchoolDocumentHeader)),
         ("EcoleSignature", typeof(SchoolSignature)),

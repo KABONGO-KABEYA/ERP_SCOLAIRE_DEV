@@ -67,6 +67,22 @@ public class ExpensePayment : AuditableEntity, IAggregateRoot
 
     public DateOnly ExpenseDate { get; set; }
 
+    /// <summary>Devise principale de la dépense (catalog FinDevise). Complète l'enum legacy <see cref="Currency"/>.</summary>
+    public Guid? PrimaryCurrencyId { get; set; }
+
+    /// <summary>Référence / N° pièce fourni par l'utilisateur (distinct de la référence système).</summary>
+    public string? ExternalReference { get; set; }
+
+    /// <summary>Catégorie métier (fonctionnement, pédagogie, …).</summary>
+    public string? Category { get; set; }
+
+    public string? Observations { get; set; }
+
+    public string? AttachmentFileName { get; set; }
+
+    /// <summary>Chemin relatif sous le stockage fichiers (ex. depenses/...).</summary>
+    public string? AttachmentStoragePath { get; set; }
+
     public School School { get; set; } = null!;
 
     public AcademicYear AcademicYear { get; set; } = null!;
@@ -74,4 +90,40 @@ public class ExpensePayment : AuditableEntity, IAggregateRoot
     public RevenueAllocationDestination Destination { get; set; } = null!;
 
     public ExpenseRequest? ExpenseRequest { get; set; }
+
+    public CurrencyDefinition? PrimaryCurrency { get; set; }
+
+    public ICollection<ExpensePaymentAllocation> Allocations { get; set; } = new List<ExpensePaymentAllocation>();
+}
+
+/// <summary>Mouvement de financement d'une dépense dans une devise donnée.</summary>
+public class ExpensePaymentAllocation : AuditableEntity
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid ExpensePaymentId { get; set; }
+
+    /// <summary>Devise prélevée sur le compte.</summary>
+    public Guid CurrencyId { get; set; }
+
+    /// <summary>Montant prélevé dans <see cref="CurrencyId"/>.</summary>
+    public decimal Amount { get; set; }
+
+    public Guid? ExchangeRateId { get; set; }
+
+    /// <summary>Taux appliqué : 1 unité de CurrencyId → combien d'unités de la devise principale de la dépense.</summary>
+    public decimal AppliedExchangeRate { get; set; } = 1m;
+
+    /// <summary>Équivalent dans la devise principale de la dépense.</summary>
+    public decimal EquivalentInPrimaryCurrency { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public School School { get; set; } = null!;
+
+    public ExpensePayment ExpensePayment { get; set; } = null!;
+
+    public CurrencyDefinition Currency { get; set; } = null!;
+
+    public ExchangeRate? ExchangeRate { get; set; }
 }
