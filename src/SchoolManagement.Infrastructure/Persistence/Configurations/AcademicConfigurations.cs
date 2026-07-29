@@ -24,11 +24,15 @@ public class CourseAssignmentConfiguration : AuditableEntityConfiguration<Course
     {
         base.Configure(builder);
         builder.ToTable("CourseAssignments");
-        builder.HasOne(a => a.Teacher).WithMany(t => t.CourseAssignments).HasForeignKey(a => a.TeacherId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.Teacher).WithMany(t => t.CourseAssignments).HasForeignKey(a => a.TeacherId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(a => a.Course).WithMany().HasForeignKey(a => a.CourseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.ClassRoom).WithMany().HasForeignKey(a => a.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.AcademicYear).WithMany().HasForeignKey(a => a.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(a => new { a.TeacherId, a.CourseId, a.ClassRoomId, a.AcademicYearId }).IsUnique();
+        builder.HasOne(a => a.PedagogicalClass).WithMany().HasForeignKey(a => a.PedagogicalClassId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(a => a.MaxScore).HasDefaultValue(20);
+        builder.HasIndex(a => new { a.ClassRoomId, a.AcademicYearId, a.CourseId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
 

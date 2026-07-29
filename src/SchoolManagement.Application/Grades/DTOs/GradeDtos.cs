@@ -2,10 +2,19 @@ namespace SchoolManagement.Application.Grades.DTOs;
 
 using SchoolManagement.Domain.Enums;
 
+public sealed record EvaluationTypeDto(
+    Guid Id,
+    string Code,
+    string Name,
+    bool IsActive);
+
 public sealed record EvaluationDto(
     Guid Id,
     string Title,
-    EvaluationType EvaluationType,
+    Guid EvaluationTypeId,
+    string EvaluationTypeName,
+    Guid? EnrollmentId,
+    Guid CourseAssignmentId,
     Guid CourseId,
     string CourseName,
     Guid ClassRoomId,
@@ -22,8 +31,9 @@ public sealed record CreateEvaluationRequest(
     Guid AcademicPeriodId,
     Guid CourseId,
     Guid ClassRoomId,
+    Guid EvaluationTypeId,
+    Guid? EnrollmentId,
     string Title,
-    EvaluationType EvaluationType,
     decimal Weight,
     int MaxScore,
     DateOnly EvaluationDate);

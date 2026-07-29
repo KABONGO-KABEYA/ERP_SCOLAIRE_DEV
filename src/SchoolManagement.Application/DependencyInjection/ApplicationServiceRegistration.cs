@@ -45,6 +45,8 @@ using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.SchoolFees.Services;
 using SchoolManagement.Application.Students.Interfaces;
 using SchoolManagement.Application.Students.Services;
+using SchoolManagement.Application.CourseConfiguration.Interfaces;
+using SchoolManagement.Application.CourseConfiguration.Services;
 using System.Reflection;
 
 public static class ApplicationServiceRegistration
@@ -74,6 +76,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IStudentCardService, StudentCardService>();
         services.AddScoped<IFinanceOperationService, FinanceOperationService>();
         services.AddScoped<ISchoolFeeService, SchoolFeeService>();
+        services.AddScoped<ICourseConfigurationService, CourseConfigurationService>();
         services.AddScoped<IStudentFeeBalanceProvisioner, StudentFeeBalanceProvisioner>();
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IParentService, ParentService>();

@@ -26,6 +26,14 @@ public interface IAcademicService
         CreateCourseRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<CourseDto> UpdateCourseAsync(
+        Guid schoolId,
+        Guid courseId,
+        UpdateCourseRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteCourseAsync(Guid schoolId, Guid courseId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<EnrollmentDto>> GetEnrollmentsAsync(
         Guid schoolId,
         Guid? classRoomId = null,

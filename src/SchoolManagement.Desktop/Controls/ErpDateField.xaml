@@ -15,11 +15,14 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0"
+                    x:Name="LabelPanel"
                     Margin="{StaticResource ErpFieldLabelSpacing}"
                     Orientation="Horizontal">
             <materialDesign:PackIcon Kind="Calendar"
                                      Style="{StaticResource ErpFieldIcon}" />
-            <TextBlock Style="{StaticResource ErpFieldLabel}" Text="{Binding Label, ElementName=Root}" />
+            <TextBlock x:Name="LabelText"
+                       Style="{StaticResource ErpFieldLabel}"
+                       Text="{Binding Label, ElementName=Root}" />
             <TextBlock Style="{StaticResource ErpFieldRequiredMark}"
                        Visibility="{Binding IsRequired, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </StackPanel>

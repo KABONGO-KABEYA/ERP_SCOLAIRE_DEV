@@ -69,7 +69,30 @@ public class AcademicController : ControllerBase
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         var course = await _academicService.CreateCourseAsync(schoolId, request, cancellationToken);
-        return Created(string.Empty, ApiResponse<CourseDto>.Ok(course, "Cours créé."));
+        return Created(string.Empty, ApiResponse<CourseDto>.Ok(course, "Matière créée."));
+    }
+
+    [HttpPut("courses/{courseId:guid}")]
+    [Authorize(Policy = Permissions.SchoolsUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<CourseDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateCourse(
+        Guid courseId,
+        [FromBody] UpdateCourseRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var course = await _academicService.UpdateCourseAsync(schoolId, courseId, request, cancellationToken);
+        return Ok(ApiResponse<CourseDto>.Ok(course, "Matière mise à jour."));
+    }
+
+    [HttpDelete("courses/{courseId:guid}")]
+    [Authorize(Policy = Permissions.SchoolsUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteCourse(Guid courseId, CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _academicService.DeleteCourseAsync(schoolId, courseId, cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { }, "Matière supprimée."));
     }
 
     [HttpGet("enrollments")]

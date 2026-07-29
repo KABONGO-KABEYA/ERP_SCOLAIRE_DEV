@@ -452,6 +452,13 @@ public partial class ShellView : UserControl
             return;
         }
 
+        if (shellViewModel.CurrentViewModel is GradesViewModel)
+        {
+            PageTitleText.Text = "Cotation des élèves";
+            PageSubtitleText.Text = "Saisie des notes par évaluation";
+            return;
+        }
+
         PageTitleText.Text = shellViewModel.SelectedModule?.Title ?? "Tableau de bord";
         PageSubtitleText.Text = "Gestion scolaire — République Démocratique du Congo";
     }
@@ -468,7 +475,7 @@ public partial class ShellView : UserControl
             "etablissement" => "Informations générales, logos, en-têtes, signatures et identité documentaire.",
             "structure-pedagogique" => "Activez uniquement les classes réellement organisées dans l'établissement.",
             "annees-scolaires" => "Créez les années scolaires et définissez l'année courante.",
-            "matieres" => "Gérez les matières rattachées aux classes actives.",
+            "matieres" => "Configurez les cours retenus par année, classe et salle, avec affectation des enseignants.",
             "utilisateurs" => "Gérez les comptes utilisateurs et l'affectation des rôles.",
             "enseignants" => "Gérez le personnel enseignant et leurs adresses.",
             "frais-scolaires" => "Configuration des frais par année, classe et type de frais.",

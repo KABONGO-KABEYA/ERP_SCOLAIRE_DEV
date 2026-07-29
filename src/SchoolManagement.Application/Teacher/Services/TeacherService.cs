@@ -55,7 +55,7 @@ public sealed class TeacherService : ITeacherService
         var classIds = assignments.Select(a => a.ClassRoomId).Distinct().ToList();
         var yearIds = assignments.Select(a => a.AcademicYearId).Distinct().ToList();
 
-        var courses = await _courseRepository.FindAsync(c => courseIds.Contains(c.Id) && c.SchoolId == schoolId, cancellationToken);
+        var courses = await _courseRepository.FindAsync(c => courseIds.Contains(c.Id), cancellationToken);
         var classes = await _classRoomRepository.FindAsync(c => classIds.Contains(c.Id) && c.SchoolId == schoolId, cancellationToken);
         var years = await _yearRepository.FindAsync(y => yearIds.Contains(y.Id) && y.SchoolId == schoolId, cancellationToken);
         var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(_pedagogicalClassRepository, schoolId, cancellationToken);

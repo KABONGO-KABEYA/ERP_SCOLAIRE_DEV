@@ -41,6 +41,13 @@ public class SchoolDbContext : DbContext
     public DbSet<PedagogicalClass> PedagogicalClasses => Set<PedagogicalClass>();
     public DbSet<ClassRoom> ClassRooms => Set<ClassRoom>();
     public DbSet<Course> Courses => Set<Course>();
+
+    public DbSet<Branch> Branches => Set<Branch>();
+
+    public DbSet<PedagogicalClassCourse> PedagogicalClassCourses => Set<PedagogicalClassCourse>();
+
+    public DbSet<MaximaParPeriode> MaximaParPeriode => Set<MaximaParPeriode>();
+
     public DbSet<AcademicPeriod> AcademicPeriods => Set<AcademicPeriod>();
     public DbSet<FeeType> FeeTypes => Set<FeeType>();
     public DbSet<FeePricingCategory> FeePricingCategories => Set<FeePricingCategory>();
@@ -82,6 +89,7 @@ public class SchoolDbContext : DbContext
     public DbSet<Announcement> Announcements => Set<Announcement>();
 
     // Notes
+    public DbSet<EvaluationTypeDefinition> EvaluationTypes => Set<EvaluationTypeDefinition>();
     public DbSet<Evaluation> Evaluations => Set<Evaluation>();
     public DbSet<GradeEntry> GradeEntries => Set<GradeEntry>();
     public DbSet<PeriodResult> PeriodResults => Set<PeriodResult>();

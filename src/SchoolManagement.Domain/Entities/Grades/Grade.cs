@@ -6,23 +6,41 @@ using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Domain.Entities.Grades;
 
-public class Evaluation : AuditableEntity, IAggregateRoot
+/// <summary>
+/// Type d'épreuve configurable par école (devoir, interrogation, examen…).
+/// </summary>
+public class EvaluationTypeDefinition : AuditableEntity, IAggregateRoot
 {
     public Guid SchoolId { get; set; }
+
+    public string Code { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+
+    public ICollection<Evaluation> Evaluations { get; set; } = [];
+}
+
+public class Evaluation : AuditableEntity, IAggregateRoot
+{
+    public Guid? EnrollmentId { get; set; }
 
     public Guid AcademicYearId { get; set; }
 
     public Guid AcademicPeriodId { get; set; }
 
+    public Guid CourseAssignmentId { get; set; }
+
+    public Guid EvaluationTypeId { get; set; }
+
     public Guid CourseId { get; set; }
 
     public Guid ClassRoomId { get; set; }
 
-    public Guid? CourseAssignmentId { get; set; }
-
     public string Title { get; set; } = string.Empty;
-
-    public EvaluationType EvaluationType { get; set; }
 
     public decimal Weight { get; set; } = 1;
 
@@ -34,9 +52,15 @@ public class Evaluation : AuditableEntity, IAggregateRoot
 
     public bool IsPublished { get; set; }
 
+    public Enrollment? Enrollment { get; set; }
+
     public AcademicYear AcademicYear { get; set; } = null!;
 
     public AcademicPeriod AcademicPeriod { get; set; } = null!;
+
+    public CourseAssignment CourseAssignment { get; set; } = null!;
+
+    public EvaluationTypeDefinition EvaluationType { get; set; } = null!;
 
     public Course Course { get; set; } = null!;
 

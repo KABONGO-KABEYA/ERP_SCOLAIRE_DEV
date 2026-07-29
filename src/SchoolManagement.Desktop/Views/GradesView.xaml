@@ -1,128 +1,967 @@
 <UserControl x:Class="SchoolManagement.Desktop.Views.GradesView"
+
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
 
-        <StackPanel Style="{StaticResource ErpFadeIn}">
-            <TextBlock Style="{StaticResource ErpPageTitle}" Text="Gestion des notes" />
-            <TextBlock Margin="0,4,0,0" Style="{StaticResource ErpBodySecondary}" Text="Évaluations, saisie des notes et calcul des moyennes" />
-        </StackPanel>
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
 
-        <Border Grid.Row="1" Margin="0,16,0,12" Style="{StaticResource ErpCard}">
-            <WrapPanel>
-                <ComboBox Width="200" Margin="0,0,12,0"
-                          DisplayMemberPath="Name"
-                          ItemsSource="{Binding Lookups.ClassRooms}"
-                          SelectedItem="{Binding SelectedClass}"
-                          Style="{StaticResource ErpComboBox}"
-                          materialDesign:HintAssist.Hint="Classe" />
-                <ComboBox Width="180" Margin="0,0,12,0"
-                          DisplayMemberPath="Name"
-                          ItemsSource="{Binding FilteredPeriods}"
-                          SelectedItem="{Binding SelectedPeriod}"
-                          Style="{StaticResource ErpComboBox}"
-                          materialDesign:HintAssist.Hint="Période" />
-                <ComboBox Width="200" Margin="0,0,12,0"
-                          DisplayMemberPath="Name"
-                          ItemsSource="{Binding FilteredCourses}"
-                          SelectedItem="{Binding SelectedCourse}"
-                          Style="{StaticResource ErpComboBox}"
-                          materialDesign:HintAssist.Hint="Cours" />
-                <Button Margin="0,0,8,0" Command="{Binding LoadEvaluationsCommand}" Content="Actualiser" Style="{StaticResource ErpSecondaryButton}" />
-                <Button Command="{Binding CalculateResultsCommand}" Content="Calculer moyennes" Style="{StaticResource ErpPrimaryButton}" />
-            </WrapPanel>
-        </Border>
+             xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels"
 
-        <Border Grid.Row="2" Margin="0,0,0,12" Style="{StaticResource ErpCard}" Padding="0">
-            <DataGrid Style="{StaticResource ErpDataGrid}"
-                      BorderThickness="0"
-                      ItemsSource="{Binding Evaluations}"
-                      SelectedItem="{Binding SelectedEvaluation}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Binding="{Binding Title}" Header="Évaluation" Width="*" />
-                    <DataGridTextColumn Binding="{Binding CourseName}" Header="Cours" Width="*" />
-                    <DataGridTextColumn Binding="{Binding EvaluationType}" Header="Type" Width="100" />
-                    <DataGridTextColumn Binding="{Binding EvaluationDate}" Header="Date" Width="110" />
-                    <DataGridCheckBoxColumn Binding="{Binding IsOpen}" Header="Ouverte" Width="70" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
 
-        <Grid Grid.Row="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
 
-            <Border Grid.Column="0" Style="{StaticResource ErpCard}">
+             Background="{StaticResource ErpPageBackgroundBrush}">
+
+    <UserControl.Resources>
+
+        <ui:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+
+        <Style x:Key="GradesParamLabel" TargetType="TextBlock">
+
+            <Setter Property="FontFamily" Value="Segoe UI" />
+
+            <Setter Property="FontSize" Value="12" />
+
+            <Setter Property="FontWeight" Value="SemiBold" />
+
+            <Setter Property="Foreground" Value="#374151" />
+
+            <Setter Property="Margin" Value="0,0,0,6" />
+
+        </Style>
+
+        <Style x:Key="GradesSectionTitle" TargetType="TextBlock">
+
+            <Setter Property="FontFamily" Value="Segoe UI" />
+
+            <Setter Property="FontSize" Value="11" />
+
+            <Setter Property="FontWeight" Value="Bold" />
+
+            <Setter Property="Foreground" Value="#1E5EFF" />
+
+            <Setter Property="Margin" Value="0,0,0,10" />
+
+        </Style>
+
+        <Style x:Key="GradesStatCard" TargetType="Border">
+
+            <Setter Property="Background" Value="White" />
+
+            <Setter Property="BorderBrush" Value="#E5E7EB" />
+
+            <Setter Property="BorderThickness" Value="1" />
+
+            <Setter Property="CornerRadius" Value="12" />
+
+            <Setter Property="Padding" Value="14,12" />
+
+            <Setter Property="MinWidth" Value="110" />
+
+            <Setter Property="Margin" Value="0,0,10,0" />
+
+        </Style>
+
+        <Style x:Key="GradesSummaryLabel" TargetType="TextBlock">
+
+            <Setter Property="FontFamily" Value="Segoe UI" />
+
+            <Setter Property="FontSize" Value="11" />
+
+            <Setter Property="Foreground" Value="#6B7280" />
+
+        </Style>
+
+        <Style x:Key="GradesSummaryValue" TargetType="TextBlock">
+
+            <Setter Property="FontFamily" Value="Segoe UI" />
+
+            <Setter Property="FontSize" Value="13" />
+
+            <Setter Property="FontWeight" Value="SemiBold" />
+
+            <Setter Property="Foreground" Value="#1F2937" />
+
+            <Setter Property="Margin" Value="0,2,0,0" />
+
+        </Style>
+
+    </UserControl.Resources>
+
+
+
+    <Grid Margin="20,16,20,16" Style="{StaticResource ErpFadeIn}">
+
+        <Grid.ColumnDefinitions>
+
+            <ColumnDefinition Width="320" MinWidth="300" />
+
+            <ColumnDefinition Width="16" />
+
+            <ColumnDefinition Width="*" />
+
+        </Grid.ColumnDefinitions>
+
+
+
+        <!-- Panneau paramètres -->
+
+        <Border Grid.Column="0"
+
+                Background="White"
+
+                BorderBrush="#E5E7EB"
+
+                BorderThickness="1"
+
+                CornerRadius="10"
+
+                Padding="12,10">
+
+            <StackPanel>
+
                 <DockPanel LastChildFill="True">
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-                        <TextBlock VerticalAlignment="Center" Style="{StaticResource ErpSubtitle}" Text="Saisie des notes" />
-                        <Button Margin="16,0,0,0"
-                                Command="{Binding SaveGradesCommand}"
-                                Content="Enregistrer les notes"
-                                Style="{StaticResource ErpPrimaryButton}" />
-                        <Button Margin="8,0,0,0"
-                                Command="{Binding LoadGradeEntriesCommand}"
-                                Content="Recharger"
-                                Style="{StaticResource ErpSecondaryButton}" />
-                    </StackPanel>
-                    <DataGrid Style="{StaticResource ErpDataGrid}"
-                              CanUserAddRows="False"
-                              IsReadOnly="False"
-                              ItemsSource="{Binding GradeEntries}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" IsReadOnly="True" />
-                            <DataGridTextColumn Binding="{Binding Score, UpdateSourceTrigger=PropertyChanged}" Header="Note" Width="80" />
-                            <DataGridCheckBoxColumn Binding="{Binding IsAbsent}" Header="Absent" Width="70" />
-                            <DataGridTextColumn Binding="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" Header="Commentaire" Width="*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+
+                    <Button Width="32"
+
+                            Height="32"
+
+                            Padding="0"
+
+                            HorizontalAlignment="Right"
+
+                            Command="{Binding ToggleParametersCommand}"
+
+                            DockPanel.Dock="Right"
+
+                            ToolTip="{Binding ParametersToggleLabel}"
+
+                            ToolTipService.InitialShowDelay="200"
+
+                            Style="{StaticResource MaterialDesignIconButton}">
+
+                        <Grid Width="18" Height="18">
+
+                            <materialDesign:PackIcon Kind="ChevronDown"
+
+                                                     Width="18"
+
+                                                     Height="18"
+
+                                                     Visibility="{Binding IsParametersExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                            <materialDesign:PackIcon Kind="ChevronUp"
+
+                                                     Width="18"
+
+                                                     Height="18"
+
+                                                     Visibility="{Binding IsParametersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                        </Grid>
+
+                    </Button>
+
+                    <TextBlock VerticalAlignment="Center"
+
+                               FontSize="14"
+
+                               FontWeight="SemiBold"
+
+                               Foreground="#1F2937"
+
+                               Text="{Binding ParametersHeaderText}" />
+
                 </DockPanel>
+
+
+
+                <StackPanel Margin="0,10,0,0"
+
+                            Visibility="{Binding IsParametersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+                    <ScrollViewer MaxHeight="520"
+
+                                  VerticalScrollBarVisibility="Auto"
+
+                                  HorizontalScrollBarVisibility="Disabled">
+
+                        <StackPanel>
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="Label"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="CalendarRange"
+
+                                               ItemsSource="{Binding Lookups.AcademicYears}"
+
+                                               Label="Année scolaire"
+
+                                               SelectedItem="{Binding SelectedYear, Mode=TwoWay}" />
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="Name"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="CalendarMonth"
+
+                                               ItemsSource="{Binding FilteredPeriods}"
+
+                                               Label="Période"
+
+                                               SelectedItem="{Binding SelectedPeriod, Mode=TwoWay}" />
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="DisplayName"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="GoogleClassroom"
+
+                                               ItemsSource="{Binding PedagogicalClasses}"
+
+                                               Label="Classe pédagogique"
+
+                                               SelectedItem="{Binding SelectedPedagogicalClass, Mode=TwoWay}" />
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="FullDisplayName"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="Door"
+
+                                               ItemsSource="{Binding ClassLocals}"
+
+                                               Label="Local"
+
+                                               SelectedItem="{Binding SelectedLocal, Mode=TwoWay}" />
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="CourseName"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="BookOpenVariant"
+
+                                               ItemsSource="{Binding AssignedCourses}"
+
+                                               Label="Cours"
+
+                                               SelectedItem="{Binding SelectedCourse, Mode=TwoWay}" />
+
+                            <erp:ErpComboField Margin="0,0,0,12"
+
+                                               DisplayMemberPath="Name"
+
+                                               FieldWidth="240"
+
+                                               HorizontalAlignment="Stretch"
+
+                                               IconKind="ClipboardTextOutline"
+
+                                               ItemsSource="{Binding EvaluationTypes}"
+
+                                               Label="Type d'évaluation"
+
+                                               SelectedItem="{Binding SelectedEvaluationType, Mode=TwoWay}" />
+
+                            <erp:ErpDateField Margin="0,0,0,12"
+
+                                              FieldWidth="240"
+
+                                              HorizontalAlignment="Stretch"
+
+                                              Label="Date de l'évaluation"
+
+                                              SelectedDate="{Binding EvaluationDate, Mode=TwoWay}" />
+
+                            <erp:ErpTextField Margin="0,0,0,12"
+
+                                              FieldWidth="240"
+
+                                              HorizontalAlignment="Stretch"
+
+                                              Label="Barème"
+
+                                              Text="{Binding EvaluationMaxScore, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <erp:ErpTextField Margin="0,0,0,12"
+
+                                              FieldWidth="240"
+
+                                              HorizontalAlignment="Stretch"
+
+                                              Label="Coefficient"
+
+                                              Text="{Binding EvaluationCoefficient, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <erp:ErpTextField Margin="0,0,0,12"
+
+                                              FieldWidth="240"
+
+                                              HorizontalAlignment="Stretch"
+
+                                              Label="Intitulé de l'évaluation"
+
+                                              Text="{Binding EvaluationTitle, UpdateSourceTrigger=PropertyChanged}" />
+
+                        </StackPanel>
+
+                    </ScrollViewer>
+
+
+
+                    <Button Margin="0,4,0,0"
+
+                            Height="38"
+
+                            Command="{Binding LoadStudentsCommand}"
+
+                            Style="{StaticResource ErpPrimaryButton}">
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+
+                            <materialDesign:PackIcon Kind="AccountSearch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+
+                            <TextBlock Text="Recharger les élèves" FontWeight="SemiBold" VerticalAlignment="Center" />
+
+                        </StackPanel>
+
+                    </Button>
+
+
+
+                    <Border Margin="0,10,0,0"
+
+                            Background="#F8FAFC"
+
+                            BorderBrush="#E5E7EB"
+
+                            BorderThickness="1"
+
+                            CornerRadius="10"
+
+                            Padding="10,8">
+
+                        <StackPanel>
+
+                            <TextBlock FontWeight="SemiBold"
+
+                                       Foreground="#1E5EFF"
+
+                                       FontSize="12"
+
+                                       Text="Raccourcis clavier" />
+
+                            <TextBlock Margin="0,4,0,0" FontSize="10" Foreground="#6B7280" Text="Entrée : élève suivant" />
+
+                            <TextBlock Margin="0,1,0,0" FontSize="10" Foreground="#6B7280" Text="Tab : colonne suivante" />
+
+                            <TextBlock Margin="0,1,0,0" FontSize="10" Foreground="#6B7280" Text="Ctrl+S : enregistrer" />
+
+                        </StackPanel>
+
+                    </Border>
+
+                </StackPanel>
+
+            </StackPanel>
+
+        </Border>
+
+
+
+        <!-- Zone principale -->
+
+        <Grid Grid.Column="2">
+
+            <Grid.RowDefinitions>
+
+                <RowDefinition Height="Auto" />
+
+                <RowDefinition Height="*" />
+
+                <RowDefinition Height="Auto" />
+
+                <RowDefinition Height="Auto" />
+
+                <RowDefinition Height="Auto" />
+
+            </Grid.RowDefinitions>
+
+
+
+            <!-- Résumé -->
+
+            <Border Grid.Row="0"
+
+                    Margin="0,0,0,12"
+
+                    Background="#EEF4FF"
+
+                    BorderBrush="#D6E4FF"
+
+                    BorderThickness="1"
+
+                    CornerRadius="16"
+
+                    Padding="18,16">
+
+                <Grid>
+
+                    <Grid.ColumnDefinitions>
+
+                        <ColumnDefinition Width="Auto" />
+
+                        <ColumnDefinition Width="*" />
+
+                    </Grid.ColumnDefinitions>
+
+                    <Border Width="52"
+
+                            Height="52"
+
+                            Background="#1E5EFF"
+
+                            CornerRadius="26"
+
+                            VerticalAlignment="Center">
+
+                        <materialDesign:PackIcon Kind="ClipboardEditOutline"
+
+                                                 Width="26"
+
+                                                 Height="26"
+
+                                                 Foreground="White"
+
+                                                 HorizontalAlignment="Center"
+
+                                                 VerticalAlignment="Center" />
+
+                    </Border>
+
+                    <Grid Grid.Column="1" Margin="16,0,0,0">
+
+                        <Grid.RowDefinitions>
+
+                            <RowDefinition Height="Auto" />
+
+                            <RowDefinition Height="Auto" />
+
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
+
+                            <Grid.ColumnDefinitions>
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Classe" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryClassName}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Période" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryPeriodName}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Barème" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryMaxScoreLabel}" />
+
+                            </StackPanel>
+
+                        </Grid>
+
+                        <Grid Grid.Row="1" Margin="0,12,0,0">
+
+                            <Grid.ColumnDefinitions>
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Cours" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryCourseName}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Type de travail" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryWorkTypeName}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Coefficient" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryCoefficientLabel}" />
+
+                            </StackPanel>
+
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+
+                            <Grid.ColumnDefinitions>
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                                <ColumnDefinition Width="*" />
+
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Enseignant" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryTeacherName}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Date" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryDate}" />
+
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+
+                                <TextBlock Style="{StaticResource GradesSummaryLabel}" Text="Nombre d'élèves" />
+
+                                <TextBlock Style="{StaticResource GradesSummaryValue}" Text="{Binding SummaryStudentCountLabel}" />
+
+                            </StackPanel>
+
+                        </Grid>
+
+                    </Grid>
+
+                </Grid>
+
             </Border>
 
-            <StackPanel Grid.Column="2">
-                <Border Style="{StaticResource ErpCard}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Nouvelle évaluation" />
-                        <TextBox Margin="0,12,0,0"
-                                 materialDesign:HintAssist.Hint="Titre"
-                                 Style="{StaticResource ErpTextBox}"
-                                 Text="{Binding EvaluationTitle}" />
-                        <Button Margin="0,12,0,0"
-                                Command="{Binding CreateEvaluationCommand}"
-                                Content="Créer"
-                                Style="{StaticResource ErpPrimaryButton}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource ErpCard}" Padding="0">
-                    <DataGrid Style="{StaticResource ErpDataGrid}"
-                              BorderThickness="0"
-                              ItemsSource="{Binding PeriodResults}">
+
+
+            <!-- Grille -->
+
+            <Border Grid.Row="1"
+
+                    Background="White"
+
+                    BorderBrush="#E5E7EB"
+
+                    BorderThickness="1"
+
+                    CornerRadius="16"
+
+                    Padding="0,12,0,0">
+
+                <DockPanel LastChildFill="True">
+
+                    <DockPanel DockPanel.Dock="Top" Margin="20,0,20,12">
+
+                        <TextBlock VerticalAlignment="Center"
+
+                                   FontSize="13"
+
+                                   FontWeight="Bold"
+
+                                   Foreground="#1E5EFF"
+
+                                   Text="GRILLE DE COTATION" />
+
+                    </DockPanel>
+
+
+
+                    <DataGrid x:Name="GradingGrid"
+
+                              Margin="12,0,12,12"
+
+                              CanUserAddRows="False"
+
+                              IsReadOnly="{Binding CanEditGrades, Converter={StaticResource InverseBooleanConverter}}"
+
+                              ItemsSource="{Binding GradeEntries}"
+
+                              PreviewKeyDown="GradingGrid_OnPreviewKeyDown"
+
+                              Style="{StaticResource ErpDataGrid}">
+
                         <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Élève" Width="*" />
-                            <DataGridTextColumn Binding="{Binding Average}" Header="Moy." Width="60" />
-                            <DataGridTextColumn Binding="{Binding Rank}" Header="Rang" Width="50" />
-                            <DataGridTextColumn Binding="{Binding Percentage}" Header="%" Width="50" />
+
+                            <DataGridTextColumn Binding="{Binding RowNumber}" Header="N°" Width="50" IsReadOnly="True" />
+
+                            <DataGridTextColumn Binding="{Binding RegistrationNumber}" Header="Matricule" Width="110" IsReadOnly="True" />
+
+                            <DataGridTextColumn Binding="{Binding StudentName}" Header="Nom de l'élève" Width="*" IsReadOnly="True" />
+
+                            <DataGridTemplateColumn Header="Points obtenus" Width="120">
+
+                                <DataGridTemplateColumn.CellTemplate>
+
+                                    <DataTemplate DataType="{x:Type vm:GradeEntryEditItem}">
+
+                                        <TextBlock HorizontalAlignment="Center"
+
+                                                   FontWeight="SemiBold"
+
+                                                   Foreground="#1E5EFF"
+
+                                                   Text="{Binding ScoreDisplay}" />
+
+                                    </DataTemplate>
+
+                                </DataGridTemplateColumn.CellTemplate>
+
+                                <DataGridTemplateColumn.CellEditingTemplate>
+
+                                    <DataTemplate DataType="{x:Type vm:GradeEntryEditItem}">
+
+                                        <TextBox HorizontalContentAlignment="Center"
+
+                                                 FontWeight="SemiBold"
+
+                                                 Foreground="#1E5EFF"
+
+                                                 Text="{Binding Score, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" />
+
+                                    </DataTemplate>
+
+                                </DataGridTemplateColumn.CellEditingTemplate>
+
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Binding="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" Header="Observation" Width="*" />
+
                         </DataGrid.Columns>
+
                     </DataGrid>
+
+                </DockPanel>
+
+            </Border>
+
+
+
+            <!-- Statistiques -->
+
+            <StackPanel Grid.Row="2" Margin="0,12,0,12" Orientation="Horizontal">
+
+                <Border Style="{StaticResource GradesStatCard}">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" Foreground="#1E5EFF" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Nombre d'élèves" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatTotalStudents}" />
+
+                    </StackPanel>
+
                 </Border>
+
+                <Border Style="{StaticResource GradesStatCard}">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="CheckCircle" Width="18" Height="18" Foreground="#22C55E" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Cotés" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatGraded}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border Style="{StaticResource GradesStatCard}">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="MinusCircle" Width="18" Height="18" Foreground="#9CA3AF" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Non cotés" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatNotGraded}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border Style="{StaticResource GradesStatCard}">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="ChartLine" Width="18" Height="18" Foreground="#1E5EFF" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Moyenne" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatAverage, StringFormat={}{0:0.00}}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border Style="{StaticResource GradesStatCard}">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="ArrowUpBold" Width="18" Height="18" Foreground="#22C55E" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Note max" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatMaxScore, StringFormat={}{0:0.##}}" />
+
+                    </StackPanel>
+
+                </Border>
+
+                <Border Style="{StaticResource GradesStatCard}" Margin="0">
+
+                    <StackPanel>
+
+                        <materialDesign:PackIcon Kind="ArrowDownBold" Width="18" Height="18" Foreground="#EF4444" />
+
+                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#6B7280" Text="Note min" />
+
+                        <TextBlock FontSize="20" FontWeight="Bold" Foreground="#1F2937" Text="{Binding StatMinScore, StringFormat={}{0:0.##}}" />
+
+                    </StackPanel>
+
+                </Border>
+
             </StackPanel>
+
+
+
+            <!-- Pied de page -->
+
+            <Border Grid.Row="3"
+
+                    Background="White"
+
+                    BorderBrush="#E5E7EB"
+
+                    BorderThickness="1"
+
+                    CornerRadius="16"
+
+                    Padding="16,12">
+
+                <Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+
+                        <Button Margin="0,0,8,0"
+
+                                Command="{Binding SaveGradesCommand}"
+
+                                Height="42"
+
+                                Padding="18,0"
+
+                                Background="#22C55E"
+
+                                BorderBrush="#22C55E"
+
+                                Foreground="White"
+
+                                Style="{StaticResource ErpPrimaryButton}">
+
+                            <StackPanel Orientation="Horizontal">
+
+                                <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+
+                                <TextBlock Text="Enregistrer" VerticalAlignment="Center" />
+
+                            </StackPanel>
+
+                        </Button>
+
+                        <Button Margin="0,0,8,0"
+
+                                Command="{Binding SaveAndCloseGradesCommand}"
+
+                                Height="42"
+
+                                Padding="18,0"
+
+                                Style="{StaticResource ErpPrimaryButton}">
+
+                            <StackPanel Orientation="Horizontal">
+
+                                <materialDesign:PackIcon Kind="ContentSaveCheck" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+
+                                <TextBlock Text="Enregistrer et fermer" VerticalAlignment="Center" />
+
+                            </StackPanel>
+
+                        </Button>
+
+                        <Button Command="{Binding CancelGradesCommand}"
+
+                                Height="42"
+
+                                Padding="18,0"
+
+                                Style="{StaticResource ErpSecondaryButton}">
+
+                            <StackPanel Orientation="Horizontal">
+
+                                <materialDesign:PackIcon Kind="Undo" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#EF4444" />
+
+                                <TextBlock Text="Annuler" Foreground="#EF4444" VerticalAlignment="Center" />
+
+                            </StackPanel>
+
+                        </Button>
+
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+                        <Button Margin="0,0,8,0"
+
+                                Command="{Binding PrintGridCommand}"
+
+                                Height="42"
+
+                                Padding="18,0"
+
+                                Style="{StaticResource ErpSecondaryButton}">
+
+                            <StackPanel Orientation="Horizontal">
+
+                                <materialDesign:PackIcon Kind="Printer" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#1E5EFF" />
+
+                                <TextBlock Text="Imprimer la grille" Foreground="#1E5EFF" VerticalAlignment="Center" />
+
+                            </StackPanel>
+
+                        </Button>
+
+                        <Button Command="{Binding ExportExcelCommand}"
+
+                                Height="42"
+
+                                Padding="18,0"
+
+                                Style="{StaticResource ErpSecondaryButton}">
+
+                            <StackPanel Orientation="Horizontal">
+
+                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#22C55E" />
+
+                                <TextBlock Text="Exporter Excel" Foreground="#22C55E" VerticalAlignment="Center" />
+
+                            </StackPanel>
+
+                        </Button>
+
+                    </StackPanel>
+
+                </Grid>
+
+            </Border>
+
+
+
+            <TextBlock Grid.Row="4"
+
+                       Margin="0,10,0,0"
+
+                       Style="{StaticResource ErpBodySecondary}"
+
+                       Text="{Binding StatusMessage}"
+
+                       TextWrapping="Wrap" />
+
         </Grid>
 
-        <TextBlock Grid.Row="4"
-                   Margin="0,12,0,0"
-                   Style="{StaticResource ErpBodySecondary}"
-                   Text="{Binding StatusMessage}"
-                   TextWrapping="Wrap" />
+
+
+        <Border Grid.Column="0"
+
+                Grid.ColumnSpan="3"
+
+                Style="{StaticResource SchoolFeeLoadingOverlay}"
+
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                <ProgressBar Width="180" Height="4" IsIndeterminate="True" Foreground="{StaticResource ErpPrimaryBrush}" />
+
+                <TextBlock Margin="0,10,0,0"
+
+                           HorizontalAlignment="Center"
+
+                           Style="{StaticResource ErpBodySecondary}"
+
+                           Text="Chargement en cours…" />
+
+            </StackPanel>
+
+        </Border>
+
     </Grid>
+
 </UserControl>
+
+

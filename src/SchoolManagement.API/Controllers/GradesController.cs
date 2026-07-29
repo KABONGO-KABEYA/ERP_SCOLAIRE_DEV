@@ -22,6 +22,16 @@ public class GradesController : ControllerBase
         _currentUser = currentUser;
     }
 
+    [HttpGet("evaluation-types")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<EvaluationTypeDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEvaluationTypes(CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var types = await _gradeService.GetEvaluationTypesAsync(schoolId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<EvaluationTypeDto>>.Ok(types));
+    }
+
     [HttpPost("evaluations")]
     [Authorize(Policy = Permissions.GradesCreate)]
     [ProducesResponseType(typeof(ApiResponse<EvaluationDto>), StatusCodes.Status201Created)]
@@ -63,6 +73,19 @@ public class GradesController : ControllerBase
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         await _gradeService.SubmitGradesAsync(schoolId, request, cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }, "Notes enregistrées."));
+    }
+
+    [HttpGet("period-results")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PeriodResultDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPeriodResults(
+        [FromQuery] Guid classRoomId,
+        [FromQuery] Guid academicPeriodId,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var results = await _gradeService.GetPeriodResultsAsync(schoolId, classRoomId, academicPeriodId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<PeriodResultDto>>.Ok(results));
     }
 
     [HttpPost("period-results/calculate")]

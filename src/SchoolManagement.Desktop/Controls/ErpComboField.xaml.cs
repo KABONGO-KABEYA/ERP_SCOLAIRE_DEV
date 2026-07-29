@@ -40,6 +40,10 @@ public partial class ErpComboField : UserControl
         DependencyProperty.Register(nameof(MaxDropDownHeight), typeof(double), typeof(ErpComboField),
             new PropertyMetadata(double.NaN, OnMaxDropDownHeightChanged));
 
+    public static readonly DependencyProperty IsCompactProperty =
+        DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(ErpComboField),
+            new PropertyMetadata(false, OnCompactChanged));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
     public MaterialDesignThemes.Wpf.PackIconKind IconKind { get => (MaterialDesignThemes.Wpf.PackIconKind)GetValue(IconKindProperty); set => SetValue(IconKindProperty, value); }
@@ -53,6 +57,7 @@ public partial class ErpComboField : UserControl
     public string SelectedValuePath { get => (string)GetValue(SelectedValuePathProperty); set => SetValue(SelectedValuePathProperty, value); }
     public bool RefreshOnDropDownOpen { get => (bool)GetValue(RefreshOnDropDownOpenProperty); set => SetValue(RefreshOnDropDownOpenProperty, value); }
     public double MaxDropDownHeight { get => (double)GetValue(MaxDropDownHeightProperty); set => SetValue(MaxDropDownHeightProperty, value); }
+    public bool IsCompact { get => (bool)GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
 
     public event EventHandler? DropDownOpened;
     public event Func<EventArgs, Task>? PreparingDropDownAsync;
@@ -64,8 +69,27 @@ public partial class ErpComboField : UserControl
         {
             UpdateLayoutSizing();
             ApplyMaxDropDownHeight();
+            ApplyCompactLayout();
             RefreshValidation();
         };
+    }
+
+    private static void OnCompactChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpComboField field)
+        {
+            field.ApplyCompactLayout();
+        }
+    }
+
+    private void ApplyCompactLayout()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        ErpFieldCompactLayout.Apply(LabelPanel, LabelText, InputBorder, InputComboBox, IsCompact);
     }
 
     private static void OnMaxDropDownHeightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

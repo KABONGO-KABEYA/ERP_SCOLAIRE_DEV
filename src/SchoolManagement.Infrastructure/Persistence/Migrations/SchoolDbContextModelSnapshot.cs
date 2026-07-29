@@ -2051,8 +2051,8 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("Coefficient")
                         .HasPrecision(5, 2)

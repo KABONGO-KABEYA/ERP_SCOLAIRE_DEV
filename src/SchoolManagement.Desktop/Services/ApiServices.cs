@@ -1318,6 +1318,11 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
 {
     public GradeApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
 
+    public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationTypeDto>> GetEvaluationTypesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationTypeDto>>(
+            "api/v1/grades/evaluation-types", cancellationToken);
+
     public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>>(
@@ -1333,6 +1338,14 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
         CancellationToken cancellationToken = default) =>
         PostAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>>(
             "api/v1/grades/period-results/calculate", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>> GetPeriodResultsAsync(
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>>(
+            $"api/v1/grades/period-results?classRoomId={classRoomId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
 
     public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.GradeEntryDto>> GetGradeEntriesAsync(
         Guid evaluationId,
@@ -1381,6 +1394,16 @@ public sealed class AcademicApiService : ApiServiceBase, IAcademicApiService
         SchoolManagement.Application.Academic.DTOs.CreateCourseRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.Academic.DTOs.CourseDto>("api/v1/academic/courses", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Academic.DTOs.CourseDto> UpdateCourseAsync(
+        Guid courseId,
+        SchoolManagement.Application.Academic.DTOs.UpdateCourseRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Academic.DTOs.CourseDto>(
+            $"api/v1/academic/courses/{courseId}", request, cancellationToken);
+
+    public Task DeleteCourseAsync(Guid courseId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/academic/courses/{courseId}", cancellationToken);
 
     public Task<IReadOnlyList<SchoolManagement.Application.Academic.DTOs.EnrollmentDto>> GetEnrollmentsAsync(
         Guid? classRoomId = null,
@@ -2389,4 +2412,42 @@ public sealed class CloudSyncApiService : ApiServiceBase, ICloudSyncApiService
             $"api/v1/cloud-sync/synchronize?criticalOnly={criticalOnly}&requeueDeadLetters=true",
             new { },
             cancellationToken);
+}
+
+public sealed class CourseConfigurationApiService : ApiServiceBase, ICourseConfigurationApiService
+{
+    public CourseConfigurationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CourseConfiguration.DTOs.BranchOptionDto>> GetBranchesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.CourseConfiguration.DTOs.BranchOptionDto>>(
+            "api/v1/course-configuration/branches", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.CourseConfiguration.DTOs.AvailableCourseBranchGroupDto>> GetAvailableCoursesAsync(
+        Guid pedagogicalClassId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.CourseConfiguration.DTOs.AvailableCourseBranchGroupDto>>(
+            $"api/v1/course-configuration/available-courses?pedagogicalClassId={pedagogicalClassId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.CourseConfiguration.DTOs.CourseConfigurationDto> GetConfigurationAsync(
+        Guid academicYearId,
+        Guid pedagogicalClassId,
+        Guid classRoomId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.CourseConfiguration.DTOs.CourseConfigurationDto>(
+            $"api/v1/course-configuration?academicYearId={academicYearId}&pedagogicalClassId={pedagogicalClassId}&classRoomId={classRoomId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.CourseConfiguration.DTOs.CourseConfigurationDto> SaveConfigurationAsync(
+        SchoolManagement.Application.CourseConfiguration.DTOs.SaveCourseConfigurationRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.CourseConfiguration.DTOs.CourseConfigurationDto>(
+            "api/v1/course-configuration", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.CourseConfiguration.DTOs.CreateCatalogCourseResultDto> CreateCatalogCourseAsync(
+        SchoolManagement.Application.CourseConfiguration.DTOs.CreateCatalogCourseRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.CourseConfiguration.DTOs.CreateCatalogCourseResultDto>(
+            "api/v1/course-configuration/courses", request, cancellationToken);
 }

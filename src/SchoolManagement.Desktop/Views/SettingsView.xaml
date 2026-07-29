@@ -134,75 +134,6 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,20,0,0"
-                                Visibility="{Binding IsMatieresSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <DockPanel>
-                            <TextBlock Style="{StaticResource ErpSubtitle}"
-                                       Text="Matières par classe active" />
-                            <Button DockPanel.Dock="Right"
-                                    Command="{Binding LoadSubjectClassesCommand}"
-                                    Content="Actualiser"
-                                    Style="{StaticResource ErpSecondaryButton}" />
-                        </DockPanel>
-
-                        <StackPanel Margin="0,12,0,8" Orientation="Horizontal">
-                            <ComboBox Width="220"
-                                      Margin="4"
-                                      DisplayMemberPath="Label"
-                                      ItemsSource="{Binding AcademicYears}"
-                                      SelectedItem="{Binding SelectedAcademicYear}"
-                                      materialDesign:HintAssist.Hint="Année scolaire" />
-                            <ComboBox Width="320"
-                                      Margin="4"
-                                      DisplayMemberPath="FullDisplayName"
-                                      ItemsSource="{Binding SubjectClasses}"
-                                      SelectedItem="{Binding SelectedSubjectClass}"
-                                      materialDesign:HintAssist.Hint="Classe active" />
-                        </StackPanel>
-
-                        <DataGrid Style="{StaticResource ErpDataGrid}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  IsReadOnly="True"
-                                  ItemsSource="{Binding SubjectCourses}"
-                                  MaxHeight="280">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="120" />
-                                <DataGridTextColumn Binding="{Binding Name}" Header="Matière" Width="*" />
-                                <DataGridTextColumn Binding="{Binding Coefficient}" Header="Coef." Width="70" />
-                                <DataGridTextColumn Binding="{Binding MaxScore}" Header="/20" Width="60" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-
-                        <Border Margin="0,12,0,0"
-                                Padding="12"
-                                Background="#F9FAFB"
-                                BorderBrush="{StaticResource ErpBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="10">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource ErpBody}"
-                                           Text="Nouvelle matière" />
-                                <WrapPanel Margin="0,8,0,0">
-                                    <TextBox Width="140"
-                                             Margin="4"
-                                             materialDesign:HintAssist.Hint="Code matière"
-                                             Style="{StaticResource ErpTextBox}"
-                                             Text="{Binding NewSubjectCode}" />
-                                    <TextBox Width="240"
-                                             Margin="4"
-                                             materialDesign:HintAssist.Hint="Nom matière"
-                                             Style="{StaticResource ErpTextBox}"
-                                             Text="{Binding NewSubjectName}" />
-                                    <Button Margin="4"
-                                            Command="{Binding CreateSubjectCourseCommand}"
-                                            Content="Créer matière"
-                                            Style="{StaticResource ErpPrimaryButton}" />
-                                </WrapPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <StackPanel Margin="0,20,0,0"
                                 Visibility="{Binding IsGeographieSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Style="{StaticResource ErpSubtitle}"
                                    Text="Pays, provinces, villes et communes" />
@@ -489,6 +420,14 @@
             <controls:CurrencyManagementControl HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Stretch"
                                                 DataContext="{Binding CurrencyManagement}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsMatieresSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:CourseConfigurationControl HorizontalAlignment="Stretch"
+                                                 VerticalAlignment="Stretch"
+                                                 DataContext="{Binding CourseConfiguration}" />
         </Grid>
 
         <Grid Grid.Row="0"

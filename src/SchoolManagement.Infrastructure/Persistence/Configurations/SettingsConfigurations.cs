@@ -100,18 +100,62 @@ public class ClassRoomConfiguration : AuditableEntityConfiguration<ClassRoom>
     }
 }
 
+public class BranchConfiguration : AuditableEntityConfiguration<Branch>
+{
+    public override void Configure(EntityTypeBuilder<Branch> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("Branches");
+        builder.Property(b => b.Code).HasMaxLength(CourseCodeConstraints.MaxCodeLength).IsRequired();
+        builder.Property(b => b.Name).HasMaxLength(150).IsRequired();
+        builder.Property(b => b.Program).HasConversion<int>();
+        builder.HasOne(b => b.School).WithMany().HasForeignKey(b => b.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(b => new { b.SchoolId, b.Code }).IsUnique();
+    }
+}
+
+public class PedagogicalClassCourseConfiguration : AuditableEntityConfiguration<PedagogicalClassCourse>
+{
+    public override void Configure(EntityTypeBuilder<PedagogicalClassCourse> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("PedagogicalClassCourses");
+        builder.HasOne(l => l.School).WithMany().HasForeignKey(l => l.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(l => l.PedagogicalClass).WithMany(p => p.CurriculumCourses).HasForeignKey(l => l.PedagogicalClassId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(l => l.Course).WithMany(c => c.PedagogicalClassLinks).HasForeignKey(l => l.CourseId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(l => l.MaxScore).HasDefaultValue(20);
+        builder.HasIndex(l => new { l.PedagogicalClassId, l.CourseId }).IsUnique();
+    }
+}
+
 public class CourseConfiguration : AuditableEntityConfiguration<Course>
 {
     public override void Configure(EntityTypeBuilder<Course> builder)
     {
         base.Configure(builder);
         builder.ToTable("Courses");
-        builder.Property(c => c.Code).HasMaxLength(20).IsRequired();
+        builder.Property(c => c.Code).HasMaxLength(CourseCodeConstraints.MaxCodeLength).IsRequired();
         builder.Property(c => c.Name).HasMaxLength(150).IsRequired();
         builder.Property(c => c.Coefficient).HasPrecision(5, 2);
-        builder.HasOne(c => c.School).WithMany().HasForeignKey(c => c.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne(c => c.ClassRoom).WithMany(r => r.Courses).HasForeignKey(c => c.ClassRoomId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasIndex(c => new { c.SchoolId, c.Code });
+        builder.HasOne(c => c.Branch).WithMany(b => b.Courses).HasForeignKey(c => c.BranchId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(c => c.Code)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+    }
+}
+
+public class MaximaParPeriodeConfiguration : AuditableEntityConfiguration<MaximaParPeriode>
+{
+    public override void Configure(EntityTypeBuilder<MaximaParPeriode> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("MaximaParPeriode");
+        builder.HasOne(m => m.School).WithMany().HasForeignKey(m => m.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(m => m.PedagogicalClass).WithMany().HasForeignKey(m => m.PedagogicalClassId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(m => m.Course).WithMany().HasForeignKey(m => m.CourseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(m => m.AcademicPeriod).WithMany().HasForeignKey(m => m.AcademicPeriodId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(m => new { m.PedagogicalClassId, m.CourseId, m.AcademicPeriodId }).IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
 

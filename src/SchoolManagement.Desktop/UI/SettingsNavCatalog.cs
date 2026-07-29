@@ -34,7 +34,7 @@ public static class SettingsNavCatalog
                 new SettingsNavItem { Key = "etablissement", Title = "Établissement", IconKind = "Domain", Section = SettingsSection.Etablissement },
                 new SettingsNavItem { Key = "structure-pedagogique", Title = "Structure pédagogique", IconKind = "GoogleClassroom", Section = SettingsSection.StructurePedagogique },
                 new SettingsNavItem { Key = "annees-scolaires", Title = "Années scolaires", IconKind = "CalendarRange", Section = SettingsSection.AnneesScolaires },
-                new SettingsNavItem { Key = "matieres", Title = "Matières", IconKind = "BookEducation", Section = SettingsSection.Matieres },
+                new SettingsNavItem { Key = "matieres", Title = "Configuration des cours", IconKind = "BookEducation", Section = SettingsSection.Matieres },
                 new SettingsNavItem { Key = "geographie", Title = "Géographie", IconKind = "Earth", Section = SettingsSection.Geographie },
                 new SettingsNavItem { Key = "utilisateurs", Title = "Utilisateurs", IconKind = "AccountCog", Section = SettingsSection.Utilisateurs },
                 new SettingsNavItem { Key = "enseignants", Title = "Enseignants", IconKind = "HumanMaleBoard", Section = SettingsSection.Enseignants }

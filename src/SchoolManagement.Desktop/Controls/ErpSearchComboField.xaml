@@ -1,0 +1,70 @@
+<UserControl x:Class="SchoolManagement.Desktop.Controls.ErpSearchComboField"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             x:Name="Root"
+             MinHeight="32"
+             HorizontalAlignment="Stretch">
+    <Grid>
+        <ToggleButton x:Name="DropDownToggle"
+                      Focusable="False"
+                      IsChecked="{Binding IsDropDownOpen, ElementName=Root, Mode=TwoWay}"
+                      ClickMode="Press"
+                      Visibility="Collapsed" />
+        <Border Style="{StaticResource ErpInputBorder}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="SearchBox"
+                         Grid.Column="0"
+                         Padding="8,6"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         VerticalContentAlignment="Center"
+                         materialDesign:HintAssist.Hint="{Binding Placeholder, ElementName=Root}"
+                         materialDesign:HintAssist.IsFloating="False"
+                         TextChanged="SearchBox_OnTextChanged"
+                         PreviewKeyDown="SearchBox_OnPreviewKeyDown"
+                         GotFocus="SearchBox_OnGotFocus"
+                         LostFocus="SearchBox_OnLostFocus" />
+                <Button Grid.Column="1"
+                        Margin="0,0,4,0"
+                        Padding="6"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="ToggleButton_OnClick">
+                    <materialDesign:PackIcon Kind="ChevronDown"
+                                             Width="16"
+                                             Height="16"
+                                             Foreground="#6B7280" />
+                </Button>
+            </Grid>
+        </Border>
+        <Popup x:Name="DropDownPopup"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=Root}"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsDropDownOpen, ElementName=Root, Mode=TwoWay}">
+            <Border MinWidth="{Binding ActualWidth, ElementName=Root}"
+                    MaxHeight="220"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="4">
+                <ListBox x:Name="ItemsList"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         DisplayMemberPath="{Binding DisplayMemberPath, ElementName=Root}"
+                         ItemsSource="{Binding FilteredItems, ElementName=Root}"
+                         SelectedItem="{Binding SelectedItem, ElementName=Root, Mode=TwoWay}"
+                         MouseLeftButtonUp="ItemsList_OnMouseLeftButtonUp"
+                         PreviewKeyDown="ItemsList_OnPreviewKeyDown" />
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

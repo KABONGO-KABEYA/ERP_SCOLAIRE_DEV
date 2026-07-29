@@ -20,6 +20,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     private readonly IRepository<StudyOption> _studyOptionRepository;
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<Enrollment> _enrollmentRepository;
+    private readonly ICurriculumSeedService _curriculumSeedService;
     private readonly IUnitOfWork _unitOfWork;
 
     public PedagogicalStructureService(
@@ -29,6 +30,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         IRepository<StudyOption> studyOptionRepository,
         IRepository<AcademicYear> yearRepository,
         IRepository<Enrollment> enrollmentRepository,
+        ICurriculumSeedService curriculumSeedService,
         IUnitOfWork unitOfWork)
     {
         _pedagogicalClassRepository = pedagogicalClassRepository;
@@ -37,6 +39,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         _studyOptionRepository = studyOptionRepository;
         _yearRepository = yearRepository;
         _enrollmentRepository = enrollmentRepository;
+        _curriculumSeedService = curriculumSeedService;
         _unitOfWork = unitOfWork;
     }
 
@@ -75,6 +78,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _curriculumSeedService.EnsureCurriculumAsync(schoolId, cancellationToken);
         }
         finally
         {
