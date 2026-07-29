@@ -74,6 +74,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 class Program {
@@ -158,8 +159,8 @@ class Program {
     Console.WriteLine("Running notes schema initializers on cloud...");
     try {
       var infra = Assembly.LoadFrom(infraDll);
-      RunInitializer(infra, "SchoolManagement.Infrastructure.Persistence.CourseAssignmentSchemaInitializer", cloudCs);
-      RunInitializer(infra, "SchoolManagement.Infrastructure.Persistence.EvaluationSchemaInitializer", cloudCs);
+      RunInitializer(infra, "SchoolManagement.Infrastructure.Persistence.CourseAssignmentSchemaInitializer", cloudCs, "EnsureUpdatedAsync");
+      RunInitializer(infra, "SchoolManagement.Infrastructure.Persistence.EvaluationSchemaInitializer", cloudCs, "EnsureUpdatedAsync");
       RunInitializer(infra, "SchoolManagement.Infrastructure.Persistence.MaximaParPeriodeSchemaInitializer", cloudCs, "EnsureCreatedAsync");
 
       Console.WriteLine("RESULT=INITIALIZERS_OK");
@@ -171,15 +172,18 @@ class Program {
     }
   }
 
-  static void RunInitializer(Assembly infra, string typeName, string cs, string method = "EnsureUpdatedAsync") {
-    var type = infra.GetType(typeName, throwOnError: true)!;
+  static void RunInitializer(Assembly infra, string typeName, string cs, string method) {
+    if (string.IsNullOrEmpty(method)) method = "EnsureUpdatedAsync";
+    var type = infra.GetType(typeName);
+    if (type == null) throw new Exception("Type not found: " + typeName);
     var loggerType = typeof(Microsoft.Extensions.Logging.Abstractions.NullLogger<>).MakeGenericType(type);
-    var logger = Activator.CreateInstance(loggerType)!;
-    var instance = Activator.CreateInstance(type, cs, logger)!;
-    var mi = type.GetMethod(method)!;
-    var task = (Task)mi.Invoke(instance, new object[] { CancellationToken.None })!;
+    var logger = Activator.CreateInstance(loggerType);
+    var instance = Activator.CreateInstance(type, cs, logger);
+    var mi = type.GetMethod(method);
+    if (mi == null) throw new Exception("Method not found: " + method);
+    var task = (Task)mi.Invoke(instance, new object[] { CancellationToken.None });
     task.GetAwaiter().GetResult();
-    Console.WriteLine("INITIALIZER=" + typeName.Split('.').Last());
+    Console.WriteLine("INITIALIZER=" + typeName.Substring(typeName.LastIndexOf('.') + 1));
   }
 
   static void Exec(SqlConnection cn, string sql) {
@@ -216,14 +220,19 @@ class Program {
 
   static string BuildCs(Dictionary<string, string> cfg) {
     string server, database, user, encPwd;
-    if (!cfg.TryGetValue("SERVEUR", out server!) || string.IsNullOrWhiteSpace(server)) throw new Exception("SERVEUR missing");
-    if (!cfg.TryGetValue("BASE", out database!) || string.IsNullOrWhiteSpace(database)) throw new Exception("BASE missing");
-    if (!cfg.TryGetValue("UTILISATEUR", out user!)) user = "";
-    if (!cfg.TryGetValue("MOTDEPASSE", out encPwd!)) encPwd = "";
+    if (!cfg.TryGetValue("SERVEUR", out server) || string.IsNullOrWhiteSpace(server)) throw new Exception("SERVEUR missing");
+    if (!cfg.TryGetValue("BASE", out database) || string.IsNullOrWhiteSpace(database)) throw new Exception("BASE missing");
+    if (!cfg.TryGetValue("UTILISATEUR", out user)) user = "";
+    if (!cfg.TryGetValue("MOTDEPASSE", out encPwd)) encPwd = "";
     var port = 1433;
-    if (cfg.TryGetValue("PORT", out var portRaw) && int.TryParse(portRaw, out var p)) port = p;
+    string portRaw;
+    if (cfg.TryGetValue("PORT", out portRaw)) {
+      int p;
+      if (int.TryParse(portRaw, out p)) port = p;
+    }
 
-    var auth = cfg.TryGetValue("AUTHENTIFICATION", out var authRaw) ? authRaw.Trim() : "SQL";
+    string authRaw;
+    var auth = cfg.TryGetValue("AUTHENTIFICATION", out authRaw) ? authRaw.Trim() : "SQL";
     var b = new SqlConnectionStringBuilder();
     var dataSource = server;
     if (server.IndexOf('\\') < 0 && Regex.IsMatch(server, @"^\d+\.\d+\.\d+\.\d+$")) dataSource = server + "," + port;
@@ -320,7 +329,9 @@ ORDER BY kcu.ORDINAL_POSITION";
     }
   }
 
-  static string Quote(string name) => "[" + name.Replace("]", "]]") + "]";
+  static string Quote(string name) {
+    return "[" + name.Replace("]", "]]") + "]";
+  }
 
   static string BuildCreateTable(string table, List<ColDef> cols, List<string> pk) {
     var sb = new StringBuilder();
