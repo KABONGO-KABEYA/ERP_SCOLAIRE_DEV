@@ -3,6 +3,7 @@ using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
+using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Domain.Entities.Academic;
 
@@ -82,6 +83,9 @@ public class StudentAttendance : AuditableEntity, IAggregateRoot
 {
     public Guid SchoolId { get; set; }
 
+    /// <summary>Inscription (élève dans une classe pour une année scolaire).</summary>
+    public Guid EnrollmentId { get; set; }
+
     public Guid StudentId { get; set; }
 
     public Guid ClassRoomId { get; set; }
@@ -90,15 +94,34 @@ public class StudentAttendance : AuditableEntity, IAggregateRoot
 
     public DateOnly AttendanceDate { get; set; }
 
+    /// <summary>Valeur de présence (absent, présent, retard, excusé).</summary>
+    public StudentAttendancePresence Presence { get; set; } = StudentAttendancePresence.Present;
+
     public bool IsPresent { get; set; }
 
     public bool IsLate { get; set; }
 
     public string? Justification { get; set; }
 
+    public Enrollment Enrollment { get; set; } = null!;
+
     public Student Student { get; set; } = null!;
 
     public ClassRoom ClassRoom { get; set; } = null!;
+
+    public void SetPresence(StudentAttendancePresence presence)
+    {
+        Presence = presence;
+        IsPresent = presence is StudentAttendancePresence.Present
+            or StudentAttendancePresence.Late
+            or StudentAttendancePresence.Excused;
+        IsLate = presence == StudentAttendancePresence.Late;
+    }
+
+    public static StudentAttendancePresence ResolvePresence(bool isPresent, bool isLate) =>
+        !isPresent ? StudentAttendancePresence.Absent
+        : isLate ? StudentAttendancePresence.Late
+        : StudentAttendancePresence.Present;
 }
 
 public class TeacherAttendance : AuditableEntity, IAggregateRoot

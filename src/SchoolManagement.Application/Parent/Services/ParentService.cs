@@ -583,8 +583,8 @@ public sealed class ParentService : IParentService
             {
                 // Agrège la journée : absent > retard > présent.
                 var dayRows = g.ToList();
-                var anyAbsent = dayRows.Any(r => !r.IsPresent);
-                var anyLate = dayRows.Any(r => r.IsPresent && r.IsLate);
+                var anyAbsent = dayRows.Any(r => r.Presence == StudentAttendancePresence.Absent);
+                var anyLate = dayRows.Any(r => r.Presence == StudentAttendancePresence.Late);
                 var status = anyAbsent ? "absent" : anyLate ? "late" : "present";
                 var note = dayRows
                     .Select(r => r.Justification)

@@ -1609,8 +1609,10 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var attendance = await _attendanceRepository.FindAsync(
             a => a.SchoolId == schoolId && a.AttendanceDate == today,
             cancellationToken);
-        var present = attendance.Count(a => a.IsPresent);
-        var absent = attendance.Count(a => !a.IsPresent);
+        var present = attendance.Count(a => a.Presence == StudentAttendancePresence.Present
+            || a.Presence == StudentAttendancePresence.Late
+            || a.Presence == StudentAttendancePresence.Excused);
+        var absent = attendance.Count(a => a.Presence == StudentAttendancePresence.Absent);
 
         var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
         var paymentsToday = payments.Count(p => p.PaymentDate >= todayStart && p.PaymentDate < todayEnd);

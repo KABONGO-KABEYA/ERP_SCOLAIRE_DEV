@@ -153,3 +153,12 @@ public enum ClassCouncilDecision
     Ajourne = 3,
     Exclu = 4
 }
+
+/// <summary>Valeur de présence d'un élève pour une date d'inscription.</summary>
+public enum StudentAttendancePresence
+{
+    Absent = 0,
+    Present = 1,
+    Late = 2,
+    Excused = 3
+}
