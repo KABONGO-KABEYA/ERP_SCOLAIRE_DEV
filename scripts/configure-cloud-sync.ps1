@@ -5,10 +5,10 @@
 
 .EXAMPLE
   .\scripts\configure-cloud-sync.ps1
-  .\scripts\configure-cloud-sync.ps1 -Server "161.97.105.22" -User "sa" -Password "..." -Actif 1
+  .\scripts\configure-cloud-sync.ps1 -Server "169.58.93.203" -User "sa" -Password "..." -Actif 1
 #>
 param(
-    [string]$Server = "161.97.105.22",
+    [string]$Server = "169.58.93.203",
     [int]$Port = 1433,
     [string]$Database = "SchoolManagementRDC",
     [string]$User = "sa",

@@ -78,7 +78,7 @@ public sealed class CurriculumSeeder : ICurriculumSeedService
         CancellationToken cancellationToken)
     {
         var existing = await _context.Courses
-            .Where(c => !c.IsDeleted)
+            .Where(c => !c.IsDeleted && c.SchoolId == schoolId)
             .ToListAsync(cancellationToken);
         var map = existing.ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
         var created = 0;
@@ -93,7 +93,7 @@ public sealed class CurriculumSeeder : ICurriculumSeedService
 
             if (map.TryGetValue(definition.Code, out var existingCourse))
             {
-                ApplyMasterCourseDefinition(existingCourse, definition, branch);
+                ApplyMasterCourseDefinition(existingCourse, definition, branch, schoolId);
                 continue;
             }
 
@@ -111,12 +111,13 @@ public sealed class CurriculumSeeder : ICurriculumSeedService
                     map[definition.Code] = existingCourse;
                 }
 
-                ApplyMasterCourseDefinition(existingCourse, definition, branch);
+                ApplyMasterCourseDefinition(existingCourse, definition, branch, schoolId);
                 continue;
             }
 
             var course = new Course
             {
+                SchoolId = schoolId,
                 BranchId = branch?.Id,
                 Code = definition.Code,
                 Name = definition.Name,
@@ -145,8 +146,10 @@ public sealed class CurriculumSeeder : ICurriculumSeedService
     private static void ApplyMasterCourseDefinition(
         Course course,
         CurriculumCourseDefinition definition,
-        Branch? branch)
+        Branch? branch,
+        Guid schoolId)
     {
+        course.SchoolId = schoolId;
         course.Name = definition.Name;
         course.BranchId = branch?.Id;
         course.Coefficient = definition.Coefficient;

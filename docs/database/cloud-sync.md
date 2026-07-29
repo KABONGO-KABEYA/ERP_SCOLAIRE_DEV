@@ -1,68 +1,68 @@
-# Synchronisation cloud (local → distant) — architecture production
+﻿# Synchronisation cloud (local â†’ distant) â€” architecture production
 
 ## Principe
 
-- La **base SQL locale** est la source de vérité.
-- Le **cloud** est une copie synchronisée (lecture / secours / futures apps).
-- Sens unique : **Local → Cloud**.
-- Les utilisateurs travaillent toujours en local, même hors ligne.
+- La **base SQL locale** est la source de vÃ©ritÃ©.
+- Le **cloud** est une copie synchronisÃ©e (lecture / secours / futures apps).
+- Sens unique : **Local â†’ Cloud**.
+- Les utilisateurs travaillent toujours en local, mÃªme hors ligne.
 
-## Architecture (v2 — outbox)
+## Architecture (v2 â€” outbox)
 
 ```
-SaveChanges (métier)
-    → capture INSERT/UPDATE/DELETE
-    → file SyncOutboxUnit + SyncOutboxItem (persistante)
+SaveChanges (mÃ©tier)
+    â†’ capture INSERT/UPDATE/DELETE
+    â†’ file SyncOutboxUnit + SyncOutboxItem (persistante)
 CloudSyncHostedService
-    → drain critique (~30 s) : paiements / encaissements
-    → catch-up watermark + drain complet (INTERVALLE_MINUTES)
-    → transaction SQL distante **par unité** (tout ou rien)
-    → SyncJournal + watermarks
+    â†’ drain critique (~30 s) : paiements / encaissements
+    â†’ catch-up watermark + drain complet (INTERVALLE_MINUTES)
+    â†’ transaction SQL distante **par unitÃ©** (tout ou rien)
+    â†’ SyncJournal + watermarks
 ```
 
-### Mécanisme de détection des changements
+### MÃ©canisme de dÃ©tection des changements
 
-**Outbox + `CreatedAt` / `UpdatedAt` / `DeletedAt`** (déjà présents sur `AuditableEntity`).
+**Outbox + `CreatedAt` / `UpdatedAt` / `DeletedAt`** (dÃ©jÃ  prÃ©sents sur `AuditableEntity`).
 
 | Option | Pourquoi non retenu comme principal |
 |--------|-------------------------------------|
 | SQL Change Tracking | Maintenance / droits SQL plus lourds |
 | RowVersion partout | Migration intrusive sur toutes les tables |
-| Full table upsert (v1) | Conservé uniquement pour **bootstrap** initial |
+| Full table upsert (v1) | ConservÃ© uniquement pour **bootstrap** initial |
 
-### Priorités
+### PrioritÃ©s
 
-| Priorité | Tables |
+| PrioritÃ© | Tables |
 |----------|--------|
 | Critical | Payments, PaymentLines, PaymentReversals, CashMovements, FinRepartitionRecette, FinRetenueApplication, StudentFeeBalances |
-| Normal | Élèves, classes, notes… |
-| Low | Paramètres / référentiels |
+| Normal | Ã‰lÃ¨ves, classes, notesâ€¦ |
+| Low | ParamÃ¨tres / rÃ©fÃ©rentiels |
 
-Un **paiement** est regroupé en une **unité transactionnelle** (agrégat `Payment`) : paiement + lignes + répartitions + retenues + mouvements + soldes.
+Un **paiement** est regroupÃ© en une **unitÃ© transactionnelle** (agrÃ©gat `Payment`) : paiement + lignes + rÃ©partitions + retenues + mouvements + soldes.
 
-## Tables locales (métadonnées sync)
+## Tables locales (mÃ©tadonnÃ©es sync)
 
-| Table | Rôle |
+| Table | RÃ´le |
 |-------|------|
-| `SyncOutboxUnit` | Unité transactionnelle (priorité, statut, tentatives) |
+| `SyncOutboxUnit` | UnitÃ© transactionnelle (prioritÃ©, statut, tentatives) |
 | `SyncOutboxItem` | Ligne (table, Id, INSERT/UPDATE/DELETE) |
-| `SyncJournal` | Historique des exécutions |
+| `SyncJournal` | Historique des exÃ©cutions |
 | `SyncWatermark` | Filigrane catch-up par table |
 
-Créées au démarrage API via `CloudSyncSchemaInitializer`.
+CrÃ©Ã©es au dÃ©marrage API via `CloudSyncSchemaInitializer`.
 
 ## Fichiers de configuration
 
-| Fichier | Rôle |
+| Fichier | RÃ´le |
 |---------|------|
 | `ServeurDonnees.txt` | SQL local |
-| `ServeurDonneesCloud.txt` | SQL distant — **gitignored**, mot de passe DPAPI |
-| `CloudSyncState.txt` | Dernier résultat (complément du journal SQL) |
+| `ServeurDonneesCloud.txt` | SQL distant â€” **gitignored**, mot de passe DPAPI |
+| `CloudSyncState.txt` | Dernier rÃ©sultat (complÃ©ment du journal SQL) |
 
 ```powershell
 cd "d:\Mes Projet\ERP_Administration_Scolaire_2026"
 .\scripts\configure-cloud-sync.ps1 `
-  -Server "161.97.105.22" `
+  -Server "169.58.93.203" `
   -User "sa" `
   -Password "VOTRE_MOT_DE_PASSE" `
   -Database "SchoolManagementRDC" `
@@ -73,7 +73,7 @@ cd "d:\Mes Projet\ERP_Administration_Scolaire_2026"
 
 ## API
 
-| Méthode | Route | Description |
+| MÃ©thode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/v1/cloud-sync/status` | Tableau de bord |
 | POST | `/api/v1/cloud-sync/synchronize` | Forcer une sync (`?criticalOnly=true` optionnel) |
@@ -82,35 +82,35 @@ Permission : `admin.full`.
 
 ## Desktop
 
-**Paramètres → Administration système → Synchronisation cloud**
+**ParamÃ¨tres â†’ Administration systÃ¨me â†’ Synchronisation cloud**
 
-- état connexion cloud
-- dernière sync réussie
+- Ã©tat connexion cloud
+- derniÃ¨re sync rÃ©ussie
 - file en attente / critiques / dead-letter
-- durée moyenne
-- journal récent
+- durÃ©e moyenne
+- journal rÃ©cent
 - bouton **Synchroniser maintenant**
 
 ## Contrats applicatifs
 
-- `ICloudSyncFacade` — API / UI
-- `ICloudSyncEngine` — moteur remplaçable
-- `ICloudSyncOutboxWriter` — enfilement post-`SaveChanges`
+- `ICloudSyncFacade` â€” API / UI
+- `ICloudSyncEngine` â€” moteur remplaÃ§able
+- `ICloudSyncOutboxWriter` â€” enfilement post-`SaveChanges`
 
-## Tolérance aux pannes
+## TolÃ©rance aux pannes
 
-- Internet coupé → outbox conserve les opérations ; reprise auto.
-- Redémarrage → unités `InProgress` périmées repassent en `Pending`.
-- Échec SQL → rollback transaction distante ; unité `Failed` puis `DeadLetter` après 8 essais.
-- Idempotence → upsert par `Id` (pas de doublon).
+- Internet coupÃ© â†’ outbox conserve les opÃ©rations ; reprise auto.
+- RedÃ©marrage â†’ unitÃ©s `InProgress` pÃ©rimÃ©es repassent en `Pending`.
+- Ã‰chec SQL â†’ rollback transaction distante ; unitÃ© `Failed` puis `DeadLetter` aprÃ¨s 8 essais.
+- Idempotence â†’ upsert par `Id` (pas de doublon).
 
-## Évolutions prévues (sans refonte)
+## Ã‰volutions prÃ©vues (sans refonte)
 
-- `SchoolId` sur `SyncOutboxUnit` (multi-écoles)
-- Remplacement du moteur EF par API cloud centralisée (`ICloudSyncEngine`)
+- `SchoolId` sur `SyncOutboxUnit` (multi-Ã©coles)
+- Remplacement du moteur EF par API cloud centralisÃ©e (`ICloudSyncEngine`)
 - Consommation cloud pour mobile / portail promoteur
 
-## Sécurité
+## SÃ©curitÃ©
 
 - Ne jamais committer `ServeurDonneesCloud.txt`.
-- Préférer un compte SQL dédié `erp_sync` (droits limités) plutôt que `sa`.
+- PrÃ©fÃ©rer un compte SQL dÃ©diÃ© `erp_sync` (droits limitÃ©s) plutÃ´t que `sa`.

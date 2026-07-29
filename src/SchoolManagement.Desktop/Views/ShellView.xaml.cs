@@ -331,7 +331,7 @@ public partial class ShellView : UserControl
         }
 
         _settingsExpander.Background = active
-            ? new SolidColorBrush(Color.FromRgb(30, 94, 255))
+            ? new SolidColorBrush(Color.FromRgb(37, 99, 235))
             : Brushes.Transparent;
     }
 
@@ -343,7 +343,7 @@ public partial class ShellView : UserControl
         }
 
         _financeExpander.Background = active
-            ? new SolidColorBrush(Color.FromRgb(30, 94, 255))
+            ? new SolidColorBrush(Color.FromRgb(37, 99, 235))
             : Brushes.Transparent;
     }
 
@@ -375,12 +375,12 @@ public partial class ShellView : UserControl
 
             if (panel.Children[0] is PackIcon icon)
             {
-                icon.Foreground = new SolidColorBrush(isSelected ? Color.FromRgb(30, 94, 255) : Color.FromRgb(148, 163, 184));
+                icon.Foreground = new SolidColorBrush(isSelected ? Color.FromRgb(37, 99, 235) : Color.FromRgb(148, 163, 184));
             }
 
             if (panel.Children[1] is TextBlock text)
             {
-                text.Foreground = new SolidColorBrush(isSelected ? Color.FromRgb(30, 94, 255) : Color.FromRgb(203, 213, 225));
+                text.Foreground = new SolidColorBrush(isSelected ? Color.FromRgb(255, 255, 255) : Color.FromRgb(203, 213, 225));
                 text.FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal;
             }
         }

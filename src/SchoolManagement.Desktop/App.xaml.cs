@@ -142,6 +142,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<ISchoolFeeApiService, SchoolFeeApiService>();
         services.AddTransient<ICourseConfigurationApiService, CourseConfigurationApiService>();
         services.AddTransient<IReportApiService, ReportApiService>();
+        services.AddTransient<IPromoterDashboardApiService, PromoterDashboardApiService>();
         services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
 

@@ -137,10 +137,11 @@ public class CourseConfiguration : AuditableEntityConfiguration<Course>
         builder.Property(c => c.Code).HasMaxLength(CourseCodeConstraints.MaxCodeLength).IsRequired();
         builder.Property(c => c.Name).HasMaxLength(150).IsRequired();
         builder.Property(c => c.Coefficient).HasPrecision(5, 2);
+        builder.HasOne(c => c.School).WithMany().HasForeignKey(c => c.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(c => c.Branch).WithMany(b => b.Courses).HasForeignKey(c => c.BranchId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasIndex(c => c.Code)
+        builder.HasIndex(c => new { c.SchoolId, c.Code, c.ClassRoomId })
             .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .HasFilter("[ClassRoomId] IS NULL AND [IsDeleted] = 0");
     }
 }
 

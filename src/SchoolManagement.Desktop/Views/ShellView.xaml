@@ -3,61 +3,53 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:views="clr-namespace:SchoolManagement.Desktop.Views"
-             Background="#F5F7FB">
+             Background="{StaticResource ErpPageBackgroundBrush}">
     <UserControl.Resources>
         <views:ViewLocator x:Key="ViewLocator" />
     </UserControl.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition>
-                <ColumnDefinition.Width>
-                    <GridLength>270</GridLength>
-                </ColumnDefinition.Width>
-            </ColumnDefinition>
+            <ColumnDefinition Width="270" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
-        <Border Grid.Column="0"
-                Background="#0F1F3D">
+        <!-- Sidebar — navigation inchangée (code-behind) -->
+        <Border Grid.Column="0" Background="{StaticResource ErpSidebarBrush}">
             <DockPanel LastChildFill="True">
-                <!-- School branding -->
-                <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
-                    <Image Source="/Assets/icone.png"
-                           Width="52"
-                           Height="52"
-                           HorizontalAlignment="Left"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Margin="0,14,0,2"
-                               FontFamily="Segoe UI"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="White"
-                               Text="ERP Scolaire RDC"
+                <StackPanel DockPanel.Dock="Top" Margin="22,28,22,18">
+                    <Border Width="52" Height="52" CornerRadius="14" Background="#FFFFFF14">
+                        <Image Source="/Assets/icone.png"
+                               Width="40" Height="40"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+                    <TextBlock Margin="0,16,0,2"
+                               Style="{StaticResource ErpSidebarTitle}"
+                               Text="ERP Scolaire RDC" />
+                    <TextBlock Style="{StaticResource ErpSidebarSubtitle}"
+                               Foreground="#CBD5E1"
+                               Text="{Binding SchoolName}"
                                TextWrapping="Wrap" />
-                    <TextBlock FontFamily="Segoe UI"
-                               FontSize="12"
-                               Foreground="#94A3B8"
+                    <TextBlock Margin="0,4,0,0"
+                               Style="{StaticResource ErpSidebarSubtitle}"
                                Text="Excellence • Discipline • Réussite"
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <!-- Navigation -->
                 <ScrollViewer DockPanel.Dock="Top"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="NavigationPanel" />
+                    <StackPanel x:Name="NavigationPanel" Margin="0,0,0,8" />
                 </ScrollViewer>
 
-                <!-- User profile -->
                 <Border DockPanel.Dock="Bottom"
-                        Margin="12,12,12,20"
+                        Margin="14,8,14,22"
                         Padding="14"
-                        Background="#162847"
-                        CornerRadius="14"
-                        BorderBrush="#243B5C"
+                        Background="#0B1F42"
+                        CornerRadius="16"
+                        BorderBrush="#1E3A5F"
                         BorderThickness="1">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -65,33 +57,36 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40"
-                                Height="40"
-                                Background="#1E5EFF"
-                                CornerRadius="20">
+                        <Border Width="42" Height="42"
+                                Background="{StaticResource ErpPrimaryBrush}"
+                                CornerRadius="21">
                             <materialDesign:PackIcon Kind="Account"
-                                                     Width="22"
-                                                     Height="22"
+                                                     Width="22" Height="22"
                                                      Foreground="White"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
-                            <TextBlock FontFamily="Segoe UI"
-                                       FontSize="13"
-                                       FontWeight="SemiBold"
+                            <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                       FontSize="13" FontWeight="SemiBold"
                                        Foreground="White"
                                        Text="{Binding DataContext.UserDisplayName, RelativeSource={RelativeSource AncestorType=Window}}"
                                        TextTrimming="CharacterEllipsis" />
-                            <TextBlock FontFamily="Segoe UI"
-                                       FontSize="11"
-                                       Foreground="#94A3B8"
+                            <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                       FontSize="11" Foreground="#94A3B8"
                                        Text="{Binding Source={x:Static Application.Current}, Converter={StaticResource CurrentUserRoleConverter}}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Ellipse Width="8" Height="8"
+                                         Fill="{StaticResource ErpSuccessBrush}"
+                                         VerticalAlignment="Center" />
+                                <TextBlock Margin="6,0,0,0"
+                                           FontSize="11" Foreground="#86EFAC"
+                                           Text="En ligne" />
+                            </StackPanel>
                         </StackPanel>
                         <Button Grid.Column="2"
                                 Command="{Binding DataContext.LogoutCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Width="40"
-                                Height="40"
+                                Width="40" Height="40"
                                 ToolTip="Déconnexion"
                                 Foreground="#94A3B8"
                                 Style="{StaticResource MaterialDesignIconButton}">
@@ -102,24 +97,19 @@
             </DockPanel>
         </Border>
 
-        <!-- Main area -->
+        <!-- Zone principale -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition>
-                    <RowDefinition.Height>
-                        <GridLength>72</GridLength>
-                    </RowDefinition.Height>
-                </RowDefinition>
+                <RowDefinition Height="80" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Top bar -->
             <Border Grid.Row="0"
-                    Background="#FFFFFF"
-                    BorderBrush="#E5E7EB"
+                    Background="{StaticResource ErpTopBarBrush}"
+                    BorderBrush="{StaticResource ErpBorderBrush}"
                     BorderThickness="0,0,0,1"
                     Effect="{StaticResource ErpTopBarShadow}"
-                    Padding="20,0">
+                    Padding="28,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -128,33 +118,31 @@
 
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock x:Name="PageTitleText"
-                                   FontFamily="Segoe UI"
-                                   FontSize="20"
-                                   FontWeight="Bold"
-                                   Foreground="#1F2937"
+                                   FontFamily="{StaticResource ErpFontFamily}"
+                                   FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource ErpTextPrimaryBrush}"
                                    Text="Tableau de bord" />
                         <TextBlock x:Name="PageSubtitleText"
                                    Margin="0,2,0,0"
-                                   FontFamily="Segoe UI"
+                                   FontFamily="{StaticResource ErpFontFamily}"
                                    FontSize="13"
-                                   Foreground="#6B7280"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
                                    Text="Gestion scolaire — République Démocratique du Congo" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center">
-                        <Border Background="#E8EFFF"
-                                CornerRadius="10"
-                                Padding="8,4"
-                                Margin="0,0,12,0"
+                        <Border Background="{StaticResource ErpPrimaryLightBrush}"
+                                CornerRadius="12"
+                                Padding="10,6"
+                                Margin="0,0,10,0"
                                 MinWidth="200">
                             <DockPanel LastChildFill="True">
                                 <materialDesign:PackIcon Kind="CalendarRange"
-                                                         Width="18"
-                                                         Height="18"
-                                                         Margin="4,0,4,0"
-                                                         Foreground="#1E5EFF"
+                                                         Width="18" Height="18"
+                                                         Margin="2,0,8,0"
+                                                         Foreground="{StaticResource ErpPrimaryBrush}"
                                                          VerticalAlignment="Center"
                                                          DockPanel.Dock="Left" />
                                 <ComboBox ItemsSource="{Binding WorkingAcademicYears}"
@@ -162,58 +150,78 @@
                                           DisplayMemberPath="Label"
                                           BorderThickness="0"
                                           Background="Transparent"
-                                          FontFamily="Segoe UI"
+                                          FontFamily="{StaticResource ErpFontFamily}"
                                           FontSize="13"
                                           FontWeight="Medium"
-                                          Foreground="#1E5EFF"
+                                          Foreground="{StaticResource ErpPrimaryBrush}"
                                           VerticalContentAlignment="Center"
                                           ToolTip="Changer l'année scolaire de travail (globale)" />
                             </DockPanel>
                         </Border>
 
-                        <Button Width="40"
-                                Height="40"
-                                Foreground="#6B7280"
+                        <Button Width="42" Height="42"
+                                Foreground="{StaticResource ErpTextSecondaryBrush}"
                                 ToolTip="Notifications"
                                 Style="{StaticResource MaterialDesignIconButton}">
                             <materialDesign:PackIcon Kind="BellOutline" Width="22" Height="22" />
                         </Button>
 
                         <Button Margin="4,0,0,0"
-                                Width="40"
-                                Height="40"
-                                Foreground="#6B7280"
+                                Width="42" Height="42"
+                                Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                ToolTip="Messages"
+                                Style="{StaticResource MaterialDesignIconButton}">
+                            <materialDesign:PackIcon Kind="EmailOutline" Width="22" Height="22" />
+                        </Button>
+
+                        <Button Margin="4,0,0,0"
+                                Width="42" Height="42"
+                                Foreground="{StaticResource ErpTextSecondaryBrush}"
                                 Command="{Binding DataContext.ToggleThemeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 ToolTip="Basculer thème clair/sombre"
                                 Style="{StaticResource MaterialDesignIconButton}">
                             <materialDesign:PackIcon Kind="ThemeLightDark" Width="22" Height="22" />
                         </Button>
 
-                        <Border Margin="12,0,0,0"
-                                Padding="8,4"
-                                Background="#F3F4F6"
+                        <Border Margin="14,0,14,0"
+                                Padding="12,8"
+                                Background="#F1F5F9"
                                 CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                           FontSize="12" FontWeight="Medium"
+                                           Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                           Text="{Binding CurrentDateLabel}" />
+                                <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                           FontSize="12"
+                                           Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                           Text="{Binding CurrentTimeLabel}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Padding="6,4"
+                                Background="#F8FAFC"
+                                CornerRadius="14"
+                                BorderBrush="{StaticResource ErpBorderBrush}"
+                                BorderThickness="1">
                             <StackPanel Orientation="Horizontal">
-                                <Border Width="36"
-                                        Height="36"
-                                        Background="#1E5EFF"
+                                <Border Width="36" Height="36"
+                                        Background="{StaticResource ErpPrimaryBrush}"
                                         CornerRadius="18">
                                     <materialDesign:PackIcon Kind="Account"
-                                                             Width="20"
-                                                             Height="20"
+                                                             Width="20" Height="20"
                                                              Foreground="White"
                                                              HorizontalAlignment="Center"
                                                              VerticalAlignment="Center" />
                                 </Border>
-                                <StackPanel Margin="10,0,4,0" VerticalAlignment="Center">
-                                    <TextBlock FontFamily="Segoe UI"
-                                               FontSize="13"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2937"
+                                <StackPanel Margin="10,0,6,0" VerticalAlignment="Center">
+                                    <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}"
                                                Text="{Binding DataContext.UserDisplayName, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                    <TextBlock FontFamily="Segoe UI"
+                                    <TextBlock FontFamily="{StaticResource ErpFontFamily}"
                                                FontSize="11"
-                                               Foreground="#6B7280"
+                                               Foreground="{StaticResource ErpTextSecondaryBrush}"
                                                Text="{Binding Source={x:Static Application.Current}, Converter={StaticResource CurrentUserRoleConverter}}" />
                                 </StackPanel>
                             </StackPanel>
@@ -222,7 +230,6 @@
                 </Grid>
             </Border>
 
-            <!-- Content -->
             <ContentControl Grid.Row="1"
                             Content="{Binding CurrentViewModel, Converter={StaticResource ViewLocator}}" />
         </Grid>

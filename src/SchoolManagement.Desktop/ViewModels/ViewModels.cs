@@ -5,6 +5,7 @@ using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Shared.Constants;
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -75,7 +76,21 @@ public partial class ShellViewModel : ViewModelBase
         SyncSelectedModuleFromNavigation();
         AcademicYearRefreshBridge.CurrentYearChanged += OnAcademicYearBridgeChanged;
         _ = LoadCurrentAcademicYearAsync();
+        _ = LoadSchoolNameAsync();
+
+        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer.Tick += (_, _) =>
+        {
+            var now = DateTime.Now;
+            CurrentDateLabel = now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
+            CurrentTimeLabel = now.ToString("HH:mm");
+        };
+        _clockTimer.Start();
+        CurrentDateLabel = DateTime.Now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
+        CurrentTimeLabel = DateTime.Now.ToString("HH:mm");
     }
+
+    private readonly DispatcherTimer _clockTimer;
 
     private void OnAcademicYearBridgeChanged()
     {
@@ -97,6 +112,15 @@ public partial class ShellViewModel : ViewModelBase
     private string _currentAcademicYearLabel = "Année scolaire —";
 
     [ObservableProperty]
+    private string _schoolName = "Établissement scolaire";
+
+    [ObservableProperty]
+    private string _currentDateLabel = "";
+
+    [ObservableProperty]
+    private string _currentTimeLabel = "";
+
+    [ObservableProperty]
     private AcademicYearDto? _selectedWorkingAcademicYear;
 
     public ObservableCollection<AcademicYearDto> WorkingAcademicYears => AcademicYearRefreshBridge.Years;
@@ -113,6 +137,20 @@ public partial class ShellViewModel : ViewModelBase
         catch
         {
             CurrentAcademicYearLabel = "Année scolaire —";
+        }
+    }
+
+    private async Task LoadSchoolNameAsync()
+    {
+        try
+        {
+            var school = await _schoolApiService.GetCurrentSchoolAsync();
+            if (school is not null && !string.IsNullOrWhiteSpace(school.Name))
+                SchoolName = school.Name;
+        }
+        catch
+        {
+            // affichage non bloquant
         }
     }
 
@@ -196,47 +234,3 @@ public partial class ShellViewModel : ViewModelBase
 
 public sealed record ModuleNavItem(string Title, string IconKind, Type? ViewModelType);
 
-public partial class DashboardViewModel : ViewModelBase
-{
-    private readonly IApiClient _apiClient;
-    private readonly IAuthSessionService _authSession;
-    private readonly ISchoolApiService _schoolApiService;
-
-    public DashboardViewModel(IApiClient apiClient, IAuthSessionService authSession, ISchoolApiService schoolApiService)
-    {
-        _apiClient = apiClient;
-        _authSession = authSession;
-        _schoolApiService = schoolApiService;
-        AcademicYearRefreshBridge.CurrentYearChanged += OnAcademicYearLabelRefreshRequested;
-        _ = RefreshApiStatusAsync();
-        _ = LoadAcademicYearLabelAsync();
-    }
-
-    private void OnAcademicYearLabelRefreshRequested()
-    {
-        var year = AcademicYearRefreshBridge.SelectedYear;
-        CurrentAcademicYearLabel = year is null
-            ? "Rentrée scolaire non configurée"
-            : $"Rentrée scolaire {year.Label}";
-    }
-
-    public string WelcomeMessage => $"Bienvenue, {_authSession.CurrentUser?.FullName ?? "utilisateur"}";
-
-    [ObservableProperty]
-    private string _currentAcademicYearLabel = "Rentrée scolaire —";
-
-    private Task LoadAcademicYearLabelAsync()
-    {
-        OnAcademicYearLabelRefreshRequested();
-        return Task.CompletedTask;
-    }
-
-    [ObservableProperty]
-    private string _apiStatus = "Vérification...";
-
-    [RelayCommand]
-    private async Task RefreshApiStatusAsync()
-    {
-        ApiStatus = await _apiClient.CheckHealthAsync() ? "API connectée" : "API hors ligne";
-    }
-}

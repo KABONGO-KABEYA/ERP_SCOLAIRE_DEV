@@ -1476,6 +1476,74 @@ public sealed class DocumentApiService : ApiServiceBase, IDocumentApiService
     }
 }
 
+public sealed class PromoterDashboardApiService : ApiServiceBase, IPromoterDashboardApiService
+{
+    public PromoterDashboardApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.Dashboard.DTOs.PromoterDashboardOverviewDto> GetOverviewAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod period = SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod.Month,
+        SchoolManagement.Application.Dashboard.DTOs.RevenueGranularity granularity = SchoolManagement.Application.Dashboard.DTOs.RevenueGranularity.Daily,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/v1/dashboard/overview?period={period}&granularity={granularity}";
+        if (feeTypeId.HasValue) url += $"&feeTypeId={feeTypeId}";
+        return GetAsync<SchoolManagement.Application.Dashboard.DTOs.PromoterDashboardOverviewDto>(url, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.RevenuePointDto>> GetRevenueAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod period = SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod.Year,
+        SchoolManagement.Application.Dashboard.DTOs.RevenueGranularity granularity = SchoolManagement.Application.Dashboard.DTOs.RevenueGranularity.Monthly,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.RevenuePointDto>>(
+            $"api/v1/dashboard/revenue?period={period}&granularity={granularity}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.NamedAmountShareDto>> GetRepartitionAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod period = SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod.Month,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.NamedAmountShareDto>>(
+            $"api/v1/dashboard/repartition?period={period}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.FundAllocationShareDto>> GetDistributionAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod period = SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod.Month,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/v1/dashboard/distribution?period={period}";
+        if (feeTypeId.HasValue) url += $"&feeTypeId={feeTypeId}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.FundAllocationShareDto>>(url, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardAlertDto>> GetAlertsAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod period = SchoolManagement.Application.Dashboard.DTOs.DashboardPeriod.Month,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardAlertDto>>(
+            $"api/v1/dashboard/alerts?period={period}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardActivityDto>> GetActivitiesAsync(
+        int take = 20,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardActivityDto>>(
+            $"api/v1/dashboard/activities?take={take}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>> GetPaymentsAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Today,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>>(
+            $"api/v1/dashboard/payments?scope={scope}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>> GetExpensesAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Month,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>>(
+            $"api/v1/dashboard/expenses?scope={scope}", cancellationToken);
+
+    public Task<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto> GetEnrolledStudentsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto>(
+            "api/v1/dashboard/enrolled-students", cancellationToken);
+}
+
 public sealed class ReportApiService : ApiServiceBase, IReportApiService
 {
     public ReportApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }

@@ -1,217 +1,475 @@
 <UserControl x:Class="SchoolManagement.Desktop.Views.DashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
-    <ScrollViewer Style="{StaticResource ErpPageHost}">
-        <StackPanel Style="{StaticResource ErpFadeIn}">
-            <!-- Welcome -->
-            <Border Style="{StaticResource ErpCard}"
-                    Background="{StaticResource ErpPrimaryBrush}"
-                    BorderBrush="{StaticResource ErpPrimaryBrush}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock FontFamily="{StaticResource ErpFontFamily}"
-                                   FontSize="28"
-                                   FontWeight="SemiBold"
-                                   Foreground="White"
-                                   Text="{Binding WelcomeMessage}" />
-                        <TextBlock Margin="0,8,0,0"
-                                   FontFamily="{StaticResource ErpFontFamily}"
-                                   FontSize="14"
-                                   Foreground="#C7D7FF"
-                                   Text="Vue d'ensemble de votre établissement scolaire"
-                                   TextWrapping="Wrap" />
-                        <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
-                            <Border Background="#FFFFFF22"
-                                    CornerRadius="8"
-                                    Padding="10,6">
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="8" Height="8" Fill="{StaticResource ErpSuccessBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Margin="8,0,0,0"
-                                               FontSize="13"
-                                               Foreground="White"
-                                               Text="{Binding ApiStatus, StringFormat=État API : {0}}" />
-                                </StackPanel>
-                            </Border>
-                            <Button Margin="12,0,0,0"
-                                    Command="{Binding RefreshApiStatusCommand}"
-                                    Content="Actualiser"
-                                    Style="{StaticResource ErpSecondaryButton}"
-                                    Background="#FFFFFF22"
-                                    BorderBrush="#FFFFFF44"
-                                    Foreground="White" />
-                        </StackPanel>
-                    </StackPanel>
-                    <materialDesign:PackIcon Grid.Column="1"
-                                             Kind="ViewDashboard"
-                                             Width="80"
-                                             Height="80"
-                                             Opacity="0.25"
-                                             Foreground="White"
-                                             VerticalAlignment="Center" />
-                </Grid>
-            </Border>
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <ui:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis" />
+        <ui:HexToBrushConverter x:Key="HexToBrush" />
+        <ui:TrendToBrushConverter x:Key="TrendToBrush" />
+    </UserControl.Resources>
 
-            <!-- KPI Cards -->
-            <UniformGrid Margin="0,16,0,0" Columns="5" Rows="1">
-                <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
-                    <Grid>
-                        <StackPanel>
-                            <Border Width="44" Height="44" Background="#E8EFFF" CornerRadius="12">
-                                <materialDesign:PackIcon Kind="AccountGroup" Width="24" Height="24" Foreground="{StaticResource ErpPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="—" />
-                            <TextBlock Style="{StaticResource ErpStatLabel}" Text="Élèves inscrits" />
-                            <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource ErpSuccessBrush}" Text="Module Statistiques" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource ErpStatCard}" Margin="4,0">
-                    <StackPanel>
-                        <Border Width="44" Height="44" Background="#ECFDF5" CornerRadius="12">
-                            <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="{StaticResource ErpSuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <ScrollViewer Style="{StaticResource ErpPageHost}" Background="{StaticResource ErpPageBackgroundBrush}">
+        <StackPanel Style="{StaticResource ErpFadeIn}" Margin="4,8,4,32">
+
+            <!-- LIGNE 1 : 6 KPI -->
+            <UniformGrid Columns="6" Margin="0,0,0,20">
+                <Border Style="{StaticResource ErpStatCard}">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#DBEAFE">
+                            <materialDesign:PackIcon Kind="AccountGroup" Width="24" Height="24"
+                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="—" />
-                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Enseignants" />
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource ErpSuccessBrush}" Text="Module Statistiques" />
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Élèves inscrits" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiStudents}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiStudentsTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiStudentsTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}" Margin="4,0">
-                    <StackPanel>
-                        <Border Width="44" Height="44" Background="#FFF7ED" CornerRadius="12">
-                            <materialDesign:PackIcon Kind="GoogleClassroom" Width="24" Height="24" Foreground="{StaticResource ErpWarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border Style="{StaticResource ErpStatCard}">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#DCFCE7">
+                            <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="#16A34A"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="—" />
-                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Classes actives" />
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource ErpSuccessBrush}" Text="Module Statistiques" />
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Enseignants" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiTeachers}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiTeachersTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiTeachersTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}" Margin="4,0">
-                    <StackPanel>
-                        <Border Width="44" Height="44" Background="#F0FDF4" CornerRadius="12">
-                            <materialDesign:PackIcon Kind="CalendarCheck" Width="24" Height="24" Foreground="#16A34A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border Style="{StaticResource ErpStatCard}">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#E0E7FF">
+                            <materialDesign:PackIcon Kind="GoogleClassroom" Width="24" Height="24" Foreground="#1E3A8A"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="—" />
-                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Taux de présence" />
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource ErpTextSecondaryBrush}" Text="Bientôt disponible" />
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Classes actives" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiClasses}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiClassesTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiClassesTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}" Margin="8,0,0,0">
-                    <StackPanel>
-                        <Border Width="44" Height="44" Background="#FEF2F2" CornerRadius="12">
-                            <materialDesign:PackIcon Kind="CashMultiple" Width="24" Height="24" Foreground="{StaticResource ErpDangerBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border Style="{StaticResource ErpStatCard}">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#DBEAFE">
+                            <materialDesign:PackIcon Kind="CashMultiple" Width="24" Height="24"
+                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="—" />
-                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Impayés (CDF)" />
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource ErpDangerBrush}" Text="Module Financier" />
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Total encaissé" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="22" Text="{Binding KpiRevenueYear}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiTotalCollectedTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiTotalCollectedTrendDisplay}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#FEF3C7">
+                            <materialDesign:PackIcon Kind="CashMinus" Width="24" Height="24" Foreground="#F59E0B"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Dépenses" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="22" Text="{Binding KpiExpenseMonth}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiExpenseTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiExpenseTrendDisplay}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource ErpStatCard}" Margin="0">
+                    <StackPanel VerticalAlignment="Center">
+                        <Border Width="44" Height="44" CornerRadius="14" Background="#DCFCE7">
+                            <materialDesign:PackIcon Kind="AccountCheck" Width="24" Height="24" Foreground="#16A34A"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Présence" />
+                        <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiPresencePercent}" />
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding KpiPresenceTrendPositive, Converter={StaticResource TrendToBrush}}"
+                                   Text="{Binding KpiPresenceTrendDisplay}" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
 
-            <!-- Charts row -->
-            <Grid Margin="0,16,0,0">
+            <!-- LIGNE 2 : Graphique + Donut + Alertes -->
+            <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2.1*" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Style="{StaticResource ErpCard}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Répartition des élèves" />
-                        <TextBlock Margin="0,4,0,16" Style="{StaticResource ErpBodySecondary}" Text="Par cycle d'enseignement" />
-                        <Grid Height="180">
-                            <Ellipse Width="140" Height="140" HorizontalAlignment="Center" Stroke="{StaticResource ErpBorderBrush}" StrokeThickness="20" />
-                            <Ellipse Width="140" Height="140" HorizontalAlignment="Center" Stroke="{StaticResource ErpPrimaryBrush}" StrokeThickness="20" StrokeDashArray="2.5 1.5" RenderTransformOrigin="0.5,0.5">
-                                <Ellipse.RenderTransform><RotateTransform Angle="-90" /></Ellipse.RenderTransform>
-                            </Ellipse>
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock HorizontalAlignment="Center" Style="{StaticResource ErpStatValue}" FontSize="24" Text="RDC" />
-                                <TextBlock HorizontalAlignment="Center" Style="{StaticResource ErpStatLabel}" Text="Structure officielle" />
+                <Border Grid.Column="0" Style="{StaticResource ErpWidgetCard}" MinHeight="360">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <TextBlock Style="{StaticResource ErpSectionTitle}" Text="Encaissements des 12 derniers mois" Margin="0" />
+                            <ComboBox DockPanel.Dock="Right" Width="160" HorizontalAlignment="Right"
+                                      IsEnabled="False" SelectedIndex="0">
+                                <ComboBoxItem Content="{Binding CurrentAcademicYearLabel}" />
+                            </ComboBox>
+                        </DockPanel>
+                        <Grid MinHeight="260">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding FinanceLoading, Converter={StaticResource BoolToVis}}">
+                                <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
+                                <TextBlock Style="{StaticResource ErpWidgetStateText}" Margin="0,10,0,0"
+                                           Text="Chargement du graphique…" />
                             </StackPanel>
+                            <TextBlock Style="{StaticResource ErpWidgetStateText}" Text="Aucune donnée financière."
+                                       Visibility="{Binding FinanceEmpty, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Style="{StaticResource ErpWidgetStateText}" Foreground="{StaticResource ErpDangerBrush}"
+                                       Text="Erreur de chargement."
+                                       Visibility="{Binding FinanceError, Converter={StaticResource BoolToVis}}" />
+                            <lvc:CartesianChart Series="{Binding MonthlyRevenueSeries}"
+                                                XAxes="{Binding MonthlyRevenueXAxes}"
+                                                YAxes="{Binding DefaultYAxes}"
+                                                LegendPosition="Right"
+                                                TooltipPosition="Top"
+                                                Visibility="{Binding FinanceLoading, Converter={StaticResource InvBoolToVis}}" />
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource ErpWidgetCard}" MinHeight="360">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
+                                   Text="Répartition des recettes" Margin="0,0,0,8" />
+                        <Grid>
+                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="120"
+                                         Visibility="{Binding FinanceLoading, Converter={StaticResource BoolToVis}}" />
+                            <lvc:PieChart Series="{Binding RevenueDonutSeries}"
+                                          LegendPosition="Bottom"
+                                          InitialRotation="-90"
+                                          Visibility="{Binding FinanceLoading, Converter={StaticResource InvBoolToVis}}" />
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource ErpWidgetCard}" MinHeight="360" Margin="0,0,0,16">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
+                                   Text="Alertes importantes" Margin="0,0,0,12" />
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding AlertsLoading, Converter={StaticResource BoolToVis}}">
+                                <ProgressBar IsIndeterminate="True" Width="120" Height="4" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding AlertSummaries}"
+                                          Visibility="{Binding AlertsLoading, Converter={StaticResource InvBoolToVis}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36" Height="36" CornerRadius="12"
+                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" Opacity="0.12">
+                                                <materialDesign:PackIcon Kind="{Binding IconKind}" Width="18" Height="18"
+                                                                         Foreground="{Binding ColorHex, Converter={StaticResource HexToBrush}}"
+                                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center"
+                                                       FontSize="13" Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                       Text="{Binding Title}" />
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                       Text="{Binding CountLabel}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- LIGNE 3 : 4 cartes -->
+            <UniformGrid Columns="4" Margin="0,0,0,4">
+                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource ErpSectionTitle}" Text="Évolution des inscriptions" Margin="0" />
+                            <ComboBox DockPanel.Dock="Right" Width="120" HorizontalAlignment="Right"
+                                      ItemsSource="{Binding EnrollmentPeriodOptions}"
+                                      SelectedItem="{Binding SelectedEnrollmentPeriod}"
+                                      DisplayMemberPath="Label" />
+                        </DockPanel>
+                        <Grid>
+                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="120"
+                                         Visibility="{Binding EnrollmentLoading, Converter={StaticResource BoolToVis}}" />
+                            <lvc:CartesianChart Series="{Binding EnrollmentSeries}"
+                                                XAxes="{Binding EnrollmentXAxes}"
+                                                YAxes="{Binding DefaultYAxes}"
+                                                LegendPosition="Hidden"
+                                                Visibility="{Binding EnrollmentLoading, Converter={StaticResource InvBoolToVis}}" />
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
+                                   Text="Présence aujourd'hui" Margin="0,0,0,8" />
+                        <Grid>
+                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="120"
+                                         Visibility="{Binding AttendanceLoading, Converter={StaticResource BoolToVis}}" />
+                            <Grid Visibility="{Binding AttendanceLoading, Converter={StaticResource InvBoolToVis}}">
+                                <lvc:PieChart Series="{Binding PresenceRingSeries}"
+                                              Width="180" Height="180"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              InitialRotation="-90" LegendPosition="Hidden" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock HorizontalAlignment="Center" FontSize="28" FontWeight="Bold"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                               Text="{Binding KpiPresencePercent}" />
+                                    <TextBlock HorizontalAlignment="Center" FontSize="12"
+                                               Foreground="{StaticResource ErpTextSecondaryBrush}" Text="Taux de présence" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
+                                   Text="Derniers paiements" Margin="0,0,0,12" />
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding PaymentsLoading, Converter={StaticResource BoolToVis}}">
+                                <ProgressBar IsIndeterminate="True" Width="120" Height="4" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource ErpWidgetStateText}" Text="Aucun paiement récent."
+                                       Visibility="{Binding PaymentsEmpty, Converter={StaticResource BoolToVis}}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding PaymentsEmpty, Converter={StaticResource InvBoolToVis}}">
+                                <ItemsControl ItemsSource="{Binding RecentPayments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,10" Padding="10" CornerRadius="12" Background="#F8FAFC">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="40" Height="40" CornerRadius="20" Background="#DBEAFE">
+                                                        <materialDesign:PackIcon Kind="Account" Width="20" Height="20"
+                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                                        <TextBlock FontWeight="SemiBold" FontSize="13"
+                                                                   Text="{Binding StudentName}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock FontSize="11" Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                                   Text="{Binding ClassOrReference}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <TextBlock FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Right"
+                                                                   Text="{Binding AmountLabel}" />
+                                                        <Border Margin="0,4,0,0" Padding="8,2" CornerRadius="8"
+                                                                Background="#DCFCE7" HorizontalAlignment="Right">
+                                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#16A34A" Text="Payé" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340" Margin="0,0,0,16">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
+                                   Text="Activités récentes" Margin="0,0,0,12" />
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Visibility="{Binding ActivitiesLoading, Converter={StaticResource BoolToVis}}">
+                                <ProgressBar IsIndeterminate="True" Width="120" Height="4" />
+                            </StackPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding ActivitiesLoading, Converter={StaticResource InvBoolToVis}}">
+                                <ItemsControl ItemsSource="{Binding Activities}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,14">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <Border Width="34" Height="34" CornerRadius="17" Background="#EFF6FF">
+                                                        <materialDesign:PackIcon Kind="{Binding IconKind}" Width="16" Height="16"
+                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <Border Width="2" Height="18" Background="#E2E8F0" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                    <TextBlock FontWeight="SemiBold" FontSize="13" Text="{Binding Title}" />
+                                                    <TextBlock FontSize="12" Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                               Text="{Binding Subtitle}" TextWrapping="Wrap" />
+                                                    <TextBlock FontSize="11" Margin="0,2,0,0"
+                                                               Foreground="{StaticResource ErpTextSecondaryBrush}">
+                                                        <Run Text="{Binding DateLabel}" /><Run Text=" · " /><Run Text="{Binding TimeLabel}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- LIGNE 4 : Actions rapides + État serveur -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="280">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ErpSectionTitle}" Text="Actions rapides" />
+                        <WrapPanel Margin="0,4,0,0">
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenEnrollmentCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="AccountPlus" Width="28" Height="28"
+                                                             Foreground="{StaticResource ErpPrimaryBrush}"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                               Text="Nouvelle inscription" TextWrapping="Wrap" Width="90" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenPaymentsCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="CashPlus" Width="28" Height="28" Foreground="#16A34A"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Paiement" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenTeachersCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="AccountTie" Width="28" Height="28" Foreground="#F59E0B"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Enseignant" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenClassCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="GoogleClassroom" Width="28" Height="28" Foreground="#1E3A8A"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Classe" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenExpensesCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="CashMinus" Width="28" Height="28" Foreground="#DC2626"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Dépense" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenReportsCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="ChartBar" Width="28" Height="28"
+                                                             Foreground="{StaticResource ErpPrimaryBrush}"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Rapports" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenSettingsCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="Cog" Width="28" Height="28" Foreground="#64748B"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Paramètres" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenBackupCommand}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="DatabaseOutline" Width="28" Height="28" Foreground="#16A34A"
+                                                             HorizontalAlignment="Center" />
+                                    <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
+                                               Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Sauvegarde" />
+                                </StackPanel>
+                            </Button>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource ErpWidgetCard}" MinHeight="280" Margin="0,0,0,16">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,16">
+                            <TextBlock Style="{StaticResource ErpSectionTitle}" Text="État du serveur" Margin="0" />
+                            <Button DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                    Command="{Binding RefreshHealthCommand}"
+                                    Style="{StaticResource ErpSecondaryButton}" Padding="10,4"
+                                    Content="Actualiser" />
+                        </DockPanel>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="Api" Width="18" Height="18" Foreground="#16A34A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource ErpTextPrimaryBrush}" Text="API" />
+                            <TextBlock Grid.Column="2" FontWeight="SemiBold" Foreground="#16A34A" Text="{Binding ApiStatus}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="Database" Width="18" Height="18" Foreground="#16A34A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource ErpTextPrimaryBrush}" Text="SQL Server" />
+                            <TextBlock Grid.Column="2" FontWeight="SemiBold" Foreground="#16A34A" Text="{Binding SqlStatus}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="Web" Width="18" Height="18" Foreground="#16A34A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Internet" />
+                            <TextBlock Grid.Column="2" FontWeight="SemiBold" Foreground="#16A34A" Text="{Binding InternetStatus}" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Kind="BackupRestore" Width="18" Height="18" Foreground="#16A34A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Dernière sauvegarde" />
+                            <TextBlock Grid.Column="2" FontWeight="SemiBold" Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                       Text="{Binding LastBackupLabel}" />
                         </Grid>
                     </StackPanel>
                 </Border>
-
-                <Border Grid.Column="2" Style="{StaticResource ErpCard}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Évolution des inscriptions" />
-                        <TextBlock Margin="0,4,0,16" Style="{StaticResource ErpBodySecondary}" Text="Tendance annuelle" />
-                        <Canvas Height="180">
-                            <Polyline Stroke="{StaticResource ErpPrimaryBrush}" StrokeThickness="3" StrokeLineJoin="Round"
-                                      Points="10,150 60,120 110,130 160,80 220,90 280,40 340,60" />
-                            <Polyline Stroke="#E5E7EB" StrokeThickness="1" Points="10,150 340,150" />
-                        </Canvas>
-                    </StackPanel>
-                </Border>
             </Grid>
 
-            <!-- Bottom row -->
-            <Grid Margin="0,16,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border Grid.Column="0" Style="{StaticResource ErpCard}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Alertes" />
-                        <Border Margin="0,12,0,0" Background="#FEF2F2" CornerRadius="10" Padding="12">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AlertCircle" Foreground="{StaticResource ErpDangerBrush}" VerticalAlignment="Center" />
-                                <TextBlock Margin="10,0,0,0" Style="{StaticResource ErpBody}" TextWrapping="Wrap" Text="Consultez le module Statistiques pour les alertes financières." />
-                            </StackPanel>
-                        </Border>
-                        <Border Margin="0,8,0,0" Background="#FFFBEB" CornerRadius="10" Padding="12">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Information" Foreground="{StaticResource ErpWarningBrush}" VerticalAlignment="Center" />
-                                <TextBlock Margin="10,0,0,0" Style="{StaticResource ErpBody}" TextWrapping="Wrap" Text="Activez vos classes dans Paramètres → Structure pédagogique." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="2" Style="{StaticResource ErpCard}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Événements" />
-                        <StackPanel Margin="0,12,0,0">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                <Border Width="4" Background="{StaticResource ErpPrimaryBrush}" CornerRadius="2" Margin="0,0,12,0" />
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource ErpBody}" Text="{Binding CurrentAcademicYearLabel}" />
-                                    <TextBlock Style="{StaticResource ErpBodySecondary}" Text="Septembre 2025" />
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <Border Width="4" Background="{StaticResource ErpSuccessBrush}" CornerRadius="2" Margin="0,0,12,0" />
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource ErpBody}" Text="Examens de fin de trimestre" />
-                                    <TextBlock Style="{StaticResource ErpBodySecondary}" Text="À planifier" />
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="4" Style="{StaticResource ErpCard}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource ErpSubtitle}" Text="Communication récente" />
-                        <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpBodySecondary}" TextWrapping="Wrap" Text="Aucun message récent. Le module Communication sera disponible prochainement." />
-                        <Button Margin="0,16,0,0"
-                                HorizontalAlignment="Left"
-                                Content="Nouveau message"
-                                Style="{StaticResource ErpSecondaryButton}"
-                                IsEnabled="False" />
-                    </StackPanel>
-                </Border>
-            </Grid>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

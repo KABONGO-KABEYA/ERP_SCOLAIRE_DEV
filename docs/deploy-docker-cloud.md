@@ -1,21 +1,21 @@
-# Déployer l'API Cloud avec Docker Compose
+﻿# DÃ©ployer l'API Cloud avec Docker Compose
 
 ## Objectif
 
-Exposer l'API en **Mode Cloud** (lecture seule + notes) pour le téléphone hors établissement.
+Exposer l'API en **Mode Cloud** (lecture seule + notes) pour le tÃ©lÃ©phone hors Ã©tablissement.
 
 ```
-Téléphone 4G → https://api… → Conteneur API (Docker) → SQL Cloud
-PC école     → sync Local → SQL Cloud
+TÃ©lÃ©phone 4G â†’ https://apiâ€¦ â†’ Conteneur API (Docker) â†’ SQL Cloud
+PC Ã©cole     â†’ sync Local â†’ SQL Cloud
 ```
 
-## Prérequis
+## PrÃ©requis
 
 - Docker + Docker Compose v2
-- Une base SQL Cloud joignable (ex. `161.97.105.22`)
-- Ports ouverts sur le VPS : **1804** (ou 80/443 derrière un reverse proxy)
+- Une base SQL Cloud joignable (ex. `169.58.93.203`)
+- Ports ouverts sur le VPS : **1804** (ou 80/443 derriÃ¨re un reverse proxy)
 
-## 1. Préparer les secrets (sur le PC école)
+## 1. PrÃ©parer les secrets (sur le PC Ã©cole)
 
 ```powershell
 cd "d:\Mes Projet\ERP_Administration_Scolaire_2026"
@@ -23,9 +23,9 @@ cd "d:\Mes Projet\ERP_Administration_Scolaire_2026"
 .\scripts\pack-docker-cloud.ps1
 ```
 
-Cela génère :
+Cela gÃ©nÃ¨re :
 - `.env` (gitignored) depuis `ServeurDonneesCloud.txt`
-- `artifacts\erp-api-cloud-docker.zip` prêt à copier sur le VPS
+- `artifacts\erp-api-cloud-docker.zip` prÃªt Ã  copier sur le VPS
 
 Ou manuellement :
 
@@ -36,13 +36,13 @@ nano .env
 
 Renseigner au minimum :
 
-- `SQL_CONNECTION_STRING` → SQL cloud
-- `JWT_SECRET_KEY` → clé longue (≥ 32 caractères)
+- `SQL_CONNECTION_STRING` â†’ SQL cloud
+- `JWT_SECRET_KEY` â†’ clÃ© longue (â‰¥ 32 caractÃ¨res)
 
 Exemple :
 
 ```env
-SQL_CONNECTION_STRING=Server=161.97.105.22,1433;Database=SchoolManagementRDC;User Id=sa;Password=VOTRE_MDP;TrustServerCertificate=True;Encrypt=True
+SQL_CONNECTION_STRING=Server=169.58.93.203,1433;Database=SchoolManagementRDC;User Id=sa;Password=VOTRE_MDP;TrustServerCertificate=True;Encrypt=True
 JWT_SECRET_KEY=une-cle-secrete-tres-longue-aleatoire-32+
 API_HOST_PORT=1804
 ```
@@ -57,31 +57,31 @@ cd erp-api-cloud
 docker compose up -d --build
 ```
 
-Vérifier :
+VÃ©rifier :
 
 ```bash
 docker compose ps
 curl http://127.0.0.1:1804/api/v1/health
 ```
 
-## 3. HTTPS (recommandé)
+## 3. HTTPS (recommandÃ©)
 
-Placez Caddy / Nginx / Traefik devant le conteneur pour `https://api.votredomaine.com` → `127.0.0.1:1804`.
+Placez Caddy / Nginx / Traefik devant le conteneur pour `https://api.votredomaine.com` â†’ `127.0.0.1:1804`.
 
-## 4. Sync depuis le PC école
+## 4. Sync depuis le PC Ã©cole
 
-Toujours sur le **PC école** (API Locale) :
+Toujours sur le **PC Ã©cole** (API Locale) :
 
 ```powershell
 .\scripts\configure-cloud-sync.ps1 `
-  -Server "161.97.105.22" `
+  -Server "169.58.93.203" `
   -Password "..." `
   -Actif 1
 ```
 
-Puis Desktop → Synchronisation cloud → **Synchroniser maintenant**.
+Puis Desktop â†’ Synchronisation cloud â†’ **Synchroniser maintenant**.
 
-## 5. Brancher le téléphone
+## 5. Brancher le tÃ©lÃ©phone
 
 ```powershell
 .\run-on-phone.ps1 `
@@ -108,23 +108,23 @@ Pour un lab complet (API + SQL dans Docker) :
 docker compose --profile full up -d --build
 ```
 
-Puis créez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut aussi la provisionner selon le seed au démarrage).
+Puis crÃ©ez la base `SchoolManagementRDC` dans le conteneur SQL (l'API peut aussi la provisionner selon le seed au dÃ©marrage).
 
-## Déploiement Coolify
+## DÃ©ploiement Coolify
 
-Coolify cherche un `Dockerfile` **à la racine** du dépôt (`bil-hids/adsco-monol`).
+Coolify cherche un `Dockerfile` **Ã  la racine** du dÃ©pÃ´t (`bil-hids/adsco-monol`).
 
 Deux ports distincts :
 
-| Rôle | Port | Exemple |
+| RÃ´le | Port | Exemple |
 |------|------|---------|
-| **API Cloud (public)** | **1804** | `http://IP_VPS:1804` — Coolify / Docker |
-| **SQL Server distant** | **1433** (souvent) | dans `SQL_CONNECTION_STRING` → `Server=161.97.105.22,1433;...` |
+| **API Cloud (public)** | **1804** | `http://IP_VPS:1804` â€” Coolify / Docker |
+| **SQL Server distant** | **1433** (souvent) | dans `SQL_CONNECTION_STRING` â†’ `Server=169.58.93.203,1433;...` |
 
-Le **1804** est le port public de l’API (mobile / clients).  
-La base distante garde son port SQL (souvent **1433**) — ce n’est pas le même port.
+Le **1804** est le port public de lâ€™API (mobile / clients).  
+La base distante garde son port SQL (souvent **1433**) â€” ce nâ€™est pas le mÃªme port.
 
-Réglages Coolify :
+RÃ©glages Coolify :
 
 | Champ | Valeur |
 |-------|--------|
@@ -135,10 +135,10 @@ Réglages Coolify :
 | Port public | **1804** |
 | Branch | `main` |
 
-Variables d'environnement **obligatoires** (sinon healthcheck « unhealthy ») :
+Variables d'environnement **obligatoires** (sinon healthcheck Â« unhealthy Â») :
 
-> Coolify → **Environment Variables** (runtime), pas seulement Build Variables.  
-> Modèle : fichier `coolify.env.example` à la racine du dépôt.
+> Coolify â†’ **Environment Variables** (runtime), pas seulement Build Variables.  
+> ModÃ¨le : fichier `coolify.env.example` Ã  la racine du dÃ©pÃ´t.
 
 ```env
 ASPNETCORE_ENVIRONMENT=Production
@@ -147,54 +147,54 @@ ASPNETCORE_URLS=http://0.0.0.0:1804
 Deployment__Role=Cloud
 Deployment__ReadOnly=true
 FILE_STORAGE_ROOT=/app/data/files
-SQL_CONNECTION_STRING=Server=161.97.105.22,1433;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
+SQL_CONNECTION_STRING=Server=169.58.93.203,1433;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
 Jwt__SecretKey=une-cle-secrete-tres-longue-32caracteres-min
 Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
 
-Si les logs montrent `SQL Server target: 161.97.105.22` alors que SQL tourne **dans Coolify** :
-tu pointes encore l’ancienne base distante. Corrige `SQL_CONNECTION_STRING` de l’**application API** :
+Si les logs montrent `SQL Server target: 169.58.93.203` alors que SQL tourne **dans Coolify** :
+tu pointes encore lâ€™ancienne base distante. Corrige `SQL_CONNECTION_STRING` de lâ€™**application API** :
 
 ```env
-# Même serveur Coolify que le conteneur sqlserver (réseau Docker interne)
+# MÃªme serveur Coolify que le conteneur sqlserver (rÃ©seau Docker interne)
 SQL_CONNECTION_STRING=Server=sqlserver,1433;Database=SchoolManagementRDC;User Id=sa;Password=MEME_MOT_DE_PASSE_QUE_MSSQL_SA_PASSWORD;TrustServerCertificate=True;Encrypt=True
 ```
 
-Règles :
-- Le mot de passe doit être **exactement** celui de `MSSQL_SA_PASSWORD` du service SQL
-- N’utilise **pas** `161.97.105.22` si SQL est le conteneur local Coolify
+RÃ¨gles :
+- Le mot de passe doit Ãªtre **exactement** celui de `MSSQL_SA_PASSWORD` du service SQL
+- Nâ€™utilise **pas** `169.58.93.203` si SQL est le conteneur local Coolify
 - Port SQL = **1433** (interne) ; port public API = **1804**
 - Sur le service SQL Coolify : retire le domaine `https://app.coolify.io` (inutile pour une base)
-- Crée la base si besoin (Terminal SQL) :
+- CrÃ©e la base si besoin (Terminal SQL) :
   ` /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '...' -C -Q "IF DB_ID('SchoolManagementRDC') IS NULL CREATE DATABASE SchoolManagementRDC;" `
 
-Après correction des variables de l’**API** : **Redeploy** l’API.
+AprÃ¨s correction des variables de lâ€™**API** : **Redeploy** lâ€™API.
 
 ## Variables utiles
 
-| Variable | Rôle |
+| Variable | RÃ´le |
 |----------|------|
 | `SQL_CONNECTION_STRING` | Connexion SQL (prioritaire, sans DPAPI) |
-| `FILE_STORAGE_ROOT` | Dossier fichiers (défaut `/app/data/files`) |
+| `FILE_STORAGE_ROOT` | Dossier fichiers (dÃ©faut `/app/data/files`) |
 | `Deployment__Role` | `Cloud` |
 | `Deployment__ReadOnly` | `true` |
 | `Jwt__SecretKey` | Secret JWT |
-| `ERP_CONFIG_ENCRYPTION_KEY` | AES Linux si fichiers config utilisés |
+| `ERP_CONFIG_ENCRYPTION_KEY` | AES Linux si fichiers config utilisÃ©s |
 
-## Dépannage
+## DÃ©pannage
 
-| Symptôme | Action |
+| SymptÃ´me | Action |
 |----------|--------|
-| `open Dockerfile: no such file or directory` | Utiliser le `Dockerfile` à la racine ; Redeploy après pull `main` |
-| API refuse de démarrer (SQL) | Vérifier IP/port/firewall SQL + chaîne dans `.env` |
+| `open Dockerfile: no such file or directory` | Utiliser le `Dockerfile` Ã  la racine ; Redeploy aprÃ¨s pull `main` |
+| API refuse de dÃ©marrer (SQL) | VÃ©rifier IP/port/firewall SQL + chaÃ®ne dans `.env` |
 | Health 403 sur POST | Normal en Mode Cloud (sauf auth / notes) |
-| Téléphone hors ligne | Vérifier `CLOUD_API_BASE_URL` / `-CloudApiUrl` |
+| TÃ©lÃ©phone hors ligne | VÃ©rifier `CLOUD_API_BASE_URL` / `-CloudApiUrl` |
 | Rebuild | `docker compose up -d --build --force-recreate` |
 
-## Fichiers ajoutés
+## Fichiers ajoutÃ©s
 
-- `Dockerfile` (racine — Coolify / compose)
+- `Dockerfile` (racine â€” Coolify / compose)
 - `src/SchoolManagement.API/Dockerfile` (alias compat)
 - `docker-compose.yml`
 - `.env.example`

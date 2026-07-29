@@ -209,6 +209,10 @@ public class ClassRoom : AuditableEntity, IAggregateRoot
 
 public class Course : AuditableEntity, IAggregateRoot
 {
+    public Guid SchoolId { get; set; }
+
+    public Guid? ClassRoomId { get; set; }
+
     public Guid? BranchId { get; set; }
 
     public string Code { get; set; } = string.Empty;
@@ -220,6 +224,8 @@ public class Course : AuditableEntity, IAggregateRoot
     public int MaxScore { get; set; } = 20;
 
     public bool IsOptional { get; set; }
+
+    public School School { get; set; } = null!;
 
     public Branch? Branch { get; set; }
 

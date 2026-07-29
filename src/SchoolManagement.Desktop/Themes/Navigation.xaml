@@ -30,8 +30,8 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#E8EFFF" />
-                            <Setter Property="Foreground" Value="#1E5EFF" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource ErpPrimaryLightBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource ErpPrimaryBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -75,10 +75,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="NavBorder" Property="Background" Value="#1A3A6E" />
+                            <Setter TargetName="NavBorder" Property="Background" Value="{StaticResource ErpSidebarHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="NavBorder" Property="Background" Value="#1E5EFF" />
+                            <Setter TargetName="NavBorder" Property="Background" Value="{StaticResource ErpSidebarActiveBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -116,11 +116,11 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="NavBorder" Property="Background" Value="#162847" />
+                            <Setter TargetName="NavBorder" Property="Background" Value="#0B1F42" />
                         </Trigger>
                         <Trigger Property="Tag" Value="Selected">
-                            <Setter TargetName="SelectionBar" Property="Background" Value="#1E5EFF" />
-                            <Setter TargetName="NavBorder" Property="Background" Value="#E8EFFF" />
+                            <Setter TargetName="SelectionBar" Property="Background" Value="{StaticResource ErpPrimaryBrush}" />
+                            <Setter TargetName="NavBorder" Property="Background" Value="#1A3A6E" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
