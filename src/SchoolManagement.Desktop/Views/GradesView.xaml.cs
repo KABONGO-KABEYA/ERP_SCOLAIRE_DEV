@@ -1,117 +1,107 @@
 using System.Windows;
-
 using System.Windows.Controls;
-
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-
+using System.Windows.Media;
 using SchoolManagement.Desktop.ViewModels;
-
-
 
 namespace SchoolManagement.Desktop.Views;
 
-
-
 public partial class GradesView : UserControl
-
 {
-
     public GradesView()
-
     {
-
         InitializeComponent();
-
-        Loaded += (_, _) =>
-
-        {
-
-            if (DataContext is GradesViewModel viewModel)
-
-            {
-
-                viewModel.PropertyChanged += (_, args) =>
-
-                {
-
-                    if (args.PropertyName == nameof(GradesViewModel.CanEditGrades))
-
-                    {
-
-                        GradingGrid.IsReadOnly = !viewModel.CanEditGrades;
-
-                    }
-
-                };
-
-                GradingGrid.IsReadOnly = !viewModel.CanEditGrades;
-
-            }
-
-        };
-
     }
-
-
 
     private void GradingGrid_OnPreviewKeyDown(object sender, KeyEventArgs e)
-
     {
-
-        if (sender is not DataGrid grid || grid.SelectedItem is not GradeEntryEditItem current)
-
+        if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && DataContext is GradesViewModel saveVm)
         {
+            if (saveVm.SaveGradesCommand.CanExecute(null))
+            {
+                _ = saveVm.SaveGradesCommand.ExecuteAsync(null);
+                e.Handled = true;
+            }
 
             return;
-
         }
 
-
-
-        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
-
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None)
         {
-
-            var currentIndex = grid.Items.IndexOf(current);
-
-            if (currentIndex >= 0 && currentIndex < grid.Items.Count - 1)
-
-            {
-
-                grid.SelectedIndex = currentIndex + 1;
-
-                grid.ScrollIntoView(grid.SelectedItem);
-
-                grid.CurrentCell = new DataGridCellInfo(grid.SelectedItem, grid.Columns[3]);
-
-                grid.BeginEdit();
-
-                e.Handled = true;
-
-            }
-
+            return;
         }
 
-
-
-        if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && DataContext is GradesViewModel vm)
-
+        if (DataContext is not GradesViewModel { CanEditGrades: true })
         {
-
-            if (vm.SaveGradesCommand.CanExecute(null))
-
-            {
-
-                _ = vm.SaveGradesCommand.ExecuteAsync(null);
-
-                e.Handled = true;
-
-            }
-
+            return;
         }
 
+        if (Keyboard.FocusedElement is not TextBox { DataContext: GradeEntryEditItem current })
+        {
+            return;
+        }
+
+        if (sender is not DataGrid grid)
+        {
+            return;
+        }
+
+        var currentIndex = grid.Items.IndexOf(current);
+        if (currentIndex < 0 || currentIndex >= grid.Items.Count - 1)
+        {
+            return;
+        }
+
+        grid.ScrollIntoView(grid.Items[currentIndex + 1]);
+
+        if (grid.ItemContainerGenerator.ContainerFromIndex(currentIndex + 1) is DataGridRow nextRow)
+        {
+            var nextScoreBox = FindScoreTextBox(nextRow);
+            nextScoreBox?.Focus();
+            nextScoreBox?.SelectAll();
+        }
+
+        e.Handled = true;
     }
 
+    private static TextBox? FindScoreTextBox(DataGridRow row)
+    {
+        if (GetVisualChild<DataGridCellsPresenter>(row) is not { } presenter)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(presenter); i++)
+        {
+            if (VisualTreeHelper.GetChild(presenter, i) is not DataGridCell { Column: { DisplayIndex: 3 } } cell)
+            {
+                continue;
+            }
+
+            return GetVisualChild<TextBox>(cell);
+        }
+
+        return null;
+    }
+
+    private static T? GetVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            var nested = GetVisualChild<T>(child);
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
 }
-
-
