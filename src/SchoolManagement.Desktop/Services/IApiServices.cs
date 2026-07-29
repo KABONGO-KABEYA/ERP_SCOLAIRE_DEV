@@ -431,6 +431,9 @@ public interface IFinanceApiService
 
 public interface IGradeApiService
 {
+    Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationTypeDto>> GetEvaluationTypesAsync(
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default);
 
@@ -440,6 +443,11 @@ public interface IGradeApiService
 
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>> CalculateResultsAsync(
         SchoolManagement.Application.Grades.DTOs.CalculatePeriodResultsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>> GetPeriodResultsAsync(
+        Guid classRoomId,
+        Guid academicPeriodId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.GradeEntryDto>> GetGradeEntriesAsync(
@@ -650,6 +658,13 @@ public interface IAcademicApiService
     Task<SchoolManagement.Application.Academic.DTOs.CourseDto> CreateCourseAsync(
         SchoolManagement.Application.Academic.DTOs.CreateCourseRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Academic.DTOs.CourseDto> UpdateCourseAsync(
+        Guid courseId,
+        SchoolManagement.Application.Academic.DTOs.UpdateCourseRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteCourseAsync(Guid courseId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SchoolManagement.Application.Academic.DTOs.EnrollmentDto>> GetEnrollmentsAsync(
         Guid? classRoomId = null,

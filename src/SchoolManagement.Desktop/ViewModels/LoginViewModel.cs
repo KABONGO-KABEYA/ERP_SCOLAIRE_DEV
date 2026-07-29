@@ -1,6 +1,7 @@
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Configuration;
 using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Desktop.Services;
 
@@ -9,11 +10,16 @@ namespace SchoolManagement.Desktop.ViewModels;
 public partial class LoginViewModel : ViewModelBase
 {
     private readonly AuthApiService _authApiService;
+    private readonly IConfiguration _configuration;
     private readonly DispatcherTimer _clockTimer;
 
-    public LoginViewModel(AuthApiService authApiService)
+    public LoginViewModel(AuthApiService authApiService, IConfiguration configuration)
     {
         _authApiService = authApiService;
+        _configuration = configuration;
+
+        UserName = configuration["Dev:UserName"] ?? "admin";
+        Password = configuration["Dev:Password"] ?? "Admin@2026";
 
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _clockTimer.Tick += (_, _) => RefreshClock();
@@ -27,7 +33,7 @@ public partial class LoginViewModel : ViewModelBase
     private string _userName = "admin";
 
     [ObservableProperty]
-    private string _password = string.Empty;
+    private string _password = "Admin@2026";
 
     [ObservableProperty]
     private string? _errorMessage;
@@ -99,6 +105,34 @@ public partial class LoginViewModel : ViewModelBase
     private bool CanLogin => !IsBusy;
 
     partial void OnIsBusyChanged(bool value) => LoginCommand.NotifyCanExecuteChanged();
+
+    public async Task<bool> TryAutoLoginAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_configuration.GetValue("Dev:AutoLogin", false))
+        {
+            return false;
+        }
+
+        ErrorMessage = null;
+        IsBusy = true;
+
+        try
+        {
+            await _authApiService.LoginAsync(
+                new Application.Auth.DTOs.LoginRequest(UserName, Password),
+                cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     public void RefreshServerInfo() => LoadServerInfo();
 

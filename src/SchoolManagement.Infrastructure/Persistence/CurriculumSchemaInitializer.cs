@@ -1,0 +1,128 @@
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
+using SchoolManagement.Application.Schools;
+
+namespace SchoolManagement.Infrastructure.Persistence;
+
+public sealed class CurriculumSchemaInitializer
+{
+    private readonly string _connectionString;
+    private readonly ILogger<CurriculumSchemaInitializer> _logger;
+
+    public CurriculumSchemaInitializer(string connectionString, ILogger<CurriculumSchemaInitializer> logger)
+    {
+        _connectionString = connectionString;
+        _logger = logger;
+    }
+
+    public async Task EnsureUpdatedAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Branches')
+            BEGIN
+                CREATE TABLE [Branches] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SchoolId] uniqueidentifier NOT NULL,
+                    [Code] nvarchar(100) NOT NULL,
+                    [Name] nvarchar(150) NOT NULL,
+                    [Program] int NULL,
+                    [IsActive] bit NOT NULL DEFAULT 1,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [CreatedBy] uniqueidentifier NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [UpdatedBy] uniqueidentifier NULL,
+                    [IsDeleted] bit NOT NULL DEFAULT 0,
+                    [DeletedAt] datetime2 NULL,
+                    [DeletedBy] uniqueidentifier NULL,
+                    CONSTRAINT [PK_Branches] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_Branches_Schools_SchoolId] FOREIGN KEY ([SchoolId]) REFERENCES [Schools] ([Id]) ON DELETE NO ACTION
+                );
+                CREATE UNIQUE INDEX [IX_Branches_SchoolId_Code] ON [Branches] ([SchoolId], [Code]) WHERE [IsDeleted] = 0;
+                CREATE INDEX [IX_Branches_IsDeleted] ON [Branches] ([IsDeleted]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Courses') AND name = 'BranchId')
+            BEGIN
+                ALTER TABLE [Courses] ADD [BranchId] uniqueidentifier NULL;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Courses_Branches_BranchId')
+            BEGIN
+                ALTER TABLE [Courses] ADD CONSTRAINT [FK_Courses_Branches_BranchId]
+                    FOREIGN KEY ([BranchId]) REFERENCES [Branches] ([Id]) ON DELETE SET NULL;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId')
+            BEGIN
+                CREATE UNIQUE INDEX [IX_Courses_SchoolId_Code_ClassRoomId]
+                    ON [Courses] ([SchoolId], [Code], [ClassRoomId])
+                    WHERE [ClassRoomId] IS NULL AND [IsDeleted] = 0;
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClassCourses')
+            BEGIN
+                CREATE TABLE [PedagogicalClassCourses] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SchoolId] uniqueidentifier NOT NULL,
+                    [PedagogicalClassId] uniqueidentifier NOT NULL,
+                    [CourseId] uniqueidentifier NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [CreatedBy] uniqueidentifier NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [UpdatedBy] uniqueidentifier NULL,
+                    [IsDeleted] bit NOT NULL DEFAULT 0,
+                    [DeletedAt] datetime2 NULL,
+                    [DeletedBy] uniqueidentifier NULL,
+                    CONSTRAINT [PK_PedagogicalClassCourses] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PedagogicalClassCourses_Schools_SchoolId] FOREIGN KEY ([SchoolId]) REFERENCES [Schools] ([Id]) ON DELETE NO ACTION,
+                    CONSTRAINT [FK_PedagogicalClassCourses_PedagogicalClasses_PedagogicalClassId] FOREIGN KEY ([PedagogicalClassId]) REFERENCES [PedagogicalClasses] ([Id]) ON DELETE CASCADE,
+                    CONSTRAINT [FK_PedagogicalClassCourses_Courses_CourseId] FOREIGN KEY ([CourseId]) REFERENCES [Courses] ([Id]) ON DELETE NO ACTION
+                );
+                CREATE UNIQUE INDEX [IX_PedagogicalClassCourses_PedagogicalClassId_CourseId]
+                    ON [PedagogicalClassCourses] ([PedagogicalClassId], [CourseId]) WHERE [IsDeleted] = 0;
+                CREATE INDEX [IX_PedagogicalClassCourses_CourseId] ON [PedagogicalClassCourses] ([CourseId]);
+                CREATE INDEX [IX_PedagogicalClassCourses_IsDeleted] ON [PedagogicalClassCourses] ([IsDeleted]);
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PedagogicalClassCourses') AND name = 'MaxScore')
+            BEGIN
+                ALTER TABLE [PedagogicalClassCourses] ADD [MaxScore] int NOT NULL CONSTRAINT [DF_PedagogicalClassCourses_MaxScore] DEFAULT 20;
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Courses_Schools_SchoolId')
+            BEGIN
+                ALTER TABLE [Courses] DROP CONSTRAINT [FK_Courses_Schools_SchoolId];
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Courses_ClassRooms_ClassRoomId')
+            BEGIN
+                ALTER TABLE [Courses] DROP CONSTRAINT [FK_Courses_ClassRooms_ClassRoomId];
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId')
+            BEGIN
+                DROP INDEX [IX_Courses_SchoolId_Code_ClassRoomId] ON [Courses];
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code')
+            BEGIN
+                DROP INDEX [IX_Courses_SchoolId_Code] ON [Courses];
+            END
+
+            SET QUOTED_IDENTIFIER ON;
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_Code')
+            BEGIN
+                CREATE UNIQUE INDEX [IX_Courses_Code]
+                    ON [Courses] ([Code])
+                    WHERE [IsDeleted] = 0;
+            END
+            """;
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        _logger.LogInformation("Schéma curriculum (Branches, BranchId, PedagogicalClassCourses) vérifié.");
+    }
+}

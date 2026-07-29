@@ -123,6 +123,49 @@ public class PedagogicalClass : AuditableEntity, IAggregateRoot
     public School School { get; set; } = null!;
 
     public ICollection<ClassRoom> Locals { get; set; } = [];
+
+    public ICollection<PedagogicalClassCourse> CurriculumCourses { get; set; } = [];
+}
+
+/// <summary>
+/// Branche disciplinaire regroupant plusieurs cours (ex. Français → Lecture, Grammaire…).
+/// </summary>
+public class Branch : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public string Code { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public SchoolProgram? Program { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public School School { get; set; } = null!;
+
+    public ICollection<Course> Courses { get; set; } = [];
+}
+
+/// <summary>
+/// Association entre une classe pédagogique et un cours du catalogue officiel.
+/// </summary>
+public class PedagogicalClassCourse : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid PedagogicalClassId { get; set; }
+
+    public Guid CourseId { get; set; }
+
+    /// <summary>Maximum par défaut du cours pour la classe (Max/P tableau gauche).</summary>
+    public int MaxScore { get; set; } = 20;
+
+    public School School { get; set; } = null!;
+
+    public PedagogicalClass PedagogicalClass { get; set; } = null!;
+
+    public Course Course { get; set; } = null!;
 }
 
 /// <summary>
@@ -162,15 +205,11 @@ public class ClassRoom : AuditableEntity, IAggregateRoot
     public Section Section { get; set; } = null!;
 
     public StudyOption? StudyOption { get; set; }
-
-    public ICollection<Course> Courses { get; set; } = [];
 }
 
 public class Course : AuditableEntity, IAggregateRoot
 {
-    public Guid SchoolId { get; set; }
-
-    public Guid? ClassRoomId { get; set; }
+    public Guid? BranchId { get; set; }
 
     public string Code { get; set; } = string.Empty;
 
@@ -182,9 +221,33 @@ public class Course : AuditableEntity, IAggregateRoot
 
     public bool IsOptional { get; set; }
 
+    public Branch? Branch { get; set; }
+
+    public ICollection<PedagogicalClassCourse> PedagogicalClassLinks { get; set; } = [];
+}
+
+/// <summary>
+/// Maximum de points par cours, classe pédagogique et période académique.
+/// </summary>
+public class MaximaParPeriode : AuditableEntity, IAggregateRoot
+{
+    public Guid SchoolId { get; set; }
+
+    public Guid PedagogicalClassId { get; set; }
+
+    public Guid CourseId { get; set; }
+
+    public Guid AcademicPeriodId { get; set; }
+
+    public int Maximum { get; set; } = 20;
+
     public School School { get; set; } = null!;
 
-    public ClassRoom? ClassRoom { get; set; }
+    public PedagogicalClass PedagogicalClass { get; set; } = null!;
+
+    public Course Course { get; set; } = null!;
+
+    public AcademicPeriod AcademicPeriod { get; set; } = null!;
 }
 
 public class AcademicPeriod : AuditableEntity, IAggregateRoot

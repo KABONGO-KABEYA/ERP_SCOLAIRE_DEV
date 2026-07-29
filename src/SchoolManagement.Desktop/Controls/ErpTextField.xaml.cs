@@ -48,6 +48,10 @@ public partial class ErpTextField : UserControl
         DependencyProperty.Register(nameof(ValidationMode), typeof(ErpFieldValidationMode), typeof(ErpTextField),
             new PropertyMetadata(ErpFieldValidationMode.None, OnValidationModeChanged));
 
+    public static readonly DependencyProperty IsCompactProperty =
+        DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(ErpTextField),
+            new PropertyMetadata(false, OnCompactChanged));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
     public MaterialDesignThemes.Wpf.PackIconKind IconKind { get => (MaterialDesignThemes.Wpf.PackIconKind)GetValue(IconKindProperty); set => SetValue(IconKindProperty, value); }
@@ -59,6 +63,7 @@ public partial class ErpTextField : UserControl
     public bool ShowValidation { get => (bool)GetValue(ShowValidationProperty); set => SetValue(ShowValidationProperty, value); }
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public ErpFieldValidationMode ValidationMode { get => (ErpFieldValidationMode)GetValue(ValidationModeProperty); set => SetValue(ValidationModeProperty, value); }
+    public bool IsCompact { get => (bool)GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
 
     public ErpTextField()
     {
@@ -67,8 +72,27 @@ public partial class ErpTextField : UserControl
         {
             UpdateLayoutSizing();
             ApplyNumericInputMode();
+            ApplyCompactLayout();
             RefreshValidation();
         };
+    }
+
+    private static void OnCompactChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpTextField field)
+        {
+            field.ApplyCompactLayout();
+        }
+    }
+
+    private void ApplyCompactLayout()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        ErpFieldCompactLayout.Apply(LabelPanel, LabelText, InputBorder, InputTextBox, IsCompact);
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)

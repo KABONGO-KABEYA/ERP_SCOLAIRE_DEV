@@ -18,6 +18,7 @@ public sealed class SchoolService : ISchoolService
     private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<FeeType> _feeTypeRepository;
     private readonly IRepository<Course> _courseRepository;
+    private readonly IRepository<PedagogicalClassCourse> _pedagogicalClassCourseRepository;
     private readonly IRepository<CashRegister> _cashRegisterRepository;
     private readonly IRepository<AppConfiguration> _appConfigurationRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -30,6 +31,7 @@ public sealed class SchoolService : ISchoolService
         IRepository<PedagogicalClass> pedagogicalClassRepository,
         IRepository<Section> sectionRepository,
         IRepository<Course> courseRepository,
+        IRepository<PedagogicalClassCourse> pedagogicalClassCourseRepository,
         IRepository<FeeType> feeTypeRepository,
         IRepository<CashRegister> cashRegisterRepository,
         IRepository<AppConfiguration> appConfigurationRepository,
@@ -42,6 +44,7 @@ public sealed class SchoolService : ISchoolService
         _pedagogicalClassRepository = pedagogicalClassRepository;
         _sectionRepository = sectionRepository;
         _courseRepository = courseRepository;
+        _pedagogicalClassCourseRepository = pedagogicalClassCourseRepository;
         _feeTypeRepository = feeTypeRepository;
         _cashRegisterRepository = cashRegisterRepository;
         _appConfigurationRepository = appConfigurationRepository;
@@ -199,7 +202,11 @@ public sealed class SchoolService : ISchoolService
         var pedagogicalMap = ClassRoomAvailability.BuildMap(
             await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken));
         classes = classes.Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap)).ToList();
-        var courses = await _courseRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
+        var courses = await SchoolCourseScope.GetCoursesAsync(
+            _courseRepository,
+            _pedagogicalClassCourseRepository,
+            schoolId,
+            cancellationToken);
         var feeTypes = await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken);
         // CashRegisters : table dépréciée — plus exposée aux écrans d'encaissement.
         _ = _cashRegisterRepository;
@@ -216,7 +223,7 @@ public sealed class SchoolService : ISchoolService
                     : c.Name;
                 return new ClassRoomLookupDto(c.Id, c.Code, displayName, c.AcademicYearId);
             }).ToList(),
-            courses.Select(c => new CourseLookupDto(c.Id, c.Code, c.Name, c.ClassRoomId)).ToList(),
+            courses.Select(c => new CourseLookupDto(c.Id, c.Code, c.Name, null)).ToList(),
             feeTypes.Select(f => new FeeTypeLookupDto(f.Id, f.Code, f.Name, f.Currency)).ToList(),
             cashRegisters);
     }

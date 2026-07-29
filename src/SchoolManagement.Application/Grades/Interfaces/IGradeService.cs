@@ -4,6 +4,8 @@ using SchoolManagement.Application.Grades.DTOs;
 
 public interface IGradeService
 {
+    Task<IReadOnlyList<EvaluationTypeDto>> GetEvaluationTypesAsync(Guid schoolId, CancellationToken cancellationToken = default);
+
     Task<EvaluationDto> CreateEvaluationAsync(Guid schoolId, CreateEvaluationRequest request, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<EvaluationDto>> GetEvaluationsByClassAsync(
@@ -19,5 +21,11 @@ public interface IGradeService
     Task<IReadOnlyList<PeriodResultDto>> CalculatePeriodResultsAsync(
         Guid schoolId,
         CalculatePeriodResultsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PeriodResultDto>> GetPeriodResultsAsync(
+        Guid schoolId,
+        Guid classRoomId,
+        Guid academicPeriodId,
         CancellationToken cancellationToken = default);
 }

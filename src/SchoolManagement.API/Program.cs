@@ -311,6 +311,31 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<ClassRoomSchemaInitializer>>());
     await classRoomSchema.EnsureUpdatedAsync();
 
+    var curriculumSchema = new CurriculumSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CurriculumSchemaInitializer>>());
+    await curriculumSchema.EnsureUpdatedAsync();
+
+    var courseCodeSchema = new CourseCodeSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CourseCodeSchemaInitializer>>());
+    await courseCodeSchema.EnsureUpdatedAsync();
+
+    var courseAssignmentSchema = new CourseAssignmentSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CourseAssignmentSchemaInitializer>>());
+    await courseAssignmentSchema.EnsureUpdatedAsync();
+
+    var evaluationSchema = new EvaluationSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<EvaluationSchemaInitializer>>());
+    await evaluationSchema.EnsureUpdatedAsync();
+
+    var maximaParPeriodeSchema = new MaximaParPeriodeSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<MaximaParPeriodeSchemaInitializer>>());
+    await maximaParPeriodeSchema.EnsureCreatedAsync();
+
     var attendanceSchema = new AttendanceSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<AttendanceSchemaInitializer>>());

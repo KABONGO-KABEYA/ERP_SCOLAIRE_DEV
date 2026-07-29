@@ -1,5 +1,6 @@
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities.Geography;
+using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 
@@ -34,7 +35,7 @@ public class Teacher : AuditableEntity, IAggregateRoot
 
 public class CourseAssignment : AuditableEntity, IAggregateRoot
 {
-    public Guid TeacherId { get; set; }
+    public Guid? TeacherId { get; set; }
 
     public Guid CourseId { get; set; }
 
@@ -42,13 +43,24 @@ public class CourseAssignment : AuditableEntity, IAggregateRoot
 
     public Guid AcademicYearId { get; set; }
 
-    public Teacher Teacher { get; set; } = null!;
+    public Guid PedagogicalClassId { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>Maximum du cours pour la salle et l'année (Max/P tableau droit).</summary>
+    public int MaxScore { get; set; } = 20;
+
+    public Teacher? Teacher { get; set; }
 
     public Course Course { get; set; } = null!;
 
     public ClassRoom ClassRoom { get; set; } = null!;
 
     public AcademicYear AcademicYear { get; set; } = null!;
+
+    public PedagogicalClass PedagogicalClass { get; set; } = null!;
+
+    public ICollection<Evaluation> Evaluations { get; set; } = [];
 }
 
 public class ScheduleSlot : AuditableEntity, IAggregateRoot

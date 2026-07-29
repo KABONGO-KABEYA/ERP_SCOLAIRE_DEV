@@ -53,6 +53,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<ICurriculumSeedService, CurriculumSeeder>();
+        services.AddScoped<CurriculumSeeder>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
         services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();

@@ -76,11 +76,17 @@ public partial class App : System.Windows.Application
             args.Handled = true;
         };
 
-        var loginWindow = _host.Services.GetRequiredService<LoginWindow>();
-        if (loginWindow.ShowDialog() != true)
+        var loginViewModel = _host.Services.GetRequiredService<LoginViewModel>();
+        var loggedIn = await loginViewModel.TryAutoLoginAsync();
+
+        if (!loggedIn)
         {
-            Shutdown();
-            return;
+            var loginWindow = _host.Services.GetRequiredService<LoginWindow>();
+            if (loginWindow.ShowDialog() != true)
+            {
+                Shutdown();
+                return;
+            }
         }
 
         var authSession = _host.Services.GetRequiredService<IAuthSessionService>();
@@ -134,6 +140,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IDocumentApiService, DocumentApiService>();
         services.AddTransient<IDocumentBrandingApiService, DocumentBrandingApiService>();
         services.AddTransient<ISchoolFeeApiService, SchoolFeeApiService>();
+        services.AddTransient<ICourseConfigurationApiService, CourseConfigurationApiService>();
         services.AddTransient<IReportApiService, ReportApiService>();
         services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
@@ -170,6 +177,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<DocumentBrandingViewModel>();
         services.AddTransient<GeographyAdminViewModel>();
         services.AddTransient<SchoolFeeConfigurationViewModel>();
+        services.AddTransient<CourseConfigurationViewModel>();
         services.AddTransient<RevenueAllocationConfigViewModel>();
         services.AddTransient<WithholdingConfigViewModel>();
         services.AddTransient<CurrencyManagementViewModel>();

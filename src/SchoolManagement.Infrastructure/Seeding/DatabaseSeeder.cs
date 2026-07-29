@@ -16,12 +16,18 @@ public sealed class DatabaseSeeder
 {
     private readonly SchoolDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly CurriculumSeeder _curriculumSeeder;
     private readonly ILogger<DatabaseSeeder> _logger;
 
-    public DatabaseSeeder(SchoolDbContext context, IPasswordHasher passwordHasher, ILogger<DatabaseSeeder> logger)
+    public DatabaseSeeder(
+        SchoolDbContext context,
+        IPasswordHasher passwordHasher,
+        CurriculumSeeder curriculumSeeder,
+        ILogger<DatabaseSeeder> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
+        _curriculumSeeder = curriculumSeeder;
         _logger = logger;
     }
 
@@ -430,18 +436,29 @@ public sealed class DatabaseSeeder
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        if (!await _context.Courses.AnyAsync(c => c.SchoolId == school.Id && c.Code == "MATH-6A", cancellationToken))
+        if (!await _context.Courses.AnyAsync(c => c.Code == "MATH-6A", cancellationToken))
         {
-            _context.Courses.Add(new Course
+            var mathCourse = new Course
             {
-                SchoolId = school.Id,
-                ClassRoomId = classRoom.Id,
                 Code = "MATH-6A",
                 Name = "Mathématiques",
                 Coefficient = 4,
                 MaxScore = 20
-            });
+            };
+            _context.Courses.Add(mathCourse);
             await _context.SaveChangesAsync(cancellationToken);
+
+            if (pri6 is not null)
+            {
+                _context.PedagogicalClassCourses.Add(new PedagogicalClassCourse
+                {
+                    SchoolId = school.Id,
+                    PedagogicalClassId = pri6.Id,
+                    CourseId = mathCourse.Id,
+                    MaxScore = 20
+                });
+                await _context.SaveChangesAsync(cancellationToken);
+            }
         }
 
         var student = await _context.Students
@@ -571,6 +588,8 @@ public sealed class DatabaseSeeder
             "Structure pédagogique RDC synchronisée pour l'école {SchoolId} ({Count} classes).",
             schoolId,
             RdcPedagogicalCatalog.GetAll().Count);
+
+        await _curriculumSeeder.EnsureCurriculumAsync(schoolId, cancellationToken);
     }
 
     private async Task SeedTeacherDemoAsync(CancellationToken cancellationToken)
@@ -621,9 +640,9 @@ public sealed class DatabaseSeeder
             .FirstOrDefaultAsync(c => c.SchoolId == school.Id && c.Code == "6A-PRIM", cancellationToken);
 
         var course = await _context.Courses
-            .FirstOrDefaultAsync(c => c.SchoolId == school.Id && c.Code == "MATH-6A", cancellationToken);
+            .FirstOrDefaultAsync(c => c.Code == "MATH-6A", cancellationToken);
 
-        if (year is not null && classRoom is not null && course is not null
+        if (year is not null && classRoom is not null && course is not null && classRoom.PedagogicalClassId.HasValue
             && !await _context.CourseAssignments.AnyAsync(
                 a => a.TeacherId == teacher.Id && a.CourseId == course.Id && a.ClassRoomId == classRoom.Id,
                 cancellationToken))
@@ -633,7 +652,10 @@ public sealed class DatabaseSeeder
                 TeacherId = teacher.Id,
                 CourseId = course.Id,
                 ClassRoomId = classRoom.Id,
-                AcademicYearId = year.Id
+                AcademicYearId = year.Id,
+                PedagogicalClassId = classRoom.PedagogicalClassId.Value,
+                IsActive = true,
+                MaxScore = 20
             });
             await _context.SaveChangesAsync(cancellationToken);
         }

@@ -36,6 +36,10 @@ public partial class ErpDateField : UserControl
         DependencyProperty.Register(nameof(DateValidationMode), typeof(ErpDateValidationMode), typeof(ErpDateField),
             new PropertyMetadata(ErpDateValidationMode.None, OnValidationModeChanged));
 
+    public static readonly DependencyProperty IsCompactProperty =
+        DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(ErpDateField),
+            new PropertyMetadata(false, OnCompactChanged));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public bool IsRequired { get => (bool)GetValue(IsRequiredProperty); set => SetValue(IsRequiredProperty, value); }
     public double FieldWidth { get => (double)GetValue(FieldWidthProperty); set => SetValue(FieldWidthProperty, value); }
@@ -53,16 +57,48 @@ public partial class ErpDateField : UserControl
         set => SetValue(DateValidationModeProperty, value);
     }
 
+    public bool IsCompact { get => (bool)GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
+
     public ErpDateField()
     {
         InitializeComponent();
         Loaded += (_, _) =>
         {
             UpdateLayoutSizing();
+            ApplyCompactLayout();
             UpdateDerivedValues();
             InputDatePicker.IsReadOnly = !IsEnabled;
         };
         IsEnabledChanged += (_, _) => InputDatePicker.IsReadOnly = !IsEnabled;
+    }
+
+    private static void OnCompactChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ErpDateField field)
+        {
+            field.ApplyCompactLayout();
+        }
+    }
+
+    private void ApplyCompactLayout()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        if (IsCompact)
+        {
+            LabelPanel.Margin = ErpFieldCompactLayout.CompactLabelSpacing;
+            LabelText.FontSize = ErpFieldCompactLayout.CompactFontSize;
+            InputDatePicker.Height = ErpFieldCompactLayout.CompactInputHeight;
+        }
+        else
+        {
+            LabelPanel.ClearValue(FrameworkElement.MarginProperty);
+            LabelText.ClearValue(TextBlock.FontSizeProperty);
+            InputDatePicker.ClearValue(FrameworkElement.HeightProperty);
+        }
     }
 
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)

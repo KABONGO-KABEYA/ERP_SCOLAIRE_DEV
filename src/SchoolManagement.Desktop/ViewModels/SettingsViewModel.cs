@@ -28,7 +28,8 @@ public partial class SettingsViewModel : ViewModelBase
         RevenueAllocationConfigViewModel revenueAllocationConfig,
         WithholdingConfigViewModel withholdingConfig,
         CurrencyManagementViewModel currencyManagement,
-        CloudSyncDashboardViewModel cloudSyncDashboard)
+        CloudSyncDashboardViewModel cloudSyncDashboard,
+        CourseConfigurationViewModel courseConfiguration)
     {
         _schoolApiService = schoolApiService;
         _academicApiService = academicApiService;
@@ -41,6 +42,7 @@ public partial class SettingsViewModel : ViewModelBase
         WithholdingConfig = withholdingConfig;
         CurrencyManagement = currencyManagement;
         CloudSyncDashboard = cloudSyncDashboard;
+        CourseConfiguration = courseConfiguration;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         NewTeacherAddressEditor = new AddressEditorViewModel(_geographyApiService);
@@ -75,7 +77,7 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Monnaies", "CurrencyUsd", SettingsSection.Monnaies),
                     new SettingsNodeViewModel("Taux de change", "SwapHorizontal", SettingsSection.TauxChange),
                     new SettingsNodeViewModel("Historique des taux", "History", SettingsSection.HistoriqueTaux),
-                    new SettingsNodeViewModel("Matières", "BookEducation", SettingsSection.Matieres),
+                    new SettingsNodeViewModel("Configuration des cours", "BookEducation", SettingsSection.Matieres),
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
                     new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
@@ -166,15 +168,6 @@ public partial class SettingsViewModel : ViewModelBase
     private IReadOnlyList<FeeTypeLookupDto> _feeTypes = [];
 
     [ObservableProperty]
-    private ClassRoomDto? _selectedSubjectClass;
-
-    [ObservableProperty]
-    private string _newSubjectCode = string.Empty;
-
-    [ObservableProperty]
-    private string _newSubjectName = string.Empty;
-
-    [ObservableProperty]
     private UserAccountDto? _selectedAdminUser;
 
     [ObservableProperty]
@@ -259,10 +252,6 @@ public partial class SettingsViewModel : ViewModelBase
 
     public ObservableCollection<ClassLocalDto> ClassLocals { get; } = [];
 
-    public ObservableCollection<ClassRoomDto> SubjectClasses { get; } = [];
-
-    public ObservableCollection<CourseDto> SubjectCourses { get; } = [];
-
     public ObservableCollection<UserAccountDto> AdminUsers { get; } = [];
 
     public ObservableCollection<RoleDto> AdminRoles { get; } = [];
@@ -294,6 +283,8 @@ public partial class SettingsViewModel : ViewModelBase
     public CurrencyManagementViewModel CurrencyManagement { get; }
 
     public CloudSyncDashboardViewModel CloudSyncDashboard { get; }
+
+    public CourseConfigurationViewModel CourseConfiguration { get; }
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
 
@@ -339,7 +330,8 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsRepartitionRecettesSelected
         && !IsRetenuesSelected
         && !IsCurrencySectionSelected
-        && !IsSyncCloudSelected;
+        && !IsSyncCloudSelected
+        && !IsMatieresSelected;
 
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
 
@@ -381,7 +373,7 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.TauxChange => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
             SettingsSection.HistoriqueTaux => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
             SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
-            SettingsSection.Matieres => "Gérez les matières rattachées aux classes actives de l'établissement.",
+            SettingsSection.Matieres => "Configurez les cours retenus par année, classe et salle, avec affectation des enseignants.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
             SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
             SettingsSection.Enseignants => "Gérez le personnel enseignant et leurs adresses.",
@@ -445,6 +437,10 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 CloudSyncDashboard.LoadCommand.Execute(null);
             }
+            else if (item.Key == "matieres")
+            {
+                CourseConfiguration.LoadCommand.Execute(null);
+            }
         }
 
         OnPropertyChanged(nameof(ActiveNavKey));
@@ -461,6 +457,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
+        OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
 
@@ -505,7 +502,6 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnSelectedAcademicYearChanged(AcademicYearDto? value)
     {
         _ = LoadLocalsAsync();
-        _ = LoadSubjectClassesAsync();
         if (IsStructurePedagogiqueSelected)
         {
             _ = LoadStructureAsync();
@@ -524,11 +520,6 @@ public partial class SettingsViewModel : ViewModelBase
         LocalCapacityText = value.MaxCapacity?.ToString();
         LocalObservations = value.Observations;
         LocalIsActive = value.IsActive;
-    }
-
-    partial void OnSelectedSubjectClassChanged(ClassRoomDto? value)
-    {
-        _ = LoadSubjectCoursesAsync();
     }
 
     partial void OnSelectedSettingsNodeChanged(SettingsNodeViewModel? value)
@@ -578,7 +569,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
         else if (value?.Section == SettingsSection.Matieres)
         {
-            _ = LoadSubjectClassesAsync();
+            CourseConfiguration.LoadCommand.Execute(null);
         }
         else if (value?.Section == SettingsSection.Geographie)
         {
@@ -637,7 +628,6 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 SelectedDefaultFeeType = null;
             }
-            await LoadSubjectClassesAsync();
             await LoadUsersAsync();
         }
         catch (Exception ex)
@@ -961,97 +951,6 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
-        }
-    }
-
-    [RelayCommand]
-    private async Task LoadSubjectClassesAsync()
-    {
-        if (SelectedAcademicYear is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var classes = await _academicApiService.GetClassRoomsAsync(SelectedAcademicYear.Id);
-            var selectedId = SelectedSubjectClass?.Id;
-            SubjectClasses.Clear();
-            foreach (var item in classes)
-            {
-                SubjectClasses.Add(item);
-            }
-
-            SelectedSubjectClass = selectedId.HasValue
-                ? SubjectClasses.FirstOrDefault(c => c.Id == selectedId.Value)
-                : SubjectClasses.FirstOrDefault();
-
-            if (SelectedSubjectClass is null)
-            {
-                SubjectCourses.Clear();
-            }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-    }
-
-    [RelayCommand]
-    private async Task LoadSubjectCoursesAsync()
-    {
-        if (SelectedSubjectClass is null)
-        {
-            SubjectCourses.Clear();
-            return;
-        }
-
-        try
-        {
-            var courses = await _academicApiService.GetCoursesAsync(SelectedSubjectClass.Id);
-            SubjectCourses.Clear();
-            foreach (var course in courses)
-            {
-                SubjectCourses.Add(course);
-            }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-    }
-
-    [RelayCommand]
-    private async Task CreateSubjectCourseAsync()
-    {
-        if (SelectedSubjectClass is null || string.IsNullOrWhiteSpace(NewSubjectCode) || string.IsNullOrWhiteSpace(NewSubjectName))
-        {
-            StatusMessage = "Sélectionnez une classe et renseignez le code ainsi que le nom de la matière.";
-            return;
-        }
-
-        IsBusy = true;
-        try
-        {
-            await _academicApiService.CreateCourseAsync(new CreateCourseRequest(
-                SelectedSubjectClass.Id,
-                NewSubjectCode.Trim(),
-                NewSubjectName.Trim(),
-                1,
-                20));
-
-            NewSubjectCode = string.Empty;
-            NewSubjectName = string.Empty;
-            StatusMessage = "Matière créée.";
-            await LoadSubjectCoursesAsync();
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
         }
     }
 

@@ -4,18 +4,32 @@ using SchoolManagement.Domain.Entities.Grades;
 
 namespace SchoolManagement.Infrastructure.Persistence.Configurations;
 
+public class EvaluationTypeDefinitionConfiguration : AuditableEntityConfiguration<EvaluationTypeDefinition>
+{
+    public override void Configure(EntityTypeBuilder<EvaluationTypeDefinition> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("EvaluationTypes");
+        builder.Property(t => t.Code).HasMaxLength(20).IsRequired();
+        builder.Property(t => t.Name).HasMaxLength(100).IsRequired();
+        builder.HasOne(t => t.School).WithMany().HasForeignKey(t => t.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(t => new { t.SchoolId, t.Code }).IsUnique();
+    }
+}
+
 public class EvaluationConfiguration : AuditableEntityConfiguration<Evaluation>
 {
     public override void Configure(EntityTypeBuilder<Evaluation> builder)
     {
         base.Configure(builder);
         builder.ToTable("Evaluations");
-        builder.Ignore(e => e.SchoolId);
         builder.Property(e => e.Title).HasMaxLength(150).IsRequired();
-        builder.Property(e => e.EvaluationType).HasConversion<int>();
         builder.Property(e => e.Weight).HasPrecision(5, 2);
+        builder.HasOne(e => e.Enrollment).WithMany(en => en.Evaluations).HasForeignKey(e => e.EnrollmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.AcademicYear).WithMany().HasForeignKey(e => e.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.AcademicPeriod).WithMany().HasForeignKey(e => e.AcademicPeriodId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.CourseAssignment).WithMany(ca => ca.Evaluations).HasForeignKey(e => e.CourseAssignmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.EvaluationType).WithMany(t => t.Evaluations).HasForeignKey(e => e.EvaluationTypeId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.Course).WithMany().HasForeignKey(e => e.CourseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.ClassRoom).WithMany().HasForeignKey(e => e.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(e => new { e.ClassRoomId, e.AcademicPeriodId });

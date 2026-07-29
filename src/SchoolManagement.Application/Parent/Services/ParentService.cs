@@ -30,6 +30,7 @@ public sealed class ParentService : IParentService
     private readonly IRepository<ClassFeeAmount> _classFeeAmountRepository;
     private readonly IRepository<AcademicYear> _academicYearRepository;
     private readonly IRepository<Evaluation> _evaluationRepository;
+    private readonly IRepository<EvaluationTypeDefinition> _evaluationTypeRepository;
     private readonly IRepository<GradeEntry> _gradeEntryRepository;
     private readonly IRepository<Course> _courseRepository;
     private readonly IRepository<StudentAttendance> _attendanceRepository;
@@ -53,6 +54,7 @@ public sealed class ParentService : IParentService
         IRepository<ClassFeeAmount> classFeeAmountRepository,
         IRepository<AcademicYear> academicYearRepository,
         IRepository<Evaluation> evaluationRepository,
+        IRepository<EvaluationTypeDefinition> evaluationTypeRepository,
         IRepository<GradeEntry> gradeEntryRepository,
         IRepository<Course> courseRepository,
         IRepository<StudentAttendance> attendanceRepository,
@@ -75,6 +77,7 @@ public sealed class ParentService : IParentService
         _classFeeAmountRepository = classFeeAmountRepository;
         _academicYearRepository = academicYearRepository;
         _evaluationRepository = evaluationRepository;
+        _evaluationTypeRepository = evaluationTypeRepository;
         _gradeEntryRepository = gradeEntryRepository;
         _courseRepository = courseRepository;
         _attendanceRepository = attendanceRepository;
@@ -423,6 +426,12 @@ public sealed class ParentService : IParentService
         var courses = await _courseRepository.FindAsync(c => courseIds.Contains(c.Id), cancellationToken);
         var courseMap = courses.ToDictionary(c => c.Id);
 
+        var typeIds = evaluations.Select(e => e.EvaluationTypeId).Distinct().ToList();
+        var types = typeIds.Count == 0
+            ? []
+            : await _evaluationTypeRepository.FindAsync(t => typeIds.Contains(t.Id), cancellationToken);
+        var typeMap = types.ToDictionary(t => t.Id);
+
         var subjects = new List<ParentGradeSubjectDto>();
         foreach (var courseGroup in evaluations.GroupBy(e => e.CourseId))
         {
@@ -443,21 +452,25 @@ public sealed class ParentService : IParentService
                     continue;
                 }
 
+                var type = typeMap.GetValueOrDefault(evaluation.EvaluationTypeId);
+                var typeCode = type?.Code ?? "DEVOIR";
+                var typeName = type?.Name ?? "—";
+
                 var item = new ParentGradeItemDto(
                     evaluation.Title,
                     entry.Score,
                     evaluation.MaxScore,
                     evaluation.EvaluationDate.ToDateTime(TimeOnly.MinValue),
-                    evaluation.EvaluationType.ToString());
+                    typeName);
 
                 scores.Add((entry.Score, evaluation.MaxScore));
-                switch (evaluation.EvaluationType)
+                switch (typeCode)
                 {
-                    case EvaluationType.Interrogation:
+                    case "INTERRO":
                         interrogations.Add(item);
                         break;
-                    case EvaluationType.Examen:
-                    case EvaluationType.Composition:
+                    case "EXAMEN":
+                    case "COMPOSITION":
                         exams.Add(item);
                         break;
                     default:

@@ -101,14 +101,6 @@ public enum PermissionAction
     Renew = 8
 }
 
-public enum EvaluationType
-{
-    Devoir = 1,
-    Interrogation = 2,
-    Examen = 3,
-    Composition = 4
-}
-
 public enum PaymentStatus
 {
     EnAttente = 1,

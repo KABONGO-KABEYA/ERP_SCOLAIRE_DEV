@@ -41,6 +41,12 @@ public sealed record CreateCourseRequest(
     decimal Coefficient,
     int MaxScore);
 
+public sealed record UpdateCourseRequest(
+    string Code,
+    string Name,
+    decimal Coefficient,
+    int MaxScore);
+
 public sealed record EnrollmentDto(
     Guid Id,
     Guid StudentId,
