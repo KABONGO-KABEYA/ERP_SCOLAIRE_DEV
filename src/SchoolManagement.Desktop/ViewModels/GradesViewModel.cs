@@ -26,6 +26,22 @@ namespace SchoolManagement.Desktop.ViewModels;
 
 
 
+public sealed class SavedEvaluationListItem(EvaluationDto evaluation)
+{
+    public EvaluationDto Evaluation { get; } = evaluation;
+
+    public string DisplayLabel
+    {
+        get
+        {
+            var status = Evaluation.IsOpen ? string.Empty : " [Fermée]";
+            return $"{Evaluation.CourseName} — {Evaluation.EvaluationTypeName} — {Evaluation.Title} ({Evaluation.EvaluationDate:dd/MM/yyyy}){status}";
+        }
+    }
+}
+
+
+
 public partial class GradeEntryEditItem : ObservableObject
 
 {
@@ -198,6 +214,10 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
+    private bool _isApplyingSavedEvaluation;
+
+
+
     public ObservableCollection<GradeEntryEditItem> GradeEntries { get; } = [];
 
     public ObservableCollection<EvaluationTypeDto> EvaluationTypes { get; } = [];
@@ -207,6 +227,8 @@ public partial class GradesViewModel : ViewModelBase
     public ObservableCollection<ClassLocalDto> ClassLocals { get; } = [];
 
     public ObservableCollection<CourseConfigurationItemDto> AssignedCourses { get; } = [];
+
+    public ObservableCollection<SavedEvaluationListItem> SavedEvaluations { get; } = [];
 
 
 
@@ -223,6 +245,8 @@ public partial class GradesViewModel : ViewModelBase
     [ObservableProperty] private CourseConfigurationItemDto? _selectedCourse;
 
     [ObservableProperty] private EvaluationTypeDto? _selectedEvaluationType;
+
+    [ObservableProperty] private SavedEvaluationListItem? _selectedSavedEvaluation;
 
     [ObservableProperty] private EvaluationDto? _currentEvaluation;
 
@@ -242,7 +266,21 @@ public partial class GradesViewModel : ViewModelBase
 
     [ObservableProperty] private bool _isGridLoaded;
 
-    [ObservableProperty] private bool _isParametersExpanded = true;
+    [ObservableProperty] private bool _isParametersExpanded;
+
+
+
+    public bool HasSavedEvaluations => SavedEvaluations.Count > 0;
+
+
+
+    public bool ShowNoSavedEvaluationsMessage =>
+
+        !IsBusy
+
+        && CanLoadStudentsFromLocal()
+
+        && !HasSavedEvaluations;
 
 
 
@@ -254,7 +292,7 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
-    public string ParametersToggleLabel => IsParametersExpanded ? "Masquer les paramètres" : "Afficher les paramètres";
+    public string ParametersToggleLabel => IsParametersExpanded ? "Fermer le menu paramètres" : "Ouvrir le menu paramètres";
 
 
 
@@ -314,7 +352,15 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
-    public bool CanEditGrades => IsGridLoaded && CurrentEvaluation is not null && CurrentEvaluation.IsOpen;
+    public bool CanEditGrades =>
+
+        IsGridLoaded
+
+        && GradeEntries.Count > 0
+
+        && !IsBusy
+
+        && CurrentEvaluation?.IsOpen != false;
 
 
 
@@ -337,6 +383,7 @@ public partial class GradesViewModel : ViewModelBase
     partial void OnSelectedPeriodChanged(AcademicPeriodLookupDto? value)
     {
         NotifySummary();
+        _ = ReloadSavedEvaluationsAsync();
         _ = TryAutoLoadStudentsAsync();
     }
 
@@ -358,6 +405,7 @@ public partial class GradesViewModel : ViewModelBase
     {
         await ReloadCoursesAsync();
         NotifySummary();
+        await ReloadSavedEvaluationsAsync();
         await TryAutoLoadStudentsAsync();
     }
 
@@ -383,7 +431,11 @@ public partial class GradesViewModel : ViewModelBase
 
         NotifyCommands();
 
-        _ = TryAutoLoadStudentsAsync();
+        if (!_isApplyingSavedEvaluation)
+        {
+            ClearSavedEvaluationSelection();
+            _ = TryAutoLoadStudentsAsync();
+        }
 
     }
 
@@ -392,12 +444,47 @@ public partial class GradesViewModel : ViewModelBase
     partial void OnSelectedEvaluationTypeChanged(EvaluationTypeDto? value)
     {
         NotifySummary();
+        if (!_isApplyingSavedEvaluation)
+        {
+            ClearSavedEvaluationSelection();
+        }
+
         _ = TryAutoLoadStudentsAsync();
     }
 
 
 
-    partial void OnEvaluationDateChanged(DateTime value) => NotifySummary();
+    partial void OnSelectedSavedEvaluationChanged(SavedEvaluationListItem? value)
+    {
+        if (_isApplyingSavedEvaluation || value is null)
+        {
+            return;
+        }
+
+        _ = ApplySavedEvaluationAsync(value.Evaluation);
+    }
+
+
+
+    partial void OnEvaluationDateChanged(DateTime value)
+    {
+        NotifySummary();
+        if (!_isApplyingSavedEvaluation)
+        {
+            ClearSavedEvaluationSelection();
+        }
+    }
+
+
+
+    partial void OnEvaluationTitleChanged(string value)
+    {
+        NotifySummary();
+        if (!_isApplyingSavedEvaluation)
+        {
+            ClearSavedEvaluationSelection();
+        }
+    }
 
 
 
@@ -429,7 +516,11 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
-    partial void OnIsBusyChanged(bool value) => NotifyCommands();
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanEditGrades));
+        NotifyCommands();
+    }
 
 
 
@@ -442,6 +533,12 @@ public partial class GradesViewModel : ViewModelBase
         NotifyCommands();
 
     }
+
+
+
+    partial void OnCurrentEvaluationChanged(EvaluationDto? value) =>
+
+        OnPropertyChanged(nameof(CanEditGrades));
 
 
 
@@ -460,6 +557,8 @@ public partial class GradesViewModel : ViewModelBase
         PrintGridCommand.NotifyCanExecuteChanged();
 
         ExportExcelCommand.NotifyCanExecuteChanged();
+
+        RefreshSavedEvaluationsCommand.NotifyCanExecuteChanged();
 
     }
 
@@ -553,7 +652,17 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
-    private bool CanSaveGrades() => CanEditGrades && GradeEntries.Count > 0 && !IsBusy;
+    private bool CanSaveGrades() =>
+
+        IsGridLoaded
+
+        && GradeEntries.Count > 0
+
+        && !IsBusy
+
+        && CanLoadStudentsWithGrades()
+
+        && CurrentEvaluation?.IsOpen != false;
 
 
 
@@ -761,6 +870,16 @@ public partial class GradesViewModel : ViewModelBase
 
     {
 
+        if (_isApplyingSavedEvaluation)
+
+        {
+
+            return;
+
+        }
+
+
+
         if (!CanLoadStudentsFromLocal())
 
         {
@@ -782,6 +901,344 @@ public partial class GradesViewModel : ViewModelBase
 
 
         await LoadStudentsCoreAsync();
+
+    }
+
+
+
+    private void ClearSavedEvaluationSelection()
+
+    {
+
+        if (SelectedSavedEvaluation is null)
+
+        {
+
+            return;
+
+        }
+
+
+
+        _isApplyingSavedEvaluation = true;
+
+        try
+
+        {
+
+            SelectedSavedEvaluation = null;
+
+        }
+
+        finally
+
+        {
+
+            _isApplyingSavedEvaluation = false;
+
+        }
+
+    }
+
+
+
+    private void SelectSavedEvaluation(EvaluationDto? evaluation)
+
+    {
+
+        _isApplyingSavedEvaluation = true;
+
+        try
+
+        {
+
+            SelectedSavedEvaluation = evaluation is null
+
+                ? null
+
+                : SavedEvaluations.FirstOrDefault(item => item.Evaluation.Id == evaluation.Id);
+
+        }
+
+        finally
+
+        {
+
+            _isApplyingSavedEvaluation = false;
+
+        }
+
+    }
+
+
+
+    private void NotifySavedEvaluationsState()
+
+    {
+
+        OnPropertyChanged(nameof(HasSavedEvaluations));
+
+        OnPropertyChanged(nameof(ShowNoSavedEvaluationsMessage));
+
+        RefreshSavedEvaluationsCommand.NotifyCanExecuteChanged();
+
+    }
+
+
+
+    private bool CanRefreshSavedEvaluations() => CanLoadStudentsFromLocal() && !IsBusy;
+
+
+
+    [RelayCommand(CanExecute = nameof(CanRefreshSavedEvaluations))]
+
+    private Task RefreshSavedEvaluationsAsync() => ReloadSavedEvaluationsAsync();
+
+
+
+    private async Task ReloadSavedEvaluationsAsync()
+
+    {
+
+        SavedEvaluations.Clear();
+
+        NotifySavedEvaluationsState();
+
+
+
+        if (SelectedLocal is null || SelectedPeriod is null)
+
+        {
+
+            return;
+
+        }
+
+
+
+        try
+
+        {
+
+            var evaluations = await _gradeApiService.GetEvaluationsAsync(SelectedLocal.Id, SelectedPeriod.Id);
+
+            foreach (var evaluation in evaluations
+
+                         .OrderByDescending(e => e.EvaluationDate)
+
+                         .ThenBy(e => e.CourseName)
+
+                         .ThenBy(e => e.Title))
+
+            {
+
+                SavedEvaluations.Add(new SavedEvaluationListItem(evaluation));
+
+            }
+
+
+
+            SelectSavedEvaluation(CurrentEvaluation);
+
+            NotifySavedEvaluationsState();
+
+        }
+
+        catch (Exception ex)
+
+        {
+
+            StatusMessage = ex.Message;
+
+        }
+
+    }
+
+
+
+    private async Task ApplySavedEvaluationAsync(EvaluationDto evaluation)
+
+    {
+
+        if (SelectedYear is null || SelectedPeriod is null || SelectedLocal is null)
+
+        {
+
+            StatusMessage = "Sélectionnez l'année, la période et la salle.";
+
+            return;
+
+        }
+
+
+
+        _isApplyingSavedEvaluation = true;
+
+        IsBusy = true;
+
+        StatusMessage = null;
+
+
+
+        try
+
+        {
+
+            EvaluationTitle = evaluation.Title;
+
+            EvaluationCoefficient = evaluation.Weight;
+
+            EvaluationMaxScore = evaluation.MaxScore;
+
+            EvaluationDate = evaluation.EvaluationDate.ToDateTime(TimeOnly.MinValue);
+
+            SelectedEvaluationType = EvaluationTypes.FirstOrDefault(type => type.Id == evaluation.EvaluationTypeId);
+
+
+
+            var course = AssignedCourses.FirstOrDefault(item => item.CourseId == evaluation.CourseId);
+
+            if (course is not null)
+
+            {
+
+                SelectedCourse = course;
+
+            }
+
+            else
+
+            {
+
+                StatusMessage = $"Cours « {evaluation.CourseName} » introuvable dans la configuration actuelle.";
+
+            }
+
+
+
+            CurrentEvaluation = evaluation;
+
+            await PopulateGradeEntriesAsync(evaluation);
+
+            IsGridLoaded = true;
+
+            RefreshStatistics();
+
+            OnPropertyChanged(nameof(CanEditGrades));
+
+            NotifyCommands();
+
+
+
+            StatusMessage = evaluation.IsOpen
+
+                ? $"{GradeEntries.Count} élève(s) — évaluation « {evaluation.Title} » chargée."
+
+                : $"{GradeEntries.Count} élève(s) — évaluation « {evaluation.Title} » chargée (fermée, lecture seule).";
+
+        }
+
+        catch (Exception ex)
+
+        {
+
+            StatusMessage = ex.Message;
+
+            IsGridLoaded = false;
+
+        }
+
+        finally
+
+        {
+
+            IsBusy = false;
+
+            _isApplyingSavedEvaluation = false;
+
+        }
+
+    }
+
+
+
+    private async Task PopulateGradeEntriesAsync(EvaluationDto? evaluation)
+
+    {
+
+        var enrollments = (await _academicApiService.GetEnrollmentsAsync(SelectedLocal!.Id, SelectedYear!.Id))
+
+            .Where(enrollment => enrollment.IsActive)
+
+            .OrderBy(enrollment => enrollment.StudentName)
+
+            .ToList();
+
+
+
+        Dictionary<Guid, GradeEntryDto> entryMap = [];
+
+        if (evaluation is not null)
+
+        {
+
+            var entries = await _gradeApiService.GetGradeEntriesAsync(evaluation.Id);
+
+            entryMap = entries.ToDictionary(entry => entry.StudentId);
+
+        }
+
+
+
+        GradeEntries.Clear();
+
+        var row = 1;
+
+        foreach (var enrollment in enrollments)
+
+        {
+
+            if (entryMap.TryGetValue(enrollment.StudentId, out var entry))
+
+            {
+
+                GradeEntries.Add(CreateEntryItem(
+
+                    row++,
+
+                    entry.StudentId,
+
+                    enrollment.RegistrationNumber,
+
+                    entry.StudentName,
+
+                    entry.Score == 0 && entry.Id == Guid.Empty ? null : entry.Score,
+
+                    entry.Comment));
+
+            }
+
+            else
+
+            {
+
+                GradeEntries.Add(CreateEntryItem(
+
+                    row++,
+
+                    enrollment.StudentId,
+
+                    enrollment.RegistrationNumber,
+
+                    enrollment.StudentName,
+
+                    null,
+
+                    null));
+
+            }
+
+        }
 
     }
 
@@ -811,27 +1268,17 @@ public partial class GradesViewModel : ViewModelBase
 
         {
 
-            var enrollments = (await _academicApiService.GetEnrollmentsAsync(SelectedLocal.Id, SelectedYear.Id))
-
-                .Where(e => e.IsActive)
-
-                .OrderBy(e => e.StudentName)
-
-                .ToList();
+            EvaluationDto? evaluation = null;
 
 
-
-            Dictionary<Guid, GradeEntryDto> entryMap;
 
             if (CanLoadStudentsWithGrades())
 
             {
 
-                CurrentEvaluation = await ResolveEvaluationAsync();
+                evaluation = await ResolveEvaluationAsync();
 
-                var entries = await _gradeApiService.GetGradeEntriesAsync(CurrentEvaluation.Id);
-
-                entryMap = entries.ToDictionary(e => e.StudentId);
+                CurrentEvaluation = evaluation;
 
             }
 
@@ -841,67 +1288,21 @@ public partial class GradesViewModel : ViewModelBase
 
                 CurrentEvaluation = null;
 
-                entryMap = [];
-
             }
 
 
 
-            GradeEntries.Clear();
-
-            var row = 1;
-
-            foreach (var enrollment in enrollments)
-
-            {
-
-                if (entryMap.TryGetValue(enrollment.StudentId, out var entry))
-
-                {
-
-                    GradeEntries.Add(CreateEntryItem(
-
-                        row++,
-
-                        entry.StudentId,
-
-                        enrollment.RegistrationNumber,
-
-                        entry.StudentName,
-
-                        entry.Score == 0 && entry.Id == Guid.Empty ? null : entry.Score,
-
-                        entry.Comment));
-
-                }
-
-                else
-
-                {
-
-                    GradeEntries.Add(CreateEntryItem(
-
-                        row++,
-
-                        enrollment.StudentId,
-
-                        enrollment.RegistrationNumber,
-
-                        enrollment.StudentName,
-
-                        null,
-
-                        null));
-
-                }
-
-            }
+            await PopulateGradeEntriesAsync(evaluation);
 
 
 
             IsGridLoaded = true;
 
             RefreshStatistics();
+
+            await ReloadSavedEvaluationsAsync();
+
+
 
             StatusMessage = CanLoadStudentsWithGrades()
 
@@ -1045,9 +1446,35 @@ public partial class GradesViewModel : ViewModelBase
 
         {
 
-            StatusMessage = "Chargez d'abord les élèves.";
+            if (!CanLoadStudentsWithGrades())
 
-            return;
+            {
+
+                StatusMessage = "Sélectionnez le cours et le type d'évaluation avant d'enregistrer.";
+
+                return;
+
+            }
+
+
+
+            try
+
+            {
+
+                CurrentEvaluation = await ResolveEvaluationAsync();
+
+            }
+
+            catch (Exception ex)
+
+            {
+
+                StatusMessage = ex.Message;
+
+                return;
+
+            }
 
         }
 
@@ -1088,6 +1515,8 @@ public partial class GradesViewModel : ViewModelBase
             StatusMessage = closeAfterSave ? "Notes enregistrées. Vous pouvez fermer l'écran." : "Notes enregistrées.";
 
             RefreshStatistics();
+
+            await ReloadSavedEvaluationsAsync();
 
         }
 
