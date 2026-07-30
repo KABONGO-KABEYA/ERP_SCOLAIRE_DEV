@@ -14,6 +14,14 @@ public partial class GradesView : UserControl
         InitializeComponent();
     }
 
+    private void TeacherPasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is GradesViewModel vm && sender is PasswordBox box)
+        {
+            vm.TeacherPassword = box.Password;
+        }
+    }
+
     private void GradingGrid_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && DataContext is GradesViewModel saveVm)

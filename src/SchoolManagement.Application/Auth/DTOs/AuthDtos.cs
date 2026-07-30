@@ -17,6 +17,7 @@ public sealed record UserProfileDto(
     string Email,
     string FullName,
     bool MustChangePassword,
+    Guid? TeacherId,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions);
 

@@ -15,6 +15,7 @@ public sealed class CloudReadOnlyMiddleware
     {
         "/api/v1/auth",
         "/api/v1/health",
+        "/api/health",
         "/api/v1/grades/entries",
         // Publication des versions applicatives (admin) — doit aussi fonctionner sur le Cloud.
         "/api/v1/update/versions"

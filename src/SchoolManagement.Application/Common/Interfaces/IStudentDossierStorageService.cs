@@ -17,6 +17,15 @@ public interface IStudentDossierStorageService
 
     string GetRootPath();
 
+    /// <summary>
+    /// Crée le dossier élève (année / Nom_Prenom_Matricule) s'il n'existe pas encore.
+    /// </summary>
+    string EnsureStudentFolder(
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel);
+
     IReadOnlyList<StudentDossierFileEntry> ListStudentFiles(
         string lastName,
         string firstName,

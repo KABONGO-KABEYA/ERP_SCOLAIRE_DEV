@@ -93,10 +93,38 @@ public partial class PersonnelEditViewModel : ViewModelBase
 
     [ObservableProperty] private bool _allowSystemLogin;
     [ObservableProperty] private bool _createSystemAccount;
+    [ObservableProperty] private bool _hasSystemAccount;
     [ObservableProperty] private string _systemUsername = string.Empty;
     [ObservableProperty] private string _systemPassword = string.Empty;
     [ObservableProperty] private string _systemPasswordConfirm = string.Empty;
+    [ObservableProperty] private string _systemPasswordHint = "Définir un mot de passe";
     [ObservableProperty] private RoleDto? _selectedSystemRole;
+
+    public string SystemAccessStatusLabel => HasSystemAccount
+        ? (AllowSystemLogin ? "Compte actif — identifiant ci-dessous" : "Compte existant mais accès désactivé")
+        : "Aucun compte système pour ce personnel";
+
+    public string PasswordFieldLabel => HasSystemAccount
+        ? "Nouveau mot de passe (laisser vide pour conserver)"
+        : "Mot de passe";
+
+    partial void OnHasSystemAccountChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SystemAccessStatusLabel));
+        OnPropertyChanged(nameof(PasswordFieldLabel));
+        SystemPasswordHint = value
+            ? "Mot de passe déjà défini (non affiché pour sécurité). Saisissez un nouveau mot de passe pour le remplacer."
+            : "Définir un mot de passe";
+    }
+
+    partial void OnAllowSystemLoginChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SystemAccessStatusLabel));
+        if (value && !HasSystemAccount)
+        {
+            CreateSystemAccount = true;
+        }
+    }
 
     public string SummaryFullName =>
         string.Join(" ", new[] { LastName, FirstName, MiddleName }.Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -196,8 +224,15 @@ public partial class PersonnelEditViewModel : ViewModelBase
             EmergencyContactAddress = detail.EmergencyContactAddress ?? string.Empty;
 
             AllowSystemLogin = detail.AllowSystemLogin;
+            HasSystemAccount = detail.HasSystemAccount;
             SystemUsername = detail.SystemUsername ?? string.Empty;
-            CreateSystemAccount = false;
+            CreateSystemAccount = !detail.HasSystemAccount && detail.AllowSystemLogin;
+            SystemPassword = string.Empty;
+            SystemPasswordConfirm = string.Empty;
+            SelectedSystemRole = detail.SystemRoleId.HasValue
+                ? SystemRoles.FirstOrDefault(r => r.Id == detail.SystemRoleId.Value)
+                : null;
+            OnHasSystemAccountChanged(HasSystemAccount);
 
             AddressEditor.Reset();
             var addressLoaded = false;
@@ -271,16 +306,26 @@ public partial class PersonnelEditViewModel : ViewModelBase
         try
         {
             var request = BuildSaveRequest();
+            PersonnelDetailDto saved;
             if (PersonnelId.HasValue)
             {
-                await _personnelApi.UpdatePersonnelAsync(PersonnelId.Value, request);
+                saved = await _personnelApi.UpdatePersonnelAsync(PersonnelId.Value, request);
                 StatusMessage = "Fiche personnel enregistrée.";
             }
             else
             {
-                var created = await _personnelApi.CreatePersonnelAsync(request);
-                PersonnelId = created.Id;
+                saved = await _personnelApi.CreatePersonnelAsync(request);
+                PersonnelId = saved.Id;
                 StatusMessage = "Personnel créé avec succès.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(saved.TemporaryPassword) && !string.IsNullOrWhiteSpace(saved.SystemUsername))
+            {
+                System.Windows.MessageBox.Show(
+                    $"Accès système configuré.\n\nIdentifiant : {saved.SystemUsername}\nMot de passe : {saved.TemporaryPassword}\n\nNotez ces informations : le mot de passe ne pourra plus être relu ensuite.",
+                    "Accès système",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
             }
 
             if (resetAfterSave)
@@ -308,12 +353,19 @@ public partial class PersonnelEditViewModel : ViewModelBase
             return "Le matricule est obligatoire.";
         if (string.IsNullOrWhiteSpace(LastName) || string.IsNullOrWhiteSpace(FirstName))
             return "Le nom et le prénom sont obligatoires.";
-        if (CreateSystemAccount && string.IsNullOrWhiteSpace(SystemUsername))
-            return "Le nom d'utilisateur est obligatoire pour créer un compte.";
-        if (CreateSystemAccount && string.IsNullOrWhiteSpace(SystemPassword))
-            return "Le mot de passe est obligatoire pour créer un compte.";
-        if (CreateSystemAccount && SystemPassword != SystemPasswordConfirm)
-            return "La confirmation du mot de passe ne correspond pas.";
+
+        if (AllowSystemLogin)
+        {
+            if (string.IsNullOrWhiteSpace(SystemUsername))
+                return "Le nom d'utilisateur est obligatoire pour l'accès système.";
+            if (SelectedSystemRole is null)
+                return "Sélectionnez un rôle système.";
+            if (!HasSystemAccount && string.IsNullOrWhiteSpace(SystemPassword))
+                return "Le mot de passe est obligatoire pour créer un accès système.";
+            if (!string.IsNullOrWhiteSpace(SystemPassword) && SystemPassword != SystemPasswordConfirm)
+                return "La confirmation du mot de passe ne correspond pas.";
+        }
+
         return null;
     }
 
@@ -368,7 +420,7 @@ public partial class PersonnelEditViewModel : ViewModelBase
             NullIfEmpty(SystemPasswordConfirm),
             SelectedSystemRole?.Id,
             AllowSystemLogin,
-            CreateSystemAccount);
+            AllowSystemLogin && !HasSystemAccount);
     }
 
     private async Task LoadLookupsAsync()
@@ -500,9 +552,11 @@ public partial class PersonnelEditViewModel : ViewModelBase
         EmergencyContactAddress = string.Empty;
         AllowSystemLogin = false;
         CreateSystemAccount = false;
+        HasSystemAccount = false;
         SystemUsername = string.Empty;
         SystemPassword = string.Empty;
         SystemPasswordConfirm = string.Empty;
+        SystemPasswordHint = "Définir un mot de passe";
         SelectedSystemRole = null;
         AddressEditor.Reset();
         HistoryItems.Clear();

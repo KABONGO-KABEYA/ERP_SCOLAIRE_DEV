@@ -20,6 +20,8 @@ using SchoolManagement.Application.Schools.DTOs;
 
 using SchoolManagement.Desktop.Services;
 
+using SchoolManagement.Desktop.UI;
+
 
 
 namespace SchoolManagement.Desktop.ViewModels;
@@ -186,30 +188,40 @@ public partial class GradesViewModel : ViewModelBase
 
     private readonly ICourseConfigurationApiService _courseConfigurationApiService;
 
+    private readonly IAuthSessionService _authSession;
+
 
 
     public GradesViewModel(
-
         IGradeApiService gradeApiService,
-
         ISchoolApiService schoolApiService,
-
         IAcademicApiService academicApiService,
-
-        ICourseConfigurationApiService courseConfigurationApiService)
-
+        ICourseConfigurationApiService courseConfigurationApiService,
+        IAuthSessionService authSession)
     {
-
         _gradeApiService = gradeApiService;
-
         _schoolApiService = schoolApiService;
-
         _academicApiService = academicApiService;
-
         _courseConfigurationApiService = courseConfigurationApiService;
-
+        _authSession = authSession;
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = InitializeAsync();
+    }
 
+    private void OnGlobalAcademicYearChanged()
+    {
+        SessionYear = AcademicYearRefreshBridge.SelectedYear
+            ?? SessionYears.FirstOrDefault(y => y.IsCurrent)
+            ?? SessionYears.FirstOrDefault();
+        if (IsSessionOpen)
+        {
+            LeaveCotationSession();
+        }
+
+        if (IsTeacherIdentityLocked)
+        {
+            _ = OpenCotationSessionAsync();
+        }
     }
 
 
@@ -325,12 +337,17 @@ public partial class GradesViewModel : ViewModelBase
 
 
     public IEnumerable<AcademicPeriodLookupDto> FilteredPeriods =>
+        IsSessionOpen
+            ? CotationPeriods.Select(p => new AcademicPeriodLookupDto(
+                p.Id,
+                p.Name,
+                SelectedYear?.Id ?? Guid.Empty,
+                p.OrderIndex))
+            : Lookups?.AcademicPeriods.Where(p => SelectedYear is null || p.AcademicYearId == SelectedYear.Id) ?? [];
 
-        Lookups?.AcademicPeriods.Where(p => SelectedYear is null || p.AcademicYearId == SelectedYear.Id) ?? [];
 
 
-
-    public string SummaryClassName => SelectedPedagogicalClass?.DisplayName ?? "—";
+    public string SummaryClassName => SelectedLocal?.FullDisplayName ?? "—";
 
     public string SummaryLocalName => SelectedLocal?.FullDisplayName ?? "—";
 
@@ -360,6 +377,8 @@ public partial class GradesViewModel : ViewModelBase
 
         && !IsBusy
 
+        && HasActivePeriod
+
         && CurrentEvaluation?.IsOpen != false;
 
 
@@ -367,21 +386,31 @@ public partial class GradesViewModel : ViewModelBase
     partial void OnSelectedYearChanged(AcademicYearDto? value)
 
     {
+        if (_suppressCascade || IsSessionOpen)
+        {
+            return;
+        }
 
-        SelectedPeriod = FilteredPeriods.FirstOrDefault();
-
+        // Panneau identification : l'année de session est SessionYear.
         OnPropertyChanged(nameof(FilteredPeriods));
-
-        _ = ReloadLocalsAndCoursesAsync();
-
         NotifyCommands();
-
     }
 
 
 
     partial void OnSelectedPeriodChanged(AcademicPeriodLookupDto? value)
     {
+        if (_suppressCascade)
+        {
+            return;
+        }
+
+        if (IsSessionOpen)
+        {
+            OnCotationPeriodChanged();
+            return;
+        }
+
         NotifySummary();
         _ = ReloadSavedEvaluationsAsync();
         _ = TryAutoLoadStudentsAsync();
@@ -389,15 +418,33 @@ public partial class GradesViewModel : ViewModelBase
 
 
 
-    partial void OnSelectedPedagogicalClassChanged(PedagogicalClassDto? value) =>
+    partial void OnSelectedPedagogicalClassChanged(PedagogicalClassDto? value)
+    {
+        if (_suppressCascade || IsSessionOpen)
+        {
+            return;
+        }
 
         _ = ReloadLocalsAndCoursesAsync();
+    }
 
 
 
-    partial void OnSelectedLocalChanged(ClassLocalDto? value) =>
+    partial void OnSelectedLocalChanged(ClassLocalDto? value)
+    {
+        if (_suppressCascade)
+        {
+            return;
+        }
+
+        if (IsSessionOpen)
+        {
+            _ = OnCotationClassChangedAsync();
+            return;
+        }
 
         _ = HandleSelectedLocalChangedAsync();
+    }
 
 
 
@@ -414,6 +461,16 @@ public partial class GradesViewModel : ViewModelBase
     partial void OnSelectedCourseChanged(CourseConfigurationItemDto? value)
 
     {
+        if (_suppressCascade)
+        {
+            return;
+        }
+
+        if (IsSessionOpen)
+        {
+            OnCotationCourseChanged();
+            return;
+        }
 
         TeacherDisplayName = value?.TeacherName ?? "—";
 
@@ -443,6 +500,17 @@ public partial class GradesViewModel : ViewModelBase
 
     partial void OnSelectedEvaluationTypeChanged(EvaluationTypeDto? value)
     {
+        if (_suppressCascade)
+        {
+            return;
+        }
+
+        if (IsSessionOpen)
+        {
+            OnCotationEvaluationTypeChanged();
+            return;
+        }
+
         NotifySummary();
         if (!_isApplyingSavedEvaluation)
         {
@@ -587,6 +655,7 @@ public partial class GradesViewModel : ViewModelBase
         OnPropertyChanged(nameof(SummaryCoefficientLabel));
 
         OnPropertyChanged(nameof(SummaryStudentCountLabel));
+        OnPropertyChanged(nameof(SummarySectionName));
 
     }
 
@@ -621,6 +690,7 @@ public partial class GradesViewModel : ViewModelBase
         StatMinScore = scored.Count == 0 ? null : scored.Min();
 
         NotifySummary();
+        NotifyBanner();
 
     }
 
@@ -662,6 +732,8 @@ public partial class GradesViewModel : ViewModelBase
 
         && CanLoadStudentsWithGrades()
 
+        && HasActivePeriod
+
         && CurrentEvaluation?.IsOpen != false;
 
 
@@ -677,47 +749,32 @@ public partial class GradesViewModel : ViewModelBase
         try
 
         {
-
-            Lookups = await _schoolApiService.GetLookupsAsync();
-
-            var types = await _gradeApiService.GetEvaluationTypesAsync();
-
-            EvaluationTypes.Clear();
-
-            foreach (var type in types)
-
+            var years = await _schoolApiService.GetAcademicYearsAsync();
+            SessionYears.Clear();
+            foreach (var year in years.OrderByDescending(y => y.Label))
             {
-
-                EvaluationTypes.Add(type);
-
+                SessionYears.Add(year);
             }
 
+            SessionYear = AcademicYearRefreshBridge.SelectedYear
+                ?? SessionYears.FirstOrDefault(y => y.IsCurrent)
+                ?? SessionYears.FirstOrDefault();
+            SelectedYear = SessionYear;
 
+            IsSessionOpen = false;
+            IsEvaluationManagerOpen = false;
+            IsGradeGridOpen = false;
+            ApplyConnectedUserIdentity();
 
-            var classes = await _schoolApiService.GetPedagogicalClassesAsync();
-
-            PedagogicalClasses.Clear();
-
-            foreach (var pedagogicalClass in classes.Where(c => c.IsEnabled).OrderBy(c => c.LevelOrder))
-
+            if (IsTeacherIdentityLocked)
             {
-
-                PedagogicalClasses.Add(pedagogicalClass);
-
+                StatusMessage = null;
+                await OpenCotationSessionAsync();
             }
-
-
-
-            SelectedEvaluationType = EvaluationTypes.FirstOrDefault(t => t.Code == "INTERRO") ?? EvaluationTypes.FirstOrDefault();
-
-            SelectedYear = Lookups.AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? Lookups.AcademicYears.FirstOrDefault();
-
-            SelectedPeriod = FilteredPeriods.FirstOrDefault();
-
-            SelectedPedagogicalClass = PedagogicalClasses.FirstOrDefault();
-
-            await ReloadLocalsAndCoursesAsync();
-
+            else
+            {
+                StatusMessage = "Identifiez l'enseignant pour accéder à la cotation.";
+            }
         }
 
         catch (Exception ex)
@@ -1348,11 +1405,7 @@ public partial class GradesViewModel : ViewModelBase
 
             e.CourseId == SelectedCourse!.CourseId
 
-            && e.EvaluationTypeId == SelectedEvaluationType!.Id
-
-            && e.EvaluationDate == date
-
-            && string.Equals(e.Title, EvaluationTitle.Trim(), StringComparison.OrdinalIgnoreCase));
+            && e.EvaluationTypeId == SelectedEvaluationType!.Id);
 
 
 
@@ -1360,6 +1413,10 @@ public partial class GradesViewModel : ViewModelBase
 
         {
 
+            EvaluationTitle = existing.Title;
+            EvaluationCoefficient = existing.Weight;
+            EvaluationMaxScore = existing.MaxScore;
+            EvaluationDate = existing.EvaluationDate.ToDateTime(TimeOnly.MinValue);
             return existing;
 
         }

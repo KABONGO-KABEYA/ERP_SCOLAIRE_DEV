@@ -166,10 +166,32 @@ public class AcademicPeriodConfiguration : AuditableEntityConfiguration<Academic
     {
         base.Configure(builder);
         builder.ToTable("AcademicPeriods");
-        builder.Property(p => p.Name).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.Name).HasMaxLength(80).IsRequired();
+        builder.Property(p => p.StartDate).IsRequired(false);
+        builder.Property(p => p.EndDate).IsRequired(false);
         builder.Property(p => p.PeriodType).HasConversion<int>();
+        builder.Property(p => p.Kind).HasConversion<int>();
+        builder.Property(p => p.Status).HasConversion<int>();
+        builder.Property(p => p.MaxScore).HasDefaultValue(20);
         builder.HasOne(p => p.AcademicYear).WithMany(y => y.Periods).HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasIndex(p => new { p.AcademicYearId, p.OrderIndex }).IsUnique();
+        builder.HasOne(p => p.MainPeriod).WithMany(m => m.SubPeriods).HasForeignKey(p => p.MainPeriodId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => new { p.AcademicYearId, p.MainPeriodId, p.OrderIndex });
+        builder.HasIndex(p => new { p.AcademicYearId, p.Status });
+    }
+}
+
+public class AcademicMainPeriodConfiguration : AuditableEntityConfiguration<AcademicMainPeriod>
+{
+    public override void Configure(EntityTypeBuilder<AcademicMainPeriod> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("AcademicMainPeriods");
+        builder.Property(p => p.Name).HasMaxLength(80).IsRequired();
+        builder.Property(p => p.PeriodType).HasConversion<int>();
+        builder.Property(p => p.CycleGroup).HasConversion<int>();
+        builder.HasOne(p => p.School).WithMany().HasForeignKey(p => p.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(p => p.AcademicYear).WithMany(y => y.MainPeriods).HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(p => new { p.AcademicYearId, p.CycleGroup, p.OrderIndex }).IsUnique();
     }
 }
 

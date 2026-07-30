@@ -3,6 +3,7 @@ namespace SchoolManagement.Application.EnrollmentWizard.Services;
 using SchoolManagement.Application.EnrollmentWizard;
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
+using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Grades;
@@ -171,10 +172,18 @@ public sealed partial class EnrollmentWizardService
             request.ResidenceAddress,
             cancellationToken);
 
-        var parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
-            schoolId,
-            linkedGuardians,
-            cancellationToken);
+        IReadOnlyList<ParentAppAccessCredentialDto> parentAccessAccounts = [];
+        try
+        {
+            parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
+                schoolId,
+                linkedGuardians,
+                cancellationToken);
+        }
+        catch
+        {
+            // L'accès parent est secondaire : la mise à jour du dossier doit aboutir.
+        }
 
         enrollment.ClassRoomId = request.Scolarite.ClassRoomId;
         enrollment.EnrollmentDate = request.Scolarite.EnrollmentDate;
@@ -204,6 +213,12 @@ public sealed partial class EnrollmentWizardService
         var ficheMessage = string.Empty;
         try
         {
+            _studentDossierStorage.EnsureStudentFolder(
+                student.LastName,
+                student.FirstName,
+                student.RegistrationNumber,
+                prerequisites.CurrentAcademicYearLabel ?? enrollment.AcademicYearId.ToString());
+
             await _enrollmentFormService.SaveToStudentDossierAsync(
                 schoolId,
                 enrollment.Id,
@@ -211,9 +226,9 @@ public sealed partial class EnrollmentWizardService
                 cancellationToken);
             ficheMessage = " Fiche d'inscription (PDF) régénérée dans le dossier élève.";
         }
-        catch
+        catch (Exception ex)
         {
-            ficheMessage = " Fiche d'inscription (PDF) non régénérée (dossier partagé indisponible).";
+            ficheMessage = $" Fiche d'inscription (PDF) non régénérée : {ex.Message}";
         }
 
         return new UpdateStudentDossierResultDto(

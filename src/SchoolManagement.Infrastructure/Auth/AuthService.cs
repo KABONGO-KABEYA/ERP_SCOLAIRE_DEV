@@ -169,6 +169,7 @@ public sealed class AuthService : IAuthService
             user.Email,
             $"{user.FirstName} {user.LastName}",
             user.MustChangePassword,
+            user.TeacherId,
             roles,
             permissions);
     }

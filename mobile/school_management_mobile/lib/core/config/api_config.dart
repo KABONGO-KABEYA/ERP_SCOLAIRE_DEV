@@ -13,7 +13,7 @@ abstract final class ApiConfig {
   /// API locale principale (réseau établissement). Émulateur Android → 10.0.2.2.
   static const String localBaseUrl = String.fromEnvironment(
     'LOCAL_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5041',
+    defaultValue: 'http://10.0.2.2:5096',
   );
 
   /// Liste optionnelle d'URL locales séparées par des virgules
@@ -35,7 +35,7 @@ abstract final class ApiConfig {
     defaultValue: '',
   );
 
-  static const String _fallbackLocal = 'http://10.0.2.2:5041';
+  static const String _fallbackLocal = 'http://10.0.2.2:5096';
 
   static String get effectiveLocalBaseUrl {
     final legacy = _legacyBaseUrl.trim();

@@ -49,15 +49,23 @@ git merge origin/feature/notes
 | Couche | Emplacement | Rôle |
 |--------|-------------|------|
 | Domaine | `src/SchoolManagement.Domain/Entities/Grades/` | `Evaluation`, `GradeEntry`, résultats de période |
-| Application | `src/SchoolManagement.Application/Grades/` | DTOs, `IGradeService`, `GradeService` |
-| API | `src/SchoolManagement.API/Controllers/GradesController.cs` | CRUD évaluations / notes / moyennes |
-| Desktop | `src/SchoolManagement.Desktop/Views/GradesView.xaml` | Écran gestion des notes |
+| Application | `src/SchoolManagement.Application/Grades/` | DTOs, `IGradeService`, `GradeService` (+ session cotation) |
+| API | `src/SchoolManagement.API/Controllers/GradesController.cs` | CRUD + `POST cotation/session` + `GET cotation/periods` |
+| Desktop | `src/SchoolManagement.Desktop/Views/GradesView.xaml` | Identification enseignant → classes/cours filtrés |
 | Mobile enseignant | `TeacherController` + app Flutter | Affectations, classes, périodes |
 | Mobile parent | `ParentController` bulletins | Consultation bulletins |
 | Permissions | `grades.read`, `grades.create`, `grades.update` | Voir `Permissions.cs` |
 | API doc | `docs/api-reference.md` § Notes | Routes `/api/v1/grades/...` |
 
-**Ne pas recréer** ces bases : étendre, corriger, compléter l’UI et les règles métier.
+### Flux Desktop actuel (RDC)
+
+1. Panneau d'identification : année + enseignant (lié au compte connecté pour les enseignants).
+2. Chargement automatique des affectations (`CourseAssignment`) selon la portée.
+3. Paramètres : **Classe → période active (ouverte par l'admin) → Type d'évaluation → Cours**.
+4. Anti-doublon : même année/classe/cours/période/type rouvre l'évaluation existante ; examen = 1 seule évaluation/cours.
+5. Grille + stats + export Excel conservés.
+
+**Moteur de périodes :** module Desktop « Périodes pédagogiques » (`AcademicMainPeriod` + `AcademicPeriod` enrichi). L'admin ouvre/clôture/verrouille ; Cotation n'offre plus le choix libre de période.
 
 ---
 

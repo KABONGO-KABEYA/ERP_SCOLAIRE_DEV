@@ -57,6 +57,8 @@ public class AcademicYear : AuditableEntity, IAggregateRoot
 
     public ICollection<AcademicPeriod> Periods { get; set; } = [];
 
+    public ICollection<AcademicMainPeriod> MainPeriods { get; set; } = [];
+
     public ICollection<ClassRoom> ClassRooms { get; set; } = [];
 }
 
@@ -256,9 +258,16 @@ public class MaximaParPeriode : AuditableEntity, IAggregateRoot
     public AcademicPeriod AcademicPeriod { get; set; } = null!;
 }
 
-public class AcademicPeriod : AuditableEntity, IAggregateRoot
+/// <summary>
+/// Période pédagogique majeure (trimestre ou semestre) pour une année et un cycle.
+/// </summary>
+public class AcademicMainPeriod : AuditableEntity, IAggregateRoot
 {
+    public Guid SchoolId { get; set; }
+
     public Guid AcademicYearId { get; set; }
+
+    public PedagogicalCycleGroup CycleGroup { get; set; }
 
     public string Name { get; set; } = string.Empty;
 
@@ -266,13 +275,57 @@ public class AcademicPeriod : AuditableEntity, IAggregateRoot
 
     public int OrderIndex { get; set; }
 
-    public DateOnly StartDate { get; set; }
-
-    public DateOnly EndDate { get; set; }
-
-    public bool IsClosed { get; set; }
+    public School School { get; set; } = null!;
 
     public AcademicYear AcademicYear { get; set; } = null!;
+
+    public ICollection<AcademicPeriod> SubPeriods { get; set; } = [];
+}
+
+/// <summary>
+/// Sous-période opérationnelle (1ère période, examen…). Réutilise la table AcademicPeriods
+/// pour conserver les FK Evaluation / PeriodResult / Maxima sans rupture d'API.
+/// </summary>
+public class AcademicPeriod : AuditableEntity, IAggregateRoot
+{
+    public Guid AcademicYearId { get; set; }
+
+    public Guid? MainPeriodId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public AcademicPeriodType PeriodType { get; set; }
+
+    public int OrderIndex { get; set; }
+
+    /// <summary>Null tant que l'administrateur n'a pas renseigné le calendrier.</summary>
+    public DateOnly? StartDate { get; set; }
+
+    /// <summary>Null tant que l'administrateur n'a pas renseigné le calendrier.</summary>
+    public DateOnly? EndDate { get; set; }
+
+    /// <summary>Compatibilité legacy — true si Clôturée ou Verrouillée.</summary>
+    public bool IsClosed { get; set; }
+
+    public AcademicSubPeriodKind Kind { get; set; } = AcademicSubPeriodKind.Travail;
+
+    public AcademicSubPeriodStatus Status { get; set; } = AcademicSubPeriodStatus.AVenir;
+
+    /// <summary>Maximum de points de la sous-période (paramétrable).</summary>
+    public int MaxScore { get; set; } = 20;
+
+    /// <summary>Null = illimité (travaux). Examen = typiquement 1.</summary>
+    public int? MaxEvaluationCount { get; set; }
+
+    public DateTime? OpenedAt { get; set; }
+
+    public DateOnly? PlannedCloseDate { get; set; }
+
+    public DateTime? ClosedAt { get; set; }
+
+    public AcademicYear AcademicYear { get; set; } = null!;
+
+    public AcademicMainPeriod? MainPeriod { get; set; }
 }
 
 public class FeeType : AuditableEntity, IAggregateRoot

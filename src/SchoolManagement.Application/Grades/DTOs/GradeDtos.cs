@@ -24,7 +24,9 @@ public sealed record EvaluationDto(
     int MaxScore,
     DateOnly EvaluationDate,
     bool IsOpen,
-    bool IsPublished);
+    bool IsPublished,
+    int GradedCount = 0,
+    int StudentCount = 0);
 
 public sealed record CreateEvaluationRequest(
     Guid AcademicYearId,
@@ -36,6 +38,10 @@ public sealed record CreateEvaluationRequest(
     string Title,
     decimal Weight,
     int MaxScore,
+    DateOnly EvaluationDate);
+
+public sealed record UpdateEvaluationRequest(
+    string Title,
     DateOnly EvaluationDate);
 
 public sealed record GradeEntryDto(

@@ -249,7 +249,11 @@ public sealed class ApiClient : IApiClient
         try
         {
             var client = _httpClientFactory.CreateClient("SchoolApi");
-            var response = await client.GetAsync("api/v1/health", cancellationToken);
+            var response = await client.GetAsync("api/health", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                response = await client.GetAsync("api/v1/health", cancellationToken);
+            }
             return response.IsSuccessStatusCode;
         }
         catch
@@ -1323,6 +1327,20 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
         GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationTypeDto>>(
             "api/v1/grades/evaluation-types", cancellationToken);
 
+    public Task<SchoolManagement.Application.Grades.DTOs.CotationSessionDto> OpenCotationSessionAsync(
+        SchoolManagement.Application.Grades.DTOs.OpenCotationSessionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Grades.DTOs.CotationSessionDto>(
+            "api/v1/grades/cotation/session", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationPeriodDto>> GetCotationPeriodsAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationPeriodDto>>(
+            $"api/v1/grades/cotation/periods?academicYearId={academicYearId}&classRoomId={classRoomId}",
+            cancellationToken);
+
     public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>>(
@@ -1332,6 +1350,20 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
         SchoolManagement.Application.Grades.DTOs.CreateEvaluationRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<SchoolManagement.Application.Grades.DTOs.EvaluationDto>("api/v1/grades/evaluations", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.EvaluationDto> UpdateEvaluationAsync(
+        Guid evaluationId,
+        SchoolManagement.Application.Grades.DTOs.UpdateEvaluationRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Grades.DTOs.EvaluationDto>(
+            $"api/v1/grades/evaluations/{evaluationId}",
+            request,
+            cancellationToken);
+
+    public Task DeleteEvaluationAsync(
+        Guid evaluationId,
+        CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/grades/evaluations/{evaluationId}", cancellationToken);
 
     public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>> CalculateResultsAsync(
         SchoolManagement.Application.Grades.DTOs.CalculatePeriodResultsRequest request,
@@ -1357,6 +1389,81 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
         SchoolManagement.Application.Grades.DTOs.SubmitGradesRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<object>("api/v1/grades/entries", request, cancellationToken);
+}
+
+public sealed class PedagogicalPeriodApiService : ApiServiceBase, IPedagogicalPeriodApiService
+{
+    public PedagogicalPeriodApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> GetStructureAsync(
+        Guid academicYearId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto>(
+            $"api/v1/pedagogical-periods/structure?academicYearId={academicYearId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> CreateStructureAsync(
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.CreatePedagogicalStructureRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto>(
+            "api/v1/pedagogical-periods/structure", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> ProposeDatesAsync(
+        Guid academicYearId,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto>(
+            $"api/v1/pedagogical-periods/structure/propose-dates?academicYearId={academicYearId}",
+            new { },
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> OpenSubPeriodAsync(
+        Guid subPeriodId,
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.OpenSubPeriodRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto>(
+            $"api/v1/pedagogical-periods/sub-periods/{subPeriodId}/open",
+            request,
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> CloseSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto>(
+            $"api/v1/pedagogical-periods/sub-periods/{subPeriodId}/close",
+            new { },
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> LockSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto>(
+            $"api/v1/pedagogical-periods/sub-periods/{subPeriodId}/lock",
+            new { },
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> UnlockSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto>(
+            $"api/v1/pedagogical-periods/sub-periods/{subPeriodId}/unlock",
+            new { },
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> UpdateSettingsAsync(
+        Guid subPeriodId,
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.UpdateSubPeriodSettingsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto>(
+            $"api/v1/pedagogical-periods/sub-periods/{subPeriodId}/settings",
+            request,
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.ActiveSubPeriodDto?> GetActiveAsync(
+        Guid academicYearId,
+        SchoolManagement.Domain.Enums.PedagogicalCycleGroup cycleGroup,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.PedagogicalPeriods.DTOs.ActiveSubPeriodDto?>(
+            $"api/v1/pedagogical-periods/active?academicYearId={academicYearId}&cycleGroup={(int)cycleGroup}",
+            cancellationToken);
 }
 
 public sealed class AcademicApiService : ApiServiceBase, IAcademicApiService

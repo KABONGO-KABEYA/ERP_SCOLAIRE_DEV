@@ -8,6 +8,7 @@ using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Updates;
 using SchoolManagement.Desktop.ViewModels;
 using SchoolManagement.Desktop.Views;
+using SchoolManagement.LocalServerDiscovery;
 using Serilog;
 
 namespace SchoolManagement.Desktop;
@@ -111,7 +112,15 @@ public partial class App : System.Windows.Application
 
     private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
-        var apiBaseUrl = configuration["Api:BaseUrl"] ?? "http://localhost:5041/";
+        var configuredBaseUrl = configuration["Api:BaseUrl"] ?? $"http://localhost:{DiscoveryConstants.ApiPort}/";
+        var remoteBaseUrl = configuration["Api:RemoteBaseUrl"] ?? DiscoveryConstants.DefaultRemoteBaseUrl;
+
+        services.AddLocalServerDiscovery(options =>
+        {
+            options.RemoteBaseUrl = remoteBaseUrl;
+            options.EnableSubnetScan = true;
+            options.EnableBackgroundRecheck = true;
+        });
 
         services.AddSingleton<IAuthSessionService, AuthSessionService>();
         services.AddSingleton<INavigationService, NavigationService>();
@@ -121,6 +130,10 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IDocumentBrandingPathResolver, DocumentBrandingPathResolver>();
         services.AddSingleton<IApiClient, ApiClient>();
         services.AddTransient<AuthDelegatingHandler>();
+        services.AddTransient<DiscoveryBaseAddressHandler>(sp =>
+            new DiscoveryBaseAddressHandler(
+                sp.GetRequiredService<ILocalServerDiscovery>(),
+                configuredBaseUrl));
         services.AddTransient<AuthApiService>();
         services.AddTransient<ISchoolApiService, SchoolApiService>();
         services.AddTransient<IEnrollmentWizardApiService, EnrollmentWizardApiService>();
@@ -139,6 +152,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<ICloudSyncApiService, CloudSyncApiService>();
         services.AddTransient<IFinanceApiService, FinanceApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
+        services.AddTransient<IPedagogicalPeriodApiService, PedagogicalPeriodApiService>();
         services.AddTransient<IAcademicApiService, AcademicApiService>();
         services.AddTransient<IDocumentApiService, DocumentApiService>();
         services.AddTransient<IDocumentBrandingApiService, DocumentBrandingApiService>();
@@ -153,18 +167,21 @@ public partial class App : System.Windows.Application
 
         services.AddHttpClient("SchoolApi", client =>
         {
-            client.BaseAddress = new Uri(apiBaseUrl);
+            client.BaseAddress = new Uri(DiscoveryConstants.PlaceholderBaseUrl);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        })
+        .AddHttpMessageHandler<DiscoveryBaseAddressHandler>()
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
         services.AddHttpClient("SchoolApiAuth", client =>
         {
-            client.BaseAddress = new Uri(apiBaseUrl);
+            client.BaseAddress = new Uri(DiscoveryConstants.PlaceholderBaseUrl);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         })
+        .AddHttpMessageHandler<DiscoveryBaseAddressHandler>()
         .AddHttpMessageHandler<AuthDelegatingHandler>()
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
@@ -201,6 +218,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<ExpensePaymentsViewModel>();
         services.AddTransient<FinanceHubViewModel>();
         services.AddTransient<GradesViewModel>();
+        services.AddTransient<PedagogicalPeriodsViewModel>();
         services.AddTransient<AcademicViewModel>();
         services.AddTransient<DocumentsViewModel>();
         services.AddTransient<StatisticsViewModel>();

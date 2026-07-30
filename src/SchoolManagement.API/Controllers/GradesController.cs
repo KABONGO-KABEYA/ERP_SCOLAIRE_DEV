@@ -22,6 +22,31 @@ public class GradesController : ControllerBase
         _currentUser = currentUser;
     }
 
+    [HttpPost("cotation/session")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(ApiResponse<CotationSessionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> OpenCotationSession(
+        [FromBody] OpenCotationSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var session = await _gradeService.OpenCotationSessionAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<CotationSessionDto>.Ok(session, "Session de cotation ouverte."));
+    }
+
+    [HttpGet("cotation/periods")]
+    [Authorize(Policy = Permissions.GradesRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CotationPeriodDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCotationPeriods(
+        [FromQuery] Guid academicYearId,
+        [FromQuery] Guid classRoomId,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var periods = await _gradeService.GetCotationPeriodsAsync(schoolId, academicYearId, classRoomId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<CotationPeriodDto>>.Ok(periods));
+    }
+
     [HttpGet("evaluation-types")]
     [Authorize(Policy = Permissions.GradesRead)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<EvaluationTypeDto>>), StatusCodes.Status200OK)]
@@ -40,6 +65,29 @@ public class GradesController : ControllerBase
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         var evaluation = await _gradeService.CreateEvaluationAsync(schoolId, request, cancellationToken);
         return Created(string.Empty, ApiResponse<EvaluationDto>.Ok(evaluation, "Évaluation créée."));
+    }
+
+    [HttpPut("evaluations/{evaluationId:guid}")]
+    [Authorize(Policy = Permissions.GradesUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<EvaluationDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateEvaluation(
+        Guid evaluationId,
+        [FromBody] UpdateEvaluationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var evaluation = await _gradeService.UpdateEvaluationAsync(schoolId, evaluationId, request, cancellationToken);
+        return Ok(ApiResponse<EvaluationDto>.Ok(evaluation, "Évaluation mise à jour."));
+    }
+
+    [HttpDelete("evaluations/{evaluationId:guid}")]
+    [Authorize(Policy = Permissions.GradesUpdate)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteEvaluation(Guid evaluationId, CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _gradeService.DeleteEvaluationAsync(schoolId, evaluationId, cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { }, "Évaluation supprimée."));
     }
 
     [HttpGet("evaluations")]

@@ -48,6 +48,8 @@ using SchoolManagement.Application.SchoolFees.Services;
 using SchoolManagement.Application.Students.Interfaces;
 using SchoolManagement.Application.Students.Services;
 using SchoolManagement.Application.CourseConfiguration.Interfaces;
+using SchoolManagement.Application.PedagogicalPeriods.Interfaces;
+using SchoolManagement.Application.PedagogicalPeriods.Services;
 using SchoolManagement.Application.CourseConfiguration.Services;
 using System.Reflection;
 
@@ -81,6 +83,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<ICourseConfigurationService, CourseConfigurationService>();
         services.AddScoped<IStudentFeeBalanceProvisioner, StudentFeeBalanceProvisioner>();
         services.AddScoped<IGradeService, GradeService>();
+        services.AddScoped<IPedagogicalPeriodService, PedagogicalPeriodService>();
         services.AddScoped<IParentService, ParentService>();
         services.AddScoped<IParentAccessProvisioningService, ParentAccessProvisioningService>();
         services.AddScoped<IAcademicService, AcademicService>();

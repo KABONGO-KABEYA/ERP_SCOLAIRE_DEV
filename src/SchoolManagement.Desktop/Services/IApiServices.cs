@@ -434,11 +434,29 @@ public interface IGradeApiService
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationTypeDto>> GetEvaluationTypesAsync(
         CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Grades.DTOs.CotationSessionDto> OpenCotationSessionAsync(
+        SchoolManagement.Application.Grades.DTOs.OpenCotationSessionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationPeriodDto>> GetCotationPeriodsAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.Grades.DTOs.EvaluationDto> CreateEvaluationAsync(
         SchoolManagement.Application.Grades.DTOs.CreateEvaluationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.EvaluationDto> UpdateEvaluationAsync(
+        Guid evaluationId,
+        SchoolManagement.Application.Grades.DTOs.UpdateEvaluationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteEvaluationAsync(
+        Guid evaluationId,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.PeriodResultDto>> CalculateResultsAsync(
@@ -456,6 +474,48 @@ public interface IGradeApiService
 
     Task SubmitGradesAsync(
         SchoolManagement.Application.Grades.DTOs.SubmitGradesRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IPedagogicalPeriodApiService
+{
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> GetStructureAsync(
+        Guid academicYearId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> CreateStructureAsync(
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.CreatePedagogicalStructureRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalPeriodStructureDto> ProposeDatesAsync(
+        Guid academicYearId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> OpenSubPeriodAsync(
+        Guid subPeriodId,
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.OpenSubPeriodRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> CloseSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> LockSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> UnlockSubPeriodAsync(
+        Guid subPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.PedagogicalSubPeriodDto> UpdateSettingsAsync(
+        Guid subPeriodId,
+        SchoolManagement.Application.PedagogicalPeriods.DTOs.UpdateSubPeriodSettingsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.PedagogicalPeriods.DTOs.ActiveSubPeriodDto?> GetActiveAsync(
+        Guid academicYearId,
+        SchoolManagement.Domain.Enums.PedagogicalCycleGroup cycleGroup,
         CancellationToken cancellationToken = default);
 }
 

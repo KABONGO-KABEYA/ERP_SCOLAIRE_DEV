@@ -153,6 +153,12 @@ public class GradeServiceTests
             enrollmentRepository,
             courseAssignmentRepository,
             evaluationTypeRepository,
+            Substitute.For<IRepository<Teacher>>(),
+            Substitute.For<IRepository<Section>>(),
+            Substitute.For<IRepository<AcademicPeriod>>(),
+            Substitute.For<IRepository<SchoolManagement.Domain.Entities.Security.UserAccount>>(),
+            Substitute.For<SchoolManagement.Application.Auth.Interfaces.IPasswordHasher>(),
+            Substitute.For<ICurrentUserService>(),
             unitOfWork);
 
         var results = await service.CalculatePeriodResultsAsync(

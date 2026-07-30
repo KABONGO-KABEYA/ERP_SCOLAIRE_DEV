@@ -675,10 +675,21 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             request.ResidenceAddress,
             cancellationToken);
 
-        var parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
-            schoolId,
-            linkedGuardians,
-            cancellationToken);
+        // Ne jamais bloquer l'inscription si la création des comptes parents échoue.
+        IReadOnlyList<ParentAppAccessCredentialDto> parentAccessAccounts = [];
+        string parentAccessWarning = string.Empty;
+        try
+        {
+            parentAccessAccounts = await _parentAccessProvisioning.EnsureAccessForGuardiansAsync(
+                schoolId,
+                linkedGuardians,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            parentAccessWarning =
+                $" Accès parent non créé automatiquement ({ex.Message}). L'inscription élève est tout de même enregistrée.";
+        }
 
         var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
         var generalCategory = await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
@@ -773,6 +784,20 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var yearLabel = prerequisites.CurrentAcademicYearLabel ?? academicYearId.ToString();
+        try
+        {
+            _studentDossierStorage.EnsureStudentFolder(
+                student.LastName,
+                student.FirstName,
+                student.RegistrationNumber,
+                yearLabel);
+        }
+        catch
+        {
+            // La fiche tentera aussi de créer le dossier ; on conserve l'erreur détaillée ci-dessous.
+        }
+
         var ficheMessage = string.Empty;
         try
         {
@@ -783,9 +808,9 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
                 cancellationToken);
             ficheMessage = " Fiche d'inscription (PDF) enregistrée dans le dossier élève.";
         }
-        catch
+        catch (Exception ex)
         {
-            ficheMessage = " Fiche d'inscription (PDF) non enregistrée (dossier partagé indisponible).";
+            ficheMessage = $" Fiche d'inscription (PDF) non enregistrée : {ex.Message}";
         }
 
         var className = classRoom.PedagogicalClassId.HasValue
@@ -797,7 +822,9 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             ? $"Inscription validée. Dossier financier initialisé (dû {totalDue:N2} {currency})."
             : "Inscription validée. Aucun tarif applicable pour cette classe — configurez les frais scolaires (catégorie GENERAL) pour cette classe.";
 
-        var parentAccessMessage = BuildParentAccessMessage(parentAccessAccounts);
+        var parentAccessMessage = string.IsNullOrEmpty(parentAccessWarning)
+            ? BuildParentAccessMessage(parentAccessAccounts)
+            : parentAccessWarning;
 
         return new CompleteEnrollmentResultDto(
             student.Id,

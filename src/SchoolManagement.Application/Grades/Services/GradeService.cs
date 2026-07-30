@@ -12,11 +12,15 @@ using SchoolManagement.Application.Grades.Interfaces;
 
 using SchoolManagement.Application.Schools;
 
+using SchoolManagement.Application.Auth.Interfaces;
+
 using SchoolManagement.Domain.Entities.Academic;
 
 using SchoolManagement.Domain.Entities.Grades;
 
 using SchoolManagement.Domain.Entities.Settings;
+
+using SchoolManagement.Domain.Entities.Security;
 
 using SchoolManagement.Domain.Entities.Students;
 
@@ -24,9 +28,11 @@ using SchoolManagement.Domain.Enums;
 
 using SchoolManagement.Domain.Exceptions;
 
+using SchoolManagement.Shared.Constants;
 
 
-public sealed class GradeService : IGradeService
+
+public sealed partial class GradeService : IGradeService
 
 {
 
@@ -53,6 +59,18 @@ public sealed class GradeService : IGradeService
     private readonly IRepository<CourseAssignment> _courseAssignmentRepository;
 
     private readonly IRepository<EvaluationTypeDefinition> _evaluationTypeRepository;
+
+    private readonly IRepository<Teacher> _teacherRepository;
+
+    private readonly IRepository<Section> _sectionRepository;
+
+    private readonly IRepository<AcademicPeriod> _periodRepository;
+
+    private readonly IRepository<UserAccount> _userRepository;
+
+    private readonly IPasswordHasher _passwordHasher;
+
+    private readonly ICurrentUserService _currentUser;
 
     private readonly IUnitOfWork _unitOfWork;
 
@@ -84,6 +102,18 @@ public sealed class GradeService : IGradeService
 
         IRepository<EvaluationTypeDefinition> evaluationTypeRepository,
 
+        IRepository<Teacher> teacherRepository,
+
+        IRepository<Section> sectionRepository,
+
+        IRepository<AcademicPeriod> periodRepository,
+
+        IRepository<UserAccount> userRepository,
+
+        IPasswordHasher passwordHasher,
+
+        ICurrentUserService currentUser,
+
         IUnitOfWork unitOfWork)
 
     {
@@ -111,6 +141,18 @@ public sealed class GradeService : IGradeService
         _courseAssignmentRepository = courseAssignmentRepository;
 
         _evaluationTypeRepository = evaluationTypeRepository;
+
+        _teacherRepository = teacherRepository;
+
+        _sectionRepository = sectionRepository;
+
+        _periodRepository = periodRepository;
+
+        _userRepository = userRepository;
+
+        _passwordHasher = passwordHasher;
+
+        _currentUser = currentUser;
 
         _unitOfWork = unitOfWork;
 
@@ -210,6 +252,80 @@ public sealed class GradeService : IGradeService
 
 
 
+        // Moteur pédagogique : rattachement automatique à la période ouverte via la date.
+        var period = (await _periodRepository.FindAsync(
+            p => p.Id == request.AcademicPeriodId,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Sous-période introuvable.");
+
+        if (period.MainPeriodId.HasValue)
+        {
+            if (period.Status != AcademicSubPeriodStatus.Ouverte)
+            {
+                throw new DomainException(
+                    $"La sous-période « {period.Name} » n'est pas ouverte. Saisie impossible.");
+            }
+
+            if (period.StartDate is null || period.EndDate is null)
+            {
+                throw new DomainException(
+                    $"La sous-période « {period.Name} » n'a pas de dates renseignées. Saisie impossible.");
+            }
+
+            if (request.EvaluationDate < period.StartDate.Value || request.EvaluationDate > period.EndDate.Value)
+            {
+                throw new DomainException(
+                    $"La date de l'évaluation ({request.EvaluationDate:dd/MM/yyyy}) doit appartenir " +
+                    $"à la période ouverte « {period.Name} » " +
+                    $"({period.StartDate:dd/MM/yyyy} → {period.EndDate:dd/MM/yyyy}).");
+            }
+
+            if (period.Kind == AcademicSubPeriodKind.Examen)
+            {
+                var examExisting = (await _evaluationRepository.FindAsync(
+                    e => e.AcademicYearId == request.AcademicYearId
+                         && e.ClassRoomId == request.ClassRoomId
+                         && e.CourseId == request.CourseId
+                         && e.AcademicPeriodId == period.Id,
+                    cancellationToken)).FirstOrDefault();
+                if (examExisting is not null)
+                {
+                    return MapEvaluation(examExisting, course.Name, classRoom.Name, evaluationType.Name);
+                }
+            }
+            else if (period.MaxEvaluationCount is int maxCount && maxCount > 0)
+            {
+                var count = (await _evaluationRepository.FindAsync(
+                    e => e.AcademicYearId == request.AcademicYearId
+                         && e.ClassRoomId == request.ClassRoomId
+                         && e.CourseId == request.CourseId
+                         && e.AcademicPeriodId == period.Id,
+                    cancellationToken)).Count;
+                if (count >= maxCount)
+                {
+                    throw new DomainException(
+                        $"Nombre maximal d'évaluations atteint pour « {period.Name} » ({maxCount}).");
+                }
+            }
+        }
+
+        var resolvedPeriodId = period.Id;
+        var normalizedTitle = request.Title.Trim();
+
+        var existingEvaluation = (await _evaluationRepository.FindAsync(
+            e => e.AcademicYearId == request.AcademicYearId
+                 && e.ClassRoomId == request.ClassRoomId
+                 && e.CourseId == request.CourseId
+                 && e.AcademicPeriodId == resolvedPeriodId
+                 && e.EvaluationTypeId == request.EvaluationTypeId,
+            cancellationToken))
+            .FirstOrDefault(e => string.Equals(e.Title.Trim(), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+
+        if (existingEvaluation is not null)
+        {
+            return MapEvaluation(existingEvaluation, course.Name, classRoom.Name, evaluationType.Name);
+        }
+
         var courseAssignment = (await _courseAssignmentRepository.FindAsync(
 
             a => a.CourseId == request.CourseId
@@ -256,7 +372,7 @@ public sealed class GradeService : IGradeService
 
             AcademicYearId = request.AcademicYearId,
 
-            AcademicPeriodId = request.AcademicPeriodId,
+            AcademicPeriodId = resolvedPeriodId,
 
             CourseAssignmentId = courseAssignment.Id,
 
@@ -266,11 +382,11 @@ public sealed class GradeService : IGradeService
 
             ClassRoomId = request.ClassRoomId,
 
-            Title = request.Title,
+            Title = normalizedTitle,
 
             Weight = request.Weight,
 
-            MaxScore = request.MaxScore,
+            MaxScore = request.MaxScore > 0 ? request.MaxScore : period.MaxScore,
 
             EvaluationDate = request.EvaluationDate,
 
@@ -348,25 +464,208 @@ public sealed class GradeService : IGradeService
 
         var typeMap = types.ToDictionary(t => t.Id);
 
+        var evaluationIds = evaluations.Select(e => e.Id).ToList();
+        var gradeCounts = evaluationIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : (await _gradeRepository.FindAsync(g => evaluationIds.Contains(g.EvaluationId), cancellationToken))
+                .GroupBy(g => g.EvaluationId)
+                .ToDictionary(g => g.Key, g => g.Count());
 
+        var studentCount = (await _enrollmentRepository.FindAsync(
+            e => e.ClassRoomId == classRoomId
+                 && e.AcademicYearId == classRoom.AcademicYearId
+                 && e.IsActive,
+            cancellationToken)).Count;
 
         return evaluations
-
             .OrderByDescending(e => e.EvaluationDate)
-
             .Select(e => MapEvaluation(
-
                 e,
-
                 courseMap.GetValueOrDefault(e.CourseId)?.Name ?? "—",
-
                 classRoom.Name,
-
-                typeMap.GetValueOrDefault(e.EvaluationTypeId)?.Name ?? "—"))
-
+                typeMap.GetValueOrDefault(e.EvaluationTypeId)?.Name ?? "—",
+                gradeCounts.GetValueOrDefault(e.Id),
+                studentCount))
             .ToList();
-
     }
+
+    public async Task<EvaluationDto> UpdateEvaluationAsync(
+        Guid schoolId,
+        Guid evaluationId,
+        UpdateEvaluationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var evaluation = (await _evaluationRepository.FindAsync(e => e.Id == evaluationId, cancellationToken))
+            .FirstOrDefault()
+            ?? throw new KeyNotFoundException("Évaluation introuvable.");
+
+        await EnsureEvaluationBelongsToSchoolAsync(schoolId, evaluation, cancellationToken);
+        await EnsurePeriodAllowsMutationAsync(evaluation.AcademicPeriodId, cancellationToken);
+
+        var title = request.Title.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new DomainException("Le libellé de l'évaluation est obligatoire.");
+        }
+
+        var period = (await _periodRepository.FindAsync(p => p.Id == evaluation.AcademicPeriodId, cancellationToken))
+            .FirstOrDefault()
+            ?? throw new DomainException("Sous-période introuvable.");
+
+        if (period.MainPeriodId.HasValue
+            && period.StartDate is DateOnly start
+            && period.EndDate is DateOnly end
+            && (request.EvaluationDate < start || request.EvaluationDate > end))
+        {
+            throw new DomainException(
+                $"La date de l'évaluation ({request.EvaluationDate:dd/MM/yyyy}) doit appartenir " +
+                $"à la période ouverte « {period.Name} » ({start:dd/MM/yyyy} → {end:dd/MM/yyyy}).");
+        }
+
+        var duplicate = (await _evaluationRepository.FindAsync(
+                e => e.Id != evaluation.Id
+                     && e.ClassRoomId == evaluation.ClassRoomId
+                     && e.CourseId == evaluation.CourseId
+                     && e.AcademicPeriodId == evaluation.AcademicPeriodId
+                     && e.EvaluationTypeId == evaluation.EvaluationTypeId,
+                cancellationToken))
+            .FirstOrDefault(e => string.Equals(e.Title.Trim(), title, StringComparison.OrdinalIgnoreCase));
+        if (duplicate is not null)
+        {
+            throw new DomainException(
+                $"Une évaluation « {title} » du même type existe déjà pour cette affectation et cette période.");
+        }
+
+        evaluation.Title = title;
+        evaluation.EvaluationDate = request.EvaluationDate;
+        await _evaluationRepository.UpdateAsync(evaluation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var course = await SchoolCourseScope.GetCourseAsync(
+            _courseRepository, _pedagogicalClassCourseRepository, schoolId, evaluation.CourseId, cancellationToken);
+        var classRoom = (await _classRoomRepository.FindAsync(c => c.Id == evaluation.ClassRoomId, cancellationToken))
+            .FirstOrDefault();
+        var type = (await _evaluationTypeRepository.FindAsync(t => t.Id == evaluation.EvaluationTypeId, cancellationToken))
+            .FirstOrDefault();
+
+        return MapEvaluation(
+            evaluation,
+            course?.Name ?? "—",
+            classRoom?.Name ?? "—",
+            type?.Name ?? "—");
+    }
+
+    public async Task DeleteEvaluationAsync(
+        Guid schoolId,
+        Guid evaluationId,
+        CancellationToken cancellationToken = default)
+    {
+        var evaluation = (await _evaluationRepository.FindAsync(e => e.Id == evaluationId, cancellationToken))
+            .FirstOrDefault()
+            ?? throw new KeyNotFoundException("Évaluation introuvable.");
+
+        await EnsureEvaluationBelongsToSchoolAsync(schoolId, evaluation, cancellationToken);
+        await EnsurePeriodAllowsMutationAsync(evaluation.AcademicPeriodId, cancellationToken);
+
+        var grades = await _gradeRepository.FindAsync(g => g.EvaluationId == evaluationId, cancellationToken);
+        if (grades.Count > 0 && !_currentUser.IsAdministrator)
+        {
+            throw new DomainException(
+                "Suppression impossible : des notes ont déjà été saisies pour cette évaluation.");
+        }
+
+        foreach (var grade in grades)
+        {
+            await _gradeRepository.DeleteAsync(grade, cancellationToken);
+        }
+
+        await _evaluationRepository.DeleteAsync(evaluation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureEvaluationBelongsToSchoolAsync(
+        Guid schoolId,
+        Evaluation evaluation,
+        CancellationToken cancellationToken)
+    {
+        var classRoom = (await _classRoomRepository.FindAsync(
+            c => c.Id == evaluation.ClassRoomId && c.SchoolId == schoolId,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new KeyNotFoundException("Évaluation introuvable pour cet établissement.");
+    }
+
+    private async Task EnsurePeriodAllowsMutationAsync(Guid academicPeriodId, CancellationToken cancellationToken)
+    {
+        var period = (await _periodRepository.FindAsync(p => p.Id == academicPeriodId, cancellationToken))
+            .FirstOrDefault()
+            ?? throw new DomainException("Sous-période introuvable.");
+
+        if (period.MainPeriodId.HasValue
+            && period.Status is AcademicSubPeriodStatus.Cloturee or AcademicSubPeriodStatus.Verrouillee)
+        {
+            throw new DomainException(
+                $"La sous-période « {period.Name} » est {period.Status}. " +
+                "Création, modification et suppression d'évaluations interdites.");
+        }
+
+        if (period.MainPeriodId.HasValue && period.Status != AcademicSubPeriodStatus.Ouverte)
+        {
+            throw new DomainException(
+                $"La sous-période « {period.Name} » n'est pas ouverte.");
+        }
+    }
+
+    private static EvaluationDto MapEvaluation(
+
+        Evaluation e,
+
+        string courseName,
+
+        string classRoomName,
+
+        string evaluationTypeName,
+
+        int gradedCount = 0,
+
+        int studentCount = 0) =>
+
+        new(
+
+            e.Id,
+
+            e.Title,
+
+            e.EvaluationTypeId,
+
+            evaluationTypeName,
+
+            e.EnrollmentId,
+
+            e.CourseAssignmentId,
+
+            e.CourseId,
+
+            courseName,
+
+            e.ClassRoomId,
+
+            classRoomName,
+
+            e.AcademicPeriodId,
+
+            e.Weight,
+
+            e.MaxScore,
+
+            e.EvaluationDate,
+
+            e.IsOpen,
+
+            e.IsPublished,
+
+            gradedCount,
+
+            studentCount);
 
 
 
@@ -864,51 +1163,34 @@ public sealed class GradeService : IGradeService
 
     }
 
+    public async Task CalculateResultsForClosedExamAsync(
+        Guid schoolId,
+        Guid examSubPeriodId,
+        CancellationToken cancellationToken = default)
+    {
+        var period = (await _periodRepository.FindAsync(
+            p => p.Id == examSubPeriodId,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Sous-période d'examen introuvable.");
 
+        if (period.Kind != AcademicSubPeriodKind.Examen)
+        {
+            return;
+        }
 
-    private static EvaluationDto MapEvaluation(
+        var evaluations = await _evaluationRepository.FindAsync(
+            e => e.AcademicPeriodId == examSubPeriodId,
+            cancellationToken);
 
-        Evaluation e,
-
-        string courseName,
-
-        string classRoomName,
-
-        string evaluationTypeName) =>
-
-        new(
-
-            e.Id,
-
-            e.Title,
-
-            e.EvaluationTypeId,
-
-            evaluationTypeName,
-
-            e.EnrollmentId,
-
-            e.CourseAssignmentId,
-
-            e.CourseId,
-
-            courseName,
-
-            e.ClassRoomId,
-
-            classRoomName,
-
-            e.AcademicPeriodId,
-
-            e.Weight,
-
-            e.MaxScore,
-
-            e.EvaluationDate,
-
-            e.IsOpen,
-
-            e.IsPublished);
+        var classRoomIds = evaluations.Select(e => e.ClassRoomId).Distinct().ToList();
+        foreach (var classRoomId in classRoomIds)
+        {
+            await CalculatePeriodResultsAsync(
+                schoolId,
+                new CalculatePeriodResultsRequest(classRoomId, period.AcademicYearId, examSubPeriodId),
+                cancellationToken);
+        }
+    }
 
 }
 

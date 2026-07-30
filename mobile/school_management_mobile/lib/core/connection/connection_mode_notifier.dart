@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'connection_mode.dart';
@@ -17,9 +18,9 @@ final connectionModeProvider =
 class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   ConnectionModeNotifier(this._probe) : super(ConnectionSnapshot.detecting) {
     refresh();
-    _timer = Timer.periodic(const Duration(seconds: 45), (_) => refresh(silent: true));
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh(silent: true));
     _connectivitySub = Connectivity().onConnectivityChanged.listen((_) {
-      // Changement Wi‑Fi / 4G / hors ligne → re-sonde immédiate.
+      debugPrint('[Discovery] Changement de réseau détecté');
       refresh(silent: true);
     });
   }

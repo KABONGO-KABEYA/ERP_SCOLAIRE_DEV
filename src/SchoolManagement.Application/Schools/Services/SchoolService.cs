@@ -2,6 +2,8 @@ namespace SchoolManagement.Application.Schools.Services;
 
 using Mapster;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.PedagogicalPeriods.DTOs;
+using SchoolManagement.Application.PedagogicalPeriods.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Schools.Interfaces;
@@ -21,6 +23,7 @@ public sealed class SchoolService : ISchoolService
     private readonly IRepository<PedagogicalClassCourse> _pedagogicalClassCourseRepository;
     private readonly IRepository<CashRegister> _cashRegisterRepository;
     private readonly IRepository<AppConfiguration> _appConfigurationRepository;
+    private readonly IPedagogicalPeriodService _pedagogicalPeriodService;
     private readonly IUnitOfWork _unitOfWork;
 
     public SchoolService(
@@ -35,6 +38,7 @@ public sealed class SchoolService : ISchoolService
         IRepository<FeeType> feeTypeRepository,
         IRepository<CashRegister> cashRegisterRepository,
         IRepository<AppConfiguration> appConfigurationRepository,
+        IPedagogicalPeriodService pedagogicalPeriodService,
         IUnitOfWork unitOfWork)
     {
         _schoolRepository = schoolRepository;
@@ -48,6 +52,7 @@ public sealed class SchoolService : ISchoolService
         _feeTypeRepository = feeTypeRepository;
         _cashRegisterRepository = cashRegisterRepository;
         _appConfigurationRepository = appConfigurationRepository;
+        _pedagogicalPeriodService = pedagogicalPeriodService;
         _unitOfWork = unitOfWork;
     }
 
@@ -160,6 +165,12 @@ public sealed class SchoolService : ISchoolService
                 _unitOfWork,
                 cancellationToken);
         }
+
+        // Étape 1 du calendrier : générer automatiquement la structure des périodes.
+        await _pedagogicalPeriodService.CreateDefaultStructureAsync(
+            schoolId,
+            new CreatePedagogicalStructureRequest(academicYear.Id, ReplaceExisting: false),
+            cancellationToken);
 
         return academicYear.Adapt<AcademicYearDto>();
     }

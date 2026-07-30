@@ -38,6 +38,8 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
     private readonly IRepository<HrDepartment> _departmentRepository;
     private readonly IRepository<HrJobFunction> _jobFunctionRepository;
     private readonly IRepository<UserAccount> _userRepository;
+    private readonly IRepository<Role> _roleRepository;
+    private readonly IRepository<UserRoleAssignment> _userRoleRepository;
     private readonly IAddressService _addressService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
@@ -48,6 +50,8 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
         IRepository<HrDepartment> departmentRepository,
         IRepository<HrJobFunction> jobFunctionRepository,
         IRepository<UserAccount> userRepository,
+        IRepository<Role> roleRepository,
+        IRepository<UserRoleAssignment> userRoleRepository,
         IAddressService addressService,
         IPasswordHasher passwordHasher,
         IUnitOfWork unitOfWork)
@@ -57,6 +61,8 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
         _departmentRepository = departmentRepository;
         _jobFunctionRepository = jobFunctionRepository;
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _addressService = addressService;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
@@ -152,7 +158,7 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
             p => p.SchoolId == schoolId && p.TeacherId == personnelId,
             cancellationToken)).FirstOrDefault();
 
-        return await MapDetailAsync(teacher, profile, cancellationToken);
+        return await MapDetailAsync(teacher, profile, cancellationToken, temporaryPassword: null);
     }
 
     public async Task<PersonnelDetailDto> CreatePersonnelAsync(
@@ -185,13 +191,10 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
         var profile = BuildProfile(schoolId, teacher.Id, request);
         await _profileRepository.AddAsync(profile, cancellationToken);
 
-        if (request.CreateSystemAccount && request.AllowSystemLogin)
-        {
-            await CreateLinkedUserAsync(schoolId, teacher, request, cancellationToken);
-        }
+        await SyncSystemAccessAsync(schoolId, teacher, request, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return await MapDetailAsync(teacher, profile, cancellationToken);
+        return await MapDetailAsync(teacher, profile, cancellationToken, request.SystemPassword);
     }
 
     public async Task<PersonnelDetailDto> UpdatePersonnelAsync(
@@ -231,8 +234,10 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
             await _profileRepository.UpdateAsync(profile, cancellationToken);
         }
 
+        await SyncSystemAccessAsync(schoolId, teacher, request, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return await MapDetailAsync(teacher, profile, cancellationToken);
+        return await MapDetailAsync(teacher, profile, cancellationToken, request.SystemPassword);
     }
 
     public async Task<IReadOnlyList<HrDepartmentDto>> GetDepartmentsAsync(
@@ -347,7 +352,8 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
     private async Task<PersonnelDetailDto> MapDetailAsync(
         Teacher teacher,
         PersonnelHrProfile? profile,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? temporaryPassword = null)
     {
         string? addressLine = null;
         AddressInputDto? address = null;
@@ -376,8 +382,27 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
             u => u.TeacherId == teacher.Id,
             cancellationToken)).FirstOrDefault();
 
+        Guid? roleId = null;
+        string? roleName = null;
+        if (linkedUser is not null)
+        {
+            var assignments = await _userRoleRepository.FindAsync(
+                a => a.UserId == linkedUser.Id,
+                cancellationToken);
+            var firstRoleId = assignments.Select(a => a.RoleId).FirstOrDefault();
+            if (firstRoleId != Guid.Empty)
+            {
+                var role = (await _roleRepository.FindAsync(
+                    r => r.Id == firstRoleId,
+                    cancellationToken)).FirstOrDefault();
+                roleId = role?.Id;
+                roleName = role?.Name;
+            }
+        }
+
         var category = profile?.Category ?? PersonnelCategory.Enseignant;
         var status = ResolveStatus(teacher, profile);
+        var passwordJustSet = !string.IsNullOrWhiteSpace(temporaryPassword);
 
         return new PersonnelDetailDto(
             teacher.Id,
@@ -428,7 +453,152 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
             status,
             linkedUser?.UserName,
             linkedUser?.IsActive ?? false,
+            linkedUser is not null,
+            roleId,
+            roleName,
+            linkedUser is not null,
+            passwordJustSet ? temporaryPassword : null,
             BuildHistory(teacher, profile, linkedUser));
+    }
+
+    private async Task SyncSystemAccessAsync(
+        Guid schoolId,
+        Teacher teacher,
+        SavePersonnelRequest request,
+        CancellationToken cancellationToken)
+    {
+        var linkedUsers = await _userRepository.FindAsync(
+            u => u.TeacherId == teacher.Id,
+            cancellationToken);
+        var user = linkedUsers.FirstOrDefault();
+
+        // Révoquer / désactiver l'accès
+        if (!request.AllowSystemLogin)
+        {
+            if (user is null)
+            {
+                return;
+            }
+
+            user.IsActive = false;
+            await _userRepository.UpdateAsync(user, cancellationToken);
+            return;
+        }
+
+        // Autoriser la connexion : créer ou mettre à jour
+        if (user is null)
+        {
+            if (string.IsNullOrWhiteSpace(request.SystemUsername)
+                || string.IsNullOrWhiteSpace(request.SystemPassword))
+            {
+                throw new DomainException(
+                    "Nom d'utilisateur et mot de passe requis pour créer un accès système.");
+            }
+
+            if (request.SystemPassword != request.SystemPasswordConfirm)
+            {
+                throw new DomainException("La confirmation du mot de passe ne correspond pas.");
+            }
+
+            if (!request.SystemRoleId.HasValue)
+            {
+                throw new DomainException("Sélectionnez un rôle système pour cet accès.");
+            }
+
+            var username = request.SystemUsername.Trim();
+            var existingName = await _userRepository.FindAsync(
+                u => u.SchoolId == schoolId && u.UserName == username,
+                cancellationToken);
+            if (existingName.Count > 0)
+            {
+                throw new DomainException($"L'identifiant '{username}' existe déjà.");
+            }
+
+            user = new UserAccount
+            {
+                SchoolId = schoolId,
+                TeacherId = teacher.Id,
+                UserName = username,
+                Email = teacher.Email ?? $"{username}@local",
+                PasswordHash = _passwordHasher.Hash(request.SystemPassword),
+                FirstName = teacher.FirstName,
+                LastName = teacher.LastName,
+                IsActive = true,
+                MustChangePassword = false
+            };
+
+            await _userRepository.AddAsync(user, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await EnsureUserRoleAsync(user.Id, request.SystemRoleId.Value, cancellationToken);
+            return;
+        }
+
+        // Compte existant
+        if (!string.IsNullOrWhiteSpace(request.SystemUsername)
+            && !string.Equals(user.UserName, request.SystemUsername.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            var newName = request.SystemUsername.Trim();
+            var clash = await _userRepository.FindAsync(
+                u => u.SchoolId == schoolId && u.UserName == newName && u.Id != user.Id,
+                cancellationToken);
+            if (clash.Count > 0)
+            {
+                throw new DomainException($"L'identifiant '{newName}' existe déjà.");
+            }
+
+            user.UserName = newName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SystemPassword))
+        {
+            if (request.SystemPassword != request.SystemPasswordConfirm)
+            {
+                throw new DomainException("La confirmation du mot de passe ne correspond pas.");
+            }
+
+            user.PasswordHash = _passwordHasher.Hash(request.SystemPassword);
+            user.MustChangePassword = false;
+        }
+
+        user.IsActive = true;
+        user.FirstName = teacher.FirstName;
+        user.LastName = teacher.LastName;
+        if (!string.IsNullOrWhiteSpace(teacher.Email))
+        {
+            user.Email = teacher.Email;
+        }
+
+        await _userRepository.UpdateAsync(user, cancellationToken);
+
+        if (request.SystemRoleId.HasValue)
+        {
+            await EnsureUserRoleAsync(user.Id, request.SystemRoleId.Value, cancellationToken);
+        }
+        else
+        {
+            throw new DomainException("Sélectionnez un rôle système pour cet accès.");
+        }
+    }
+
+    private async Task EnsureUserRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
+    {
+        var role = (await _roleRepository.FindAsync(r => r.Id == roleId, cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Rôle système introuvable.");
+
+        var existing = await _userRoleRepository.FindAsync(a => a.UserId == userId, cancellationToken);
+        foreach (var assignment in existing.Where(a => a.RoleId != roleId))
+        {
+            await _userRoleRepository.DeleteAsync(assignment, cancellationToken);
+        }
+
+        if (existing.All(a => a.RoleId != roleId))
+        {
+            await _userRoleRepository.AddAsync(new UserRoleAssignment
+            {
+                UserId = userId,
+                RoleId = role.Id
+            }, cancellationToken);
+        }
     }
 
     private static IReadOnlyList<PersonnelHistoryItemDto> BuildHistory(
@@ -458,7 +628,8 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
 
         if (user is not null)
         {
-            items.Add(new(user.CreatedAt, "Compte utilisateur créé", user.UserName, "AccountKeyOutline"));
+            var accessLabel = user.IsActive ? "actif" : "désactivé";
+            items.Add(new(user.CreatedAt, "Compte utilisateur", $"{user.UserName} ({accessLabel})", "AccountKeyOutline"));
         }
 
         return items.OrderByDescending(i => i.OccurredAt).ToList();
@@ -503,48 +674,6 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
         profile.EmergencyContactPhone = NormalizeOptional(request.EmergencyContactPhone);
         profile.EmergencyContactAddress = NormalizeOptional(request.EmergencyContactAddress);
         profile.Status = request.Status;
-    }
-
-    private async Task CreateLinkedUserAsync(
-        Guid schoolId,
-        Teacher teacher,
-        SavePersonnelRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(request.SystemUsername)
-            || string.IsNullOrWhiteSpace(request.SystemPassword))
-        {
-            throw new DomainException("Nom d'utilisateur et mot de passe requis pour créer un compte.");
-        }
-
-        if (request.SystemPassword != request.SystemPasswordConfirm)
-        {
-            throw new DomainException("La confirmation du mot de passe ne correspond pas.");
-        }
-
-        var existing = await _userRepository.FindAsync(
-            u => u.SchoolId == schoolId && u.UserName == request.SystemUsername.Trim(),
-            cancellationToken);
-
-        if (existing.Count > 0)
-        {
-            throw new DomainException($"L'identifiant '{request.SystemUsername}' existe déjà.");
-        }
-
-        var user = new UserAccount
-        {
-            SchoolId = schoolId,
-            TeacherId = teacher.Id,
-            UserName = request.SystemUsername.Trim(),
-            Email = teacher.Email ?? $"{request.SystemUsername.Trim()}@local",
-            PasswordHash = _passwordHasher.Hash(request.SystemPassword),
-            FirstName = teacher.FirstName,
-            LastName = teacher.LastName,
-            IsActive = request.AllowSystemLogin,
-            MustChangePassword = true
-        };
-
-        await _userRepository.AddAsync(user, cancellationToken);
     }
 
     private static void ValidateSaveRequest(SavePersonnelRequest request)

@@ -158,7 +158,9 @@ public sealed class ParentAccessProvisioningService : IParentAccessProvisioningS
 
     private async Task EnsureParentRolePermissionsAsync(Guid parentRoleId, CancellationToken cancellationToken)
     {
-        var requiredCodes = new[]
+        // List (pas string[]) : sous .NET récent, array.Contains peut lier
+        // MemoryExtensions.Contains(ReadOnlySpan) et faire échouer EF Core.
+        var requiredCodes = new List<string>
         {
             Permissions.PaymentsRead,
             Permissions.GradesRead,

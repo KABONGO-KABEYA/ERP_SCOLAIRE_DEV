@@ -560,12 +560,18 @@
                         <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
                             <Border Style="{StaticResource ErpV2FormCard}">
                                 <StackPanel>
+                                    <TextBlock Margin="0,0,0,8"
+                                               FontWeight="SemiBold"
+                                               Foreground="#0F1F4A"
+                                               Text="{Binding SystemAccessStatusLabel}" />
+                                    <TextBlock Margin="0,0,0,12"
+                                               Style="{StaticResource ErpBodySecondary}"
+                                               Text="{Binding SystemPasswordHint}"
+                                               TextWrapping="Wrap" />
                                     <CheckBox Content="Autoriser la connexion au système"
                                               IsChecked="{Binding AllowSystemLogin, Mode=TwoWay}" />
-                                    <CheckBox Margin="0,8,0,0"
-                                              Content="Créer un compte utilisateur"
-                                              IsChecked="{Binding CreateSystemAccount, Mode=TwoWay}" />
-                                    <Grid Margin="0,16,0,0">
+                                    <Grid Margin="0,16,0,0"
+                                          IsEnabled="{Binding AllowSystemLogin}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="*" />
@@ -580,7 +586,7 @@
                                                           Margin="{StaticResource ErpFormCellMargin}"
                                                           HorizontalAlignment="Stretch"
                                                           IconKind="AccountKey"
-                                                          Label="Nom d'utilisateur"
+                                                          Label="Nom d'utilisateur / Identifiant"
                                                           Text="{Binding SystemUsername, UpdateSourceTrigger=PropertyChanged}" />
                                         <erp:ErpComboField Grid.Row="0"
                                                            Grid.Column="1"
@@ -596,7 +602,7 @@
                                                           Margin="{StaticResource ErpFormCellMargin}"
                                                           HorizontalAlignment="Stretch"
                                                           IconKind="Lock"
-                                                          Label="Mot de passe"
+                                                          Label="{Binding PasswordFieldLabel}"
                                                           Text="{Binding SystemPassword, UpdateSourceTrigger=PropertyChanged}" />
                                         <erp:ErpTextField Grid.Row="1"
                                                           Grid.Column="1"

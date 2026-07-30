@@ -146,6 +146,32 @@ public enum AcademicPeriodType
     Semestre = 2
 }
 
+/// <summary>Groupe de structure pédagogique (trimestres vs semestres).</summary>
+public enum PedagogicalCycleGroup
+{
+    /// <summary>Maternelle + Primaire — trimestres.</summary>
+    MaternellePrimaire = 1,
+
+    /// <summary>Secondaire (CTEB, Humanités…) — semestres.</summary>
+    Secondaire = 2
+}
+
+/// <summary>Type de sous-période (travaux continus ou examen).</summary>
+public enum AcademicSubPeriodKind
+{
+    Travail = 1,
+    Examen = 2
+}
+
+/// <summary>État opérationnel d'une sous-période.</summary>
+public enum AcademicSubPeriodStatus
+{
+    AVenir = 1,
+    Ouverte = 2,
+    Cloturee = 3,
+    Verrouillee = 4
+}
+
 public enum ClassCouncilDecision
 {
     EnAttente = 1,

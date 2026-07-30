@@ -204,6 +204,7 @@ Log.Information(
     deploymentOptions.IsCloudReadOnly);
 
 builder.Services.AddControllers();
+builder.Services.AddHostedService<SchoolManagement.LocalServerDiscovery.MdnsServiceAdvertiser>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 builder.Services.AddApiVersioning(options =>
@@ -409,6 +410,11 @@ var app = builder.Build();
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<PersonnelSchemaInitializer>>());
     await personnelSchema.EnsureUpdatedAsync();
+
+    var pedagogicalPeriodSchema = new PedagogicalPeriodSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<PedagogicalPeriodSchemaInitializer>>());
+    await pedagogicalPeriodSchema.EnsureUpdatedAsync();
 
     var updateSchema = new ApplicationUpdateSchemaInitializer(
         sqlConnectionString,

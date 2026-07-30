@@ -80,6 +80,24 @@ public sealed class StudentDossierStorageService : IStudentDossierStorageService
         return absolutePath ?? Path.Combine(_rootPath, storagePath.Replace('/', Path.DirectorySeparatorChar));
     }
 
+    public string EnsureStudentFolder(
+        string lastName,
+        string firstName,
+        string registrationNumber,
+        string academicYearLabel)
+    {
+        var yearFolder = StudentDossierPathHelper.BuildAcademicYearFolder(academicYearLabel);
+        var studentFolder = StudentDossierPathHelper.FindExistingStudentFolderName(
+                _rootPath,
+                registrationNumber,
+                academicYearLabel)
+            ?? StudentDossierPathHelper.BuildStudentFolderName(lastName, firstName, registrationNumber);
+
+        var targetDirectory = Path.Combine(_rootPath, yearFolder, studentFolder);
+        Directory.CreateDirectory(targetDirectory);
+        return targetDirectory;
+    }
+
     private string? ResolveSafePath(string storagePath)
     {
         if (string.IsNullOrWhiteSpace(storagePath))

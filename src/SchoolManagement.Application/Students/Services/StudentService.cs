@@ -298,7 +298,23 @@ public sealed class StudentService : IStudentService
 
                 cancellationToken);
 
-            query = query.Where(s => scopedIds.Contains(s.Id));
+            if (hasSearch)
+
+            {
+                // Recherche texte : inclure aussi les élèves sans inscription sur l'année
+                // (ex. création interrompue) — comme la recherche mobile / enrollment-wizard.
+                var enrolledThisYearIds = (await _enrollmentRepository.FindAsync(
+                    e => e.AcademicYearId == academicYearId.Value,
+                    cancellationToken))
+                    .Select(e => e.StudentId)
+                    .ToHashSet();
+
+                query = query.Where(s => scopedIds.Contains(s.Id) || !enrolledThisYearIds.Contains(s.Id));
+            }
+            else
+            {
+                query = query.Where(s => scopedIds.Contains(s.Id));
+            }
 
         }
 

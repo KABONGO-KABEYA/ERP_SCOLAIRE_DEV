@@ -51,6 +51,9 @@ public class SchoolDbContext : DbContext
     public DbSet<MaximaParPeriode> MaximaParPeriode => Set<MaximaParPeriode>();
 
     public DbSet<AcademicPeriod> AcademicPeriods => Set<AcademicPeriod>();
+
+    public DbSet<AcademicMainPeriod> AcademicMainPeriods => Set<AcademicMainPeriod>();
+
     public DbSet<FeeType> FeeTypes => Set<FeeType>();
     public DbSet<FeePricingCategory> FeePricingCategories => Set<FeePricingCategory>();
     public DbSet<FeeInstallment> FeeInstallments => Set<FeeInstallment>();

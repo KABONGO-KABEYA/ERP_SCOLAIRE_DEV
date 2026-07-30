@@ -79,6 +79,11 @@ public sealed record PersonnelDetailDto(
     PersonnelStatus Status,
     string? SystemUsername,
     bool AllowSystemLogin,
+    bool HasSystemAccount,
+    Guid? SystemRoleId,
+    string? SystemRoleName,
+    bool PasswordIsConfigured,
+    string? TemporaryPassword,
     IReadOnlyList<PersonnelHistoryItemDto> History);
 
 public sealed record PersonnelHistoryItemDto(
