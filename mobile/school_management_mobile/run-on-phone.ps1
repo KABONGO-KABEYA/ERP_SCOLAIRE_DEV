@@ -10,7 +10,7 @@
 # Usage :
 #   .\run-on-phone.ps1
 #   .\run-on-phone.ps1 -LocalApiUrl "http://10.10.10.112:5041"
-#   .\run-on-phone.ps1 -CloudApiUrl "http://161.97.105.22:1804"
+#   .\run-on-phone.ps1 -CloudApiUrl "http://169.58.93.203:1804"
 #   .\run-on-phone.ps1 -UsbLocalTunnel   # debug ONLY : Local via USB
 #   .\run-on-phone.ps1 -UsbCloudTunnel   # debug ONLY : Distant via Docker PC + USB
 param(
@@ -26,13 +26,19 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = "D:\Mes Projet\ERP_Administration_Scolaire_2026"
 $mobileDir = Join-Path $projectRoot "mobile\school_management_mobile"
-$flutterRoot = "D:\flutter"
+$flutterRoot = if (Test-Path "D:\flutter\bin\flutter.bat") {
+    "D:\flutter"
+} elseif (Test-Path "$env:LOCALAPPDATA\flutter\bin\flutter.bat") {
+    "$env:LOCALAPPDATA\flutter"
+} else {
+    $null
+}
 $pubCache = "D:\pub_cache"
 $buildHome = "D:\build_home"
 $defaultCloudUrl = "http://169.58.93.203:1804"
 
-if (-not (Test-Path "$flutterRoot\bin\flutter.bat")) {
-    Write-Error "Flutter introuvable dans D:\flutter. Relancez l'installation Flutter."
+if (-not $flutterRoot) {
+    Write-Error "Flutter introuvable (D:\flutter ou %LOCALAPPDATA%\flutter)."
 }
 
 subst A: "$env:LOCALAPPDATA\Android\Sdk" 2>$null | Out-Null

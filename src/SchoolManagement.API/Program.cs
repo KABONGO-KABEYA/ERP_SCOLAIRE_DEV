@@ -406,7 +406,13 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<PersonnelSchemaInitializer>>());
     await personnelSchema.EnsureUpdatedAsync();
 
-    if (app.Environment.IsDevelopment())
+    // Development toujours ; Production/Cloud seulement si SEED_DATABASE=true|1
+    // (utile pour un premier démarrage Coolify sur base vide — retirer ensuite).
+    var seedFlag = Environment.GetEnvironmentVariable("SEED_DATABASE");
+    var shouldSeed = app.Environment.IsDevelopment()
+        || string.Equals(seedFlag, "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(seedFlag, "1", StringComparison.OrdinalIgnoreCase);
+    if (shouldSeed)
     {
         var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
         await seeder.SeedAsync();
