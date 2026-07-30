@@ -10,6 +10,7 @@ COPY src/SchoolManagement.Shared/SchoolManagement.Shared.csproj src/SchoolManage
 COPY src/SchoolManagement.Domain/SchoolManagement.Domain.csproj src/SchoolManagement.Domain/
 COPY src/SchoolManagement.Application/SchoolManagement.Application.csproj src/SchoolManagement.Application/
 COPY src/SchoolManagement.Infrastructure/SchoolManagement.Infrastructure.csproj src/SchoolManagement.Infrastructure/
+COPY src/SchoolManagement.LocalServerDiscovery/SchoolManagement.LocalServerDiscovery.csproj src/SchoolManagement.LocalServerDiscovery/
 COPY src/SchoolManagement.API/SchoolManagement.API.csproj src/SchoolManagement.API/
 
 RUN dotnet restore src/SchoolManagement.API/SchoolManagement.API.csproj
@@ -18,6 +19,7 @@ COPY src/SchoolManagement.Shared/ src/SchoolManagement.Shared/
 COPY src/SchoolManagement.Domain/ src/SchoolManagement.Domain/
 COPY src/SchoolManagement.Application/ src/SchoolManagement.Application/
 COPY src/SchoolManagement.Infrastructure/ src/SchoolManagement.Infrastructure/
+COPY src/SchoolManagement.LocalServerDiscovery/ src/SchoolManagement.LocalServerDiscovery/
 COPY src/SchoolManagement.API/ src/SchoolManagement.API/
 
 RUN dotnet publish src/SchoolManagement.API/SchoolManagement.API.csproj \
