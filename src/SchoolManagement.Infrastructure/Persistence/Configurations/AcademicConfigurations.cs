@@ -30,6 +30,7 @@ public class CourseAssignmentConfiguration : AuditableEntityConfiguration<Course
         builder.HasOne(a => a.AcademicYear).WithMany().HasForeignKey(a => a.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.PedagogicalClass).WithMany().HasForeignKey(a => a.PedagogicalClassId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(a => a.MaxScore).HasDefaultValue(20);
+        builder.Property(a => a.WeeklyHours).HasDefaultValue(0);
         builder.HasIndex(a => new { a.ClassRoomId, a.AcademicYearId, a.CourseId })
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");

@@ -13,6 +13,7 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
 {
     private const int DefaultMaximum = 20;
     private const int MaxAllowedMaximum = 1000;
+    private const int MaxAllowedWeeklyHours = 60;
 
     private readonly IRepository<Course> _courseRepository;
     private readonly IRepository<Branch> _branchRepository;
@@ -181,6 +182,7 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
         foreach (var item in request.Items)
         {
             ValidateMaximum(item.Maximum);
+            ValidateWeeklyHours(item.WeeklyHours);
         }
 
         var courseIds = request.Items.Select(i => i.CourseId).ToHashSet();
@@ -253,7 +255,8 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
                     CourseId = item.CourseId,
                     TeacherId = item.TeacherId,
                     IsActive = item.IsActive,
-                    MaxScore = item.Maximum > 0 ? item.Maximum : defaultMax
+                    MaxScore = item.Maximum > 0 ? item.Maximum : defaultMax,
+                    WeeklyHours = item.WeeklyHours
                 };
                 await _assignmentRepository.AddAsync(assignment, cancellationToken);
                 existingList.Add(assignment);
@@ -264,6 +267,7 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
                 assignment.TeacherId = item.TeacherId;
                 assignment.IsActive = item.IsActive;
                 assignment.MaxScore = item.Maximum;
+                assignment.WeeklyHours = item.WeeklyHours;
                 assignment.IsDeleted = false;
                 assignment.DeletedAt = null;
                 assignment.DeletedBy = null;
@@ -433,7 +437,8 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
                     null,
                     null,
                     true,
-                    l.MaxScore);
+                    l.MaxScore,
+                    0);
             })
             .OrderBy(i => i.CourseName, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -493,7 +498,8 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
                     a.TeacherId,
                     teacher is null ? null : $"{teacher.LastName} {teacher.FirstName}".Trim(),
                     a.IsActive,
-                    a.MaxScore > 0 ? a.MaxScore : defaultMax);
+                    a.MaxScore > 0 ? a.MaxScore : defaultMax,
+                    a.WeeklyHours);
             })
             .OrderBy(i => i.CourseName, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -532,6 +538,19 @@ public sealed class CourseConfigurationService : ICourseConfigurationService
 
         var code = new string(chars);
         return string.IsNullOrWhiteSpace(code) ? "COURS" : code;
+    }
+
+    private static void ValidateWeeklyHours(int weeklyHours)
+    {
+        if (weeklyHours < 0)
+        {
+            throw new DomainException("Le nombre d'heures ne peut pas être négatif.");
+        }
+
+        if (weeklyHours > MaxAllowedWeeklyHours)
+        {
+            throw new DomainException($"Le nombre d'heures ne peut pas dépasser {MaxAllowedWeeklyHours} par semaine.");
+        }
     }
 
     private static void ValidateMaximum(int maximum)

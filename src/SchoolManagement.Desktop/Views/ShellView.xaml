@@ -100,7 +100,7 @@
         <!-- Zone principale -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="80" />
+                <RowDefinition Height="56" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -109,7 +109,7 @@
                     BorderBrush="{StaticResource ErpBorderBrush}"
                     BorderThickness="0,0,0,1"
                     Effect="{StaticResource ErpTopBarShadow}"
-                    Padding="28,0">
+                    Padding="20,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -119,13 +119,13 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock x:Name="PageTitleText"
                                    FontFamily="{StaticResource ErpFontFamily}"
-                                   FontSize="22" FontWeight="SemiBold"
+                                   FontSize="18" FontWeight="SemiBold"
                                    Foreground="{StaticResource ErpTextPrimaryBrush}"
                                    Text="Tableau de bord" />
                         <TextBlock x:Name="PageSubtitleText"
-                                   Margin="0,2,0,0"
+                                   Margin="0,1,0,0"
                                    FontFamily="{StaticResource ErpFontFamily}"
-                                   FontSize="13"
+                                   FontSize="12"
                                    Foreground="{StaticResource ErpTextSecondaryBrush}"
                                    Text="Gestion scolaire — République Démocratique du Congo" />
                     </StackPanel>

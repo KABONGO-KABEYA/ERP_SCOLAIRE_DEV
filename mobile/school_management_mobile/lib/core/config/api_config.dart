@@ -26,7 +26,7 @@ abstract final class ApiConfig {
   /// API distante publique (hors Wi‑Fi école). Pas de tunnel USB.
   static const String cloudBaseUrl = String.fromEnvironment(
     'CLOUD_API_BASE_URL',
-    defaultValue: 'http://161.97.105.22:1804',
+    defaultValue: 'http://169.58.93.203:1804',
   );
 
   /// Rétrocompatibilité : `API_BASE_URL` force l’URL locale si fournie.

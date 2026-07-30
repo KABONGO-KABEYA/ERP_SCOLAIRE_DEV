@@ -96,7 +96,14 @@ public sealed class CourseAssignmentSchemaInitializer
             END
             """, cancellationToken);
 
-        _logger.LogInformation("Schéma CourseAssignments vérifié (PedagogicalClassId, IsActive, TeacherId nullable, MaxScore).");
+        await ExecuteAsync(connection, """
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CourseAssignments') AND name = 'WeeklyHours')
+            BEGIN
+                ALTER TABLE [CourseAssignments] ADD [WeeklyHours] int NOT NULL CONSTRAINT [DF_CourseAssignments_WeeklyHours] DEFAULT 0;
+            END
+            """, cancellationToken);
+
+        _logger.LogInformation("Schéma CourseAssignments vérifié (PedagogicalClassId, IsActive, TeacherId nullable, MaxScore, WeeklyHours).");
     }
 
     private static async Task ExecuteAsync(SqlConnection connection, string sql, CancellationToken cancellationToken)

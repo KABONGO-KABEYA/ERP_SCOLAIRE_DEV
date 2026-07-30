@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
              Background="#F8FAFC">
     <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
         <DropShadowEffect x:Key="ExpenseCardShadow"
                           BlurRadius="20"
                           ShadowDepth="2"
@@ -45,87 +47,109 @@
         <!-- 1. Filtres -->
         <Border Grid.Row="0"
                 Margin="0,0,0,12"
-                Padding="12,10"
+                Padding="10,8"
                 Background="White"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"
-                CornerRadius="10">
+                CornerRadius="10"
+                Effect="{StaticResource ErpCardShadow}">
             <StackPanel>
                 <DockPanel LastChildFill="True">
-                    <Button HorizontalAlignment="Right"
+                    <Button Width="28"
+                            Height="28"
+                            Padding="0"
+                            HorizontalAlignment="Right"
                             Command="{Binding ToggleFiltersCommand}"
                             DockPanel.Dock="Right"
-                            Style="{StaticResource ErpSecondaryButton}"
-                            Padding="10,4"
-                            Content="{Binding FiltersToggleLabel}" />
+                            Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="{Binding FiltersToggleLabel}"
+                            ToolTipService.InitialShowDelay="200">
+                        <Grid Width="16" Height="16">
+                            <materialDesign:PackIcon Kind="ChevronDown"
+                                                     Width="16"
+                                                     Height="16"
+                                                     Visibility="{Binding IsFiltersExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                            <materialDesign:PackIcon Kind="ChevronUp"
+                                                     Width="16"
+                                                     Height="16"
+                                                     Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </Grid>
+                    </Button>
                     <TextBlock VerticalAlignment="Center"
-                               FontSize="14"
+                               FontSize="13"
                                FontWeight="SemiBold"
                                Foreground="#1F2937"
                                Text="Filtres de recherche" />
                 </DockPanel>
 
-                <StackPanel Margin="0,10,0,0"
+                <StackPanel Margin="0,8,0,0"
                             Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <WrapPanel>
-                        <erp:ErpComboField Margin="0,0,10,10"
+                    <UniformGrid Columns="3" Margin="0,0,0,8">
+                        <erp:ErpComboField Margin="0,0,8,8"
+                                           IsCompact="True"
                                            DisplayMemberPath="DisplayName"
                                            FieldWidth="200"
-                                           HorizontalAlignment="Left"
+                                           HorizontalAlignment="Stretch"
                                            IconKind="WalletOutline"
                                            ItemsSource="{Binding FilterDestinations}"
                                            Label="Compte"
                                            SelectedItem="{Binding FilterDestination, Mode=TwoWay}" />
-                        <erp:ErpDateField Margin="0,0,10,10"
+                        <erp:ErpDateField Margin="0,0,8,8"
+                                          IsCompact="True"
                                           DateValidationMode="None"
-                                          FieldWidth="140"
-                                          HorizontalAlignment="Left"
+                                          FieldWidth="200"
+                                          HorizontalAlignment="Stretch"
                                           Label="Du"
                                           SelectedDate="{Binding FilterFromDate, Mode=TwoWay}"
                                           ShowBadges="False"
                                           ShowValidation="False" />
-                        <erp:ErpDateField Margin="0,0,10,10"
+                        <erp:ErpDateField Margin="0,0,0,8"
+                                          IsCompact="True"
                                           DateValidationMode="None"
-                                          FieldWidth="140"
-                                          HorizontalAlignment="Left"
+                                          FieldWidth="200"
+                                          HorizontalAlignment="Stretch"
                                           Label="Au"
                                           SelectedDate="{Binding FilterToDate, Mode=TwoWay}"
                                           ShowBadges="False"
                                           ShowValidation="False" />
-                        <erp:ErpComboField Margin="0,0,10,10"
+                        <erp:ErpComboField Margin="0,0,8,0"
+                                           IsCompact="True"
                                            DisplayMemberPath="Label"
-                                           FieldWidth="120"
-                                           HorizontalAlignment="Left"
+                                           FieldWidth="200"
+                                           HorizontalAlignment="Stretch"
                                            IconKind="CurrencyUsd"
                                            ItemsSource="{Binding FilterCurrencies}"
                                            Label="Devise"
                                            SelectedItem="{Binding FilterCurrency, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,10,10"
+                        <erp:ErpComboField Margin="0,0,8,0"
+                                           IsCompact="True"
                                            DisplayMemberPath="Label"
-                                           FieldWidth="160"
-                                           HorizontalAlignment="Left"
+                                           FieldWidth="200"
+                                           HorizontalAlignment="Stretch"
                                            IconKind="TagOutline"
                                            ItemsSource="{Binding Categories}"
                                            Label="Catégorie"
                                            SelectedItem="{Binding FilterCategory, Mode=TwoWay}" />
-                        <erp:ErpComboField Margin="0,0,10,10"
+                        <erp:ErpComboField IsCompact="True"
                                            DisplayMemberPath="Label"
-                                           FieldWidth="140"
-                                           HorizontalAlignment="Left"
+                                           FieldWidth="200"
+                                           HorizontalAlignment="Stretch"
                                            IconKind="ClipboardListOutline"
                                            ItemsSource="{Binding Statuses}"
                                            Label="Statut"
                                            SelectedItem="{Binding FilterStatus, Mode=TwoWay}" />
-                    </WrapPanel>
+                    </UniformGrid>
                     <StackPanel Orientation="Horizontal">
-                        <Button Padding="14,6"
+                        <Button Padding="10,4"
                                 Command="{Binding SearchCommand}"
                                 Content="Rechercher"
+                                FontSize="12"
                                 Style="{StaticResource ErpPrimaryButton}" />
-                        <Button Margin="8,0,0,0"
-                                Padding="14,6"
+                        <Button Margin="6,0,0,0"
+                                Padding="10,4"
                                 Command="{Binding ResetFiltersCommand}"
                                 Content="Réinitialiser"
+                                FontSize="12"
                                 Style="{StaticResource ErpSecondaryButton}" />
                     </StackPanel>
                 </StackPanel>

@@ -7,6 +7,7 @@ using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Grades;
+using SchoolManagement.Domain.Entities.Hr;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -79,6 +80,9 @@ public class SchoolDbContext : DbContext
 
     // Académique
     public DbSet<Teacher> Teachers => Set<Teacher>();
+    public DbSet<HrDepartment> HrDepartments => Set<HrDepartment>();
+    public DbSet<HrJobFunction> HrJobFunctions => Set<HrJobFunction>();
+    public DbSet<PersonnelHrProfile> PersonnelHrProfiles => Set<PersonnelHrProfile>();
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<ScheduleSlot> ScheduleSlots => Set<ScheduleSlot>();
     public DbSet<StudentAttendance> StudentAttendances => Set<StudentAttendance>();

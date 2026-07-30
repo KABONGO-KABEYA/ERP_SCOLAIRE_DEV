@@ -64,6 +64,7 @@ public partial class ShellViewModel : ViewModelBase
         [
             new ModuleNavItem("Tableau de bord", "ViewDashboard", typeof(DashboardViewModel)),
             new ModuleNavItem("Paramètres", "Cog", typeof(SettingsViewModel)),
+            new ModuleNavItem("Personnel", "AccountTie", typeof(PersonnelHubViewModel)),
             new ModuleNavItem("Élèves", "AccountGroup", typeof(StudentsViewModel)),
             new ModuleNavItem("Cartes élèves", "CardAccountDetails", typeof(StudentCardsViewModel)),
             new ModuleNavItem("Académique", "School", typeof(AcademicViewModel)),

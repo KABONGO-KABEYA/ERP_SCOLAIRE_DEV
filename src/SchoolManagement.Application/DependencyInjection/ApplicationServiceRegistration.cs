@@ -13,6 +13,8 @@ using SchoolManagement.Application.Documents.Interfaces;
 using SchoolManagement.Application.Documents.Services;
 using SchoolManagement.Application.Grades.Interfaces;
 using SchoolManagement.Application.Grades.Services;
+using SchoolManagement.Application.Personnel.Interfaces;
+using SchoolManagement.Application.Personnel.Services;
 using SchoolManagement.Application.Parent.Interfaces;
 using SchoolManagement.Application.Parent.Services;
 using SchoolManagement.Application.Dashboard.Interfaces;
@@ -90,6 +92,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IPromoterDashboardService, PromoterDashboardService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<ITeacherAdminService, TeacherAdminService>();
+        services.AddScoped<IPersonnelAdminService, PersonnelAdminService>();
 
         return services;
     }

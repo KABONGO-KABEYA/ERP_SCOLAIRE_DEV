@@ -401,6 +401,11 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<SchoolDefaultFeeSchemaInitializer>>());
     await schoolDefaultFeeSchema.EnsureCreatedAsync();
 
+    var personnelSchema = new PersonnelSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<PersonnelSchemaInitializer>>());
+    await personnelSchema.EnsureUpdatedAsync();
+
     if (app.Environment.IsDevelopment())
     {
         var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();

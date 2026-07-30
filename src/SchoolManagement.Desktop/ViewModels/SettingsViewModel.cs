@@ -50,13 +50,13 @@ public partial class SettingsViewModel : ViewModelBase
 
         ProgramFilters =
         [
-            new ProgramFilterItem(null, "Tous les programmes"),
+            new ProgramFilterItem(null, "Toutes les sections"),
             new ProgramFilterItem(SchoolProgram.Maternelle, "Maternelle"),
             new ProgramFilterItem(SchoolProgram.Primaire, "Primaire"),
-            new ProgramFilterItem(SchoolProgram.CTEB, "CTEB (7e – 8e)"),
-            new ProgramFilterItem(SchoolProgram.Humanites, "Humanités (cycle long)"),
-            new ProgramFilterItem(SchoolProgram.HumanitesProfessionnelles, "Humanités professionnelles"),
-            new ProgramFilterItem(SchoolProgram.FilieresSpecialisees, "Filières spécialisées")
+            new ProgramFilterItem(SchoolProgram.CTEB, "Secondaire générale"),
+            new ProgramFilterItem(SchoolProgram.Humanites, "Humanité"),
+            new ProgramFilterItem(SchoolProgram.HumanitesProfessionnelles, "Humanité (professionnelle)"),
+            new ProgramFilterItem(SchoolProgram.FilieresSpecialisees, "Humanité (spécialisée)")
         ];
 
         SettingsNodes =
@@ -364,7 +364,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             SettingsSection.Etablissement => "Informations générales, devises autorisées, logos, en-têtes, signatures et identité documentaire de l'établissement.",
             SettingsSection.Reglement => "Rédigez et enregistrez le règlement d'ordre intérieur de l'établissement.",
-            SettingsSection.StructurePedagogique => "Activez uniquement les classes réellement organisées dans l'établissement. Toute la structure officielle RDC est déjà présente dans le système.",
+            SettingsSection.StructurePedagogique => "Organisez les classes selon les 4 sections RDC : Maternelle, Primaire, Secondaire générale (7e–8e) et Humanité.",
             SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
             SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
             SettingsSection.RepartitionRecettes => "Destinations financières et clés de répartition par année scolaire.",
@@ -1470,6 +1470,7 @@ public partial class PedagogicalClassItemViewModel : ObservableObject
     {
         Id = dto.Id;
         TemplateCode = dto.TemplateCode;
+        Program = dto.Program;
         ProgramLabel = dto.ProgramLabel;
         DisplayName = dto.DisplayName;
         HumanitiesSection = dto.HumanitiesSection;
@@ -1483,6 +1484,8 @@ public partial class PedagogicalClassItemViewModel : ObservableObject
     public Guid Id { get; }
 
     public string TemplateCode { get; }
+
+    public SchoolProgram Program { get; }
 
     public string ProgramLabel { get; }
 

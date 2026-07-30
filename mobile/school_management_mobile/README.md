@@ -20,7 +20,7 @@ et périodiquement :
 **USB** sert uniquement à installer / debugger l'APK. La connexion API passe
 par le Wi‑Fi (local) ou Internet (distant) — pas par `adb reverse`.
 
-Par défaut : `CLOUD_API_BASE_URL=http://161.97.105.22:1804`.
+Par défaut : `CLOUD_API_BASE_URL=http://169.58.93.203:1804`.
 
 La base locale reste la **Source of Truth**. Le Cloud ne reçoit que la sync **Local → Cloud**.
 

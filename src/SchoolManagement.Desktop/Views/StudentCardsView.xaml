@@ -6,6 +6,16 @@
              xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
     <UserControl.Resources>
         <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+
+        <Style x:Key="StudentCardCompactStatCard" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#E5E7EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Effect" Value="{StaticResource ErpCardShadow}" />
+        </Style>
     </UserControl.Resources>
     <Grid Margin="20" Style="{StaticResource ErpFadeIn}">
         <Grid.RowDefinitions>
@@ -54,37 +64,132 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- KPI -->
-        <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,12">
-            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ActiveCount}" />
-                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Actives" />
-                </StackPanel>
+        <!-- KPI compacts -->
+        <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,10">
+            <Border Style="{StaticResource StudentCardCompactStatCard}">
+                <DockPanel LastChildFill="True">
+                    <Border Width="34"
+                            Height="34"
+                            Background="#DCFCE7"
+                            CornerRadius="10"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#16A34A"
+                                                 Kind="CreditCardCheckOutline" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="11"
+                                   Foreground="#6B7280"
+                                   Text="Actives" />
+                        <TextBlock FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#16A34A"
+                                   Text="{Binding ActiveCount}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
-            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ExpiredCount}" />
-                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Expirées" />
-                </StackPanel>
+            <Border Style="{StaticResource StudentCardCompactStatCard}">
+                <DockPanel LastChildFill="True">
+                    <Border Width="34"
+                            Height="34"
+                            Background="#F3F4F6"
+                            CornerRadius="10"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#6B7280"
+                                                 Kind="CalendarRemoveOutline" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="11"
+                                   Foreground="#6B7280"
+                                   Text="Expirées" />
+                        <TextBlock FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#374151"
+                                   Text="{Binding ExpiredCount}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
-            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding LostCount}" />
-                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Perdues" />
-                </StackPanel>
+            <Border Style="{StaticResource StudentCardCompactStatCard}">
+                <DockPanel LastChildFill="True">
+                    <Border Width="34"
+                            Height="34"
+                            Background="#FEF3C7"
+                            CornerRadius="10"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#D97706"
+                                                 Kind="HelpCircleOutline" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="11"
+                                   Foreground="#6B7280"
+                                   Text="Perdues" />
+                        <TextBlock FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#D97706"
+                                   Text="{Binding LostCount}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
-            <Border Style="{StaticResource ErpStatCard}" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding StolenCount}" />
-                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="Volées" />
-                </StackPanel>
+            <Border Style="{StaticResource StudentCardCompactStatCard}">
+                <DockPanel LastChildFill="True">
+                    <Border Width="34"
+                            Height="34"
+                            Background="#FEE2E2"
+                            CornerRadius="10"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#DC2626"
+                                                 Kind="ShieldAlertOutline" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="11"
+                                   Foreground="#6B7280"
+                                   Text="Volées" />
+                        <TextBlock FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="#DC2626"
+                                   Text="{Binding StolenCount}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
-            <Border Style="{StaticResource ErpStatCard}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource ErpStatValue}" Text="{Binding ToRenewCount}" />
-                    <TextBlock Style="{StaticResource ErpStatLabel}" Text="À renouveler (30 j)" />
-                </StackPanel>
+            <Border Margin="0" Style="{StaticResource StudentCardCompactStatCard}">
+                <DockPanel LastChildFill="True">
+                    <Border Width="34"
+                            Height="34"
+                            Background="#DBEAFE"
+                            CornerRadius="10"
+                            DockPanel.Dock="Left">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                 Kind="CalendarClock" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="11"
+                                   Foreground="#6B7280"
+                                   Text="À renouveler (30 j)" />
+                        <TextBlock FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource ErpPrimaryBrush}"
+                                   Text="{Binding ToRenewCount}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
         </UniformGrid>
 

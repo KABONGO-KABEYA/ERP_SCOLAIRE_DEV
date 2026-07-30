@@ -50,6 +50,9 @@ public class CourseAssignment : AuditableEntity, IAggregateRoot
     /// <summary>Maximum du cours pour la salle et l'année (Max/P tableau droit).</summary>
     public int MaxScore { get; set; } = 20;
 
+    /// <summary>Nombre d'heures hebdomadaires du cours dans la classe.</summary>
+    public int WeeklyHours { get; set; }
+
     public Teacher? Teacher { get; set; }
 
     public Course Course { get; set; } = null!;

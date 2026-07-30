@@ -11,8 +11,8 @@ public static class PedagogicalSectionMapping
             SchoolProgram.Primaire => "PRI",
             SchoolProgram.CTEB => "CTEB",
             SchoolProgram.Humanites => "HUM",
-            SchoolProgram.HumanitesProfessionnelles => "HPRO",
-            SchoolProgram.FilieresSpecialisees => "FS",
+            SchoolProgram.HumanitesProfessionnelles => "HUM",
+            SchoolProgram.FilieresSpecialisees => "HUM",
             _ => "PRI"
         };
 }

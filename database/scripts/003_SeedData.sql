@@ -26,9 +26,10 @@ BEGIN
 
     INSERT INTO Sections (Id, SchoolId, Code, Name, Cycle, CreatedAt, IsDeleted)
     VALUES
-        (NEWID(), @SchoolId, N'PRIM', N'Primaire', 1, SYSUTCDATETIME(), 0),
-        (NEWID(), @SchoolId, N'SEC-SCI', N'Secondaire Scientifique', 2, SYSUTCDATETIME(), 0),
-        (NEWID(), @SchoolId, N'SEC-LIT', N'Secondaire Littéraire', 2, SYSUTCDATETIME(), 0);
+        (NEWID(), @SchoolId, N'MAT', N'Maternelle', 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'PRI', N'Primaire', 1, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'CTEB', N'Secondaire générale', 2, SYSUTCDATETIME(), 0),
+        (NEWID(), @SchoolId, N'HUM', N'Humanité', 2, SYSUTCDATETIME(), 0);
 
     INSERT INTO FeeTypes (Id, SchoolId, Code, Name, Currency, IsMandatory, IsActive, CreatedAt, IsDeleted)
     VALUES

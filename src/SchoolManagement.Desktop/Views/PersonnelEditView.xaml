@@ -1,0 +1,761 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.PersonnelEditView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:dto="clr-namespace:SchoolManagement.Application.Personnel.DTOs;assembly=SchoolManagement.Application">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="20" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Main content -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="420" />
+                <ColumnDefinition Width="Auto" MinWidth="240" MaxWidth="300" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Margin="0,0,12,0"
+                    Padding="4"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="14">
+                <TabControl Style="{StaticResource ErpTabControl}">
+                    <!-- Informations générales -->
+                    <TabItem Header="Informations générales">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" MinWidth="220" MaxWidth="260" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <Border Style="{StaticResource ErpV2FormCard}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="CardAccountDetails"
+                                                              IsRequired="True"
+                                                              Label="Matricule"
+                                                              Text="{Binding EmployeeNumber, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpComboField Grid.Row="0"
+                                                               Grid.Column="1"
+                                                               Margin="0,0,0,18"
+                                                               HorizontalAlignment="Stretch"
+                                                               IconKind="AccountGroup"
+                                                               IsRequired="True"
+                                                               ItemsSource="{Binding Categories}"
+                                                               Label="Catégorie"
+                                                               SelectedItem="{Binding Category, Mode=TwoWay}" />
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Account"
+                                                              IsRequired="True"
+                                                              Label="Nom"
+                                                              Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="1"
+                                                              Margin="0,0,0,18"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Account"
+                                                              Label="Postnom"
+                                                              Text="{Binding MiddleName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpTextField Grid.Row="2"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Account"
+                                                              IsRequired="True"
+                                                              Label="Prénom"
+                                                              Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpComboField Grid.Row="2"
+                                                               Grid.Column="1"
+                                                               Margin="0,0,0,18"
+                                                               HorizontalAlignment="Stretch"
+                                                               IconKind="GenderMaleFemale"
+                                                               ItemsSource="{Binding Genders}"
+                                                               Label="Sexe"
+                                                               SelectedItem="{Binding SelectedGender, Mode=TwoWay}" />
+                                            <erp:ErpDateField Grid.Row="3"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              DateValidationMode="BirthDate"
+                                                              Label="Date de naissance"
+                                                              SelectedDate="{Binding BirthDate, Mode=TwoWay}"
+                                                              ShowBadges="False" />
+                                            <erp:ErpTextField Grid.Row="3"
+                                                              Grid.Column="1"
+                                                              Margin="0,0,0,18"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="MapMarker"
+                                                              Label="Lieu de naissance"
+                                                              Text="{Binding BirthPlace, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Margin="0,12,0,0" Style="{StaticResource ErpV2FormCard}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Earth"
+                                                              Label="Nationalité"
+                                                              Text="{Binding Nationality, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpTextField Grid.Row="0"
+                                                              Grid.Column="1"
+                                                              Margin="0,0,0,18"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="HeartOutline"
+                                                              Label="État civil"
+                                                              Text="{Binding MaritalStatus, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="HumanMaleFemaleChild"
+                                                              Label="Nombre d'enfants"
+                                                              Text="{Binding ChildrenCount, UpdateSourceTrigger=PropertyChanged}"
+                                                              ValidationMode="Integer" />
+                                            <erp:ErpTextField Grid.Row="1"
+                                                              Grid.Column="1"
+                                                              Margin="0,0,0,18"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="CardAccountDetailsOutline"
+                                                              Label="N° carte d'identité"
+                                                              Text="{Binding IdCardNumber, UpdateSourceTrigger=PropertyChanged}" />
+                                            <erp:ErpTextField Grid.Row="2"
+                                                              Grid.Column="0"
+                                                              Margin="{StaticResource ErpFormCellMargin}"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Phone"
+                                                              Label="Téléphone"
+                                                              Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}"
+                                                              ValidationMode="Phone" />
+                                            <erp:ErpTextField Grid.Row="2"
+                                                              Grid.Column="1"
+                                                              Margin="0,0,0,18"
+                                                              HorizontalAlignment="Stretch"
+                                                              IconKind="Email"
+                                                              Label="E-mail"
+                                                              Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                                                              ValidationMode="Email" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Margin="0,12,0,0" Style="{StaticResource ErpV2FormCard}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Foreground="#0F1F4A" Text="Adresse de résidence" />
+                                            <erp:ErpAddressControl Margin="0,12,0,0" Editor="{Binding AddressEditor}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,12,0,0" Style="{StaticResource ErpV2FormCard}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Foreground="#0F1F4A" Text="Contact d'urgence" />
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <erp:ErpTextField Grid.Row="0"
+                                                                  Grid.Column="0"
+                                                                  Margin="{StaticResource ErpFormCellMargin}"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  IconKind="AccountAlert"
+                                                                  Label="Nom du contact"
+                                                                  Text="{Binding EmergencyContactName, UpdateSourceTrigger=PropertyChanged}" />
+                                                <erp:ErpTextField Grid.Row="0"
+                                                                  Grid.Column="1"
+                                                                  Margin="0,0,0,18"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  IconKind="AccountGroup"
+                                                                  Label="Lien / relation"
+                                                                  Text="{Binding EmergencyContactRelation, UpdateSourceTrigger=PropertyChanged}" />
+                                                <erp:ErpTextField Grid.Row="1"
+                                                                  Grid.Column="0"
+                                                                  Margin="{StaticResource ErpFormCellMargin}"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  IconKind="PhoneAlert"
+                                                                  Label="Téléphone"
+                                                                  Text="{Binding EmergencyContactPhone, UpdateSourceTrigger=PropertyChanged}"
+                                                                  ValidationMode="Phone" />
+                                                <erp:ErpTextField Grid.Row="1"
+                                                                  Grid.Column="1"
+                                                                  Margin="0,0,0,18"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  IconKind="MapMarkerOutline"
+                                                                  Label="Adresse"
+                                                                  Text="{Binding EmergencyContactAddress, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <Border Grid.Column="1"
+                                        VerticalAlignment="Top"
+                                        Style="{StaticResource ErpV2FormCard}">
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold" Foreground="#0F1F4A" Text="Aperçu identité" />
+                                        <Border Width="72"
+                                                Height="72"
+                                                Margin="0,12,0,10"
+                                                HorizontalAlignment="Center"
+                                                Background="#EEF2FF"
+                                                CornerRadius="36">
+                                            <materialDesign:PackIcon Width="36"
+                                                                     Height="36"
+                                                                     HorizontalAlignment="Center"
+                                                                     VerticalAlignment="Center"
+                                                                     Foreground="#1D4ED8"
+                                                                     Kind="AccountCircle" />
+                                        </Border>
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding SummaryFullName}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   HorizontalAlignment="Center"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="{Binding SummaryEmployeeNumber, StringFormat=Matricule : {0}}" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Informations professionnelles -->
+                    <TabItem Header="Informations professionnelles">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <Border Style="{StaticResource ErpV2FormCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <erp:ErpDateField Grid.Row="0"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      Label="Date d'embauche"
+                                                      SelectedDate="{Binding HireDate, Mode=TwoWay}"
+                                                      ShowBadges="False" />
+                                    <erp:ErpTextField Grid.Row="0"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="SchoolOutline"
+                                                      Label="Spécialisation"
+                                                      Text="{Binding Specialization, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpComboField Grid.Row="1"
+                                                       Grid.Column="0"
+                                                       Margin="{StaticResource ErpFormCellMargin}"
+                                                       DisplayMemberPath="Name"
+                                                       HorizontalAlignment="Stretch"
+                                                       IconKind="OfficeBuildingOutline"
+                                                       ItemsSource="{Binding Departments}"
+                                                       Label="Département"
+                                                       SelectedItem="{Binding SelectedDepartment, Mode=TwoWay}" />
+                                    <erp:ErpComboField Grid.Row="1"
+                                                       Grid.Column="1"
+                                                       Margin="0,0,0,18"
+                                                       DisplayMemberPath="Name"
+                                                       HorizontalAlignment="Stretch"
+                                                       IconKind="BadgeAccountOutline"
+                                                       ItemsSource="{Binding JobFunctions}"
+                                                       Label="Fonction / poste"
+                                                       SelectedItem="{Binding SelectedFunction, Mode=TwoWay}" />
+                                    <erp:ErpTextField Grid.Row="2"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="StarOutline"
+                                                      Label="Grade"
+                                                      Text="{Binding Grade, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="2"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="Domain"
+                                                      Label="Service"
+                                                      Text="{Binding Service, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="3"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="AccountSupervisor"
+                                                      Label="Supérieur hiérarchique"
+                                                      Text="{Binding SupervisorName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="3"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="MapMarkerRadius"
+                                                      Label="Lieu de travail"
+                                                      Text="{Binding WorkLocation, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpComboField Grid.Row="4"
+                                                       Grid.Column="0"
+                                                       Margin="{StaticResource ErpFormCellMargin}"
+                                                       DisplayMemberPath="Label"
+                                                       HorizontalAlignment="Stretch"
+                                                       IconKind="AccountCheckOutline"
+                                                       ItemsSource="{Binding StatusOptions}"
+                                                       Label="Statut RH"
+                                                       SelectedItem="{Binding SelectedStatus, Mode=TwoWay}" />
+                                    <CheckBox Grid.Row="4"
+                                              Grid.Column="1"
+                                              Margin="0,18,0,18"
+                                              VerticalAlignment="Center"
+                                              Content="Personnel actif"
+                                              IsChecked="{Binding IsActive, Mode=TwoWay}" />
+                                </Grid>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Contrat & Salaire -->
+                    <TabItem Header="Contrat &amp; Salaire">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <Border Style="{StaticResource ErpV2FormCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <erp:ErpComboField Grid.Row="0"
+                                                       Grid.Column="0"
+                                                       Margin="{StaticResource ErpFormCellMargin}"
+                                                       DisplayMemberPath="Label"
+                                                       HorizontalAlignment="Stretch"
+                                                       IconKind="FileDocumentOutline"
+                                                       ItemsSource="{Binding ContractTypes}"
+                                                       Label="Type de contrat"
+                                                       SelectedItem="{Binding SelectedContractType, Mode=TwoWay}" />
+                                    <erp:ErpDateField Grid.Row="0"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      Label="Début de contrat"
+                                                      SelectedDate="{Binding ContractStartDate, Mode=TwoWay}"
+                                                      ShowBadges="False" />
+                                    <erp:ErpDateField Grid.Row="1"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      Label="Fin de contrat"
+                                                      SelectedDate="{Binding ContractEndDate, Mode=TwoWay}"
+                                                      ShowBadges="False" />
+                                    <erp:ErpTextField Grid.Row="1"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="Cash"
+                                                      Label="Salaire de base"
+                                                      Text="{Binding BaseSalary, UpdateSourceTrigger=PropertyChanged}"
+                                                      ValidationMode="Decimal" />
+                                    <erp:ErpTextField Grid.Row="2"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="CurrencyUsd"
+                                                      Label="Devise"
+                                                      Text="{Binding CurrencyCode, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpComboField Grid.Row="2"
+                                                       Grid.Column="1"
+                                                       Margin="0,0,0,18"
+                                                       DisplayMemberPath="Label"
+                                                       HorizontalAlignment="Stretch"
+                                                       IconKind="CreditCardOutline"
+                                                       ItemsSource="{Binding PaymentMethods}"
+                                                       Label="Mode de paiement"
+                                                       SelectedItem="{Binding SelectedPaymentMethod, Mode=TwoWay}" />
+                                    <erp:ErpTextField Grid.Row="3"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="Bank"
+                                                      Label="Banque"
+                                                      Text="{Binding BankName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="3"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="Numeric"
+                                                      Label="N° compte"
+                                                      Text="{Binding BankAccountNumber, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="4"
+                                                      Grid.Column="0"
+                                                      Margin="{StaticResource ErpFormCellMargin}"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="Account"
+                                                      Label="Titulaire du compte"
+                                                      Text="{Binding BankAccountHolder, UpdateSourceTrigger=PropertyChanged}" />
+                                    <erp:ErpTextField Grid.Row="4"
+                                                      Grid.Column="1"
+                                                      Margin="0,0,0,18"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="CalendarClock"
+                                                      Label="Jour de paie"
+                                                      Text="{Binding PayDay, UpdateSourceTrigger=PropertyChanged}"
+                                                      ValidationMode="Integer" />
+                                </Grid>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Documents -->
+                    <TabItem Header="Documents">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <UniformGrid Columns="2">
+                                <Border Margin="0,0,8,8"
+                                        Padding="16"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Width="32"
+                                                                 Height="32"
+                                                                 HorizontalAlignment="Center"
+                                                                 Foreground="#94A3B8"
+                                                                 Kind="FileDocumentOutline" />
+                                        <TextBlock Margin="0,10,0,4"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="SemiBold"
+                                                   Text="Contrat de travail" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="Disponible prochainement"
+                                                   TextAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Margin="0,0,0,8"
+                                        Padding="16"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Width="32"
+                                                                 Height="32"
+                                                                 HorizontalAlignment="Center"
+                                                                 Foreground="#94A3B8"
+                                                                 Kind="CardAccountDetailsOutline" />
+                                        <TextBlock Margin="0,10,0,4"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="SemiBold"
+                                                   Text="Pièce d'identité" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="Disponible prochainement"
+                                                   TextAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Margin="0,0,8,0"
+                                        Padding="16"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Width="32"
+                                                                 Height="32"
+                                                                 HorizontalAlignment="Center"
+                                                                 Foreground="#94A3B8"
+                                                                 Kind="CertificateOutline" />
+                                        <TextBlock Margin="0,10,0,4"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="SemiBold"
+                                                   Text="Diplômes &amp; certificats" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="Disponible prochainement"
+                                                   TextAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Padding="16"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Width="32"
+                                                                 Height="32"
+                                                                 HorizontalAlignment="Center"
+                                                                 Foreground="#94A3B8"
+                                                                 Kind="FolderOutline" />
+                                        <TextBlock Margin="0,10,0,4"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="SemiBold"
+                                                   Text="Autres documents" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="Disponible prochainement"
+                                                   TextAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Accès système -->
+                    <TabItem Header="Accès système">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <Border Style="{StaticResource ErpV2FormCard}">
+                                <StackPanel>
+                                    <CheckBox Content="Autoriser la connexion au système"
+                                              IsChecked="{Binding AllowSystemLogin, Mode=TwoWay}" />
+                                    <CheckBox Margin="0,8,0,0"
+                                              Content="Créer un compte utilisateur"
+                                              IsChecked="{Binding CreateSystemAccount, Mode=TwoWay}" />
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <erp:ErpTextField Grid.Row="0"
+                                                          Grid.Column="0"
+                                                          Margin="{StaticResource ErpFormCellMargin}"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="AccountKey"
+                                                          Label="Nom d'utilisateur"
+                                                          Text="{Binding SystemUsername, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpComboField Grid.Row="0"
+                                                           Grid.Column="1"
+                                                           Margin="0,0,0,18"
+                                                           DisplayMemberPath="Name"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="ShieldAccount"
+                                                           ItemsSource="{Binding SystemRoles}"
+                                                           Label="Rôle système"
+                                                           SelectedItem="{Binding SelectedSystemRole, Mode=TwoWay}" />
+                                        <erp:ErpTextField Grid.Row="1"
+                                                          Grid.Column="0"
+                                                          Margin="{StaticResource ErpFormCellMargin}"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="Lock"
+                                                          Label="Mot de passe"
+                                                          Text="{Binding SystemPassword, UpdateSourceTrigger=PropertyChanged}" />
+                                        <erp:ErpTextField Grid.Row="1"
+                                                          Grid.Column="1"
+                                                          Margin="0,0,0,18"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="LockCheck"
+                                                          Label="Confirmer le mot de passe"
+                                                          Text="{Binding SystemPasswordConfirm, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Historique -->
+                    <TabItem Header="Historique">
+                        <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding HistoryItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type dto:PersonnelHistoryItemDto}">
+                                        <Grid Margin="0,0,0,16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="36"
+                                                    Height="36"
+                                                    Margin="0,0,12,0"
+                                                    Background="#EEF2FF"
+                                                    CornerRadius="18">
+                                                <materialDesign:PackIcon Width="18"
+                                                                         Height="18"
+                                                                         HorizontalAlignment="Center"
+                                                                         VerticalAlignment="Center"
+                                                                         Foreground="#1D4ED8"
+                                                                         Kind="History" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontWeight="SemiBold"
+                                                           Foreground="#0F1F4A"
+                                                           Text="{Binding Title}" />
+                                                <TextBlock Margin="0,2,0,0"
+                                                           Style="{StaticResource ErpBodySecondary}"
+                                                           Text="{Binding OccurredAt, StringFormat=dd/MM/yyyy HH:mm}" />
+                                                <TextBlock Margin="0,4,0,0"
+                                                           Style="{StaticResource ErpBodySecondary}"
+                                                           Text="{Binding Description}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Border>
+
+            <!-- Quick summary sidebar -->
+            <Border Grid.Column="1"
+                    VerticalAlignment="Stretch"
+                    Style="{StaticResource ErpV2SummaryPanel}">
+                <StackPanel>
+                    <TextBlock FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#0F1F4A"
+                               Text="Résumé fiche" />
+                    <Separator Margin="0,10,0,12" />
+                    <Border Width="72"
+                            Height="72"
+                            Margin="0,0,0,10"
+                            HorizontalAlignment="Center"
+                            Background="#EEF2FF"
+                            CornerRadius="36">
+                        <materialDesign:PackIcon Width="36"
+                                                 Height="36"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#1D4ED8"
+                                                 Kind="AccountCircle" />
+                    </Border>
+                    <TextBlock HorizontalAlignment="Center"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Text="{Binding SummaryFullName}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <TextBlock Margin="0,4,0,0"
+                               HorizontalAlignment="Center"
+                               Style="{StaticResource ErpBodySecondary}"
+                               Text="{Binding SummaryEmployeeNumber, StringFormat=Matricule : {0}}" />
+                    <Separator Margin="0,12" />
+                    <TextBlock Style="{StaticResource ErpV2SummaryLine}"
+                               Text="{Binding SummaryCategoryLabel, StringFormat=Catégorie : {0}}" />
+                    <TextBlock Style="{StaticResource ErpV2SummaryLine}"
+                               Text="{Binding SummaryDepartmentName, StringFormat=Département : {0}}" />
+                    <TextBlock Style="{StaticResource ErpV2SummaryLine}"
+                               Text="{Binding SummaryFunctionName, StringFormat=Fonction : {0}}" />
+                    <TextBlock Style="{StaticResource ErpV2SummaryLine}"
+                               Text="{Binding SummaryContractLabel, StringFormat=Contrat : {0}}" />
+                    <TextBlock Style="{StaticResource ErpV2SummaryLine}"
+                               Text="{Binding SummaryStatusLabel, StringFormat=Statut : {0}}" />
+                    <Separator Margin="0,12" />
+                    <TextBlock Style="{StaticResource ErpBodySecondary}"
+                               Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Bottom action bar -->
+        <Border Grid.Row="1"
+                Margin="0,12,0,0"
+                Padding="14,12"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Padding="14,6"
+                            Command="{Binding CancelCommand}"
+                            Content="Annuler"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding SaveAndNewCommand}"
+                            Content="Enregistrer &amp; Nouveau"
+                            Style="{StaticResource ErpSecondaryButton}" />
+                    <Button Margin="8,0,0,0"
+                            Padding="14,6"
+                            Command="{Binding SaveCommand}"
+                            Content="Enregistrer"
+                            Style="{StaticResource ErpPrimaryButton}" />
+                </StackPanel>
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="#DC2626"
+                           Text="{Binding ValidationMessage}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding ValidationMessage, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Loading overlay -->
+        <Border Grid.RowSpan="3"
+                Style="{StaticResource SchoolFeeLoadingOverlay}"
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar Width="220"
+                             Height="4"
+                             Foreground="#1D4ED8"
+                             IsIndeterminate="True" />
+                <TextBlock Margin="0,10,0,0"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource ErpBodySecondary}"
+                           Text="Chargement de la fiche personnel…" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

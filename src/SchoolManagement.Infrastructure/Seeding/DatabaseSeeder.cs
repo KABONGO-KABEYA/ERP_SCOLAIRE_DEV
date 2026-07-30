@@ -11,23 +11,28 @@ using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Application.Schools.Catalog;
 using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Shared.Constants;
+using SchoolManagement.Application.Schools;
+using SchoolManagement.Application.Schools.Interfaces;
 
 public sealed class DatabaseSeeder
 {
     private readonly SchoolDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly CurriculumSeeder _curriculumSeeder;
+    private readonly ISectionConsolidationService _sectionConsolidationService;
     private readonly ILogger<DatabaseSeeder> _logger;
 
     public DatabaseSeeder(
         SchoolDbContext context,
         IPasswordHasher passwordHasher,
         CurriculumSeeder curriculumSeeder,
+        ISectionConsolidationService sectionConsolidationService,
         ILogger<DatabaseSeeder> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _curriculumSeeder = curriculumSeeder;
+        _sectionConsolidationService = sectionConsolidationService;
         _logger = logger;
     }
 
@@ -519,17 +524,7 @@ public sealed class DatabaseSeeder
 
     private async Task EnsurePedagogicalStructureAsync(Guid schoolId, CancellationToken cancellationToken)
     {
-        var requiredSections = new (string Code, string Name, EducationCycle Cycle)[]
-        {
-            ("MAT", "Maternelle", EducationCycle.Primaire),
-            ("PRI", "Primaire", EducationCycle.Primaire),
-            ("CTEB", "Éducation de base — CTEB", EducationCycle.Secondaire),
-            ("HUM", "Humanités", EducationCycle.Secondaire),
-            ("HPRO", "Humanités professionnelles", EducationCycle.Secondaire),
-            ("FS", "Filières spécialisées", EducationCycle.Secondaire)
-        };
-
-        foreach (var (code, name, cycle) in requiredSections)
+        foreach (var (code, name, cycle) in PedagogicalSectionCatalog.RequiredSections)
         {
             if (!await _context.Sections.AnyAsync(s => s.SchoolId == schoolId && s.Code == code, cancellationToken))
             {
@@ -544,6 +539,7 @@ public sealed class DatabaseSeeder
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await _sectionConsolidationService.ConsolidateAsync(schoolId, cancellationToken);
 
         var existing = await _context.PedagogicalClasses
             .Where(p => p.SchoolId == schoolId)

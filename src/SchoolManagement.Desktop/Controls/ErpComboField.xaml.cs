@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace SchoolManagement.Desktop.Controls;
 
@@ -180,6 +181,11 @@ public partial class ErpComboField : UserControl
 
     private void InputComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (e.AddedItems.Count > 0 && InputComboBox.IsDropDownOpen)
+        {
+            InputComboBox.IsDropDownOpen = false;
+        }
+
         ShowValidation = true;
         RefreshValidation();
     }
@@ -196,15 +202,48 @@ public partial class ErpComboField : UserControl
             return;
         }
 
+        // Laisser le ComboBox gérer la fermeture (re-clic, clic extérieur, sélection).
+        if (InputComboBox.IsDropDownOpen)
+        {
+            return;
+        }
+
+        // Données déjà chargées : ouverture/fermeture natives (évite popup bloquée).
+        if (HasPopulatedItemsSource())
+        {
+            return;
+        }
+
         e.Handled = true;
         try
         {
             await PreparingDropDownAsync(EventArgs.Empty);
-            InputComboBox.IsDropDownOpen = true;
+            InputComboBox.Focus();
+            await Dispatcher.InvokeAsync(
+                () => InputComboBox.IsDropDownOpen = true,
+                DispatcherPriority.Input);
         }
         catch
         {
             InputComboBox.IsDropDownOpen = false;
         }
+    }
+
+    private bool HasPopulatedItemsSource()
+    {
+        if (ItemsSource is ICollection collection)
+        {
+            return collection.Count > 0;
+        }
+
+        if (ItemsSource is IEnumerable items)
+        {
+            foreach (var _ in items)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

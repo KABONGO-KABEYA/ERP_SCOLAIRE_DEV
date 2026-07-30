@@ -12,11 +12,14 @@ public partial class ShellView : UserControl
 {
     private readonly Dictionary<string, Button> _settingsSubNavButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _financeSubNavButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _personnelSubNavButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<Type, ToggleButton> _mainNavButtons = new();
     private Expander? _settingsExpander;
     private Expander? _financeExpander;
+    private Expander? _personnelExpander;
     private string? _selectedSettingsKey;
     private string? _selectedFinanceKey;
+    private string? _selectedPersonnelKey;
     private bool _isBuildingNavigation;
 
     public ShellView()
@@ -43,6 +46,7 @@ public partial class ShellView : UserControl
             {
                 ApplyPendingSettingsSelection(shellViewModel);
                 ApplyPendingFinanceSelection(shellViewModel);
+                ApplyPendingPersonnelSelection(shellViewModel);
                 UpdatePageTitle(shellViewModel);
             }
         };
@@ -62,6 +66,7 @@ public partial class ShellView : UserControl
         NavigationPanel.Children.Clear();
         _settingsSubNavButtons.Clear();
         _financeSubNavButtons.Clear();
+        _personnelSubNavButtons.Clear();
         _mainNavButtons.Clear();
 
         foreach (var module in shellViewModel.Modules)
@@ -77,6 +82,13 @@ public partial class ShellView : UserControl
             {
                 _financeExpander = CreateFinanceExpander(shellViewModel, module);
                 NavigationPanel.Children.Add(_financeExpander);
+                continue;
+            }
+
+            if (module.ViewModelType == typeof(PersonnelHubViewModel))
+            {
+                _personnelExpander = CreatePersonnelExpander(shellViewModel, module);
+                NavigationPanel.Children.Add(_personnelExpander);
                 continue;
             }
 
@@ -144,6 +156,37 @@ public partial class ShellView : UserControl
                 subButton.Click += (_, _) => NavigateToFinanceSection(shellViewModel, item);
                 content.Children.Add(subButton);
                 _financeSubNavButtons[item.Key] = subButton;
+            }
+        }
+
+        expander.Content = content;
+        return expander;
+    }
+
+    private Expander CreatePersonnelExpander(ShellViewModel shellViewModel, ModuleNavItem module)
+    {
+        var expander = new Expander
+        {
+            Style = (Style)FindResource("ErpSidebarSettingsExpander"),
+            IsExpanded = false
+        };
+
+        expander.Header = CreateExpanderHeader(module.Title, PackIconKind.AccountTie);
+        var content = new StackPanel();
+        foreach (var group in PersonnelNavCatalog.Groups)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = group.Title,
+                Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
+            });
+
+            foreach (var item in group.Items)
+            {
+                var subButton = CreateSubNavButton(item.Key, item.Title, item.IconKind);
+                subButton.Click += (_, _) => NavigateToPersonnelSection(shellViewModel, item);
+                content.Children.Add(subButton);
+                _personnelSubNavButtons[item.Key] = subButton;
             }
         }
 
@@ -298,6 +341,31 @@ public partial class ShellView : UserControl
         FinanceNavigationBridge.Select(item);
     }
 
+    private void NavigateToPersonnelSection(ShellViewModel shellViewModel, PersonnelNavItem item)
+    {
+        var personnelModule = shellViewModel.Modules.First(module => module.ViewModelType == typeof(PersonnelHubViewModel));
+        shellViewModel.SelectedModule = personnelModule;
+        _personnelExpander!.IsExpanded = true;
+        _selectedPersonnelKey = item.Key;
+        _selectedSettingsKey = null;
+        _selectedFinanceKey = null;
+        UpdatePersonnelSubNavSelection(item.Key);
+        ClearSettingsSubNavSelection();
+        ClearFinanceSubNavSelection();
+        HighlightSettingsHeader(false);
+        HighlightFinanceHeader(false);
+        HighlightPersonnelHeader(true);
+
+        if (shellViewModel.CurrentViewModel is PersonnelHubViewModel personnelViewModel)
+        {
+            PersonnelNavigationBridge.ApplyToViewModel(personnelViewModel, item);
+        }
+
+        PageTitleText.Text = item.Title;
+        PageSubtitleText.Text = item.Subtitle;
+        PersonnelNavigationBridge.Select(item);
+    }
+
     private void SyncMainNavSelection(ShellViewModel shellViewModel)
     {
         foreach (var pair in _mainNavButtons)
@@ -307,6 +375,7 @@ public partial class ShellView : UserControl
 
         var isSettings = shellViewModel.SelectedModule?.ViewModelType == typeof(SettingsViewModel);
         var isFinance = shellViewModel.SelectedModule?.ViewModelType == typeof(FinanceHubViewModel);
+        var isPersonnel = shellViewModel.SelectedModule?.ViewModelType == typeof(PersonnelHubViewModel);
 
         if (_settingsExpander is not null)
         {
@@ -321,7 +390,34 @@ public partial class ShellView : UserControl
                 NavigateToFinanceSection(shellViewModel, FinanceNavCatalog.DefaultItem);
             }
         }
+
+        if (_personnelExpander is not null)
+        {
+            HighlightPersonnelHeader(isPersonnel);
+            if (isPersonnel && string.IsNullOrWhiteSpace(_selectedPersonnelKey))
+            {
+                NavigateToPersonnelSection(shellViewModel, PersonnelNavCatalog.DefaultItem);
+            }
+        }
     }
+
+    private void HighlightPersonnelHeader(bool active)
+    {
+        if (_personnelExpander is null)
+        {
+            return;
+        }
+
+        _personnelExpander.Background = active
+            ? new SolidColorBrush(Color.FromRgb(37, 99, 235))
+            : Brushes.Transparent;
+    }
+
+    private void UpdatePersonnelSubNavSelection(string selectedKey) =>
+        UpdateSubNavSelection(_personnelSubNavButtons, selectedKey);
+
+    private void ClearPersonnelSubNavSelection() =>
+        UpdateSubNavSelection(_personnelSubNavButtons, null);
 
     private void HighlightSettingsHeader(bool active)
     {
@@ -426,6 +522,28 @@ public partial class ShellView : UserControl
         PageSubtitleText.Text = item.Subtitle;
     }
 
+    private void ApplyPendingPersonnelSelection(ShellViewModel shellViewModel)
+    {
+        if (shellViewModel.CurrentViewModel is not PersonnelHubViewModel personnelViewModel)
+        {
+            return;
+        }
+
+        var key = _selectedPersonnelKey ?? PersonnelNavCatalog.DefaultItem.Key;
+        var item = PersonnelNavCatalog.FindByKey(key) ?? PersonnelNavCatalog.DefaultItem;
+        _selectedPersonnelKey = item.Key;
+        if (_personnelExpander is not null)
+        {
+            _personnelExpander.IsExpanded = true;
+        }
+
+        UpdatePersonnelSubNavSelection(item.Key);
+        PersonnelNavigationBridge.ApplyToViewModel(personnelViewModel, item);
+        PersonnelNavigationBridge.Select(item);
+        PageTitleText.Text = item.Title;
+        PageSubtitleText.Text = item.Subtitle;
+    }
+
     private void UpdatePageTitle(ShellViewModel shellViewModel)
     {
         if (shellViewModel.CurrentViewModel is SettingsViewModel settingsViewModel &&
@@ -440,6 +558,13 @@ public partial class ShellView : UserControl
         {
             PageTitleText.Text = financeViewModel.SelectedSectionTitle;
             PageSubtitleText.Text = financeViewModel.SelectedSectionDescription;
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is PersonnelHubViewModel personnelViewModel)
+        {
+            PageTitleText.Text = personnelViewModel.SelectedSectionTitle;
+            PageSubtitleText.Text = personnelViewModel.SelectedSectionDescription;
             return;
         }
 

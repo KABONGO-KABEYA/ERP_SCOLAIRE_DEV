@@ -60,7 +60,7 @@
                             <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="#0284C7" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Margin="0,12,0,0" Style="{StaticResource ErpStatValue}" Text="{Binding Dashboard.TotalTeachers}" />
-                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Enseignants" />
+                        <TextBlock Style="{StaticResource ErpStatLabel}" Text="Personnel" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource ErpStatCard}" Margin="4,0,4,0">

@@ -1,0 +1,139 @@
+namespace SchoolManagement.Application.Personnel.DTOs;
+
+using SchoolManagement.Application.Geography.DTOs;
+using SchoolManagement.Domain.Enums;
+
+public sealed record HrDepartmentDto(Guid Id, string Code, string Name, bool IsActive);
+
+public sealed record HrJobFunctionDto(Guid Id, Guid? DepartmentId, string Name, bool IsActive);
+
+public sealed record PersonnelListItemDto(
+    Guid Id,
+    string EmployeeNumber,
+    string FullName,
+    string? PhotoPath,
+    PersonnelCategory Category,
+    string CategoryLabel,
+    string? FunctionName,
+    string? DepartmentName,
+    string? Phone,
+    string? Email,
+    string SeniorityLabel,
+    string ContractLabel,
+    PersonnelStatus Status,
+    string StatusLabel,
+    bool IsActive);
+
+public sealed record PersonnelKpiDto(
+    int Total,
+    int Active,
+    int OnLeave,
+    int ContractEnding);
+
+public sealed record PersonnelDetailDto(
+    Guid Id,
+    string EmployeeNumber,
+    string FirstName,
+    string? MiddleName,
+    string LastName,
+    string FullName,
+    string? Phone,
+    string? Email,
+    string? Specialization,
+    DateOnly? HireDate,
+    bool IsActive,
+    Guid? AddressId,
+    string? AddressLine,
+    AddressInputDto? ResidenceAddress,
+    PersonnelCategory Category,
+    Gender? Gender,
+    DateOnly? BirthDate,
+    string? BirthPlace,
+    string? Nationality,
+    string? MaritalStatus,
+    int? ChildrenCount,
+    string? IdCardNumber,
+    Guid? DepartmentId,
+    string? DepartmentName,
+    Guid? JobFunctionId,
+    string? FunctionName,
+    string? Grade,
+    string? Service,
+    string? SupervisorName,
+    string? WorkLocation,
+    PersonnelContractType? ContractType,
+    DateOnly? ContractStartDate,
+    DateOnly? ContractEndDate,
+    decimal? BaseSalary,
+    string? CurrencyCode,
+    PersonnelPaymentMethod? PaymentMethod,
+    string? BankName,
+    string? BankAccountNumber,
+    string? BankAccountHolder,
+    int? PayDay,
+    string? EmergencyContactName,
+    string? EmergencyContactRelation,
+    string? EmergencyContactPhone,
+    string? EmergencyContactAddress,
+    string? PhotoPath,
+    PersonnelStatus Status,
+    string? SystemUsername,
+    bool AllowSystemLogin,
+    IReadOnlyList<PersonnelHistoryItemDto> History);
+
+public sealed record PersonnelHistoryItemDto(
+    DateTime OccurredAt,
+    string Title,
+    string? Description,
+    string IconKind);
+
+public sealed record SavePersonnelRequest(
+    string EmployeeNumber,
+    string FirstName,
+    string? MiddleName,
+    string LastName,
+    string? Phone,
+    string? Email,
+    string? Specialization,
+    DateOnly? HireDate,
+    bool IsActive,
+    AddressInputDto? ResidenceAddress,
+    PersonnelCategory Category,
+    Gender? Gender,
+    DateOnly? BirthDate,
+    string? BirthPlace,
+    string? Nationality,
+    string? MaritalStatus,
+    int? ChildrenCount,
+    string? IdCardNumber,
+    Guid? DepartmentId,
+    Guid? JobFunctionId,
+    string? Grade,
+    string? Service,
+    string? SupervisorName,
+    string? WorkLocation,
+    PersonnelContractType? ContractType,
+    DateOnly? ContractStartDate,
+    DateOnly? ContractEndDate,
+    decimal? BaseSalary,
+    string? CurrencyCode,
+    PersonnelPaymentMethod? PaymentMethod,
+    string? BankName,
+    string? BankAccountNumber,
+    string? BankAccountHolder,
+    int? PayDay,
+    string? EmergencyContactName,
+    string? EmergencyContactRelation,
+    string? EmergencyContactPhone,
+    string? EmergencyContactAddress,
+    PersonnelStatus Status,
+    string? SystemUsername,
+    string? SystemPassword,
+    string? SystemPasswordConfirm,
+    Guid? SystemRoleId,
+    bool AllowSystemLogin,
+    bool CreateSystemAccount);
+
+public sealed record CreateHrDepartmentRequest(string Code, string Name);
+
+public sealed record CreateHrJobFunctionRequest(Guid? DepartmentId, string Name);

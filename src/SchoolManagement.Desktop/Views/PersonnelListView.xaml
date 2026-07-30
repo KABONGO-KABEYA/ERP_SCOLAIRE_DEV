@@ -1,0 +1,529 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.PersonnelListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:enums="clr-namespace:SchoolManagement.Domain.Enums;assembly=SchoolManagement.Domain">
+    <UserControl.Resources>
+        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+
+        <Style x:Key="PersonnelCompactStatCard" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#E5E7EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Effect" Value="{StaticResource ErpCardShadow}" />
+        </Style>
+
+        <Style x:Key="PersonnelGroupHeaderBorder" TargetType="Border">
+            <Setter Property="Background" Value="#EFF6FF" />
+            <Setter Property="BorderBrush" Value="#DBEAFE" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="14,6" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer Style="{StaticResource ErpPageHost}"
+                  Background="{StaticResource ErpPageBackgroundBrush}"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Style="{StaticResource ErpFadeIn}" Margin="4,8,4,24">
+
+            <!-- KPI compacts -->
+            <UniformGrid Columns="4" Margin="0,0,0,10">
+                <Border Style="{StaticResource PersonnelCompactStatCard}">
+                    <DockPanel LastChildFill="True">
+                        <Border Width="34"
+                                Height="34"
+                                Background="#DBEAFE"
+                                CornerRadius="10"
+                                DockPanel.Dock="Left">
+                            <materialDesign:PackIcon Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{StaticResource ErpPrimaryBrush}"
+                                                     Kind="AccountGroup" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="11"
+                                       Foreground="#6B7280"
+                                       Text="Total personnel" />
+                            <TextBlock FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#1F2937"
+                                       Text="{Binding TotalCount}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource PersonnelCompactStatCard}">
+                    <DockPanel LastChildFill="True">
+                        <Border Width="34"
+                                Height="34"
+                                Background="#DCFCE7"
+                                CornerRadius="10"
+                                DockPanel.Dock="Left">
+                            <materialDesign:PackIcon Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="#16A34A"
+                                                     Kind="AccountCheck" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="11"
+                                       Foreground="#6B7280"
+                                       Text="En activité" />
+                            <TextBlock FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#16A34A"
+                                       Text="{Binding ActiveCount}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+                <Border Style="{StaticResource PersonnelCompactStatCard}">
+                    <DockPanel LastChildFill="True">
+                        <Border Width="34"
+                                Height="34"
+                                Background="#FEF3C7"
+                                CornerRadius="10"
+                                DockPanel.Dock="Left">
+                            <materialDesign:PackIcon Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="#D97706"
+                                                     Kind="CalendarClock" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="11"
+                                       Foreground="#6B7280"
+                                       Text="En congé" />
+                            <TextBlock FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#D97706"
+                                       Text="{Binding OnLeaveCount}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+                <Border Margin="0" Style="{StaticResource PersonnelCompactStatCard}">
+                    <DockPanel LastChildFill="True">
+                        <Border Width="34"
+                                Height="34"
+                                Background="#FEE2E2"
+                                CornerRadius="10"
+                                DockPanel.Dock="Left">
+                            <materialDesign:PackIcon Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="#DC2626"
+                                                     Kind="FileAlertOutline" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="11"
+                                       Foreground="#6B7280"
+                                       Text="Fin de contrat" />
+                            <TextBlock FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#DC2626"
+                                       Text="{Binding ContractEndingCount}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Filtres compacts -->
+            <Border Margin="0,0,0,10"
+                    Padding="10,8"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Effect="{StaticResource ErpCardShadow}">
+                <StackPanel>
+                    <DockPanel LastChildFill="True">
+                        <Button Width="28"
+                                Height="28"
+                                Padding="0"
+                                HorizontalAlignment="Right"
+                                Command="{Binding ToggleFiltersCommand}"
+                                DockPanel.Dock="Right"
+                                Style="{StaticResource MaterialDesignIconButton}"
+                                ToolTip="{Binding FiltersHeaderText}"
+                                ToolTipService.InitialShowDelay="200">
+                            <Grid Width="16" Height="16">
+                                <materialDesign:PackIcon Kind="ChevronDown"
+                                                         Width="16"
+                                                         Height="16"
+                                                         Visibility="{Binding IsFiltersExpanded, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                <materialDesign:PackIcon Kind="ChevronUp"
+                                                         Width="16"
+                                                         Height="16"
+                                                         Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </Grid>
+                        </Button>
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#1F2937"
+                                   Text="Filtres de recherche" />
+                    </DockPanel>
+
+                    <StackPanel Margin="0,8,0,0"
+                                Visibility="{Binding IsFiltersExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <UniformGrid Columns="2" Margin="0,0,0,8">
+                            <erp:ErpComboField Margin="0,0,8,8"
+                                               IsCompact="True"
+                                               DisplayMemberPath="Name"
+                                               FieldWidth="200"
+                                               HorizontalAlignment="Stretch"
+                                               IconKind="OfficeBuildingOutline"
+                                               ItemsSource="{Binding Departments}"
+                                               Label="Département"
+                                               SelectedItem="{Binding SelectedDepartment, Mode=TwoWay}" />
+                            <erp:ErpComboField Margin="0,0,0,8"
+                                               IsCompact="True"
+                                               DisplayMemberPath="Name"
+                                               FieldWidth="200"
+                                               HorizontalAlignment="Stretch"
+                                               IconKind="BadgeAccountOutline"
+                                               ItemsSource="{Binding JobFunctions}"
+                                               Label="Fonction"
+                                               SelectedItem="{Binding SelectedFunction, Mode=TwoWay}" />
+                            <erp:ErpComboField Margin="0,0,8,0"
+                                               IsCompact="True"
+                                               DisplayMemberPath="Label"
+                                               FieldWidth="200"
+                                               HorizontalAlignment="Stretch"
+                                               IconKind="AccountCheckOutline"
+                                               ItemsSource="{Binding StatusOptions}"
+                                               Label="Statut"
+                                               SelectedItem="{Binding SelectedStatus, Mode=TwoWay}" />
+                            <erp:ErpComboField IsCompact="True"
+                                               DisplayMemberPath="Label"
+                                               FieldWidth="200"
+                                               HorizontalAlignment="Stretch"
+                                               IconKind="FileDocumentOutline"
+                                               ItemsSource="{Binding ContractOptions}"
+                                               Label="Type de contrat"
+                                               SelectedItem="{Binding SelectedContractType, Mode=TwoWay}" />
+                        </UniformGrid>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Padding="10,4"
+                                    Command="{Binding ApplyFiltersCommand}"
+                                    Content="Afficher"
+                                    FontSize="12"
+                                    Style="{StaticResource ErpPrimaryButton}" />
+                            <Button Margin="6,0,0,0"
+                                    Padding="10,4"
+                                    Command="{Binding ClearFiltersCommand}"
+                                    Content="Réinitialiser"
+                                    FontSize="12"
+                                    Style="{StaticResource ErpSecondaryButton}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Liste -->
+            <Border Padding="0"
+                    MinHeight="360"
+                    Style="{StaticResource ErpCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="240" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0"
+                            BorderBrush="#E5E7EB"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,10,14,10">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                                <TextBlock FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#1F2937"
+                                           Text="Liste du personnel" />
+                                <TextBlock Margin="0,2,0,0"
+                                           FontSize="11"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="{Binding StatusMessage}" />
+                            </StackPanel>
+
+                            <StackPanel DockPanel.Dock="Right"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal">
+                                <erp:ErpSearchField Width="260"
+                                                    Margin="0,0,8,0"
+                                                    Placeholder="Matricule, nom, téléphone…"
+                                                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Padding="10,4"
+                                        Command="{Binding NewPersonnelCommand}"
+                                        FontSize="12"
+                                        Style="{StaticResource ErpPrimaryButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="AccountPlusOutline"
+                                                                 Margin="0,0,4,0"
+                                                                 Width="16"
+                                                                 Height="16"
+                                                                 VerticalAlignment="Center" />
+                                        <TextBlock Text="Nouveau"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Margin="6,0,0,0"
+                                        Padding="10,4"
+                                        Command="{Binding ExportExcelCommand}"
+                                        Content="Excel"
+                                        FontSize="12"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="6,0,0,0"
+                                        Padding="10,4"
+                                        Command="{Binding ExportPdfCommand}"
+                                        Content="PDF"
+                                        FontSize="12"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="6,0,0,0"
+                                        Padding="10,4"
+                                        Command="{Binding PrintListCommand}"
+                                        Content="Imprimer"
+                                        FontSize="12"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="6,0,0,0"
+                                        Padding="10,4"
+                                        Command="{Binding RefreshCommand}"
+                                        Content="Actualiser"
+                                        FontSize="12"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <DataGrid x:Name="PersonnelGrid"
+                                  AutoGenerateColumns="False"
+                                  BorderThickness="0"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  EnableRowVirtualization="True"
+                                  HeadersVisibility="Column"
+                                  IsReadOnly="True"
+                                  ItemsSource="{Binding ItemsView}"
+                                  RowHeight="46"
+                                  ColumnHeaderHeight="42"
+                                  SelectionMode="Single"
+                                  Style="{StaticResource ErpStudentsDataGrid}">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.ContainerStyle>
+                                        <Style TargetType="{x:Type GroupItem}">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                        <StackPanel>
+                                                            <Border Style="{StaticResource PersonnelGroupHeaderBorder}">
+                                                                <DockPanel LastChildFill="True">
+                                                                    <TextBlock DockPanel.Dock="Right"
+                                                                               VerticalAlignment="Center"
+                                                                               FontSize="11"
+                                                                               Foreground="#64748B"
+                                                                               Text="{Binding ItemCount, StringFormat={}{0} membre(s)}" />
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <materialDesign:PackIcon Width="16"
+                                                                                                 Height="16"
+                                                                                                 Margin="0,0,8,0"
+                                                                                                 VerticalAlignment="Center"
+                                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                                                 Kind="AccountGroupOutline" />
+                                                                        <TextBlock VerticalAlignment="Center"
+                                                                                   FontSize="13"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Foreground="#1E3A8A"
+                                                                                   Text="{Binding Name}" />
+                                                                    </StackPanel>
+                                                                </DockPanel>
+                                                            </Border>
+                                                            <ItemsPresenter />
+                                                        </StackPanel>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </GroupStyle.ContainerStyle>
+                                </GroupStyle>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="PHOTO" Width="56">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Width="32"
+                                                    Height="32"
+                                                    HorizontalAlignment="Center"
+                                                    Background="#EEF2FF"
+                                                    CornerRadius="16">
+                                                <materialDesign:PackIcon Width="18"
+                                                                         Height="18"
+                                                                         HorizontalAlignment="Center"
+                                                                         VerticalAlignment="Center"
+                                                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                                                         Kind="AccountCircle" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="MATRICULE" Width="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ErpTableCodeBadge}">
+                                                <TextBlock Style="{StaticResource ErpTableCodeBadgeText}"
+                                                           Text="{Binding EmployeeNumber}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Width="*"
+                                                    MinWidth="150"
+                                                    Binding="{Binding FullName}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="NOM COMPLET" />
+                                <DataGridTextColumn Width="*"
+                                                    MinWidth="110"
+                                                    Binding="{Binding FunctionName}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="FONCTION" />
+                                <DataGridTextColumn Width="*"
+                                                    MinWidth="110"
+                                                    Binding="{Binding DepartmentName}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="DÉPARTEMENT" />
+                                <DataGridTextColumn Width="110"
+                                                    Binding="{Binding Phone}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="TÉLÉPHONE" />
+                                <DataGridTextColumn Width="*"
+                                                    MinWidth="120"
+                                                    Binding="{Binding Email}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="E-MAIL" />
+                                <DataGridTextColumn Width="100"
+                                                    Binding="{Binding SeniorityLabel}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="ANCIENNETÉ" />
+                                <DataGridTextColumn Width="90"
+                                                    Binding="{Binding ContractLabel}"
+                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    Header="CONTRAT" />
+
+                                <DataGridTemplateColumn Header="STATUT" Width="130">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="StatusBadge"
+                                                    Style="{StaticResource ErpTableStatusBadgeActive}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon x:Name="StatusIcon"
+                                                                             Width="13"
+                                                                             Height="13"
+                                                                             Margin="0,0,5,0"
+                                                                             VerticalAlignment="Center"
+                                                                             Foreground="#16A34A"
+                                                                             Kind="CheckCircle" />
+                                                    <TextBlock x:Name="StatusText"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#166534"
+                                                               Text="{Binding StatusLabel}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="{x:Static enums:PersonnelStatus.Conge}">
+                                                    <Setter TargetName="StatusBadge" Property="Style" Value="{StaticResource ErpTableStatusBadgeWarning}" />
+                                                    <Setter TargetName="StatusIcon" Property="Kind" Value="CalendarClock" />
+                                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#D97706" />
+                                                    <Setter TargetName="StatusText" Property="Foreground" Value="#B45309" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="{x:Static enums:PersonnelStatus.FinContrat}">
+                                                    <Setter TargetName="StatusBadge" Property="Style" Value="{StaticResource ErpTableStatusBadgeArchived}" />
+                                                    <Setter TargetName="StatusIcon" Property="Kind" Value="FileAlertOutline" />
+                                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#DC2626" />
+                                                    <Setter TargetName="StatusText" Property="Foreground" Value="#B91C1C" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="{x:Static enums:PersonnelStatus.Inactif}">
+                                                    <Setter TargetName="StatusBadge" Property="Style" Value="{StaticResource ErpTableStatusBadgeInactive}" />
+                                                    <Setter TargetName="StatusIcon" Property="Kind" Value="MinusCircleOutline" />
+                                                    <Setter TargetName="StatusIcon" Property="Foreground" Value="#6B7280" />
+                                                    <Setter TargetName="StatusText" Property="Foreground" Value="#4B5563" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="ACTION" Width="72">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Click="PersonnelActionsButton_OnClick"
+                                                    Content="..."
+                                                    Style="{StaticResource ErpStudentsGridActionButton}"
+                                                    Tag="{Binding}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding HasNoResults, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Border Width="52"
+                                    Height="52"
+                                    Margin="0,0,0,10"
+                                    Background="#EFF6FF"
+                                    CornerRadius="26">
+                                <materialDesign:PackIcon Width="26"
+                                                         Height="26"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{StaticResource ErpPrimaryBrush}"
+                                                         Kind="AccountSearchOutline" />
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#1F2937"
+                                       Text="Aucun membre du personnel trouvé" />
+                            <TextBlock Margin="0,4,0,0"
+                                       HorizontalAlignment="Center"
+                                       FontSize="12"
+                                       Style="{StaticResource ErpBodySecondary}"
+                                       Text="Modifiez les filtres ou créez une nouvelle fiche." />
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SchoolFeeLoadingOverlay}"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                <ProgressBar Width="160"
+                                             Height="4"
+                                             Foreground="{StaticResource ErpPrimaryBrush}"
+                                             IsIndeterminate="True" />
+                                <TextBlock Margin="0,8,0,0"
+                                           HorizontalAlignment="Center"
+                                           FontSize="12"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Chargement en cours…" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

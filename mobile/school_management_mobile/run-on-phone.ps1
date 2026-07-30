@@ -29,7 +29,7 @@ $mobileDir = Join-Path $projectRoot "mobile\school_management_mobile"
 $flutterRoot = "D:\flutter"
 $pubCache = "D:\pub_cache"
 $buildHome = "D:\build_home"
-$defaultCloudUrl = "http://161.97.105.22:1804"
+$defaultCloudUrl = "http://169.58.93.203:1804"
 
 if (-not (Test-Path "$flutterRoot\bin\flutter.bat")) {
     Write-Error "Flutter introuvable dans D:\flutter. Relancez l'installation Flutter."

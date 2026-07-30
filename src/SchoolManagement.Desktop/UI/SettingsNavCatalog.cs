@@ -36,8 +36,7 @@ public static class SettingsNavCatalog
                 new SettingsNavItem { Key = "annees-scolaires", Title = "Années scolaires", IconKind = "CalendarRange", Section = SettingsSection.AnneesScolaires },
                 new SettingsNavItem { Key = "matieres", Title = "Configuration des cours", IconKind = "BookEducation", Section = SettingsSection.Matieres },
                 new SettingsNavItem { Key = "geographie", Title = "Géographie", IconKind = "Earth", Section = SettingsSection.Geographie },
-                new SettingsNavItem { Key = "utilisateurs", Title = "Utilisateurs", IconKind = "AccountCog", Section = SettingsSection.Utilisateurs },
-                new SettingsNavItem { Key = "enseignants", Title = "Enseignants", IconKind = "HumanMaleBoard", Section = SettingsSection.Enseignants }
+                new SettingsNavItem { Key = "utilisateurs", Title = "Utilisateurs", IconKind = "AccountCog", Section = SettingsSection.Utilisateurs }
             ]
         },
         new SettingsNavGroup

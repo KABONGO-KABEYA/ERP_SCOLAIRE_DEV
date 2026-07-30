@@ -27,7 +27,8 @@ public sealed record CourseConfigurationItemDto(
     Guid? TeacherId,
     string? TeacherName,
     bool IsActive,
-    int MaxPerPeriod);
+    int MaxPerPeriod,
+    int WeeklyHours);
 
 public sealed record CourseConfigurationDto(
     bool IsConfigured,
@@ -38,7 +39,8 @@ public sealed record SaveCourseConfigurationItemRequest(
     Guid CourseId,
     Guid? TeacherId,
     bool IsActive,
-    int Maximum);
+    int Maximum,
+    int WeeklyHours);
 
 public sealed record SaveCourseConfigurationRequest(
     Guid AcademicYearId,

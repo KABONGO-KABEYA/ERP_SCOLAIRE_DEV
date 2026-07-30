@@ -1,3 +1,4 @@
+using SchoolManagement.Domain.Enums;
 using SchoolManagement.Desktop.ViewModels;
 
 namespace SchoolManagement.Desktop.UI;
@@ -25,82 +26,39 @@ public static class StructureUiCatalog
         {
             Key = "maternelle",
             Title = "Maternelle",
-            Description = "Enseignement préscolaire",
+            Description = "Enseignement préscolaire (1re à 3e maternelle)",
             IconKind = "BabyCarriage",
             AccentColor = "#22C55E",
-            Matches = c => c.TemplateCode.StartsWith("MAT-", StringComparison.OrdinalIgnoreCase)
+            Matches = c => c.Program == SchoolProgram.Maternelle
         },
         new()
         {
             Key = "primaire",
             Title = "Primaire",
-            Description = "Enseignement de base",
+            Description = "Enseignement primaire (1re à 6e primaire)",
             IconKind = "BookOpenPageVariant",
             AccentColor = "#1E5EFF",
-            Matches = c => c.TemplateCode.StartsWith("PRI-", StringComparison.OrdinalIgnoreCase)
+            Matches = c => c.Program == SchoolProgram.Primaire
         },
         new()
         {
-            Key = "secondaire-general",
-            Title = "Secondaire Général",
-            Description = "Cycle des Humanités",
+            Key = "secondaire-generale",
+            Title = "Secondaire générale",
+            Description = "7e et 8e année (CTEB)",
             IconKind = "SchoolOutline",
             AccentColor = "#F59E0B",
-            Matches = c =>
-                c.TemplateCode.StartsWith("CTEB-", StringComparison.OrdinalIgnoreCase)
-                || c.TemplateCode.StartsWith("FS-", StringComparison.OrdinalIgnoreCase)
-                || (c.TemplateCode.StartsWith("HUM-", StringComparison.OrdinalIgnoreCase)
-                    && c.HumanitiesSection is "Scientifique" or "Littéraire" or "Pédagogique" or "Sociale")
+            Matches = c => c.Program == SchoolProgram.CTEB
         },
         new()
         {
-            Key = "humanites-techniques",
-            Title = "Humanités Techniques",
-            Description = "Filières techniques",
-            IconKind = "Wrench",
+            Key = "humanite",
+            Title = "Humanité",
+            Description = "Humanités, filières techniques, commerciales et spécialisées",
+            IconKind = "AccountSchoolOutline",
             AccentColor = "#8B5CF6",
-            Matches = c =>
-                c.TemplateCode.StartsWith("HPRO-", StringComparison.OrdinalIgnoreCase)
-                || (c.TemplateCode.StartsWith("HUM-", StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(c.HumanitiesSection, "Technique", StringComparison.OrdinalIgnoreCase))
-        },
-        new()
-        {
-            Key = "commerciale-gestion",
-            Title = "Commerciale & Gestion",
-            Description = "Filières commerciales",
-            IconKind = "BriefcaseOutline",
-            AccentColor = "#14B8A6",
-            Matches = c =>
-                c.TemplateCode.StartsWith("HUM-", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(c.HumanitiesSection, "Commerciale", StringComparison.OrdinalIgnoreCase)
-        },
-        new()
-        {
-            Key = "technique-rurale",
-            Title = "Technique Rurale",
-            Description = "Agriculture et ruralité",
-            IconKind = "Barley",
-            AccentColor = "#84CC16",
-            Matches = c => ContainsAny(c.StudyOption, "Agriculture", "Topographie")
-        },
-        new()
-        {
-            Key = "informatique",
-            Title = "Informatique",
-            Description = "Filières numériques",
-            IconKind = "Laptop",
-            AccentColor = "#1D4ED8",
-            Matches = c => ContainsAny(c.StudyOption, "Informatique")
-        },
-        new()
-        {
-            Key = "arts",
-            Title = "Arts",
-            Description = "Filières artistiques",
-            IconKind = "PaletteOutline",
-            AccentColor = "#EC4899",
-            Matches = c => ContainsAny(c.StudyOption, "Arts")
+            Matches = c => c.Program is SchoolProgram.Humanites
+                or SchoolProgram.HumanitesProfessionnelles
+                or SchoolProgram.FilieresSpecialisees
         }
     ];
 
@@ -113,7 +71,33 @@ public static class StructureUiCatalog
     public static string? ResolveSectionKey(PedagogicalClassItemViewModel item) =>
         ResolveSection(item)?.Key;
 
-    public static bool SectionHasOptions(IEnumerable<PedagogicalClassItemViewModel> classes)
+    public static string GetOptionGroupKey(PedagogicalClassItemViewModel item, string sectionKey)
+    {
+        if (sectionKey == "humanite")
+        {
+            if (!string.IsNullOrWhiteSpace(item.HumanitiesSection)
+                && !string.IsNullOrWhiteSpace(item.StudyOption))
+            {
+                return $"{item.HumanitiesSection} — {item.StudyOption}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.HumanitiesSection))
+            {
+                return item.HumanitiesSection!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.StudyOption))
+            {
+                return item.StudyOption!;
+            }
+
+            return item.ProgramLabel;
+        }
+
+        return string.IsNullOrWhiteSpace(item.StudyOption) ? "Général" : item.StudyOption!;
+    }
+
+    public static bool SectionHasOptions(IEnumerable<PedagogicalClassItemViewModel> classes, string sectionKey)
     {
         var list = classes.ToList();
         if (list.Count == 0)
@@ -121,9 +105,15 @@ public static class StructureUiCatalog
             return false;
         }
 
+        if (sectionKey == "humanite")
+        {
+            return list.Select(c => GetOptionGroupKey(c, sectionKey))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() > 1;
+        }
+
         var options = list
-            .Select(c => c.StudyOption)
-            .Where(option => !string.IsNullOrWhiteSpace(option))
+            .Select(c => GetOptionGroupKey(c, sectionKey))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -131,21 +121,12 @@ public static class StructureUiCatalog
     }
 
     public static IEnumerable<IGrouping<string, PedagogicalClassItemViewModel>> GroupByOption(
-        IEnumerable<PedagogicalClassItemViewModel> classes)
+        IEnumerable<PedagogicalClassItemViewModel> classes,
+        string sectionKey)
     {
         return classes
-            .GroupBy(c => string.IsNullOrWhiteSpace(c.StudyOption) ? "Général" : c.StudyOption!)
+            .GroupBy(c => GetOptionGroupKey(c, sectionKey))
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool ContainsAny(string? value, params string[] tokens)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        return tokens.Any(token => value.Contains(token, StringComparison.OrdinalIgnoreCase));
     }
 }
 

@@ -11,6 +11,7 @@ using SchoolManagement.Application.Auth.Interfaces;
 using SchoolManagement.Application.CloudSync;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Configuration.Database;
+using SchoolManagement.Application.Schools.Interfaces;
 using SchoolManagement.Infrastructure.Auth;
 using SchoolManagement.Infrastructure.CloudSync;
 using SchoolManagement.Infrastructure.Persistence;
@@ -55,6 +56,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<ICurriculumSeedService, CurriculumSeeder>();
         services.AddScoped<CurriculumSeeder>();
+        services.AddScoped<ISectionConsolidationService, SectionConsolidationService>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
         services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();

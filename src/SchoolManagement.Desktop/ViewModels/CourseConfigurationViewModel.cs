@@ -12,6 +12,7 @@ using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Desktop.UI;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -40,9 +41,40 @@ public partial class CourseConfigurationViewModel : ViewModelBase
         _schoolApiService = schoolApiService;
         _academicApiService = academicApiService;
         _adminApiService = adminApiService;
+        AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
     }
 
-    public ObservableCollection<AcademicYearDto> AcademicYears { get; } = [];
+    private void OnGlobalAcademicYearChanged()
+    {
+        if (_isInitializingFilters)
+            return;
+
+        _ = OnGlobalAcademicYearChangedAsync();
+    }
+
+    private async Task OnGlobalAcademicYearChangedAsync()
+    {
+        _isInitializingFilters = true;
+        try
+        {
+            await RefreshClassRoomsAsync();
+            EnsureSelectedPedagogicalClassIsValid();
+            if (SelectedClassRoom is null)
+                SelectedClassRoom = ClassRooms.FirstOrDefault();
+        }
+        finally
+        {
+            _isInitializingFilters = false;
+        }
+
+        OnPropertyChanged(nameof(CanEditConfiguration));
+        OnPropertyChanged(nameof(WorkingAcademicYearLabel));
+        await OnFiltersChangedAsync();
+    }
+
+    public string WorkingAcademicYearLabel =>
+        AcademicYearRefreshBridge.SelectedYear?.Label ?? "Aucune année scolaire (barre du haut)";
+
     public ObservableCollection<PedagogicalClassDto> PedagogicalClasses { get; } = [];
     public ObservableCollection<ClassRoomDto> ClassRooms { get; } = [];
     public ObservableCollection<TeacherOptionViewModel> Teachers { get; } = [];
@@ -52,7 +84,6 @@ public partial class CourseConfigurationViewModel : ViewModelBase
     public ObservableCollection<SectionDto> Sections { get; } = [];
     public ObservableCollection<BranchOptionDto> BranchOptions { get; } = [];
 
-    [ObservableProperty] private AcademicYearDto? _selectedAcademicYear;
     [ObservableProperty] private SectionDto? _selectedSection;
     [ObservableProperty] private PedagogicalClassDto? _selectedPedagogicalClass;
     [ObservableProperty] private ClassRoomDto? _selectedClassRoom;
@@ -70,24 +101,9 @@ public partial class CourseConfigurationViewModel : ViewModelBase
     [ObservableProperty] private string _newCourseMaxScore = "20";
 
     public bool CanEditConfiguration =>
-        SelectedAcademicYear is not null
+        AcademicYearRefreshBridge.SelectedYearId is not null
         && SelectedPedagogicalClass is not null
         && SelectedClassRoom is not null;
-
-    public string ConfigurationSourceLabel =>
-        IsConfigured
-            ? "Configuration enregistrée (CourseAssignment)"
-            : "Programme par défaut (PedagogicalClassCourse)";
-
-    partial void OnSelectedAcademicYearChanged(AcademicYearDto? value)
-    {
-        if (_isInitializingFilters)
-        {
-            return;
-        }
-
-        _ = OnFiltersChangedAsync();
-    }
 
     partial void OnSelectedSectionChanged(SectionDto? value)
     {
@@ -155,25 +171,10 @@ public partial class CourseConfigurationViewModel : ViewModelBase
             IsBusy = true;
             ClearStatus();
 
-            var years = await _schoolApiService.GetAcademicYearsAsync();
-            AcademicYears.Clear();
-            foreach (var year in years.OrderByDescending(y => y.StartDate))
-            {
-                AcademicYears.Add(year);
-            }
-
             _isInitializingFilters = true;
             try
             {
-                SelectedAcademicYear ??= AcademicYears.FirstOrDefault(y => y.IsCurrent) ?? AcademicYears.FirstOrDefault();
-
-                var sections = await _academicApiService.GetSectionsAsync();
-                Sections.Clear();
-                foreach (var section in sections.OrderBy(s => s.Name))
-                {
-                    Sections.Add(section);
-                }
-
+                await ReloadOrganizedSectionsAsync();
                 await ReloadPedagogicalClassesAsync();
                 RefreshPedagogicalClassOptions();
                 SelectedSection ??= Sections.FirstOrDefault();
@@ -184,6 +185,15 @@ public partial class CourseConfigurationViewModel : ViewModelBase
             finally
             {
                 _isInitializingFilters = false;
+            }
+
+            if (AcademicYearRefreshBridge.SelectedYearId is null)
+            {
+                SetStatus("Sélectionnez une année scolaire dans la barre du haut.", FeeStatusMessageKind.Warning);
+            }
+            else if (Sections.Count == 0)
+            {
+                SetStatus("Aucune section organisée. Activez des classes dans Structure pédagogique.", FeeStatusMessageKind.Warning);
             }
 
             var teachers = await _adminApiService.GetTeachersAsync();
@@ -273,6 +283,7 @@ public partial class CourseConfigurationViewModel : ViewModelBase
                 Teachers,
                 true,
                 course.MaxPerPeriod,
+                0,
                 OnAssignedCourseChanged));
             course.IsSelected = false;
         }
@@ -306,14 +317,24 @@ public partial class CourseConfigurationViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanEditConfiguration))]
     private async Task SaveAsync()
     {
-        if (!CanEditConfiguration || SelectedAcademicYear is null || SelectedPedagogicalClass is null || SelectedClassRoom is null)
+        if (!CanEditConfiguration
+            || AcademicYearRefreshBridge.SelectedYearId is not Guid yearId
+            || SelectedPedagogicalClass is null
+            || SelectedClassRoom is null)
         {
             return;
         }
 
+        var yearLabel = AcademicYearRefreshBridge.SelectedYear?.Label ?? yearId.ToString();
         if (AssignedCourses.Any(c => c.Maximum <= 0 || c.Maximum > 1000))
         {
             SetStatus("Chaque Max/P doit être compris entre 1 et 1000.", FeeStatusMessageKind.Warning);
+            return;
+        }
+
+        if (AssignedCourses.Any(c => c.WeeklyHours < 0 || c.WeeklyHours > 60))
+        {
+            SetStatus("Chaque nombre d'heures doit être compris entre 0 et 60.", FeeStatusMessageKind.Warning);
             return;
         }
 
@@ -325,8 +346,8 @@ public partial class CourseConfigurationViewModel : ViewModelBase
 
         var confirmationMessage =
             $"Voulez-vous enregistrer la configuration de {AssignedCourses.Count} cours pour " +
-            $"{SelectedPedagogicalClass.DisplayName} — salle {SelectedClassRoom.Name} ({SelectedAcademicYear.Label}) ?\n\n" +
-            "Les affectations seront enregistrées (CourseAssignment : cours, enseignant, statut actif).";
+            $"{SelectedPedagogicalClass.DisplayName} — salle {SelectedClassRoom.Name} ({yearLabel}) ?\n\n" +
+            "Les affectations seront enregistrées (CourseAssignment : cours, enseignant, heures, statut actif).";
 
         if (MessageBox.Show(
                 confirmationMessage,
@@ -343,14 +364,15 @@ public partial class CourseConfigurationViewModel : ViewModelBase
             ClearStatus();
 
             var request = new SaveCourseConfigurationRequest(
-                SelectedAcademicYear.Id,
+                yearId,
                 SelectedPedagogicalClass.Id,
                 SelectedClassRoom.Id,
                 AssignedCourses.Select(c => new SaveCourseConfigurationItemRequest(
                     c.CourseId,
                     c.TeacherId,
                     c.IsActive,
-                    c.Maximum)).ToList());
+                    c.Maximum,
+                    c.WeeklyHours)).ToList());
 
             var result = await _courseConfigurationApi.SaveConfigurationAsync(request);
             ApplyConfiguration(result);
@@ -358,7 +380,7 @@ public partial class CourseConfigurationViewModel : ViewModelBase
 
             var successMessage =
                 $"Configuration enregistrée : {AssignedCourses.Count} cours affecté(s) pour {SelectedClassRoom.Name} " +
-                $"(CourseAssignment — année {SelectedAcademicYear.Label}).";
+                $"(CourseAssignment — année {yearLabel}).";
             SetStatus(successMessage, FeeStatusMessageKind.Success);
             MessageBox.Show(
                 successMessage,
@@ -505,15 +527,44 @@ public partial class CourseConfigurationViewModel : ViewModelBase
         }
     }
 
+    private async Task ReloadOrganizedSectionsAsync()
+    {
+        var allSections = (await _academicApiService.GetSectionsAsync()).ToList();
+        var enabledClasses = await _schoolApiService.GetPedagogicalClassesAsync(enabledOnly: true);
+
+        var organizedSectionIds = enabledClasses
+            .Where(c => c.IsEnabled)
+            .Select(c => ResolveSectionIdForProgram(c.Program, allSections))
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
+
+        var previousSectionId = SelectedSection?.Id;
+        Sections.Clear();
+        foreach (var section in allSections
+                     .Where(s => organizedSectionIds.Contains(s.Id))
+                     .OrderBy(s => s.Name))
+        {
+            Sections.Add(section);
+        }
+
+        SelectedSection = previousSectionId.HasValue
+            ? Sections.FirstOrDefault(s => s.Id == previousSectionId.Value)
+            : Sections.FirstOrDefault();
+    }
+
     private async Task ReloadPedagogicalClassesAsync()
     {
         var classes = await _schoolApiService.GetPedagogicalClassesAsync(enabledOnly: true);
         _allPedagogicalClasses.Clear();
         _pedagogicalClassMap.Clear();
-        foreach (var pedagogicalClass in classes.OrderBy(c => c.Program).ThenBy(c => c.LevelOrder))
+        var sectionList = Sections.ToList();
+        foreach (var pedagogicalClass in classes.Where(c => c.IsEnabled).OrderBy(c => c.Program).ThenBy(c => c.LevelOrder))
         {
             _pedagogicalClassMap[pedagogicalClass.Id] = pedagogicalClass;
-            var sectionId = ResolveSectionIdForProgram(pedagogicalClass.Program, Sections);
+            var sectionId = ResolveSectionIdForProgram(pedagogicalClass.Program, sectionList);
+            if (sectionId == Guid.Empty)
+                continue;
+
             _allPedagogicalClasses.Add(new PedagogicalClassFilterItem(
                 pedagogicalClass.Id,
                 pedagogicalClass.DisplayName,
@@ -566,12 +617,11 @@ public partial class CourseConfigurationViewModel : ViewModelBase
             ClassRooms.Clear();
             SelectedClassRoom = null;
 
-            if (SelectedAcademicYear is null)
-            {
+            var yearId = AcademicYearRefreshBridge.SelectedYearId;
+            if (yearId is null)
                 return;
-            }
 
-            var rooms = await _academicApiService.GetClassRoomsAsync(SelectedAcademicYear.Id);
+            var rooms = await _academicApiService.GetClassRoomsAsync(yearId.Value);
             foreach (var room in rooms
                          .Where(r => r.IsActive
                              && (SelectedPedagogicalClass is null || r.PedagogicalClassId == SelectedPedagogicalClass.Id))
@@ -665,7 +715,10 @@ public partial class CourseConfigurationViewModel : ViewModelBase
 
     private async Task LoadConfigurationIfReadyAsync()
     {
-        if (!CanEditConfiguration || SelectedAcademicYear is null || SelectedPedagogicalClass is null || SelectedClassRoom is null)
+        if (!CanEditConfiguration
+            || AcademicYearRefreshBridge.SelectedYearId is not Guid yearId
+            || SelectedPedagogicalClass is null
+            || SelectedClassRoom is null)
         {
             AssignedCourses.Clear();
             AssignedBranchGroups.Clear();
@@ -679,7 +732,7 @@ public partial class CourseConfigurationViewModel : ViewModelBase
             ClearStatus();
 
             var configuration = await _courseConfigurationApi.GetConfigurationAsync(
-                SelectedAcademicYear.Id,
+                yearId,
                 SelectedPedagogicalClass.Id,
                 SelectedClassRoom.Id);
 
@@ -723,13 +776,13 @@ public partial class CourseConfigurationViewModel : ViewModelBase
                 Teachers,
                 item.IsActive,
                 item.MaxPerPeriod,
+                item.WeeklyHours,
                 OnAssignedCourseChanged));
         }
 
         AssignedCourses.Sort();
         RebuildAssignedBranchGroups();
         RefreshAvailableVisibility();
-        OnPropertyChanged(nameof(ConfigurationSourceLabel));
     }
 
     private void RebuildAssignedBranchGroups()
@@ -790,7 +843,8 @@ public partial class CourseConfigurationViewModel : ViewModelBase
                 c.BranchName,
                 c.TeacherId,
                 c.IsActive,
-                c.Maximum)).ToList()));
+                c.Maximum,
+                c.WeeklyHours)).ToList()));
     }
 
     private void RestoreSnapshot()
@@ -826,13 +880,13 @@ public partial class CourseConfigurationViewModel : ViewModelBase
                 Teachers,
                 item.IsActive,
                 item.Maximum,
+                item.WeeklyHours,
                 OnAssignedCourseChanged));
         }
 
         AssignedCourses.Sort();
         RebuildAssignedBranchGroups();
         RefreshAvailableVisibility();
-        OnPropertyChanged(nameof(ConfigurationSourceLabel));
     }
 
     private void ClearAvailableSelections()
@@ -914,7 +968,8 @@ public partial class CourseConfigurationViewModel : ViewModelBase
         string? BranchName,
         Guid? TeacherId,
         bool IsActive,
-        int Maximum);
+        int Maximum,
+        int WeeklyHours);
 }
 
 public partial class AvailableBranchGroupViewModel : ObservableObject
@@ -1053,6 +1108,7 @@ public partial class AssignedCourseItemViewModel : ObservableObject, IComparable
         ObservableCollection<TeacherOptionViewModel> teachers,
         bool isActive,
         int maximum,
+        int weeklyHours,
         Action changed)
     {
         AssignmentId = assignmentId;
@@ -1066,6 +1122,7 @@ public partial class AssignedCourseItemViewModel : ObservableObject, IComparable
         Teacher = teachers.FirstOrDefault(t => t.Id == teacherId) ?? TeacherOptionViewModel.Unassigned;
         _isActive = isActive;
         _maximum = maximum;
+        _weeklyHours = weeklyHours;
     }
 
     public Guid? AssignmentId { get; }
@@ -1096,6 +1153,11 @@ public partial class AssignedCourseItemViewModel : ObservableObject, IComparable
     private int _maximum;
 
     partial void OnMaximumChanged(int value) => _changed();
+
+    [ObservableProperty]
+    private int _weeklyHours;
+
+    partial void OnWeeklyHoursChanged(int value) => _changed();
 
     public string StatusLabel => IsActive ? "Actif" : "Inactif";
 

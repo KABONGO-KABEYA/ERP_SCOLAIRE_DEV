@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Desktop.Services;
@@ -10,6 +11,8 @@ public partial class AddressEditorViewModel : ObservableObject
     private readonly IGeographyApiService _geographyApi;
     private bool _suppressCascadeHandlers;
     private int _cascadeVersion;
+    private Task? _citiesLoadTask;
+    private Task? _communesLoadTask;
 
     public AddressEditorViewModel(IGeographyApiService geographyApi)
     {
@@ -38,13 +41,17 @@ public partial class AddressEditorViewModel : ObservableObject
             return;
         }
 
-        Countries.Clear();
-        foreach (var country in await _geographyApi.GetCountriesAsync(cancellationToken))
+        var countries = await _geographyApi.GetCountriesAsync(cancellationToken);
+        await RunOnUiAsync(() =>
         {
-            Countries.Add(country);
-        }
+            Countries.Clear();
+            foreach (var country in countries)
+            {
+                Countries.Add(country);
+            }
 
-        IsInitialized = true;
+            IsInitialized = true;
+        });
     }
 
     partial void OnSelectedCountryChanged(GeographyItemDto? value)
@@ -96,8 +103,8 @@ public partial class AddressEditorViewModel : ObservableObject
         IsLoadingGeography = true;
         try
         {
-            SetSelectedProvinceSilently(province);
-            await LoadCitiesAsync(province?.Id, cancellationToken);
+            SetSelectedProvinceSilently(ResolveItem(Provinces, province));
+            await LoadCitiesAsync(SelectedProvince?.Id, cancellationToken);
         }
         finally
         {
@@ -110,8 +117,8 @@ public partial class AddressEditorViewModel : ObservableObject
         IsLoadingGeography = true;
         try
         {
-            SetSelectedCitySilently(city);
-            await LoadCommunesAsync(city?.Id, cancellationToken);
+            SetSelectedCitySilently(ResolveItem(Cities, city));
+            await LoadCommunesAsync(SelectedCity?.Id, cancellationToken);
         }
         finally
         {
@@ -136,7 +143,8 @@ public partial class AddressEditorViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
-        return LoadCitiesAsync(SelectedProvince.Id, cancellationToken);
+        _citiesLoadTask ??= LoadCitiesInternalAsync(SelectedProvince.Id, cancellationToken);
+        return AwaitLoadTaskAsync(_citiesLoadTask, () => _citiesLoadTask = null);
     }
 
     public Task EnsureCommunesLoadedAsync(CancellationToken cancellationToken = default)
@@ -146,7 +154,8 @@ public partial class AddressEditorViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
-        return LoadCommunesAsync(SelectedCity.Id, cancellationToken);
+        _communesLoadTask ??= LoadCommunesInternalAsync(SelectedCity.Id, cancellationToken);
+        return AwaitLoadTaskAsync(_communesLoadTask, () => _communesLoadTask = null);
     }
 
     public async Task LoadFromInputAsync(AddressInputDto? input, CancellationToken cancellationToken = default)
@@ -361,73 +370,129 @@ public partial class AddressEditorViewModel : ObservableObject
     private async Task LoadProvincesAsync(Guid? countryId, CancellationToken cancellationToken = default)
     {
         var version = ++_cascadeVersion;
-        Provinces.Clear();
-        Cities.Clear();
-        Communes.Clear();
-        SetSelectedProvinceSilently(null);
-        SetSelectedCitySilently(null);
-        SetSelectedCommuneSilently(null);
+        await RunOnUiAsync(() =>
+        {
+            SetSelectedProvinceSilently(null);
+            SetSelectedCitySilently(null);
+            SetSelectedCommuneSilently(null);
+            Communes.Clear();
+            Cities.Clear();
+            Provinces.Clear();
+        });
 
         if (!countryId.HasValue)
         {
             return;
         }
 
-        foreach (var province in await _geographyApi.GetProvincesAsync(countryId.Value, cancellationToken))
+        var provinces = await _geographyApi.GetProvincesAsync(countryId.Value, cancellationToken);
+        await RunOnUiAsync(() =>
         {
             if (version != _cascadeVersion)
             {
                 return;
             }
 
-            Provinces.Add(province);
-        }
+            foreach (var province in provinces)
+            {
+                Provinces.Add(province);
+            }
+        });
     }
 
-    private async Task LoadCitiesAsync(Guid? provinceId, CancellationToken cancellationToken = default)
+    private Task LoadCitiesAsync(Guid? provinceId, CancellationToken cancellationToken = default) =>
+        LoadCitiesInternalAsync(provinceId, cancellationToken);
+
+    private async Task LoadCitiesInternalAsync(Guid? provinceId, CancellationToken cancellationToken = default)
     {
         var version = ++_cascadeVersion;
-        Cities.Clear();
-        Communes.Clear();
-        SetSelectedCitySilently(null);
-        SetSelectedCommuneSilently(null);
+        await RunOnUiAsync(() =>
+        {
+            SetSelectedCitySilently(null);
+            SetSelectedCommuneSilently(null);
+            Communes.Clear();
+            Cities.Clear();
+        });
 
         if (!provinceId.HasValue)
         {
             return;
         }
 
-        foreach (var city in await _geographyApi.GetCitiesAsync(provinceId.Value, cancellationToken))
+        var cities = await _geographyApi.GetCitiesAsync(provinceId.Value, cancellationToken);
+        await RunOnUiAsync(() =>
         {
             if (version != _cascadeVersion)
             {
                 return;
             }
 
-            Cities.Add(city);
-        }
+            foreach (var city in cities)
+            {
+                Cities.Add(city);
+            }
+        });
     }
 
-    private async Task LoadCommunesAsync(Guid? cityId, CancellationToken cancellationToken = default)
+    private Task LoadCommunesAsync(Guid? cityId, CancellationToken cancellationToken = default) =>
+        LoadCommunesInternalAsync(cityId, cancellationToken);
+
+    private async Task LoadCommunesInternalAsync(Guid? cityId, CancellationToken cancellationToken = default)
     {
         var version = ++_cascadeVersion;
-        Communes.Clear();
-        SetSelectedCommuneSilently(null);
+        await RunOnUiAsync(() =>
+        {
+            SetSelectedCommuneSilently(null);
+            Communes.Clear();
+        });
 
         if (!cityId.HasValue)
         {
             return;
         }
 
-        foreach (var commune in await _geographyApi.GetCommunesAsync(cityId.Value, cancellationToken))
+        var communes = await _geographyApi.GetCommunesAsync(cityId.Value, cancellationToken);
+        await RunOnUiAsync(() =>
         {
             if (version != _cascadeVersion)
             {
                 return;
             }
 
-            Communes.Add(commune);
+            foreach (var commune in communes)
+            {
+                Communes.Add(commune);
+            }
+        });
+    }
+
+    private static GeographyItemDto? ResolveItem(
+        IEnumerable<GeographyItemDto> items,
+        GeographyItemDto? item) =>
+        item is null ? null : items.FirstOrDefault(i => i.Id == item.Id);
+
+    private static async Task AwaitLoadTaskAsync(Task task, Action resetTask)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
         }
+        finally
+        {
+            resetTask();
+        }
+    }
+
+    private static Task RunOnUiAsync(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        return dispatcher.InvokeAsync(action, DispatcherPriority.Normal).Task;
     }
 
     private void SetSelectedCommuneSilently(GeographyItemDto? commune)

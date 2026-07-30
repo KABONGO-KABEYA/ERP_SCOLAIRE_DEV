@@ -145,6 +145,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IPromoterDashboardApiService, PromoterDashboardApiService>();
         services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
+        services.AddTransient<IPersonnelApiService, PersonnelApiService>();
 
         services.AddHttpClient("SchoolApi", client =>
         {
@@ -200,6 +201,12 @@ public partial class App : System.Windows.Application
         services.AddTransient<DocumentsViewModel>();
         services.AddTransient<StatisticsViewModel>();
         services.AddTransient<AdministrationViewModel>();
+        services.AddTransient<PersonnelListViewModel>();
+        services.AddTransient<PersonnelEditViewModel>();
+        services.AddTransient<PersonnelDepartmentsViewModel>();
+        services.AddTransient<PersonnelFunctionsViewModel>();
+        services.AddTransient<PersonnelPlaceholderViewModel>();
+        services.AddTransient<PersonnelHubViewModel>();
     }
 
     protected override async void OnExit(ExitEventArgs e)

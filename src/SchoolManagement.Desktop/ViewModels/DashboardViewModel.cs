@@ -302,12 +302,11 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void OpenTeachers()
+    private void OpenPersonnel()
     {
-        var item = SettingsNavCatalog.FindByKey("enseignants");
-        if (item is not null)
-            SettingsNavigationBridge.Select(item);
-        _navigation.NavigateTo<SettingsViewModel>();
+        var item = PersonnelNavCatalog.FindByKey("liste") ?? PersonnelNavCatalog.DefaultItem;
+        PersonnelNavigationBridge.Select(item);
+        _navigation.NavigateTo<PersonnelHubViewModel>();
     }
 
     [RelayCommand]

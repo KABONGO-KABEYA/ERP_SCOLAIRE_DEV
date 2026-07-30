@@ -6,6 +6,8 @@ namespace SchoolManagement.Desktop.Controls;
 
 public partial class ErpAddressControl : UserControl
 {
+    private bool _dropDownHooksRegistered;
+
     public static readonly DependencyProperty EditorProperty =
         DependencyProperty.Register(nameof(Editor), typeof(AddressEditorViewModel), typeof(ErpAddressControl),
             new PropertyMetadata(null));
@@ -24,66 +26,23 @@ public partial class ErpAddressControl : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_dropDownHooksRegistered)
+        {
+            return;
+        }
+
+        _dropDownHooksRegistered = true;
         ProvinceField.PreparingDropDownAsync += OnPrepareProvinceDropDownAsync;
         CityField.PreparingDropDownAsync += OnPrepareCityDropDownAsync;
         CommuneField.PreparingDropDownAsync += OnPrepareCommuneDropDownAsync;
-
-        ProvinceField.DropDownOpened += OnProvinceDropDownOpened;
-        CityField.DropDownOpened += OnCityDropDownOpened;
-        CommuneField.DropDownOpened += OnCommuneDropDownOpened;
     }
 
-    private async void OnProvinceDropDownOpened(object? sender, EventArgs e)
-    {
-        if (Editor is not null)
-        {
-            await Editor.EnsureProvincesLoadedAsync();
-        }
-    }
+    private Task OnPrepareProvinceDropDownAsync(EventArgs e) =>
+        Editor?.EnsureProvincesLoadedAsync() ?? Task.CompletedTask;
 
-    private async void OnCityDropDownOpened(object? sender, EventArgs e)
-    {
-        if (Editor is not null)
-        {
-            await Editor.EnsureCitiesLoadedAsync();
-        }
-    }
+    private Task OnPrepareCityDropDownAsync(EventArgs e) =>
+        Editor?.EnsureCitiesLoadedAsync() ?? Task.CompletedTask;
 
-    private async void OnCommuneDropDownOpened(object? sender, EventArgs e)
-    {
-        if (Editor is not null)
-        {
-            await Editor.EnsureCommunesLoadedAsync();
-        }
-    }
-
-    private async Task OnPrepareProvinceDropDownAsync(EventArgs e)
-    {
-        if (Editor is null)
-        {
-            return;
-        }
-
-        await Editor.EnsureProvincesLoadedAsync();
-    }
-
-    private async Task OnPrepareCityDropDownAsync(EventArgs e)
-    {
-        if (Editor is null)
-        {
-            return;
-        }
-
-        await Editor.EnsureCitiesLoadedAsync();
-    }
-
-    private async Task OnPrepareCommuneDropDownAsync(EventArgs e)
-    {
-        if (Editor is null)
-        {
-            return;
-        }
-
-        await Editor.EnsureCommunesLoadedAsync();
-    }
+    private Task OnPrepareCommuneDropDownAsync(EventArgs e) =>
+        Editor?.EnsureCommunesLoadedAsync() ?? Task.CompletedTask;
 }

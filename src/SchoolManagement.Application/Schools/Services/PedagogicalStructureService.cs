@@ -21,6 +21,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<Enrollment> _enrollmentRepository;
     private readonly ICurriculumSeedService _curriculumSeedService;
+    private readonly ISectionConsolidationService _sectionConsolidationService;
     private readonly IUnitOfWork _unitOfWork;
 
     public PedagogicalStructureService(
@@ -31,6 +32,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         IRepository<AcademicYear> yearRepository,
         IRepository<Enrollment> enrollmentRepository,
         ICurriculumSeedService curriculumSeedService,
+        ISectionConsolidationService sectionConsolidationService,
         IUnitOfWork unitOfWork)
     {
         _pedagogicalClassRepository = pedagogicalClassRepository;
@@ -40,6 +42,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         _yearRepository = yearRepository;
         _enrollmentRepository = enrollmentRepository;
         _curriculumSeedService = curriculumSeedService;
+        _sectionConsolidationService = sectionConsolidationService;
         _unitOfWork = unitOfWork;
     }
 
@@ -49,6 +52,7 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         try
         {
             await EnsureSectionsAsync(schoolId, cancellationToken);
+            await _sectionConsolidationService.ConsolidateAsync(schoolId, cancellationToken);
 
             var existing = await _pedagogicalClassRepository.FindAsync(p => p.SchoolId == schoolId, cancellationToken);
             var existingByCode = existing
@@ -481,10 +485,10 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     {
         SchoolProgram.Maternelle => "Maternelle",
         SchoolProgram.Primaire => "Primaire",
-        SchoolProgram.CTEB => "Éducation de base — CTEB",
-        SchoolProgram.Humanites => "Humanités (cycle long)",
-        SchoolProgram.HumanitesProfessionnelles => "Humanités professionnelles",
-        SchoolProgram.FilieresSpecialisees => "Filières spécialisées",
+        SchoolProgram.CTEB => "Secondaire générale",
+        SchoolProgram.Humanites => "Humanité",
+        SchoolProgram.HumanitesProfessionnelles => "Humanité",
+        SchoolProgram.FilieresSpecialisees => "Humanité",
         _ => program.ToString()
     };
 
@@ -517,20 +521,15 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
     private async Task EnsureSectionsAsync(Guid schoolId, CancellationToken cancellationToken)
     {
         var sections = await _sectionRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
-        var required = new (string Code, string Name, EducationCycle Cycle)[]
-        {
-            ("MAT", "Maternelle", EducationCycle.Primaire),
-            ("PRI", "Primaire", EducationCycle.Primaire),
-            ("CTEB", "Éducation de base — CTEB", EducationCycle.Secondaire),
-            ("HUM", "Humanités", EducationCycle.Secondaire),
-            ("HPRO", "Humanités professionnelles", EducationCycle.Secondaire),
-            ("FS", "Filières spécialisées", EducationCycle.Secondaire)
-        };
 
-        foreach (var (code, name, cycle) in required)
+        foreach (var (code, name, cycle) in PedagogicalSectionCatalog.RequiredSections)
         {
-            if (sections.Any(s => s.Code == code))
+            var existing = sections.FirstOrDefault(s =>
+                s.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
             {
+                existing.Name = name;
+                existing.Cycle = cycle;
                 continue;
             }
 

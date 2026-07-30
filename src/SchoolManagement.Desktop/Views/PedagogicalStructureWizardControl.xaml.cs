@@ -346,9 +346,9 @@ public partial class PedagogicalStructureWizardControl : UserControl
         });
         MiddlePanel.Children.Add(headerRow);
 
-        if (StructureUiCatalog.SectionHasOptions(classes))
+        if (StructureUiCatalog.SectionHasOptions(classes, section.Key))
         {
-            foreach (var group in StructureUiCatalog.GroupByOption(classes))
+            foreach (var group in StructureUiCatalog.GroupByOption(classes, section.Key))
             {
                 if (!MatchesSearch(group.Key, group))
                 {
@@ -364,7 +364,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
             if (!string.IsNullOrWhiteSpace(_selectedOptionKey))
             {
                 RenderClassesForOption(classes.Where(c =>
-                    (string.IsNullOrWhiteSpace(c.StudyOption) ? "Général" : c.StudyOption) == _selectedOptionKey));
+                    StructureUiCatalog.GetOptionGroupKey(c, section.Key) == _selectedOptionKey));
             }
         }
         else
@@ -389,7 +389,7 @@ public partial class PedagogicalStructureWizardControl : UserControl
 
         var scrollOffset = MiddleScrollViewer.VerticalOffset;
         var classes = ApplyDisplayFilter(GetSectionClasses(_selectedSectionKey))
-            .Where(c => (string.IsNullOrWhiteSpace(c.StudyOption) ? "Général" : c.StudyOption) == optionKey)
+            .Where(c => StructureUiCatalog.GetOptionGroupKey(c, _selectedSectionKey) == optionKey)
             .ToList();
 
         RemoveClassRowsFromMiddlePanel();
