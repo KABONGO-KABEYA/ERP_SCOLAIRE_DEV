@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/connection/connection_mode_banner.dart';
 import 'core/theme/erp_theme.dart';
+import 'core/updates/update_bootstrap.dart';
 import 'router/app_router.dart';
 
 class SchoolManagementApp extends ConsumerWidget {
@@ -20,13 +21,14 @@ class SchoolManagementApp extends ConsumerWidget {
       themeMode: ThemeMode.system,
       routerConfig: router,
       builder: (context, child) {
-        // Placer le bandeau au-dessus du Navigator sans Tooltip/Overlay.
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const ConnectionModeBanner(),
-            Expanded(child: child ?? const SizedBox.shrink()),
-          ],
+        return UpdateBootstrap(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ConnectionModeBanner(),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
         );
       },
     );

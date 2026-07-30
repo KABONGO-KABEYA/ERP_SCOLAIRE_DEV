@@ -81,7 +81,8 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
                     new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
-                    new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud)
+                    new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud),
+                    new SettingsNodeViewModel("Mises à jour", "Update", SettingsSection.MisesAJour)
                 ])
         ];
 
@@ -323,6 +324,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsSyncCloudSelected => SelectedSettingsNode?.Section == SettingsSection.SyncCloud;
 
+    public bool IsMisesAJourSelected => SelectedSettingsNode?.Section == SettingsSection.MisesAJour;
+
     public bool IsScrollableSettingsContent =>
         !IsEtablissementSelected
         && !IsStructurePedagogiqueSelected
@@ -331,6 +334,7 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsRetenuesSelected
         && !IsCurrencySectionSelected
         && !IsSyncCloudSelected
+        && !IsMisesAJourSelected
         && !IsMatieresSelected;
 
     public bool IsMatieresSelected => SelectedSettingsNode?.Section == SettingsSection.Matieres;
@@ -373,6 +377,7 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.TauxChange => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
             SettingsSection.HistoriqueTaux => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
             SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
+            SettingsSection.MisesAJour => "Vérification automatique, téléchargement et historique des versions de l'application.",
             SettingsSection.Matieres => "Configurez les cours retenus par année, classe et salle, avec affectation des enseignants.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
             SettingsSection.Utilisateurs => "Gérez les comptes utilisateurs et l'affectation des rôles.",
@@ -457,6 +462,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
+        OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
     }
@@ -536,6 +542,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
+        OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsGeographieSelected));
@@ -1431,7 +1438,8 @@ public enum SettingsSection
     Monnaies = 13,
     TauxChange = 14,
     DevisesEtablissement = 15,
-    HistoriqueTaux = 16
+    HistoriqueTaux = 16,
+    MisesAJour = 17
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

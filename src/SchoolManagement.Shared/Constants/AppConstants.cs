@@ -28,6 +28,7 @@ public static class ApiRoutes
     public const string Admin = $"{Base}/admin";
     public const string Personnel = $"{Base}/personnel";
     public const string CloudSync = $"{Base}/cloud-sync";
+    public const string Update = $"{Base}/update";
 }
 
 public static class AppConstants

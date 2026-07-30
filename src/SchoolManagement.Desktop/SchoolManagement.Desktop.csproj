@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SchoolManagement.Application\SchoolManagement.Application.csproj" />
     <ProjectReference Include="..\SchoolManagement.Shared\SchoolManagement.Shared.csproj" />
+    <ProjectReference Include="..\SchoolManagement.Updates\SchoolManagement.Updates.csproj" />
   </ItemGroup>
 
   <ItemGroup>

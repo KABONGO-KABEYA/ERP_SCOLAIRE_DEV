@@ -12,6 +12,7 @@ using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Entities.Sync;
+using SchoolManagement.Domain.Entities.System;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Infrastructure.CloudSync;
 
@@ -144,6 +145,9 @@ public class SchoolDbContext : DbContext
     public DbSet<SyncOutboxItem> SyncOutboxItems => Set<SyncOutboxItem>();
     public DbSet<SyncJournalEntry> SyncJournalEntries => Set<SyncJournalEntry>();
     public DbSet<SyncWatermark> SyncWatermarks => Set<SyncWatermark>();
+
+    // Mises à jour applicatives
+    public DbSet<ApplicationVersion> ApplicationVersions => Set<ApplicationVersion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

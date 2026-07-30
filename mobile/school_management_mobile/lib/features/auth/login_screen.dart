@@ -48,9 +48,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             baseUrl: connection.baseUrl,
           );
       await ref.read(authStateProvider.notifier).setLoggedIn(true);
-      if (mounted) context.go(await AuthStorage.homeRoute);
+      if (!mounted) return;
+      context.go(await AuthStorage.homeRoute);
     } catch (e) {
-      setState(() => _error = resolveApiErrorMessage(e));
+      if (mounted) setState(() => _error = resolveApiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

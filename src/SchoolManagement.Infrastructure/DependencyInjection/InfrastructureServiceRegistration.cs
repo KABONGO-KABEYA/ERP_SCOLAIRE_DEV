@@ -68,6 +68,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ICloudSyncEngine, CloudSyncEngine>();
         services.AddScoped<ICloudSyncFacade, CloudSyncFacade>();
         services.AddHostedService<CloudSyncHostedService>();
+        services.AddScoped<SchoolManagement.Application.Updates.Interfaces.IAppUpdateService,
+            SchoolManagement.Infrastructure.Updates.AppUpdateService>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

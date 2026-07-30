@@ -1755,6 +1755,32 @@ public sealed class AdminApiService : ApiServiceBase, IAdminApiService
         PutAsync<SchoolManagement.Application.Admin.DTOs.TeacherAdminDto>($"api/v1/admin/teachers/{teacherId}", request, cancellationToken);
 }
 
+public sealed class UpdateAdminApiService : ApiServiceBase, IUpdateAdminApiService
+{
+    public UpdateAdminApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto>> ListVersionsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto>>(
+            "api/v1/update/versions", cancellationToken);
+
+    public Task<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto> PublishAsync(
+        SchoolManagement.Application.Updates.DTOs.PublishApplicationVersionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto>(
+            "api/v1/update/versions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto> SetActiveAsync(
+        Guid id,
+        bool active,
+        bool deactivateOthers = true,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto>(
+            $"api/v1/update/versions/{id}/active?active={active}&deactivateOthers={deactivateOthers}",
+            new { },
+            cancellationToken);
+}
+
 public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWizardApiService
 {
     public EnrollmentWizardApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }

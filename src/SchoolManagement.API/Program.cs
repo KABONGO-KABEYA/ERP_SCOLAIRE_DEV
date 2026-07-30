@@ -224,8 +224,12 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "ERP Administration Scolaire RDC",
         Version = "v1",
-        Description = "API REST pour la gestion scolaire (Desktop + Mobile)"
+        Description = "API REST pour la gestion scolaire (Desktop + Mobile). Authentification JWT Bearer. En Mode Cloud (ReadOnly), seules les écritures auth/health/notes sont autorisées."
     });
+
+    // Évite les collisions de schémas (plusieurs DTO avec le même nom court).
+    options.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
+    options.MapType<IFormFile>(() => new OpenApiSchema { Type = "string", Format = "binary" });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -405,6 +409,11 @@ var app = builder.Build();
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<PersonnelSchemaInitializer>>());
     await personnelSchema.EnsureUpdatedAsync();
+
+    var updateSchema = new ApplicationUpdateSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<ApplicationUpdateSchemaInitializer>>());
+    await updateSchema.EnsureCreatedAsync();
 
     // Development toujours ; Production/Cloud seulement si SEED_DATABASE=true|1
     // (utile pour un premier démarrage Coolify sur base vide — retirer ensuite).

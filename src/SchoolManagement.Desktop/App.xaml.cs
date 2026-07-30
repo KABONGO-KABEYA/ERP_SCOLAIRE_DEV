@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
+using SchoolManagement.Desktop.Updates;
 using SchoolManagement.Desktop.ViewModels;
 using SchoolManagement.Desktop.Views;
 using Serilog;
@@ -104,6 +105,8 @@ public partial class App : System.Windows.Application
         MainWindow = mainWindow;
         mainWindow.Show();
         mainWindow.Activate();
+
+        _host.Services.GetRequiredService<DesktopUpdateCoordinator>().Start();
     }
 
     private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
@@ -145,6 +148,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IPromoterDashboardApiService, PromoterDashboardApiService>();
         services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
+        services.AddTransient<IUpdateAdminApiService, UpdateAdminApiService>();
         services.AddTransient<IPersonnelApiService, PersonnelApiService>();
 
         services.AddHttpClient("SchoolApi", client =>
@@ -207,6 +211,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<PersonnelFunctionsViewModel>();
         services.AddTransient<PersonnelPlaceholderViewModel>();
         services.AddTransient<PersonnelHubViewModel>();
+
+        services.AddDesktopUpdates(configuration);
     }
 
     protected override async void OnExit(ExitEventArgs e)

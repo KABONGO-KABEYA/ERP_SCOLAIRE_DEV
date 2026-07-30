@@ -808,6 +808,22 @@ public interface IAdminApiService
         CancellationToken cancellationToken = default);
 }
 
+public interface IUpdateAdminApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto>> ListVersionsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto> PublishAsync(
+        SchoolManagement.Application.Updates.DTOs.PublishApplicationVersionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Updates.DTOs.ApplicationVersionAdminDto> SetActiveAsync(
+        Guid id,
+        bool active,
+        bool deactivateOthers = true,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IDocumentBrandingApiService
 {
     Task<SchoolManagement.Application.DocumentBranding.DTOs.DocumentBrandingConfigurationDto> GetConfigurationAsync(

@@ -5,7 +5,8 @@
              xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
              xmlns:views="clr-namespace:SchoolManagement.Desktop.Views"
              xmlns:controls="clr-namespace:SchoolManagement.Desktop.Controls"
-             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls">
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:updates="clr-namespace:SchoolManagement.Desktop.Updates">
     <UserControl.Resources>
         <ui:StringMatchVisibilityConverter x:Key="StringMatchVisibilityConverter" />
         <ui:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
@@ -436,6 +437,12 @@
             <controls:CloudSyncDashboardControl HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Stretch"
                                                 DataContext="{Binding CloudSyncDashboard}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
+              Visibility="{Binding IsMisesAJourSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <updates:UpdateSettingsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
         </Grid>
 
         <views:PedagogicalStructureWizardControl Grid.Row="0"

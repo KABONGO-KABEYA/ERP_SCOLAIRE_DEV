@@ -61,7 +61,7 @@ public sealed class DocumentBrandingController : ControllerBase
     [Authorize(Policy = Permissions.SchoolsUpdate)]
     public async Task<IActionResult> CreateLogo(
         [FromForm] SaveSchoolLogoRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -75,7 +75,7 @@ public sealed class DocumentBrandingController : ControllerBase
     public async Task<IActionResult> UpdateLogo(
         Guid logoId,
         [FromForm] SaveSchoolLogoRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -137,7 +137,7 @@ public sealed class DocumentBrandingController : ControllerBase
     [Authorize(Policy = Permissions.SchoolsUpdate)]
     public async Task<IActionResult> CreateHeader(
         [FromForm] SaveSchoolDocumentHeaderRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -156,7 +156,7 @@ public sealed class DocumentBrandingController : ControllerBase
     public async Task<IActionResult> UpdateHeader(
         Guid headerId,
         [FromForm] SaveSchoolDocumentHeaderRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -183,7 +183,7 @@ public sealed class DocumentBrandingController : ControllerBase
     [Authorize(Policy = Permissions.SchoolsUpdate)]
     public async Task<IActionResult> CreateSignature(
         [FromForm] SaveSchoolSignatureRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -197,7 +197,7 @@ public sealed class DocumentBrandingController : ControllerBase
     public async Task<IActionResult> UpdateSignature(
         Guid signatureId,
         [FromForm] SaveSchoolSignatureRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -224,7 +224,7 @@ public sealed class DocumentBrandingController : ControllerBase
     [Authorize(Policy = Permissions.SchoolsUpdate)]
     public async Task<IActionResult> CreateStamp(
         [FromForm] SaveSchoolStampRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -238,7 +238,7 @@ public sealed class DocumentBrandingController : ControllerBase
     public async Task<IActionResult> UpdateStamp(
         Guid stampId,
         [FromForm] SaveSchoolStampRequest request,
-        [FromForm] IFormFile? image,
+        IFormFile? image,
         CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
