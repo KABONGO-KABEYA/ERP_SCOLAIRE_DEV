@@ -16,9 +16,21 @@ class TeacherRepository {
         TeacherStudent.fromJson,
       );
 
-  Future<List<TeacherPeriod>> getPeriods(String academicYearId) => _api.getList(
-        '/api/v1/teacher/periods?academicYearId=$academicYearId',
-        TeacherPeriod.fromJson,
+  /// Sous-période ouverte (calendrier pédagogique) — null si aucune.
+  Future<TeacherPeriod?> getOpenPeriod({
+    required String classRoomId,
+    required String academicYearId,
+  }) async {
+    final periods = await _api.getList(
+      '/api/v1/teacher/classes/$classRoomId/open-periods?academicYearId=$academicYearId',
+      TeacherPeriod.fromJson,
+    );
+    return periods.isEmpty ? null : periods.first;
+  }
+
+  Future<List<EvaluationTypeOption>> getEvaluationTypes() => _api.getList(
+        '/api/v1/grades/evaluation-types',
+        EvaluationTypeOption.fromJson,
       );
 
   Future<List<TeacherEvaluation>> getEvaluations({
@@ -44,22 +56,30 @@ class TeacherRepository {
         'grades': grades,
       });
 
-  Future<void> createEvaluation({
+  Future<TeacherEvaluation> createEvaluation({
     required String academicYearId,
     required String academicPeriodId,
     required String courseId,
     required String classRoomId,
+    required String evaluationTypeId,
     required String title,
+    required int maxScore,
+    required String evaluationDate,
   }) =>
-      _api.post('/api/v1/grades/evaluations', {
-        'academicYearId': academicYearId,
-        'academicPeriodId': academicPeriodId,
-        'courseId': courseId,
-        'classRoomId': classRoomId,
-        'title': title,
-        'evaluationType': 1,
-        'weight': 1,
-        'maxScore': 20,
-        'evaluationDate': DateTime.now().toIso8601String().split('T').first,
-      });
+      _api.postObject(
+        '/api/v1/grades/evaluations',
+        {
+          'academicYearId': academicYearId,
+          'academicPeriodId': academicPeriodId,
+          'courseId': courseId,
+          'classRoomId': classRoomId,
+          'evaluationTypeId': evaluationTypeId,
+          'enrollmentId': null,
+          'title': title,
+          'weight': 1,
+          'maxScore': maxScore,
+          'evaluationDate': evaluationDate,
+        },
+        TeacherEvaluation.fromJson,
+      );
 }

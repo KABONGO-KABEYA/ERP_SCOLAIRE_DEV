@@ -59,7 +59,13 @@ public sealed record CotationAssignmentDto(
     string TeacherDisplayName,
     int MaxScore,
     int WeeklyHours,
-    int StudentCount);
+    int StudentCount,
+    /// <summary>Nombre d'évaluations pour la sous-période ouverte (classe + cours).</summary>
+    int EvaluationCount,
+    string? LastEvaluationTitle,
+    DateOnly? LastEvaluationDate,
+    /// <summary>False si aucune sous-période ouverte (clôturée / verrouillée / absente).</summary>
+    bool HasOpenPeriod);
 
 public sealed record CotationPeriodDto(
     Guid Id,

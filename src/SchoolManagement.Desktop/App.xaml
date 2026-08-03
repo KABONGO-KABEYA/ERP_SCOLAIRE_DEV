@@ -30,6 +30,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <ui:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
             <ui:CurrentUserRoleConverter x:Key="CurrentUserRoleConverter" />
             <ui:ErpIconVisibilityConverter x:Key="ErpIconVisibilityConverter" />
             <ui:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />

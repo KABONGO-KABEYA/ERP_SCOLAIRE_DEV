@@ -7,7 +7,9 @@ using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Grades;
+using SchoolManagement.Domain.Entities.Deliberation;
 using SchoolManagement.Domain.Entities.Hr;
+using SchoolManagement.Domain.Entities.Notifications;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -101,6 +103,19 @@ public class SchoolDbContext : DbContext
     public DbSet<Evaluation> Evaluations => Set<Evaluation>();
     public DbSet<GradeEntry> GradeEntries => Set<GradeEntry>();
     public DbSet<PeriodResult> PeriodResults => Set<PeriodResult>();
+    public DbSet<ClassPeriodResultValidation> ClassPeriodResultValidations => Set<ClassPeriodResultValidation>();
+    public DbSet<ClassPeriodResultValidationEvent> ClassPeriodResultValidationEvents => Set<ClassPeriodResultValidationEvent>();
+    public DbSet<ClassPeriodDeliberationMinutes> ClassPeriodDeliberationMinutes => Set<ClassPeriodDeliberationMinutes>();
+    public DbSet<DeliberationDecision> DeliberationDecisions => Set<DeliberationDecision>();
+    public DbSet<DeliberationDecisionEvent> DeliberationDecisionEvents => Set<DeliberationDecisionEvent>();
+    public DbSet<StudentRemedialSession> StudentRemedialSessions => Set<StudentRemedialSession>();
+    public DbSet<StudentRemedialCourse> StudentRemedialCourses => Set<StudentRemedialCourse>();
+    public DbSet<CourseExemption> CourseExemptions => Set<CourseExemption>();
+    public DbSet<ResultMentionDefinition> ResultMentionDefinitions => Set<ResultMentionDefinition>();
+    public DbSet<ConductDefinition> ConductDefinitions => Set<ConductDefinition>();
+    public DbSet<StudentPeriodConduct> StudentPeriodConducts => Set<StudentPeriodConduct>();
+    public DbSet<PedagogicalBonusPoint> PedagogicalBonusPoints => Set<PedagogicalBonusPoint>();
+    public DbSet<DeliberationAuditEntry> DeliberationAuditEntries => Set<DeliberationAuditEntry>();
     public DbSet<ReportCard> ReportCards => Set<ReportCard>();
     public DbSet<ReportCardDetail> ReportCardDetails => Set<ReportCardDetail>();
 
@@ -151,6 +166,11 @@ public class SchoolDbContext : DbContext
 
     // Mises à jour applicatives
     public DbSet<ApplicationVersion> ApplicationVersions => Set<ApplicationVersion>();
+
+    // Notifications parent
+    public DbSet<SchoolNotification> SchoolNotifications => Set<SchoolNotification>();
+    public DbSet<NotificationRecipient> NotificationRecipients => Set<NotificationRecipient>();
+    public DbSet<ParentDeviceToken> ParentDeviceTokens => Set<ParentDeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -10,6 +10,7 @@ using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Shared.Constants;
+using System.Globalization;
 
 public sealed class PromoterDashboardService : IPromoterDashboardService
 {
@@ -121,11 +122,22 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
 
         decimal SumFee(DateTime start, DateTime end) =>
             payments
-                .Where(p => p.PaymentDate >= start && p.PaymentDate < end)
+                .Where(p =>
+                {
+                    var d = DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc);
+                    return d >= start && d < end;
+                })
                 .Sum(p => amountByPayment.GetValueOrDefault(p.Id));
 
         var expenses = await LoadExpensesAsync(schoolId, cancellationToken);
-        var (yearStart, yearEnd) = await ResolveSchoolYearRangeAsync(schoolId, cancellationToken);
+        var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
+        var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentYear = ResolveOperationalAcademicYear(years, todayDate);
+        var currentYearId = currentYear?.Id;
+        var (yearStart, yearEnd) = ResolveAcademicYearBounds(currentYear)
+            ?? await ResolveSchoolYearRangeAsync(schoolId, cancellationToken);
         var (monthStart, monthEnd) = ResolveRange(DashboardPeriod.Month);
         var (prevMonthStart, prevMonthEnd) = ResolvePreviousRange(DashboardPeriod.Month);
         var todayStart = DateTime.UtcNow.Date;
@@ -136,18 +148,25 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var yesterdayRevenue = SumFee(yesterdayStart, todayStart);
         var monthRevenue = SumFee(monthStart, monthEnd);
         var prevMonthRevenue = SumFee(prevMonthStart, prevMonthEnd);
-        var yearRevenue = SumFee(yearStart, yearEnd);
-        var prevYearRevenue = SumFee(yearStart.AddYears(-1), yearStart);
+        // Année scolaire : privilégier AcademicYearId (source de vérité), dates en filet.
+        var yearRevenue = SumFeeForAcademicYear(payments, amountByPayment, currentYearId, yearStart, yearEnd);
+        var (prevYearStart, prevYearEnd) = await ResolvePreviousSchoolYearRangeAsync(
+            schoolId, yearStart, cancellationToken);
+        var previousYear = years
+            .Where(y => y.EndDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) <= yearStart)
+            .OrderByDescending(y => y.EndDate)
+            .FirstOrDefault();
+        var prevYearRevenue = SumFeeForAcademicYear(
+            payments,
+            amountByPayment,
+            previousYear?.Id,
+            prevYearStart,
+            prevYearEnd);
 
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
         var studentIds = students.Select(s => s.Id).ToHashSet();
-        var currentYear = (await _academicYearRepository.FindAsync(
-                y => y.SchoolId == schoolId && y.IsCurrent,
-                cancellationToken))
-            .FirstOrDefault();
-        var currentYearId = currentYear?.Id;
 
-        // Même population que les encaissements Desktop : année courante + statuts actifs.
+        // Même population que les encaissements Desktop : année opérationnelle + statuts actifs.
         var yearEnrollments = await LoadActiveYearEnrollmentsAsync(schoolId, currentYearId, studentIds, cancellationToken);
         var enrolledIds = yearEnrollments.Select(e => e.StudentId).Distinct().ToHashSet();
         var enrolledStudents = students.Where(s => enrolledIds.Contains(s.Id)).ToList();
@@ -181,13 +200,39 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var daily30Start = todayStart.AddDays(-29);
         var dailySeries = BuildDailySeriesFromAmounts(
             payments, amountByPayment, daily30Start, todayEnd);
+        var yearPaymentsForSeries = FilterPaymentsForAcademicYear(
+            payments, amountByPayment, currentYearId, yearStart, yearEnd);
+        var (seriesStart, seriesEnd) = ExpandRangeToPayments(
+            yearStart,
+            yearEnd > todayEnd ? todayEnd : yearEnd,
+            yearPaymentsForSeries);
         var monthlySeries = BuildMonthlySeriesFromAmounts(
-            payments, amountByPayment, yearStart, yearEnd > todayEnd ? todayEnd : yearEnd);
+            yearPaymentsForSeries, amountByPayment, seriesStart, seriesEnd);
 
         var expenseToday = SumExpenses(expenses, todayStart, todayEnd);
         var expenseMonth = SumExpenses(expenses, monthStart, monthEnd);
-        var expenseYear = SumExpenses(expenses, yearStart, yearEnd);
-        var expenseCategories = await BuildExpenseCategoriesAsync(schoolId, expenses, yearStart, yearEnd, cancellationToken);
+        var expenseYear = currentYearId is Guid yearIdForExpenses
+            ? expenses.Where(e => e.AcademicYearId == yearIdForExpenses).Sum(e => e.Amount)
+            : SumExpenses(expenses, yearStart, yearEnd);
+        if (expenseYear == 0)
+        {
+            expenseYear = SumExpenses(expenses, yearStart, yearEnd);
+        }
+        var expenseCategories = await BuildExpenseCategoriesAsync(
+            schoolId,
+            expenses.Where(e =>
+            {
+                if (currentYearId is Guid yid && e.AcademicYearId == yid)
+                {
+                    return true;
+                }
+
+                var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+                return dt >= yearStart && dt < yearEnd;
+            }).ToList(),
+            yearStart,
+            yearEnd,
+            cancellationToken);
 
         var expensesBoard = new PromoterExpensesBoardDto(
             expenseToday,
@@ -211,30 +256,30 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             yearEnd,
             cancellationToken);
 
-        // Situation : recettes du frais suivi ; dépenses limitées aux comptes liés à ce frais.
-        var linkedDestinationIds = funds.Select(f => f.DestinationId).ToHashSet();
-        var expenseYearOnFunds = linkedDestinationIds.Count == 0
-            ? 0m
-            : expenses
-                .Where(e =>
-                {
-                    var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                    return linkedDestinationIds.Contains(e.DestinationId) && dt >= yearStart && dt < yearEnd;
-                })
-                .Sum(e => e.Amount);
+        // Situation financière année scolaire : recettes du frais suivi − dépenses de l'école.
         var situation = new PromoterSituationDto(
             yearRevenue,
-            expenseYearOnFunds,
-            yearRevenue - expenseYearOnFunds);
+            expenseYear,
+            yearRevenue - expenseYear);
 
+        var studentMap = students.ToDictionary(s => s.Id);
         var receivableRows = await BuildFeeReceivableRowsAsync(
             schoolId,
             selectedFeeId,
             currentYearId,
             yearEnrollments,
-            students.ToDictionary(s => s.Id),
+            studentMap,
             cancellationToken);
-        var receivables = AggregateReceivables(receivableRows);
+        var overdueRows = await BuildOverdueReceivableRowsAsync(
+            schoolId,
+            selectedFeeId,
+            currentYearId,
+            yearEnrollments,
+            studentMap,
+            cancellationToken);
+        // Cartes créances : À percevoir / Débiteurs = échéances dépassées ;
+        // En ordre / Recouvrement = situation annuelle du frais.
+        var receivables = AggregateReceivables(receivableRows, overdueRows);
 
         var summary = await GetSummaryAsync(schoolId, period, cancellationToken);
         var series = await GetRevenueSeriesAsync(schoolId, period, granularity, cancellationToken);
@@ -587,15 +632,25 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
     public async Task<IReadOnlyList<DashboardPaymentLineDto>> GetPaymentsDetailAsync(
         Guid schoolId,
         DashboardDetailScope scope,
+        Guid? feeTypeId = null,
         CancellationToken cancellationToken = default)
     {
         var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, cancellationToken);
         var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
+        var paymentIds = payments.Select(p => p.Id).ToHashSet();
+        var allLines = await _paymentLineRepository.FindAsync(l => paymentIds.Contains(l.PaymentId), cancellationToken);
+        var amountByPayment = feeTypeId is null
+            ? payments.ToDictionary(p => p.Id, p => p.TotalAmount)
+            : allLines
+                .Where(l => l.FeeTypeId == feeTypeId.Value)
+                .GroupBy(l => l.PaymentId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
         var studentMap = students.ToDictionary(s => s.Id);
 
         return payments
-            .Where(p => p.PaymentDate >= start && p.PaymentDate < end)
+            .Where(p => p.PaymentDate >= start && p.PaymentDate < end && amountByPayment.ContainsKey(p.Id))
             .OrderByDescending(p => p.PaymentDate)
             .Take(200)
             .Select(p =>
@@ -607,9 +662,78 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                     DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc),
                     name,
                     p.ReceiptNumber ?? p.Id.ToString("N")[..8].ToUpperInvariant(),
-                    p.TotalAmount,
+                    amountByPayment.GetValueOrDefault(p.Id),
                     p.Currency.ToString(),
                     p.PaymentMethod ?? "—");
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Détail recettes : mois = totaux journaliers (jours avec perception) ;
+    /// année = totaux mensuels (mois avec perception). Frais suivi.
+    /// </summary>
+    public async Task<IReadOnlyList<RevenuePointDto>> GetRevenueDetailAsync(
+        Guid schoolId,
+        DashboardDetailScope scope,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var school = (await _schoolRepository.FindAsync(s => s.Id == schoolId, cancellationToken)).FirstOrDefault();
+        var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId && f.IsActive, cancellationToken)).ToList();
+        var selectedFee = ResolveSelectedFeeType(feeTypes, school?.DefaultFeeTypeId, feeTypeId);
+
+        var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
+        var paymentIds = payments.Select(p => p.Id).ToHashSet();
+        var allLines = await _paymentLineRepository.FindAsync(l => paymentIds.Contains(l.PaymentId), cancellationToken);
+        var feeLines = selectedFee is null
+            ? allLines.ToList()
+            : allLines.Where(l => l.FeeTypeId == selectedFee.Id).ToList();
+        var amountByPayment = feeLines
+            .GroupBy(l => l.PaymentId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+        var fr = CultureInfo.GetCultureInfo("fr-FR");
+
+        if (scope == DashboardDetailScope.Year)
+        {
+            var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+                .OrderByDescending(y => y.StartDate)
+                .ToList();
+            var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var year = ResolveOperationalAcademicYear(years, todayDate);
+            var (yearStart, yearEnd) = ResolveAcademicYearBounds(year)
+                ?? await ResolveSchoolYearRangeAsync(schoolId, cancellationToken);
+            var todayEnd = DateTime.UtcNow.Date.AddDays(1);
+            var end = yearEnd > todayEnd ? todayEnd : yearEnd;
+            var yearPayments = FilterPaymentsForAcademicYear(
+                payments, amountByPayment, year?.Id, yearStart, yearEnd);
+            var (seriesStart, seriesEnd) = ExpandRangeToPayments(yearStart, end, yearPayments);
+
+            return BuildMonthlySeriesFromAmounts(yearPayments, amountByPayment, seriesStart, seriesEnd)
+                .Where(p => p.Amount > 0)
+                .Select(p =>
+                {
+                    // Libellé mois seul (ex. « Septembre ») — année scolaire déjà contextualisée.
+                    var label = p.PeriodStartUtc.ToString("MMMM", fr);
+                    if (label.Length > 0)
+                    {
+                        label = char.ToUpper(label[0], fr) + label[1..];
+                    }
+
+                    return p with { Label = label };
+                })
+                .ToList();
+        }
+
+        // Mois : uniquement les jours avec au moins une perception.
+        var (monthStart, monthEnd) = ResolveRange(DashboardPeriod.Month);
+        var lastDay = monthEnd < DateTime.UtcNow.Date.AddDays(1) ? monthEnd : DateTime.UtcNow.Date.AddDays(1);
+        return BuildDailySeriesFromAmounts(payments, amountByPayment, monthStart, lastDay)
+            .Where(p => p.Amount > 0)
+            .Select(p => p with
+            {
+                Label = p.PeriodStartUtc.ToString("dd/MM/yyyy", fr)
             })
             .ToList();
     }
@@ -620,24 +744,57 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         Guid? destinationId = null,
         CancellationToken cancellationToken = default)
     {
-        var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, cancellationToken);
         var expenses = await LoadExpensesAsync(schoolId, cancellationToken);
         var destinations = await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken);
         var destMap = destinations.ToDictionary(d => d.Id, d => d.Name);
 
-        return expenses
-            .Where(e =>
+        IEnumerable<ExpensePayment> filtered;
+        if (scope == DashboardDetailScope.Year)
+        {
+            // Année scolaire : privilégier AcademicYearId opérationnel, avec filet date.
+            var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+                .OrderByDescending(y => y.StartDate)
+                .ToList();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var year = ResolveOperationalAcademicYear(years, today);
+            var (start, end) = await ResolveSchoolYearRangeAsync(schoolId, cancellationToken);
+
+            filtered = expenses.Where(e =>
+            {
+                if (destinationId.HasValue && e.DestinationId != destinationId.Value)
+                {
+                    return false;
+                }
+
+                if (year is not null && e.AcademicYearId == year.Id)
+                {
+                    return true;
+                }
+
+                var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+                return dt >= start && dt < end;
+            });
+        }
+        else
+        {
+            var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, cancellationToken);
+            filtered = expenses.Where(e =>
             {
                 var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
                 return dt >= start && dt < end && (!destinationId.HasValue || e.DestinationId == destinationId.Value);
-            })
+            });
+        }
+
+        return filtered
             .OrderByDescending(e => e.ExpenseDate)
-            .Take(200)
+            .ThenBy(e => e.Label)
+            .Take(2000)
             .Select(e => new DashboardExpenseLineDto(
                 e.Id,
                 e.ExpenseDate,
                 e.Label,
-                destMap.GetValueOrDefault(e.DestinationId, "Autres"),
+                FormatExpenseCategory(e.Category)
+                    ?? destMap.GetValueOrDefault(e.DestinationId, "Autres"),
                 e.Amount,
                 e.Currency.ToString(),
                 e.Reference))
@@ -663,13 +820,11 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var selectedFee = ResolveSelectedFeeType(feeTypes, school?.DefaultFeeTypeId, feeTypeId)
             ?? throw new InvalidOperationException("Aucun type de frais actif n'est configuré.");
 
-        var currentYear = (await _academicYearRepository.FindAsync(
-                y => y.SchoolId == schoolId && y.IsCurrent,
-                cancellationToken))
-            .FirstOrDefault()
-            ?? (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
-                .OrderByDescending(y => y.StartDate)
-                .FirstOrDefault()
+        var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
+        var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentYear = ResolveOperationalAcademicYear(years, todayDate)
             ?? throw new InvalidOperationException("Aucune année scolaire n'est configurée.");
 
         var students = (await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken))
@@ -798,7 +953,15 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             totalPaid,
             cancellationToken);
 
-        var debtors = receivableRows
+        // Débiteurs = uniquement les tranches échues non soldées (montant = somme des retards).
+        var overdueRows = await BuildOverdueReceivableRowsAsync(
+            schoolId,
+            selectedFee.Id,
+            currentYear.Id,
+            enrollments,
+            students,
+            cancellationToken);
+        var debtors = overdueRows
             .Where(r => r.Remaining > 0)
             .OrderByDescending(r => r.Remaining)
             .Take(300)
@@ -811,15 +974,20 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 r.Remaining))
             .ToList();
 
+        var overdueExpected = overdueRows.Sum(r => r.AmountDue);
+        var overduePaid = overdueRows.Sum(r => r.AmountPaid);
+        var overdueRemaining = overdueRows.Sum(r => r.Remaining);
+
         return new FeeReceivablesBreakdownDto(
             selectedFee.Id,
             selectedFee.Name,
             currentYear.Id,
             currentYear.Label,
             selectedFee.Currency.ToString(),
-            totalExpected,
-            totalPaid,
-            totalRemaining,
+            // Totaux de synthèse = créances échues (alignés sur la liste débiteurs).
+            overdueRows.Count > 0 ? overdueExpected : totalExpected,
+            overdueRows.Count > 0 ? overduePaid : totalPaid,
+            overdueRows.Count > 0 ? overdueRemaining : totalRemaining,
             byInstallment,
             byDestination,
             debtors);
@@ -978,15 +1146,18 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         CancellationToken cancellationToken = default)
     {
         var currentYear = (await _academicYearRepository.FindAsync(
-                y => y.SchoolId == schoolId && y.IsCurrent,
+                y => y.SchoolId == schoolId,
                 cancellationToken))
-            .FirstOrDefault();
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
+        var todayDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var operationalYear = ResolveOperationalAcademicYear(currentYear, todayDate);
 
         var students = (await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken))
             .ToDictionary(s => s.Id);
         var enrollments = await LoadActiveYearEnrollmentsAsync(
             schoolId,
-            currentYear?.Id,
+            operationalYear?.Id,
             students.Keys.ToHashSet(),
             cancellationToken);
 
@@ -1203,18 +1374,22 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             .ToList();
     }
 
-    private static PromoterReceivablesDto AggregateReceivables(IReadOnlyList<FeeReceivableRow> rows)
+    private static PromoterReceivablesDto AggregateReceivables(
+        IReadOnlyList<FeeReceivableRow> annualRows,
+        IReadOnlyList<FeeReceivableRow> overdueRows)
     {
-        if (rows.Count == 0)
+        if (annualRows.Count == 0 && overdueRows.Count == 0)
         {
             return new PromoterReceivablesDto(0, 0, 0, 0);
         }
 
-        var remaining = rows.Sum(r => r.Remaining);
-        var debtors = rows.Count(r => r.Remaining > 0);
-        var fullyPaid = rows.Count(r => r.AmountDue > 0 && r.Remaining <= 0);
-        var expected = rows.Sum(r => r.AmountDue);
-        var collected = rows.Sum(r => Math.Min(r.AmountPaid, r.AmountDue));
+        // À percevoir / Débiteurs = retards d'échéance uniquement.
+        var remaining = overdueRows.Sum(r => r.Remaining);
+        var debtors = overdueRows.Count(r => r.Remaining > 0);
+        // En ordre / Recouvrement = situation annuelle du frais suivi.
+        var fullyPaid = annualRows.Count(r => r.AmountDue > 0 && r.Remaining <= 0);
+        var expected = annualRows.Sum(r => r.AmountDue);
+        var collected = annualRows.Sum(r => Math.Min(r.AmountPaid, r.AmountDue));
         var recovery = expected <= 0 ? 0 : Math.Round(collected / expected * 100m, 1);
         return new PromoterReceivablesDto(remaining, debtors, fullyPaid, recovery);
     }
@@ -1310,6 +1485,117 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 studentName,
                 className,
                 amountExpected,
+                amountPaid,
+                remaining));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Débiteurs promoteur : uniquement les tranches du frais suivi dont DueDate &lt; aujourd'hui
+    /// et montant restant &gt; 0. Le montant à payer = somme des restes de ces tranches.
+    /// </summary>
+    private async Task<List<FeeReceivableRow>> BuildOverdueReceivableRowsAsync(
+        Guid schoolId,
+        Guid? selectedFeeId,
+        Guid? currentYearId,
+        IReadOnlyList<Enrollment> enrollments,
+        IReadOnlyDictionary<Guid, Student> students,
+        CancellationToken cancellationToken)
+    {
+        if (enrollments.Count == 0 || selectedFeeId is null || currentYearId is null)
+        {
+            return [];
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var classRooms = (await _classRoomRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(c => c.Id);
+        var yearTariffs = (await _classFeeAmountRepository.FindAsync(
+                a => a.SchoolId == schoolId
+                     && a.AcademicYearId == currentYearId.Value
+                     && a.FeeTypeId == selectedFeeId.Value
+                     && a.DueDate != null
+                     && a.DueDate < today,
+                cancellationToken))
+            .ToList();
+
+        if (yearTariffs.Count == 0)
+        {
+            return [];
+        }
+
+        var tariffsByClassCategory = yearTariffs
+            .GroupBy(a => (a.PedagogicalClassId, a.FeePricingCategoryId))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var allTariffIds = yearTariffs.Select(a => a.Id).ToHashSet();
+        var studentIds = enrollments.Select(e => e.StudentId).Distinct().ToList();
+        var balances = (await _balanceRepository.FindAsync(
+                b => studentIds.Contains(b.StudentId) && allTariffIds.Contains(b.ClassFeeAmountId),
+                cancellationToken))
+            .ToList();
+        var paidByTariffStudent = balances
+            .GroupBy(b => (b.StudentId, b.ClassFeeAmountId))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
+        var dueByTariffStudent = balances
+            .GroupBy(b => (b.StudentId, b.ClassFeeAmountId))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountDue));
+
+        var rows = new List<FeeReceivableRow>();
+        foreach (var enrollment in enrollments)
+        {
+            if (!students.TryGetValue(enrollment.StudentId, out var student))
+            {
+                continue;
+            }
+
+            if (!classRooms.TryGetValue(enrollment.ClassRoomId, out var room)
+                || room.PedagogicalClassId is not Guid pedId)
+            {
+                continue;
+            }
+
+            if (!tariffsByClassCategory.TryGetValue((pedId, enrollment.FeePricingCategoryId), out var overdueTariffs))
+            {
+                continue;
+            }
+
+            decimal amountDue = 0;
+            decimal amountPaid = 0;
+            foreach (var tariff in overdueTariffs)
+            {
+                var expected = tariff.Amount > 0
+                    ? tariff.Amount
+                    : dueByTariffStudent.GetValueOrDefault((enrollment.StudentId, tariff.Id));
+                if (expected <= 0)
+                {
+                    continue;
+                }
+
+                var paid = paidByTariffStudent.GetValueOrDefault((enrollment.StudentId, tariff.Id));
+                var remainingOnInstallment = Math.Max(0m, expected - paid);
+                if (remainingOnInstallment <= 0)
+                {
+                    continue;
+                }
+
+                amountDue += expected;
+                amountPaid += Math.Min(paid, expected);
+            }
+
+            var remaining = Math.Max(0m, amountDue - amountPaid);
+            if (remaining <= 0)
+            {
+                continue;
+            }
+
+            rows.Add(new FeeReceivableRow(
+                student.Id,
+                StudentDisplayName.Format(student),
+                string.IsNullOrWhiteSpace(room.Name) ? "—" : room.Name,
+                amountDue,
                 amountPaid,
                 remaining));
         }
@@ -1540,18 +1826,16 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         DateTime end,
         CancellationToken cancellationToken)
     {
-        var destinations = await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken);
-        var destMap = destinations.ToDictionary(d => d.Id, d => d.Name);
+        _ = schoolId;
+        _ = start;
+        _ = end;
+        _ = cancellationToken;
 
+        // La liste reçue est déjà filtrée (année opérationnelle / plage).
         var groups = expenses
-            .Where(e =>
-            {
-                var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                return dt >= start && dt < end;
-            })
-            .GroupBy(e => e.DestinationId)
+            .GroupBy(e => FormatExpenseCategory(e.Category) ?? "Autre")
             .Select(g => (
-                Name: destMap.GetValueOrDefault(g.Key, "Autres"),
+                Name: g.Key,
                 Amount: g.Sum(x => x.Amount)))
             .Where(x => x.Amount > 0)
             .OrderByDescending(x => x.Amount)
@@ -1566,6 +1850,17 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 Palette[i % Palette.Length]))
             .ToList();
     }
+
+    private static string? FormatExpenseCategory(string? category) => category?.Trim().ToLowerInvariant() switch
+    {
+        "fonctionnement" => "Fonctionnement",
+        "pedagogie" => "Pédagogie",
+        "salaires" => "Salaires / Prestations",
+        "infrastructure" => "Infrastructure",
+        "autre" => "Autre",
+        null or "" => null,
+        _ => category
+    };
 
     private async Task<IReadOnlyList<ClassRevenueRankDto>> GetTopClassesAsync(
         Guid schoolId,
@@ -1638,17 +1933,153 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         Guid schoolId,
         CancellationToken cancellationToken)
     {
-        var years = await _academicYearRepository.FindAsync(
-            y => y.SchoolId == schoolId && y.IsCurrent,
-            cancellationToken);
-        var year = years.FirstOrDefault();
-        if (year is null)
+        var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
+        if (years.Count == 0)
         {
             return ResolveRange(DashboardPeriod.Year);
         }
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var year = ResolveOperationalAcademicYear(years, today) ?? years.First();
+
         var start = year.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var end = year.EndDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(1);
+        return (start, end);
+    }
+
+    /// <summary>
+    /// Année scolaire opérationnelle : IsCurrent déjà démarrée, sinon année en cours de dates,
+    /// sinon dernière année terminée (évite KPI inscrits à 0 sur une année future).
+    /// </summary>
+    private static AcademicYear? ResolveOperationalAcademicYear(
+        IReadOnlyList<AcademicYear> years,
+        DateOnly today)
+    {
+        if (years.Count == 0)
+        {
+            return null;
+        }
+
+        var currentStarted = years.FirstOrDefault(y => y.IsCurrent && today >= y.StartDate);
+        if (currentStarted is not null)
+        {
+            return currentStarted;
+        }
+
+        return years.FirstOrDefault(y => today >= y.StartDate && today <= y.EndDate)
+               ?? years.Where(y => y.EndDate < today).OrderByDescending(y => y.EndDate).FirstOrDefault()
+               // Ne jamais basculer sur une année IsCurrent pas encore démarrée (KPI à 0).
+               ?? years.FirstOrDefault(y => y.IsCurrent && today >= y.StartDate)
+               ?? years.FirstOrDefault();
+    }
+
+    private static (DateTime Start, DateTime End)? ResolveAcademicYearBounds(AcademicYear? year)
+    {
+        if (year is null)
+        {
+            return null;
+        }
+
+        var start = year.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var end = year.EndDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(1);
+        return (start, end);
+    }
+
+    /// <summary>
+    /// Recette année scolaire : AcademicYearId d'abord, plage de dates en secours.
+    /// </summary>
+    private static decimal SumFeeForAcademicYear(
+        IReadOnlyList<Payment> payments,
+        IReadOnlyDictionary<Guid, decimal> amountByPayment,
+        Guid? academicYearId,
+        DateTime yearStart,
+        DateTime yearEnd)
+    {
+        if (academicYearId is Guid yearId)
+        {
+            var byYearId = payments
+                .Where(p => p.AcademicYearId == yearId)
+                .Sum(p => amountByPayment.GetValueOrDefault(p.Id));
+            if (byYearId > 0)
+            {
+                return byYearId;
+            }
+        }
+
+        return payments
+            .Where(p =>
+            {
+                var d = DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc);
+                return d >= yearStart && d < yearEnd;
+            })
+            .Sum(p => amountByPayment.GetValueOrDefault(p.Id));
+    }
+
+    private static List<Payment> FilterPaymentsForAcademicYear(
+        IReadOnlyList<Payment> payments,
+        IReadOnlyDictionary<Guid, decimal> amountByPayment,
+        Guid? academicYearId,
+        DateTime yearStart,
+        DateTime yearEnd)
+    {
+        if (academicYearId is Guid yearId)
+        {
+            var byYearId = payments.Where(p => p.AcademicYearId == yearId).ToList();
+            if (byYearId.Any(p => amountByPayment.GetValueOrDefault(p.Id) > 0))
+            {
+                return byYearId;
+            }
+        }
+
+        return payments
+            .Where(p =>
+            {
+                var d = DateTime.SpecifyKind(p.PaymentDate, DateTimeKind.Utc);
+                return d >= yearStart && d < yearEnd;
+            })
+            .ToList();
+    }
+
+    private static (DateTime Start, DateTime End) ExpandRangeToPayments(
+        DateTime start,
+        DateTime end,
+        IReadOnlyList<Payment> payments)
+    {
+        if (payments.Count == 0)
+        {
+            return (start, end);
+        }
+
+        var minPay = payments.Min(p => p.PaymentDate).Date;
+        var maxPayExclusive = payments.Max(p => p.PaymentDate).Date.AddDays(1);
+        var seriesStart = minPay < start.Date
+            ? DateTime.SpecifyKind(minPay, DateTimeKind.Utc)
+            : start;
+        var seriesEnd = maxPayExclusive > end.Date
+            ? DateTime.SpecifyKind(maxPayExclusive, DateTimeKind.Utc)
+            : end;
+        return (seriesStart, seriesEnd);
+    }
+
+    private async Task<(DateTime Start, DateTime End)> ResolvePreviousSchoolYearRangeAsync(
+        Guid schoolId,
+        DateTime currentYearStart,
+        CancellationToken cancellationToken)
+    {
+        var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+            .Where(y => y.EndDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) <= currentYearStart)
+            .OrderByDescending(y => y.EndDate)
+            .ToList();
+        var previous = years.FirstOrDefault();
+        if (previous is null)
+        {
+            return (currentYearStart.AddYears(-1), currentYearStart);
+        }
+
+        var start = previous.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var end = previous.EndDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(1);
         return (start, end);
     }
 

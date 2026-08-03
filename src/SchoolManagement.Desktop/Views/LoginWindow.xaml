@@ -5,10 +5,10 @@
         xmlns:fa="clr-namespace:FontAwesome.Sharp;assembly=FontAwesome.Sharp"
         Title="Connexion — ERP Scolaire RDC"
         Icon="pack://siteoforigin:,,,/Assets/app.ico"
-        Width="1140"
-        Height="740"
-        MinWidth="960"
-        MinHeight="620"
+        Width="1180"
+        Height="760"
+        MinWidth="1000"
+        MinHeight="640"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -32,29 +32,30 @@
         <Grid x:Name="LoginRootGrid"
               ClipToBounds="True">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="420" />
+                <!-- Largeur calculée en code = hauteur × (895/1024) pour Right_Login.png sans rognage -->
+                <ColumnDefinition x:Name="LeftColumn" Width="520" />
+                <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
-            <!-- Maquette complète Right_Login.png (sans rognage) -->
-            <Grid x:Name="LeftPanelHost"
-                  Grid.Column="0"
-                  MinWidth="480"
-                  ClipToBounds="True"
-                  Panel.ZIndex="0"
-                  Opacity="1">
+            <!-- Maquette complète Right_Login.png — Stretch Uniform : jamais rognée -->
+            <Border x:Name="LeftPanelHost"
+                    Grid.Column="0"
+                    Background="Transparent"
+                    ClipToBounds="True"
+                    Panel.ZIndex="0"
+                    Opacity="1">
                 <Image Source="pack://application:,,,/Assets/Right_Login.png"
-                       Stretch="UniformToFill"
+                       Stretch="Uniform"
                        VerticalAlignment="Stretch"
-                       HorizontalAlignment="Left"
+                       HorizontalAlignment="Stretch"
                        RenderOptions.BitmapScalingMode="HighQuality" />
-            </Grid>
+            </Border>
 
-            <!-- Panneau connexion (découpé sur la courbe, sans dépasser le panneau gauche) -->
+            <!-- Formulaire : léger chevauchement uniquement sur la zone transparente de l'image -->
             <Grid x:Name="RightPanelHost"
                   Grid.Column="1"
                   Background="White"
-                  Margin="-20,0,0,0"
+                  Margin="-36,0,0,0"
                   Panel.ZIndex="1"
                   ClipToBounds="True"
                   Opacity="1">
@@ -70,34 +71,34 @@
                 <!-- Chrome + Version.png -->
                 <StackPanel Grid.Row="0"
                             HorizontalAlignment="Right"
-                            Margin="0,8,12,0"
+                            Margin="0,4,8,0"
                             Panel.ZIndex="10">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button Click="MinimizeButton_OnClick"
                                 Style="{StaticResource LoginChromeButton}"
                                 ToolTip="Réduire">
-                            <fa:IconImage Icon="{x:Static fa:IconChar.Minus}" Height="14" Width="14" />
+                            <fa:IconImage Icon="{x:Static fa:IconChar.Minus}" Height="12" Width="12" />
                         </Button>
                         <Button Click="MaximizeButton_OnClick"
                                 Style="{StaticResource LoginChromeButton}"
                                 ToolTip="Agrandir">
                             <fa:IconImage x:Name="MaximizeIcon"
                                           Icon="{x:Static fa:IconChar.Square}"
-                                          Height="12"
-                                          Width="12" />
+                                          Height="11"
+                                          Width="11" />
                         </Button>
                         <Button Click="CloseButton_OnClick"
                                 Style="{StaticResource LoginCloseChromeButton}"
                                 ToolTip="Fermer">
-                            <fa:IconImage Icon="{x:Static fa:IconChar.Xmark}" Height="14" Width="14" />
+                            <fa:IconImage Icon="{x:Static fa:IconChar.Xmark}" Height="12" Width="12" />
                         </Button>
                     </StackPanel>
 
                     <Image Source="pack://application:,,,/Assets/Version.png"
-                           Height="88"
-                           Width="88"
+                           Height="56"
+                           Width="56"
                            HorizontalAlignment="Right"
-                           Margin="0,4,0,0"
+                           Margin="0,2,0,0"
                            Stretch="Uniform"
                            SnapsToDevicePixels="True"
                            RenderOptions.BitmapScalingMode="HighQuality" />

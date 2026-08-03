@@ -6,6 +6,7 @@ import '../../core/api/api_error_message.dart';
 import '../../core/auth/auth_storage.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
+import '../../core/widgets/erp_widgets.dart';
 import 'models/parent_models.dart';
 import 'offline/parent_offline_cache.dart';
 import 'parent_providers.dart';
@@ -135,7 +136,6 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             }
 
             final studentId = selected?.studentId ?? children.first.studentId;
-            final summaryAsync = ref.watch(parentPaymentSummaryProvider(studentId));
             final paymentsAsync = ref.watch(parentPaymentsProvider(studentId));
             final photoAsync = ref.watch(parentChildPhotoProvider(studentId));
             final gradesAsync = ref.watch(parentGradesProvider(studentId));
@@ -179,14 +179,6 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
               children: [
-                ParentChildSelector(
-                  children: children,
-                  selectedId: studentId,
-                  onChanged: (id) {
-                    ref.read(selectedChildIdProvider.notifier).state = id;
-                  },
-                ),
-                if (children.length > 1) const SizedBox(height: 12),
                 ParentOfflineBanner(visible: showOffline),
                 ParentHeaderCard(
                   parentName: _parentName,
@@ -195,7 +187,15 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   photoBytes: photoAsync.valueOrNull,
                 ),
                 const SizedBox(height: 16),
-                summaryAsync.when(
+                ParentChildSelector(
+                  children: children,
+                  selectedId: studentId,
+                  onChanged: (id) {
+                    ref.read(selectedChildIdProvider.notifier).state = id;
+                  },
+                ),
+                if (children.isNotEmpty) const SizedBox(height: 12),
+                feeSituationsAsync.when(
                   loading: () => const ErpCard(
                     child: SizedBox(
                       height: 80,
@@ -203,7 +203,25 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     ),
                   ),
                   error: (_, __) => const SizedBox.shrink(),
-                  data: (summary) => ParentPaymentSummaryCard(summary: summary),
+                  data: (situations) {
+                    final defaultId = situations.resolveDefaultFeeTypeId();
+                    ParentFeeTypeSituation? defaultFee;
+                    if (defaultId != null) {
+                      for (final fee in situations.feeTypes) {
+                        if (fee.feeTypeId == defaultId) {
+                          defaultFee = fee;
+                          break;
+                        }
+                      }
+                    }
+                    return ParentPaymentSummaryCard(
+                      summary:
+                          defaultFee?.asSummary ?? situations.overallSummary,
+                      title: defaultFee?.feeTypeName ??
+                          'Situation des paiements',
+                      subtitle: 'Année ${situations.academicYearLabel}',
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 ParentDashboardInsightCards(
@@ -211,9 +229,9 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   attendance: attendanceInsight,
                   communications: communicationsInsight,
                   nextDue: nextDueInsight,
-                  onOpenGrades: () => goParentBranch(context, 2),
+                  onOpenGrades: () => context.push('/parent/notes'),
                   onOpenAttendance: () => context.push('/parent/attendance'),
-                  onOpenCommunications: () => goParentBranch(context, 4),
+                  onOpenCommunications: () => context.push('/parent/communications'),
                   onOpenPayments: () => goParentBranch(context, 1),
                 ),
                 const SizedBox(height: 16),
@@ -260,29 +278,33 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _QuickChip(
+                    _QuickAccessTile(
                       icon: Icons.school_outlined,
                       label: 'Notes',
                       locked: !(subscriptionAsync.valueOrNull?.features.notes ?? false),
-                      onTap: () => goParentBranch(context, 2),
+                      onTap: () => context.push('/parent/notes'),
+                      onLockedTap: () => context.push('/parent/subscription'),
                     ),
-                    _QuickChip(
+                    _QuickAccessTile(
                       icon: Icons.description_outlined,
                       label: 'Bulletins',
                       locked: !(subscriptionAsync.valueOrNull?.features.bulletins ?? false),
-                      onTap: () => goParentBranch(context, 3),
+                      onTap: () => context.push('/parent/bulletins'),
+                      onLockedTap: () => context.push('/parent/subscription'),
                     ),
-                    _QuickChip(
+                    _QuickAccessTile(
                       icon: Icons.forum_outlined,
-                      label: 'Comms',
+                      label: 'Messages',
                       locked: !(subscriptionAsync.valueOrNull?.features.communications ?? false),
-                      onTap: () => goParentBranch(context, 4),
+                      onTap: () => goParentBranch(context, 3),
+                      onLockedTap: () => context.push('/parent/subscription'),
                     ),
-                    _QuickChip(
+                    _QuickAccessTile(
                       icon: Icons.event_available_outlined,
                       label: 'Présences',
                       locked: !(subscriptionAsync.valueOrNull?.features.attendance ?? false),
                       onTap: () => context.push('/parent/attendance'),
+                      onLockedTap: () => context.push('/parent/subscription'),
                     ),
                   ],
                 ),
@@ -295,27 +317,58 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   }
 }
 
-class _QuickChip extends StatelessWidget {
-  const _QuickChip({
+class _QuickAccessTile extends StatelessWidget {
+  const _QuickAccessTile({
     required this.icon,
     required this.label,
     required this.onTap,
+    required this.onLockedTap,
     this.locked = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback onLockedTap;
   final bool locked;
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(locked ? Icons.lock_outline : icon, size: 18),
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: Colors.white,
-      side: const BorderSide(color: ErpColors.border),
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: ErpColors.border),
+      ),
+      child: InkWell(
+        onTap: locked ? onLockedTap : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 148, minHeight: ErpSpacing.minTap),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: ErpColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: ErpColors.textPrimary,
+                  ),
+                ),
+                if (locked) ...[
+                  const SizedBox(width: 8),
+                  const ErpLockChip(compact: true),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

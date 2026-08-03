@@ -4,6 +4,7 @@ using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.CurrencyManagement.DTOs;
 using SchoolManagement.Application.CurrencyManagement.Interfaces;
+using SchoolManagement.Application.Notifications.Interfaces;
 using SchoolManagement.Application.Payments.DTOs;
 using SchoolManagement.Application.Payments.Interfaces;
 using SchoolManagement.Application.RevenueAllocation.Interfaces;
@@ -36,6 +37,7 @@ public sealed class PaymentService : IPaymentService
     private readonly ICurrencyService _currencyService;
     private readonly ICurrentUserService _currentUser;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationService _notifications;
 
     public PaymentService(
         IRepository<Payment> paymentRepository,
@@ -55,7 +57,8 @@ public sealed class PaymentService : IPaymentService
         IWithholdingService withholdingService,
         ICurrencyService currencyService,
         ICurrentUserService currentUser,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        INotificationService notifications)
     {
         _paymentRepository = paymentRepository;
         _paymentLineRepository = paymentLineRepository;
@@ -75,6 +78,7 @@ public sealed class PaymentService : IPaymentService
         _currencyService = currencyService;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
+        _notifications = notifications;
     }
 
     public async Task<PaymentDto> CreatePaymentAsync(
@@ -177,7 +181,28 @@ public sealed class PaymentService : IPaymentService
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapPaymentDto(payment, StudentDisplayName.Format(student));
+
+        var studentName = StudentDisplayName.Format(student);
+        var currencyLabel = payment.Currency == Currency.USD ? "USD" : "CDF";
+        try
+        {
+            await _notifications.NotifyStudentParentsAsync(
+                schoolId,
+                payment.StudentId,
+                NotificationCategory.Payment,
+                NotificationEventType.PaymentReceived,
+                "💰 Paiement reçu",
+                $"Nous confirmons la réception de {payment.TotalAmount:0.##} {currencyLabel} pour {studentName} (reçu {payment.ReceiptNumber}).",
+                dataJson: $"{{\"paymentId\":\"{payment.Id}\"}}",
+                deepLink: "/parent/payments",
+                cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // Ne jamais faire échouer le paiement si la notification échoue.
+        }
+
+        return MapPaymentDto(payment, studentName);
     }
 
     public async Task<PaymentListDto> SearchAsync(Guid schoolId, PaymentSearchRequest request, CancellationToken cancellationToken = default)
@@ -364,6 +389,28 @@ public sealed class PaymentService : IPaymentService
         // Les écritures de répartition restent en place ; le statut Annule suffit pour l'instant.
         await _withholdingService.RemoveApplicationsForPaymentAsync(schoolId, paymentId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var student = (await _studentRepository.FindAsync(
+                s => s.Id == payment.StudentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault();
+            var studentName = student is null ? "l'élève" : StudentDisplayName.Format(student);
+            var currencyLabel = payment.Currency == Currency.USD ? "USD" : "CDF";
+            await _notifications.NotifyStudentParentsAsync(
+                schoolId,
+                payment.StudentId,
+                NotificationCategory.Payment,
+                NotificationEventType.PaymentCancelled,
+                "⚠️ Paiement annulé",
+                $"Le paiement de {payment.TotalAmount:0.##} {currencyLabel} ({payment.ReceiptNumber}) pour {studentName} a été annulé.",
+                dataJson: $"{{\"paymentId\":\"{payment.Id}\"}}",
+                deepLink: "/parent/payments",
+                cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // Ne jamais faire échouer l'annulation si la notification échoue.
+        }
     }
 
     public async Task<PaymentDetailDto> UpdatePaymentNotesAsync(

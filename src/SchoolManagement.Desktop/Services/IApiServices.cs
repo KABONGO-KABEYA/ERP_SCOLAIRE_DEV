@@ -443,6 +443,72 @@ public interface IGradeApiService
         Guid classRoomId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationAssignmentDto>> GetCotationAssignmentsAsync(
+        Guid academicYearId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.GlobalCotationGridDto> GetGlobalCotationGridAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.SaveGlobalCotationResultDto> SaveGlobalCotationAsync(
+        SchoolManagement.Application.Grades.DTOs.SaveGlobalCotationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionSummaryDto>> GetGlobalCotationSessionsAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionLoadDto> LoadGlobalCotationSessionAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid teacherId,
+        Guid evaluationTypeId,
+        string title,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.CourseNotesGridDto> GetCourseNotesGridAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid courseId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetContextDto> GetPedagogicalSheetContextAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetDto> GetPedagogicalSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.ClassResultsSheetDto> GetClassResultsSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Grades.DTOs.IndividualResultDto> GetIndividualResultAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid studentId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default);
 
@@ -475,6 +541,132 @@ public interface IGradeApiService
     Task SubmitGradesAsync(
         SchoolManagement.Application.Grades.DTOs.SubmitGradesRequest request,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Client Desktop Bulletins — consomme l'API ; aucun calcul local.
+/// Les endpoints sont prêts ; les maquettes arriveront ensuite.
+/// </summary>
+public interface IBulletinApiService
+{
+    Task<SchoolManagement.Application.Bulletins.DTOs.IndividualBulletinDto> GetIndividualBulletinAsync(
+        SchoolManagement.Application.Bulletins.DTOs.IndividualBulletinRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Bulletins.DTOs.ClassBulletinsBatchDto> GetClassBulletinsAsync(
+        SchoolManagement.Application.Bulletins.DTOs.ClassBulletinsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto>> GetPrintHistoryAsync(
+        Guid? academicYearId = null,
+        Guid? classRoomId = null,
+        Guid? studentId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto> RecordPrintAsync(
+        SchoolManagement.Application.Bulletins.DTOs.RecordBulletinPrintRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IResultValidationApiService
+{
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> GetSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationReadinessDto> GetReadinessAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> ValidateAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> CancelAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> LockAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> UnlockAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IDeliberationApiService
+{
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> GetSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto> GetMinutesAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto> SaveMinutesAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveDeliberationMinutesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto> GetDecisionAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto> SaveDecisionAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveDeliberationDecisionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> SaveConductAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveStudentConductRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> SaveBonusAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SavePedagogicalBonusRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.PedagogicalBonusDialogDto> GetBonusDialogAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto> ValidateClassAsync(
+        SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto> CancelClassValidationAsync(
+        SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IMentionsApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto>> GetAllAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto> CreateAsync(
+        SchoolManagement.Application.Mentions.DTOs.CreateResultMentionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto> UpdateAsync(
+        Guid id,
+        SchoolManagement.Application.Mentions.DTOs.UpdateResultMentionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
 public interface IPedagogicalPeriodApiService

@@ -46,6 +46,13 @@ public interface IPromoterDashboardService
     Task<IReadOnlyList<DashboardPaymentLineDto>> GetPaymentsDetailAsync(
         Guid schoolId,
         DashboardDetailScope scope,
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<RevenuePointDto>> GetRevenueDetailAsync(
+        Guid schoolId,
+        DashboardDetailScope scope,
+        Guid? feeTypeId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DashboardExpenseLineDto>> GetExpensesDetailAsync(

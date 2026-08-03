@@ -32,8 +32,8 @@ public partial class LoginWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        UpdateRightPanelClip();
-        LoginRootGrid.SizeChanged += (_, _) => UpdateRightPanelClip();
+        UpdateLoginLayout();
+        LoginRootGrid.SizeChanged += (_, _) => UpdateLoginLayout();
         RightPanelHost.SizeChanged += (_, _) => UpdateRightPanelClip();
 
         try
@@ -51,6 +51,31 @@ public partial class LoginWindow : Window
                 slide.X = 0;
             }
         }
+    }
+
+    private void UpdateLoginLayout()
+    {
+        UpdateLeftPanelWidth();
+        UpdateRightPanelClip();
+    }
+
+    /// <summary>
+    /// Largeur gauche = hauteur × ratio Right_Login.png (895×1024) pour afficher l'image entière sans rognage.
+    /// </summary>
+    private void UpdateLeftPanelWidth()
+    {
+        const double imageAspect = 895.0 / 1024.0;
+        var height = LoginRootGrid.ActualHeight;
+        if (height <= 0)
+        {
+            return;
+        }
+
+        var available = LoginRootGrid.ActualWidth;
+        var ideal = height * imageAspect;
+        // Garde assez de place au formulaire (min ~360) sans rogner l'image.
+        var maxLeft = Math.Max(280, available - 360);
+        LeftColumn.Width = new GridLength(Math.Min(ideal, maxLeft));
     }
 
     private void UpdateRightPanelClip()

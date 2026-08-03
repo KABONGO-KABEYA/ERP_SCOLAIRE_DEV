@@ -417,6 +417,21 @@
 
         <Grid Grid.Row="0"
               Margin="20,16"
+              Visibility="{Binding IsMentionsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource ErpCard}" Padding="20,16">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ErpPageTitle}" Text="{Binding SelectedSectionTitle}" />
+                    <TextBlock Margin="0,6,0,16"
+                               Foreground="{StaticResource ErpTextSecondaryBrush}"
+                               Text="{Binding SelectedSectionDescription}"
+                               TextWrapping="Wrap" />
+                    <controls:MentionsConfigControl DataContext="{Binding MentionsConfig}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
               Visibility="{Binding IsCurrencySectionSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
             <controls:CurrencyManagementControl HorizontalAlignment="Stretch"
                                                 VerticalAlignment="Stretch"

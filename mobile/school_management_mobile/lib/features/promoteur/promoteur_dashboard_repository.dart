@@ -69,11 +69,27 @@ class PromoteurDashboardRepository {
     _cacheFeeTypeId = null;
   }
 
-  Future<List<DashboardPaymentLine>> getPayments(DashboardDetailScope scope) =>
-      _api.getList(
-        '/api/v1/dashboard/payments?scope=${scope.apiValue}',
-        DashboardPaymentLine.fromJson,
-      );
+  Future<List<DashboardPaymentLine>> getPayments(
+    DashboardDetailScope scope, {
+    String? feeTypeId,
+  }) {
+    final feeQuery = (feeTypeId == null || feeTypeId.isEmpty) ? '' : '&feeTypeId=$feeTypeId';
+    return _api.getList(
+      '/api/v1/dashboard/payments?scope=${scope.apiValue}$feeQuery',
+      DashboardPaymentLine.fromJson,
+    );
+  }
+
+  Future<List<RevenuePoint>> getRevenueDetail(
+    DashboardDetailScope scope, {
+    String? feeTypeId,
+  }) {
+    final feeQuery = (feeTypeId == null || feeTypeId.isEmpty) ? '' : '&feeTypeId=$feeTypeId';
+    return _api.getList(
+      '/api/v1/dashboard/revenue-detail?scope=${scope.apiValue}$feeQuery',
+      RevenuePoint.fromJson,
+    );
+  }
 
   Future<List<DashboardExpenseLine>> getExpenses(
     DashboardDetailScope scope, {

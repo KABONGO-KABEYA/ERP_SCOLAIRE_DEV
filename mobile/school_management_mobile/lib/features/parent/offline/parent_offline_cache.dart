@@ -96,6 +96,16 @@ class ParentOfflineCache {
 
   Future<void> _write(String key, Map<String, dynamic> json) async {
     await _box.put(key, jsonEncode(json));
+    await _box.put(_metaLastWriteKey, DateTime.now().toIso8601String());
+  }
+
+  static const _metaLastWriteKey = '__meta_last_write_at';
+
+  /// Horodatage de la dernière écriture réseau réussie dans le cache.
+  DateTime? get lastWriteAt {
+    final raw = _box.get(_metaLastWriteKey);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
   }
 
   Map<String, dynamic>? _read(String key) {

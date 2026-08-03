@@ -134,32 +134,16 @@ public sealed partial class GradeService
             .GroupBy(e => e.ClassRoomId)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var assignmentDtos = scopedAssignments
-            .Select(a =>
-            {
-                var assignedTeacherId = a.TeacherId ?? teacher.Id;
-                teachersById.TryGetValue(assignedTeacherId, out var assignmentTeacher);
-                var teacherName = assignmentTeacher is null
-                    ? sessionTeacherName
-                    : StudentDisplayName.Format(assignmentTeacher.LastName, null, assignmentTeacher.FirstName);
-                classDtoById.TryGetValue(a.ClassRoomId, out var classDto);
-                enrollmentCounts.TryGetValue(a.ClassRoomId, out var studentCount);
-                return new CotationAssignmentDto(
-                    a.Id,
-                    a.ClassRoomId,
-                    classDto?.DisplayName ?? "—",
-                    classDto?.SectionName ?? "—",
-                    a.CourseId,
-                    courses[a.CourseId].Name,
-                    assignedTeacherId,
-                    teacherName,
-                    a.MaxScore <= 0 ? 20 : a.MaxScore,
-                    a.WeeklyHours,
-                    studentCount);
-            })
-            .OrderBy(a => a.ClassDisplayName)
-            .ThenBy(a => a.CourseName)
-            .ToList();
+        var assignmentDtos = await BuildCotationAssignmentDtosAsync(
+            year.Id,
+            teacher.Id,
+            sessionTeacherName,
+            scopedAssignments,
+            classDtoById,
+            courses,
+            teachersById,
+            enrollmentCounts,
+            cancellationToken);
 
         var evaluationTypes = await GetEvaluationTypesAsync(schoolId, cancellationToken);
 
@@ -174,6 +158,239 @@ public sealed partial class GradeService
             classDtos,
             assignmentDtos,
             evaluationTypes);
+    }
+
+    public async Task<IReadOnlyList<CotationAssignmentDto>> GetCotationAssignmentsAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureCanEnterGrades();
+
+        var year = await SchoolConfigurationGuards.EnsureActiveAcademicYearAsync(
+            _yearRepository,
+            schoolId,
+            academicYearId,
+            cancellationToken);
+
+        var accessScope = ResolveCotationAccessScope();
+        var teacher = (await _teacherRepository.FindAsync(
+            t => t.Id == teacherId && t.SchoolId == schoolId,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new DomainException("Enseignant introuvable.");
+
+        var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(
+            _pedagogicalClassRepository,
+            schoolId,
+            cancellationToken);
+
+        var allAssignments = (await _courseAssignmentRepository.FindAsync(
+            a => a.AcademicYearId == year.Id && a.IsActive,
+            cancellationToken)).ToList();
+
+        var scopedAssignments = FilterAssignmentsByScope(allAssignments, teacher.Id, accessScope);
+
+        var classIds = scopedAssignments.Select(a => a.ClassRoomId).Distinct().ToList();
+        var courseIds = scopedAssignments.Select(a => a.CourseId).Distinct().ToList();
+        var assignmentTeacherIds = scopedAssignments
+            .Where(a => a.TeacherId.HasValue)
+            .Select(a => a.TeacherId!.Value)
+            .Distinct()
+            .ToList();
+
+        var classRooms = (await _classRoomRepository.FindAsync(
+            c => c.SchoolId == schoolId && classIds.Contains(c.Id),
+            cancellationToken))
+            .Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap))
+            .ToList();
+
+        var sectionIds = classRooms.Select(c => c.SectionId).Distinct().ToList();
+        var sections = (await _sectionRepository.FindAsync(
+            s => s.SchoolId == schoolId && sectionIds.Contains(s.Id),
+            cancellationToken)).ToDictionary(s => s.Id);
+
+        var courses = (await _courseRepository.FindAsync(
+            c => courseIds.Contains(c.Id),
+            cancellationToken)).ToDictionary(c => c.Id);
+
+        var teachersById = (await _teacherRepository.FindAsync(
+            t => t.SchoolId == schoolId && assignmentTeacherIds.Contains(t.Id),
+            cancellationToken)).ToDictionary(t => t.Id);
+
+        var selectableClassIds = classRooms.Select(c => c.Id).ToHashSet();
+        scopedAssignments = scopedAssignments
+            .Where(a => selectableClassIds.Contains(a.ClassRoomId) && courses.ContainsKey(a.CourseId))
+            .ToList();
+
+        var classDtoById = classRooms.ToDictionary(
+            c => c.Id,
+            c =>
+            {
+                pedagogicalMap.TryGetValue(c.PedagogicalClassId ?? Guid.Empty, out var ped);
+                sections.TryGetValue(c.SectionId, out var section);
+                var program = ped?.Program;
+                var periodType = ResolvePeriodType(program, section?.Cycle);
+                return new CotationClassDto(
+                    c.Id,
+                    ped is null ? c.Name : $"{ped.DisplayName} {c.Name}".Trim(),
+                    c.PedagogicalClassId,
+                    ped?.DisplayName,
+                    c.SectionId,
+                    section?.Name ?? "—",
+                    section?.Cycle ?? EducationCycle.Primaire,
+                    program,
+                    periodType);
+            });
+
+        var enrollmentCounts = (await _enrollmentRepository.FindAsync(
+                e => e.AcademicYearId == year.Id
+                     && selectableClassIds.Contains(e.ClassRoomId)
+                     && e.IsActive,
+                cancellationToken))
+            .GroupBy(e => e.ClassRoomId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var sessionTeacherName = StudentDisplayName.Format(teacher.LastName, null, teacher.FirstName);
+        return await BuildCotationAssignmentDtosAsync(
+            year.Id,
+            teacher.Id,
+            sessionTeacherName,
+            scopedAssignments,
+            classDtoById,
+            courses,
+            teachersById,
+            enrollmentCounts,
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<CotationAssignmentDto>> BuildCotationAssignmentDtosAsync(
+        Guid academicYearId,
+        Guid sessionTeacherId,
+        string sessionTeacherName,
+        IReadOnlyList<CourseAssignment> scopedAssignments,
+        IReadOnlyDictionary<Guid, CotationClassDto> classDtoById,
+        IReadOnlyDictionary<Guid, Course> courses,
+        IReadOnlyDictionary<Guid, Teacher> teachersById,
+        IReadOnlyDictionary<Guid, int> enrollmentCounts,
+        CancellationToken cancellationToken)
+    {
+        var yearPeriods = (await _periodRepository.FindAsync(
+            p => p.AcademicYearId == academicYearId,
+            cancellationToken)).ToList();
+
+        var openPeriodByType = new Dictionary<AcademicPeriodType, AcademicPeriod>();
+        foreach (var periodType in classDtoById.Values.Select(c => c.PeriodType).Distinct())
+        {
+            var open = ResolveActiveCotationPeriod(yearPeriods, periodType);
+            if (open is not null)
+            {
+                openPeriodByType[periodType] = open;
+            }
+        }
+
+        var openPeriodIds = openPeriodByType.Values.Select(p => p.Id).ToHashSet();
+        var classRoomIds = scopedAssignments.Select(a => a.ClassRoomId).Distinct().ToList();
+        var progressEvaluations = openPeriodIds.Count == 0 || classRoomIds.Count == 0
+            ? []
+            : (await _evaluationRepository.FindAsync(
+                e => openPeriodIds.Contains(e.AcademicPeriodId)
+                     && classRoomIds.Contains(e.ClassRoomId),
+                cancellationToken)).ToList();
+
+        var evalByClassCourse = progressEvaluations
+            .GroupBy(e => (e.ClassRoomId, e.CourseId))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(e => e.EvaluationDate)
+                    .ThenByDescending(e => e.CreatedAt)
+                    .ToList());
+
+        return scopedAssignments
+            .Select(a =>
+            {
+                var assignedTeacherId = a.TeacherId ?? sessionTeacherId;
+                teachersById.TryGetValue(assignedTeacherId, out var assignmentTeacher);
+                var teacherName = assignmentTeacher is null
+                    ? sessionTeacherName
+                    : StudentDisplayName.Format(assignmentTeacher.LastName, null, assignmentTeacher.FirstName);
+                classDtoById.TryGetValue(a.ClassRoomId, out var classDto);
+                enrollmentCounts.TryGetValue(a.ClassRoomId, out var studentCount);
+
+                var hasOpenPeriod = classDto is not null
+                                    && openPeriodByType.ContainsKey(classDto.PeriodType);
+                var evaluationCount = 0;
+                string? lastTitle = null;
+                DateOnly? lastDate = null;
+                if (hasOpenPeriod
+                    && evalByClassCourse.TryGetValue((a.ClassRoomId, a.CourseId), out var list)
+                    && list.Count > 0)
+                {
+                    evaluationCount = list.Count;
+                    lastTitle = list[0].Title;
+                    lastDate = list[0].EvaluationDate;
+                }
+
+                return new CotationAssignmentDto(
+                    a.Id,
+                    a.ClassRoomId,
+                    classDto?.DisplayName ?? "—",
+                    classDto?.SectionName ?? "—",
+                    a.CourseId,
+                    courses[a.CourseId].Name,
+                    assignedTeacherId,
+                    teacherName,
+                    a.MaxScore <= 0 ? 20 : a.MaxScore,
+                    a.WeeklyHours,
+                    studentCount,
+                    evaluationCount,
+                    lastTitle,
+                    lastDate,
+                    hasOpenPeriod);
+            })
+            .OrderBy(a => a.ClassDisplayName)
+            .ThenBy(a => a.CourseName)
+            .ToList();
+    }
+
+    /// <summary>Aligné sur GetCotationPeriodsAsync : sous-période ouverte du cycle, sinon null.</summary>
+    private static AcademicPeriod? ResolveActiveCotationPeriod(
+        IReadOnlyList<AcademicPeriod> periods,
+        AcademicPeriodType expectedType)
+    {
+        var structuredOpen = periods
+            .Where(p => p.MainPeriodId.HasValue
+                        && p.Status == AcademicSubPeriodStatus.Ouverte
+                        && MatchesPeriodType(p, expectedType))
+            .OrderBy(p => p.OrderIndex)
+            .FirstOrDefault();
+        if (structuredOpen is not null)
+        {
+            return structuredOpen;
+        }
+
+        if (periods.Any(p => p.MainPeriodId.HasValue && MatchesPeriodType(p, expectedType)))
+        {
+            return null;
+        }
+
+        var filtered = periods
+            .Where(p => MatchesPeriodType(p, expectedType))
+            .OrderBy(p => p.OrderIndex)
+            .ThenBy(p => p.Name)
+            .ToList();
+        if (filtered.Count == 0)
+        {
+            filtered = periods
+                .OrderBy(p => p.OrderIndex)
+                .ThenBy(p => p.Name)
+                .ToList();
+        }
+
+        return filtered.FirstOrDefault(p =>
+            !p.IsClosed
+            && p.Status is not AcademicSubPeriodStatus.Cloturee
+            && p.Status is not AcademicSubPeriodStatus.Verrouillee);
     }
 
     public async Task<IReadOnlyList<CotationPeriodDto>> GetCotationPeriodsAsync(

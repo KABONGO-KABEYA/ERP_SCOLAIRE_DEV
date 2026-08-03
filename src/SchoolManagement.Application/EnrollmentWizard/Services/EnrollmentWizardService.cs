@@ -9,6 +9,7 @@ using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Application.EnrollmentWizard.Interfaces;
 using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Application.Parent.Interfaces;
+using SchoolManagement.Application.Notifications.Interfaces;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Geography.DTOs;
 using SchoolManagement.Application.Geography.Interfaces;
@@ -49,6 +50,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
     private readonly IAddressService _addressService;
     private readonly IEnrollmentFormService _enrollmentFormService;
     private readonly IParentAccessProvisioningService _parentAccessProvisioning;
+    private readonly INotificationService _notifications;
     private readonly IUnitOfWork _unitOfWork;
 
     public EnrollmentWizardService(
@@ -76,6 +78,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         IAddressService addressService,
         IEnrollmentFormService enrollmentFormService,
         IParentAccessProvisioningService parentAccessProvisioning,
+        INotificationService notifications,
         IUnitOfWork unitOfWork)
     {
         _yearRepository = yearRepository;
@@ -102,6 +105,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         _addressService = addressService;
         _enrollmentFormService = enrollmentFormService;
         _parentAccessProvisioning = parentAccessProvisioning;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
     }
 
@@ -825,6 +829,24 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         var parentAccessMessage = string.IsNullOrEmpty(parentAccessWarning)
             ? BuildParentAccessMessage(parentAccessAccounts)
             : parentAccessWarning;
+
+        try
+        {
+            await _notifications.NotifyStudentParentsAsync(
+                schoolId,
+                student.Id,
+                NotificationCategory.Administration,
+                NotificationEventType.EnrollmentCreated,
+                "📝 Inscription confirmée",
+                $"{StudentDisplayName.Format(student)} a été inscrit(e) en {className}.",
+                dataJson: $"{{\"enrollmentId\":\"{enrollment.Id}\",\"studentId\":\"{student.Id}\"}}",
+                deepLink: "/parent",
+                cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // Ne jamais faire échouer l'inscription si la notification échoue.
+        }
 
         return new CompleteEnrollmentResultDto(
             student.Id,

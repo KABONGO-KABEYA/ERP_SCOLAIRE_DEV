@@ -4,6 +4,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_storage.dart';
 import '../../core/config/api_config.dart';
 import '../../core/models/api_response.dart';
+import '../parent/notifications/parent_push_foreground_service.dart';
 import 'models/auth_models.dart';
 
 class AuthRepository {
@@ -67,6 +68,8 @@ class AuthRepository {
         );
       } catch (_) {}
     }
+    await ParentPushForegroundService.stop();
+    await ParentPushForegroundService.clearCredentials();
     await AuthStorage.clear();
   }
 }

@@ -1245,10 +1245,9 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
       ),
       body: Column(
         children: [
-          LinearProgressIndicator(value: (_step + 1) / 6),
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text('Étape ${_step + 1} / 6', style: Theme.of(context).textTheme.bodyMedium),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: _EnrollmentStepper(currentStep: _step, titles: _stepTitles),
           ),
           if (_error != null)
             Padding(
@@ -1272,12 +1271,15 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
               child: Row(
                 children: [
                   if (_step > 0)
-                    OutlinedButton(onPressed: _busy ? null : _prev, child: const Text('Retour')),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _prev,
+                      child: const Text('Précédent'),
+                    ),
                   const Spacer(),
                   if (_step < 5)
                     FilledButton(
                       onPressed: _busy ? null : _next,
-                      child: const Text('Continuer'),
+                      child: const Text('Suivant'),
                     )
                   else
                     FilledButton(
@@ -1629,6 +1631,67 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(ErpSpacing.inputRadius)),
         ),
+      ),
+    );
+  }
+}
+
+class _EnrollmentStepper extends StatelessWidget {
+  const _EnrollmentStepper({required this.currentStep, required this.titles});
+
+  final int currentStep;
+  final List<String> titles;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var i = 0; i < titles.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 16,
+                height: 2,
+                margin: const EdgeInsets.only(bottom: 18),
+                color: i <= currentStep ? ErpColors.primary : ErpColors.border,
+              ),
+            Column(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i <= currentStep ? ErpColors.primary : Colors.white,
+                    border: Border.all(
+                      color: i <= currentStep ? ErpColors.primary : ErpColors.border,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: i <= currentStep ? Colors.white : ErpColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  titles[i],
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: i == currentStep ? FontWeight.w700 : FontWeight.w500,
+                    color: i == currentStep ? ErpColors.primary : ErpColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

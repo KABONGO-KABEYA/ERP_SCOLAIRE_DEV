@@ -34,20 +34,20 @@
 
     <FontFamily x:Key="LoginFontFamily">Segoe UI</FontFamily>
 
-    <!-- Courbe de séparation (panneau droit) -->
+    <!-- Courbe douce alignée sur Right_Login.png (ne doit pas couper le formulaire) -->
     <PathGeometry x:Key="LoginRightPanelClipGeometry">
-        <PathFigure IsClosed="True" StartPoint="56,0">
-            <BezierSegment Point1="0,140" Point2="0,340" Point3="56,480" />
-            <BezierSegment Point1="112,620" Point2="112,760" Point3="56,900" />
+        <PathFigure IsClosed="True" StartPoint="28,0">
+            <BezierSegment Point1="8,160" Point2="8,360" Point3="28,520" />
+            <BezierSegment Point1="48,680" Point2="48,800" Point3="28,900" />
             <LineSegment Point="2000,900" />
             <LineSegment Point="2000,0" />
         </PathFigure>
     </PathGeometry>
 
     <PathGeometry x:Key="LoginCurveGlowGeometry">
-        <PathFigure StartPoint="56,0">
-            <BezierSegment Point1="0,140" Point2="0,340" Point3="56,480" />
-            <BezierSegment Point1="112,620" Point2="112,760" Point3="56,900" />
+        <PathFigure StartPoint="28,0">
+            <BezierSegment Point1="8,160" Point2="8,360" Point3="28,520" />
+            <BezierSegment Point1="48,680" Point2="48,800" Point3="28,900" />
         </PathFigure>
     </PathGeometry>
 
@@ -86,8 +86,8 @@
 
     <!-- Chrome fenêtre -->
     <Style x:Key="LoginChromeButton" TargetType="Button">
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="36" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
         <Setter Property="Margin" Value="2,0,0,0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -153,22 +153,22 @@
     <!-- Labels champs -->
     <Style x:Key="LoginFieldLabel" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
-        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Margin" Value="0,0,0,5" />
     </Style>
 
     <!-- TextBox connexion -->
     <Style x:Key="LoginInputTextBox" TargetType="TextBox">
         <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
         <Setter Property="Background" Value="White" />
         <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="44,0,14,0" />
-        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Padding" Value="36,0,12,0" />
+        <Setter Property="MinHeight" Value="38" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
@@ -178,7 +178,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10">
+                            CornerRadius="8">
                         <ScrollViewer x:Name="PART_ContentHost"
                                       Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center"
@@ -199,13 +199,13 @@
     <!-- PasswordBox connexion -->
     <Style x:Key="LoginInputPasswordBox" TargetType="PasswordBox">
         <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{StaticResource LoginTextDarkBrush}" />
         <Setter Property="Background" Value="White" />
         <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="44,0,44,0" />
-        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Padding" Value="36,0,36,0" />
+        <Setter Property="MinHeight" Value="38" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
@@ -215,7 +215,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10">
+                            CornerRadius="8">
                         <ScrollViewer x:Name="PART_ContentHost"
                                       Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center"
@@ -237,10 +237,10 @@
     <Style x:Key="LoginPrimaryButton" TargetType="Button">
         <Setter Property="Foreground" Value="White" />
         <Setter Property="FontFamily" Value="{StaticResource LoginFontFamily}" />
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="MinHeight" Value="52" />
-        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="18,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -255,21 +255,24 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Root"
-                            MinHeight="{TemplateBinding MinHeight}"
-                            Background="{StaticResource LoginPrimaryButtonGradientBrush}"
-                            CornerRadius="16">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="18"
-                                              Direction="270"
-                                              Opacity="0.28"
-                                              ShadowDepth="4"
-                                              Color="#1D4ED8" />
-                        </Border.Effect>
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          Margin="{TemplateBinding Padding}" />
-                    </Border>
+                    <Grid>
+                        <Border Margin="3,4,3,0"
+                                CornerRadius="12"
+                                Background="#331D4ED8"
+                                IsHitTestVisible="False">
+                            <Border.Effect>
+                                <BlurEffect Radius="8" />
+                            </Border.Effect>
+                        </Border>
+                        <Border x:Name="Root"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                Background="{StaticResource LoginPrimaryButtonGradientBrush}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Opacity" Value="0.95" />
@@ -341,14 +344,53 @@
         <Setter Property="Foreground" Value="{StaticResource LoginTextMutedBrush}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="MinHeight" Value="32" />
-        <Setter Property="Padding" Value="2,0,0,0" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="6,0,0,0" />
+        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border x:Name="Box"
+                                Width="16"
+                                Height="16"
+                                CornerRadius="3"
+                                Background="White"
+                                BorderBrush="{StaticResource LoginBorderBrush}"
+                                BorderThickness="1.5"
+                                VerticalAlignment="Center">
+                            <fa:IconImage x:Name="CheckIcon"
+                                          Icon="{x:Static fa:IconChar.Check}"
+                                          Foreground="White"
+                                          Height="11"
+                                          Width="11"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Visibility="Collapsed" />
+                        </Border>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource LoginAccentBrush}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource LoginAccentBrush}" />
+                            <Setter TargetName="CheckIcon" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource LoginAccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="LoginGhostIconButton" TargetType="Button">
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="36" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Cursor" Value="Hand" />

@@ -33,6 +33,13 @@ public interface IUnitOfWork : IAsyncDisposable
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);
 
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Exécute l'action dans une transaction compatible avec SqlServerRetryingExecutionStrategy.
+    /// </summary>
+    Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken = default);
 }
 
 public interface ICurrentUserService

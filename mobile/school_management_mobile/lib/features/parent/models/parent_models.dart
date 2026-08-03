@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class ParentChild {
   const ParentChild({
     required this.studentId,
@@ -270,6 +272,7 @@ class ParentFeeSituations {
     required this.totalPaid,
     required this.totalBalance,
     this.feeTypes = const [],
+    this.defaultFeeTypeId,
   });
 
   final String academicYearId;
@@ -279,6 +282,7 @@ class ParentFeeSituations {
   final double totalPaid;
   final double totalBalance;
   final List<ParentFeeTypeSituation> feeTypes;
+  final String? defaultFeeTypeId;
 
   ParentPaymentSummary get overallSummary => ParentPaymentSummary(
         totalDue: totalExpected,
@@ -286,6 +290,26 @@ class ParentFeeSituations {
         balance: totalBalance,
         currencyLabel: currencyLabel,
       );
+
+  /// Frais principal école, sinon heuristique « scolaire », sinon premier.
+  String? resolveDefaultFeeTypeId() {
+    final fees = feeTypes.where((f) => f.feeTypeName.trim().isNotEmpty).toList();
+    if (fees.isEmpty) return null;
+    final configured = defaultFeeTypeId?.trim();
+    if (configured != null && configured.isNotEmpty) {
+      for (final f in fees) {
+        if (f.feeTypeId == configured) return f.feeTypeId;
+      }
+    }
+    for (final f in fees) {
+      final n = f.feeTypeName.trim().toLowerCase();
+      if (n == 'frais scolaire' || n == 'frais scolaires') return f.feeTypeId;
+    }
+    for (final f in fees) {
+      if (f.feeTypeName.toLowerCase().contains('scolaire')) return f.feeTypeId;
+    }
+    return fees.first.feeTypeId;
+  }
 
   factory ParentFeeSituations.fromJson(Map<String, dynamic> json) =>
       ParentFeeSituations(
@@ -295,6 +319,7 @@ class ParentFeeSituations {
         totalExpected: ParentPayment._asDouble(json['totalExpected']),
         totalPaid: ParentPayment._asDouble(json['totalPaid']),
         totalBalance: ParentPayment._asDouble(json['totalBalance']),
+        defaultFeeTypeId: json['defaultFeeTypeId']?.toString(),
         feeTypes: (json['feeTypes'] as List<dynamic>?)
                 ?.map((e) => ParentFeeTypeSituation.fromJson(
                       Map<String, dynamic>.from(e as Map),
@@ -646,6 +671,10 @@ class ParentNotificationItem {
     required this.message,
     required this.date,
     this.isRead = false,
+    this.category = 'Administration',
+    this.eventType,
+    this.studentId,
+    this.deepLink,
   });
 
   final String id;
@@ -653,14 +682,61 @@ class ParentNotificationItem {
   final String message;
   final DateTime date;
   final bool isRead;
+  final String category;
+  final String? eventType;
+  final String? studentId;
+  final String? deepLink;
+
+  ParentNotificationItem copyWith({bool? isRead}) => ParentNotificationItem(
+        id: id,
+        title: title,
+        message: message,
+        date: date,
+        isRead: isRead ?? this.isRead,
+        category: category,
+        eventType: eventType,
+        studentId: studentId,
+        deepLink: deepLink,
+      );
+
+  IconData get categoryIcon => switch (category.toLowerCase()) {
+        'payment' => Icons.payments_outlined,
+        'bulletin' => Icons.menu_book_outlined,
+        'grades' => Icons.grade_outlined,
+        'attendance' => Icons.event_busy_outlined,
+        'discipline' => Icons.gavel_outlined,
+        'merit' => Icons.emoji_events_outlined,
+        'communication' => Icons.campaign_outlined,
+        'assignment' => Icons.assignment_outlined,
+        _ => Icons.notifications_outlined,
+      };
+
+  String get categoryLabel => switch (category.toLowerCase()) {
+        'payment' => 'Paiement',
+        'bulletin' => 'Bulletin',
+        'grades' => 'Notes',
+        'attendance' => 'Présence',
+        'discipline' => 'Discipline',
+        'merit' => 'Mérite',
+        'communication' => 'Communication',
+        'assignment' => 'Devoir',
+        'administration' => 'Administration',
+        _ => category,
+      };
 
   factory ParentNotificationItem.fromJson(Map<String, dynamic> json) =>
       ParentNotificationItem(
         id: json['id']?.toString() ?? '',
         title: json['title'] as String? ?? 'Notification',
-        message: json['message'] as String? ?? '',
-        date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
+        message: json['message'] as String? ?? json['body'] as String? ?? '',
+        date: DateTime.tryParse(json['date']?.toString() ?? '') ??
+            DateTime.tryParse(json['occurredAt']?.toString() ?? '') ??
+            DateTime.now(),
         isRead: json['isRead'] as bool? ?? false,
+        category: json['category'] as String? ?? 'Administration',
+        eventType: json['eventType'] as String?,
+        studentId: json['studentId']?.toString(),
+        deepLink: json['deepLink'] as String?,
       );
 }
 

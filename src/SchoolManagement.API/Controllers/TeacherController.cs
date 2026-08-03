@@ -49,13 +49,23 @@ public class TeacherController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<TeacherStudentDto>>.Ok(students));
     }
 
-    [HttpGet("periods")]
+    /// <summary>
+    /// Sous-période(s) ouverte(s) pour la cotation mobile — pas de choix manuel.
+    /// </summary>
+    [HttpGet("classes/{classRoomId:guid}/open-periods")]
     [Authorize(Policy = Permissions.GradesRead)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<TeacherPeriodDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetPeriods([FromQuery] Guid academicYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetOpenPeriods(
+        Guid classRoomId,
+        [FromQuery] Guid academicYearId,
+        CancellationToken cancellationToken)
     {
+        var teacherId = await ResolveTeacherIdAsync(cancellationToken);
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
-        var periods = await _teacherService.GetAcademicPeriodsAsync(schoolId, academicYearId, cancellationToken);
+        // Vérifie l'accès enseignant à la classe.
+        _ = await _teacherService.GetClassStudentsAsync(teacherId, schoolId, classRoomId, cancellationToken);
+        var periods = await _teacherService.GetOpenCotationPeriodsAsync(
+            schoolId, academicYearId, classRoomId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<TeacherPeriodDto>>.Ok(periods));
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/providers/app_providers.dart';
@@ -7,6 +8,7 @@ import '../../core/theme/erp_theme.dart';
 import 'dashboard_formatters.dart';
 import 'models/promoteur_dashboard_models.dart';
 import 'promoteur_dashboard_repository.dart';
+import 'widgets/promoteur_dashboard_widgets.dart';
 
 DashboardDetailScope _parseScope(String? raw) => switch (raw?.toLowerCase()) {
       'today' => DashboardDetailScope.today,
@@ -15,9 +17,10 @@ DashboardDetailScope _parseScope(String? raw) => switch (raw?.toLowerCase()) {
     };
 
 class PromoteurPaymentsDetailScreen extends ConsumerStatefulWidget {
-  const PromoteurPaymentsDetailScreen({super.key, required this.scope});
+  const PromoteurPaymentsDetailScreen({super.key, required this.scope, this.feeTypeId});
 
   final String scope;
+  final String? feeTypeId;
 
   @override
   ConsumerState<PromoteurPaymentsDetailScreen> createState() => _PromoteurPaymentsDetailScreenState();
@@ -41,7 +44,10 @@ class _PromoteurPaymentsDetailScreenState extends ConsumerState<PromoteurPayment
       _error = null;
     });
     try {
-      final items = await ref.read(promoteurDashboardRepositoryProvider).getPayments(_scope);
+      final items = await ref.read(promoteurDashboardRepositoryProvider).getPayments(
+            _scope,
+            feeTypeId: widget.feeTypeId,
+          );
       if (!mounted) return;
       setState(() => _items = items);
     } catch (e) {
@@ -69,13 +75,141 @@ class _PromoteurPaymentsDetailScreenState extends ConsumerState<PromoteurPayment
               ? Center(child: Text(_error!, style: const TextStyle(color: ErpColors.danger)))
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _items?.length ?? 0,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final p = _items![i];
-                      return Container(
+                  child: (_items == null || _items!.isEmpty)
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 120),
+                            Center(child: Text('Aucun encaissement sur cette période.')),
+                          ],
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _items!.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, i) {
+                            final p = _items![i];
+                            return Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(p.studentName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${p.reference} · ${dateFmt.format(p.paymentDateUtc.toLocal())}',
+                                          style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    formatMoney(p.amount, p.currency),
+                                    style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.navy),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+    );
+  }
+}
+
+/// Recette du mois = jours avec perception ; Recette annuelle = mois avec perception.
+class PromoteurRevenueDetailScreen extends ConsumerStatefulWidget {
+  const PromoteurRevenueDetailScreen({
+    super.key,
+    required this.scope,
+    this.feeTypeId,
+    this.currency = 'CDF',
+  });
+
+  final String scope;
+  final String? feeTypeId;
+  final String currency;
+
+  @override
+  ConsumerState<PromoteurRevenueDetailScreen> createState() => _PromoteurRevenueDetailScreenState();
+}
+
+class _PromoteurRevenueDetailScreenState extends ConsumerState<PromoteurRevenueDetailScreen> {
+  late final DashboardDetailScope _scope = _parseScope(widget.scope);
+  List<RevenuePoint>? _points;
+  String? _error;
+  bool _loading = true;
+
+  bool get _isYear => _scope == DashboardDetailScope.year;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await initializeDateFormatting('fr_FR');
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final points = await ref.read(promoteurDashboardRepositoryProvider).getRevenueDetail(
+            _scope,
+            feeTypeId: widget.feeTypeId,
+          );
+      if (!mounted) return;
+      // API filtre déjà les zéros ; garde-fou affichage.
+      setState(() => _points = points.where((p) => p.amount > 0).toList());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pointsAsc = _points ?? const <RevenuePoint>[];
+    final pointsDesc = pointsAsc.reversed.toList();
+    final total = pointsAsc.fold<double>(0, (s, p) => s + p.amount);
+    final currency = widget.currency;
+    final title = _isYear ? 'Recette annuelle' : 'Recette du mois';
+    final detailTitle = _isYear ? 'Perceptions par mois' : 'Perceptions par jour';
+    final chartTitle = _isYear ? 'Recettes mensuelles' : 'Recettes journalières';
+
+    return Scaffold(
+      backgroundColor: ErpColors.pageBackground,
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.white,
+        foregroundColor: ErpColors.navy,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!, style: const TextStyle(color: ErpColors.danger)))
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    children: [
+                      Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -84,28 +218,131 @@ class _PromoteurPaymentsDetailScreenState extends ConsumerState<PromoteurPayment
                         child: Row(
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(p.studentName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${p.reference} · ${dateFmt.format(p.paymentDateUtc.toLocal())}',
-                                    style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
-                                  ),
-                                ],
+                              child: Text(
+                                _isYear ? 'Total année scolaire' : 'Total du mois',
+                                style: const TextStyle(fontWeight: FontWeight.w600, color: ErpColors.textSecondary),
                               ),
                             ),
                             Text(
-                              formatMoney(p.amount, p.currency),
-                              style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.navy),
+                              formatMoney(total, currency),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: ErpColors.navy),
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(height: 14),
+                      if (pointsAsc.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            _isYear
+                                ? 'Aucune perception enregistrée sur l’année scolaire.'
+                                : 'Aucune perception enregistrée ce mois-ci.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: ErpColors.textSecondary),
+                          ),
+                        )
+                      else ...[
+                        RevenueLineChartCard(
+                          title: chartTitle,
+                          points: pointsAsc,
+                          currency: currency,
+                          color: const Color(0xFF0B1F47),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          detailTitle,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ErpColors.navy),
+                        ),
+                        const SizedBox(height: 8),
+                        ...pointsDesc.map(
+                          (p) => _RevenuePeriodTile(
+                            label: p.label,
+                            amount: p.amount,
+                            currency: currency,
+                            detailLabel: _isYear ? 'Total perçu ce mois' : 'Total perçu ce jour',
+                            accent: ErpColors.primary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+    );
+  }
+}
+
+class _RevenuePeriodTile extends StatelessWidget {
+  const _RevenuePeriodTile({
+    required this.label,
+    required this.amount,
+    required this.currency,
+    required this.detailLabel,
+    required this.accent,
+  });
+
+  final String label;
+  final double amount;
+  final String currency;
+  final String detailLabel;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: ErpColors.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          controlAffinity: ListTileControlAffinity.leading,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          title: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w700, color: ErpColors.navy),
+          ),
+          trailing: Text(
+            formatMoney(amount, currency),
+            style: TextStyle(fontWeight: FontWeight.w800, color: accent),
+          ),
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ErpColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      detailLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                  Text(
+                    formatMoney(amount, currency),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: accent, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -125,11 +362,19 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
   List<DashboardExpenseLine>? _items;
   String? _error;
   bool _loading = true;
+  bool _localeReady = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await initializeDateFormatting('fr_FR');
+    if (!mounted) return;
+    setState(() => _localeReady = true);
+    await _load();
   }
 
   Future<void> _load() async {
@@ -153,11 +398,25 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
     }
   }
 
+  String _dayKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
+  String _dayLabel(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+  String _monthLabel(DateTime d) {
+    final raw = DateFormat('MMMM', 'fr_FR').format(d);
+    return raw.isEmpty ? raw : '${raw[0].toUpperCase()}${raw.substring(1)}';
+  }
+
+  String _dayLabelShort(DateTime d) => DateFormat('dd/MM').format(d);
+
   @override
   Widget build(BuildContext context) {
     final title = widget.category == null || widget.category!.isEmpty
         ? 'Dépenses — ${_scope.label}'
         : '${widget.category} — ${_scope.label}';
+    final items = _items ?? const <DashboardExpenseLine>[];
+    final total = items.fold<double>(0, (s, e) => s + e.amount);
+    final currency = items.isEmpty ? 'CDF' : items.first.currency;
+
     return Scaffold(
       backgroundColor: ErpColors.pageBackground,
       appBar: AppBar(
@@ -166,19 +425,16 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
         foregroundColor: ErpColors.navy,
         elevation: 0,
       ),
-      body: _loading
+      body: !_localeReady || _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!, style: const TextStyle(color: ErpColors.danger)))
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _items?.length ?? 0,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final e = _items![i];
-                      return Container(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    children: [
+                      Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -186,29 +442,206 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
                         ),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(e.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${e.category} · ${e.expenseDate.toIso8601String().split('T').first}',
-                                    style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
-                                  ),
-                                ],
+                            const Expanded(
+                              child: Text(
+                                'Total',
+                                style: TextStyle(fontWeight: FontWeight.w600, color: ErpColors.textSecondary),
                               ),
                             ),
                             Text(
-                              formatMoney(e.amount, e.currency),
+                              formatMoney(total, currency),
                               style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.danger),
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(height: 12),
+                      if (items.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Text(
+                            'Aucune dépense enregistrée sur cette période.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: ErpColors.textSecondary),
+                          ),
+                        )
+                      else if (_scope == DashboardDetailScope.year)
+                        ..._buildYearHierarchy(items)
+                      else if (_scope == DashboardDetailScope.month)
+                        ..._buildMonthHierarchy(items)
+                      else
+                        ...items.map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _ExpenseDetailTile(expense: e),
+                            )),
+                    ],
                   ),
                 ),
+    );
+  }
+
+  List<Widget> _buildYearHierarchy(List<DashboardExpenseLine> items) {
+    final byMonth = <String, List<DashboardExpenseLine>>{};
+    for (final e in items) {
+      byMonth.putIfAbsent(_monthKey(e.expenseDate), () => []).add(e);
+    }
+    final monthKeys = byMonth.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return monthKeys.map((monthKey) {
+      final monthItems = byMonth[monthKey]!;
+      monthItems.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
+      final monthTotal = monthItems.fold<double>(0, (s, e) => s + e.amount);
+      final byDay = <String, List<DashboardExpenseLine>>{};
+      for (final e in monthItems) {
+        byDay.putIfAbsent(_dayKey(e.expenseDate), () => []).add(e);
+      }
+      final dayKeys = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: ErpColors.border),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            controlAffinity: ListTileControlAffinity.leading,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            title: Text(
+              _monthLabel(monthItems.first.expenseDate),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: ErpColors.navy),
+            ),
+            trailing: Text(
+              formatMoney(monthTotal, monthItems.first.currency),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.danger),
+            ),
+            children: dayKeys.map((dayKey) {
+              final dayItems = byDay[dayKey]!;
+              final dayTotal = dayItems.fold<double>(0, (s, e) => s + e.amount);
+              return Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                elevation: 0,
+                color: ErpColors.pageBackground,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ExpansionTile(
+                  initiallyExpanded: false,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  title: Text(
+                    _dayLabelShort(dayItems.first.expenseDate),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  trailing: Text(
+                    formatMoney(dayTotal, dayItems.first.currency),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: ErpColors.danger, fontSize: 13),
+                  ),
+                  children: dayItems
+                      .map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _ExpenseDetailTile(expense: e),
+                          ))
+                      .toList(),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildMonthHierarchy(List<DashboardExpenseLine> items) {
+    final byDay = <String, List<DashboardExpenseLine>>{};
+    for (final e in items) {
+      byDay.putIfAbsent(_dayKey(e.expenseDate), () => []).add(e);
+    }
+    final dayKeys = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return dayKeys.map((dayKey) {
+      final dayItems = byDay[dayKey]!;
+      final dayTotal = dayItems.fold<double>(0, (s, e) => s + e.amount);
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: ErpColors.border),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            controlAffinity: ListTileControlAffinity.leading,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            title: Text(
+              _dayLabel(dayItems.first.expenseDate),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: ErpColors.navy),
+            ),
+            trailing: Text(
+              formatMoney(dayTotal, dayItems.first.currency),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.danger),
+            ),
+            children: dayItems
+                .map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _ExpenseDetailTile(expense: e),
+                    ))
+                .toList(),
+          ),
+        ),
+      );
+    }).toList();
+  }
+}
+
+class _ExpenseDetailTile extends StatelessWidget {
+  const _ExpenseDetailTile({required this.expense});
+
+  final DashboardExpenseLine expense;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ErpColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(expense.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(
+                  '${expense.category}${expense.reference.isEmpty ? '' : ' · ${expense.reference}'}',
+                  style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            formatMoney(expense.amount, expense.currency),
+            style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.danger, fontSize: 13),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -260,7 +693,7 @@ class _PromoteurDebtorsDetailScreenState extends ConsumerState<PromoteurDebtorsD
     return Scaffold(
       backgroundColor: ErpColors.pageBackground,
       appBar: AppBar(
-        title: Text(data == null ? 'À percevoir' : 'À percevoir — ${data.feeTypeName}'),
+        title: Text(data == null ? 'Débiteurs' : 'Débiteurs — ${data.feeTypeName}'),
         backgroundColor: Colors.white,
         foregroundColor: ErpColors.navy,
         elevation: 0,
@@ -277,7 +710,7 @@ class _PromoteurDebtorsDetailScreenState extends ConsumerState<PromoteurDebtorsD
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                         children: [
                           Text(
-                            data.academicYearLabel,
+                            '${data.academicYearLabel} · Tranches dont l’échéance est dépassée',
                             style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
                           ),
                           const SizedBox(height: 10),
@@ -301,13 +734,28 @@ class _PromoteurDebtorsDetailScreenState extends ConsumerState<PromoteurDebtorsD
                           ),
                           const SizedBox(height: 8),
                           _DestinationTable(rows: data.byDestination, currency: currency),
-                          if (data.debtors.isNotEmpty) ...[
-                            const SizedBox(height: 18),
-                            Text(
-                              'Élèves débiteurs (${data.debtors.length})',
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ErpColors.navy),
-                            ),
-                            const SizedBox(height: 8),
+                          const SizedBox(height: 18),
+                          Text(
+                            data.debtors.isEmpty
+                                ? 'Aucun élève en retard d’échéance'
+                                : 'Élèves débiteurs (${data.debtors.length})',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: ErpColors.navy),
+                          ),
+                          const SizedBox(height: 8),
+                          if (data.debtors.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Text(
+                                'Aucun élève avec une tranche échue non soldée.',
+                                style: TextStyle(color: ErpColors.textSecondary),
+                              ),
+                            )
+                          else
                             ...data.debtors.map(
                               (d) => Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
@@ -333,7 +781,8 @@ class _PromoteurDebtorsDetailScreenState extends ConsumerState<PromoteurDebtorsD
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '${d.className} · Payé ${formatMoney(d.amountPaid, currency)} / ${formatMoney(d.amountDue, currency)}',
+                                        '${d.className} · Retard ${formatMoney(d.remaining, currency)}'
+                                        ' (payé ${formatMoney(d.amountPaid, currency)} / ${formatMoney(d.amountDue, currency)})',
                                         style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
                                       ),
                                     ],
@@ -341,7 +790,6 @@ class _PromoteurDebtorsDetailScreenState extends ConsumerState<PromoteurDebtorsD
                                 ),
                               ),
                             ),
-                          ],
                         ],
                       ),
                     ),

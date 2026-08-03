@@ -1,22 +1,44 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
-/// Design system ERP Scolaire RDC — aligné sur le Desktop WPF.
+/// Design system ERP Scolaire RDC — aligné Desktop WPF + accents RDC.
 abstract final class ErpColors {
+  // Marque
   static const navy = Color(0xFF0B1F47);
   static const primary = Color(0xFF1D4ED8);
   static const primaryLegacy = Color(0xFF1E5EFF);
   static const sidebar = Color(0xFF0F1F3D);
+
+  /// Accent secondaire RDC — badges Premium, highlights (jamais CTA principal).
+  static const accentGreen = Color(0xFF0E8A5F);
+  static const accentGold = Color(0xFFD9A441);
+
+  /// Alias compat — [navy] est la source de vérité v1.
+  static const ink = navy;
+
+  // Neutres
   static const pageBackground = Color(0xFFF5F7FB);
   static const card = Color(0xFFFFFFFF);
+  static const cardBackground = card;
   static const textPrimary = Color(0xFF1F2937);
   static const textSecondary = Color(0xFF6B7280);
+  static const border = Color(0xFFE5E7EB);
+  static const borderStrong = Color(0xFFD1D5DB);
+
+  // Connexion
+  static const modeLocal = Color(0xFF22C55E);
+  static const modeDistant = primary;
+  static const modeCache = Color(0xFFEF4444);
+
+  // Sémantique
   static const success = Color(0xFF22C55E);
   static const warning = Color(0xFFF59E0B);
   static const danger = Color(0xFFEF4444);
-  static const border = Color(0xFFE5E7EB);
 
+  // Dark
   static const pageBackgroundDark = Color(0xFF111827);
+  static const darkBackground = pageBackgroundDark;
   static const cardDark = Color(0xFF1F2937);
+  static const darkCard = cardDark;
   static const textPrimaryDark = Color(0xFFF9FAFB);
   static const textSecondaryDark = Color(0xFF9CA3AF);
   static const borderDark = Color(0xFF374151);
@@ -30,7 +52,38 @@ abstract final class ErpSpacing {
   static const cardRadius = 16.0;
   static const buttonRadius = 10.0;
   static const inputRadius = 10.0;
+  static const chipRadius = 10.0;
   static const buttonHeight = 42.0;
+  static const minTap = 44.0;
+  static const bannerHeight = 30.0;
+}
+
+abstract final class ErpTextStyles {
+  static const headline = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    color: ErpColors.textPrimary,
+  );
+
+  static const title = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    color: ErpColors.textPrimary,
+  );
+
+  static const body = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.normal,
+    color: ErpColors.textPrimary,
+  );
+
+  static const label = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: ErpColors.textSecondary,
+  );
 }
 
 abstract final class ErpTheme {
@@ -39,7 +92,7 @@ abstract final class ErpTheme {
       brightness: Brightness.light,
       primary: ErpColors.primary,
       onPrimary: Colors.white,
-      secondary: ErpColors.primary,
+      secondary: ErpColors.accentGreen,
       onSecondary: Colors.white,
       error: ErpColors.danger,
       onError: Colors.white,
@@ -53,11 +106,24 @@ abstract final class ErpTheme {
       scaffoldBackgroundColor: ErpColors.pageBackground,
       fontFamily: 'Segoe UI',
       textTheme: const TextTheme(
-        headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: ErpColors.textPrimary),
-        headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ErpColors.textPrimary),
-        titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ErpColors.textPrimary),
-        bodyLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: ErpColors.textPrimary),
-        bodyMedium: TextStyle(fontSize: 13, fontWeight: FontWeight.normal, color: ErpColors.textSecondary),
+        headlineLarge: ErpTextStyles.headline,
+        headlineMedium: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          letterSpacing: -0.2,
+          color: ErpColors.textPrimary,
+        ),
+        titleLarge: ErpTextStyles.title,
+        bodyLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: ErpColors.textPrimary,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.normal,
+          color: ErpColors.textSecondary,
+        ),
       ),
       cardTheme: CardThemeData(
         color: ErpColors.card,
@@ -73,7 +139,9 @@ abstract final class ErpTheme {
           minimumSize: const Size(120, ErpSpacing.buttonHeight),
           backgroundColor: ErpColors.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius),
+          ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
@@ -82,8 +150,19 @@ abstract final class ErpTheme {
           minimumSize: const Size(100, ErpSpacing.buttonHeight),
           foregroundColor: ErpColors.textPrimary,
           side: const BorderSide(color: ErpColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius),
+          ),
         ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        side: const BorderSide(color: ErpColors.border),
+        backgroundColor: ErpColors.card,
+        selectedColor: ErpColors.primary.withValues(alpha: 0.12),
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -133,7 +212,7 @@ abstract final class ErpTheme {
       brightness: Brightness.dark,
       primary: ErpColors.primary,
       onPrimary: Colors.white,
-      secondary: ErpColors.primary,
+      secondary: ErpColors.accentGreen,
       onSecondary: Colors.white,
       error: ErpColors.danger,
       onError: Colors.white,
@@ -160,7 +239,9 @@ abstract final class ErpTheme {
           minimumSize: const Size(100, ErpSpacing.buttonHeight),
           foregroundColor: ErpColors.textPrimaryDark,
           side: const BorderSide(color: ErpColors.borderDark),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ErpSpacing.buttonRadius),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -189,44 +270,47 @@ abstract final class ErpTheme {
         foregroundColor: ErpColors.textPrimaryDark,
         elevation: 0,
       ),
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-        },
-      ),
+      pageTransitionsTheme: light().pageTransitionsTheme,
     );
   }
 }
 
-/// Carte standard ERP avec ombre légère.
+/// Carte standard ERP — fond + bordure légère, sans ombre.
 class ErpCard extends StatelessWidget {
-  const ErpCard({super.key, required this.child, this.padding = const EdgeInsets.all(ErpSpacing.card)});
+  const ErpCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(ErpSpacing.card),
+    this.onTap,
+  });
 
   final Widget child;
   final EdgeInsets padding;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: isDark ? ErpColors.cardDark : ErpColors.card,
-        borderRadius: BorderRadius.circular(ErpSpacing.cardRadius),
-        border: Border.all(color: isDark ? ErpColors.borderDark : ErpColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    final radius = BorderRadius.circular(ErpSpacing.cardRadius);
+    final bg = isDark ? ErpColors.cardDark : ErpColors.card;
+    final border = isDark ? ErpColors.borderDark : ErpColors.border;
+
+    // Material (pas DecoratedBox) pour que ListTile / InkWell peignent correctement.
+    final content = Padding(padding: padding, child: child);
+    return Material(
+      color: bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: border),
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: radius,
+              child: content,
+            ),
     );
   }
 }

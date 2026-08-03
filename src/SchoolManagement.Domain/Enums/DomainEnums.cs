@@ -179,3 +179,66 @@ public enum ClassCouncilDecision
     Ajourne = 3,
     Exclu = 4
 }
+
+/// <summary>
+/// Décision officielle de passage (fin d'année uniquement).
+/// Les mentions honorifiques (Satisfaction…) ne sont PAS des décisions : elles viennent de ResultMentionDefinition.
+/// Les valeurs 1–4 sont conservées pour compatibilité historique (anciennes saisies) mais ne sont plus proposées.
+/// </summary>
+public enum FinalCouncilDecision
+{
+    Satisfaction = 1,
+    Distinction = 2,
+    GrandeDistinction = 3,
+    Elite = 4,
+    PasseDeClasse = 5,
+    Redouble = 6,
+    PasseAilleurs = 7,
+    Repechage = 8,
+    Exclu = 9,
+    Dispense = 10
+}
+
+/// <summary>Mode d'interface du conseil, dérivé automatiquement de la période pédagogique.</summary>
+public enum DeliberationPeriodMode
+{
+    /// <summary>Périodes / examens intermédiaires — pas de décision de passage.</summary>
+    Intermediate = 1,
+
+    /// <summary>Examen de fin d'année primaire / maternelle.</summary>
+    YearEndPrimary = 2,
+
+    /// <summary>Examen de fin d'année secondaire (repêchage possible).</summary>
+    YearEndSecondary = 3
+}
+
+/// <summary>Contexte de session d'évaluation (cotation normale vs 2ᵉ session).</summary>
+public enum EvaluationSessionKind
+{
+    Normale = 1,
+    DeuxiemeSession = 2
+}
+
+/// <summary>Statut d'un cours de repêchage (2ᵉ session).</summary>
+public enum RemedialCourseStatus
+{
+    ACoter = 1
+}
+
+/// <summary>Statut administratif de validation des résultats d'une classe / sous-période.</summary>
+public enum ResultValidationStatus
+{
+    NonValide = 1,
+    Valide = 2,
+    Verrouille = 3
+}
+
+/// <summary>Opérations historisées du module Validation des résultats.</summary>
+public enum ResultValidationOperation
+{
+    CalculEffectue = 1,
+    Validation = 2,
+    Annulation = 3,
+    Verrouillage = 4,
+    Deverrouillage = 5
+}

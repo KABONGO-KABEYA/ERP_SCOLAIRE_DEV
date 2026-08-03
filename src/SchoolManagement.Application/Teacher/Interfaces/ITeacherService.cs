@@ -15,8 +15,13 @@ public interface ITeacherService
         Guid classRoomId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<TeacherPeriodDto>> GetAcademicPeriodsAsync(
+    /// <summary>
+    /// Sous-périodes ouvertes pour la classe (même règle que Cotation Desktop).
+    /// Liste vide = aucune période ouverte → saisie désactivée.
+    /// </summary>
+    Task<IReadOnlyList<TeacherPeriodDto>> GetOpenCotationPeriodsAsync(
         Guid schoolId,
         Guid academicYearId,
+        Guid classRoomId,
         CancellationToken cancellationToken = default);
 }

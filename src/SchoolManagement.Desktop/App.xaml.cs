@@ -152,6 +152,10 @@ public partial class App : System.Windows.Application
         services.AddTransient<ICloudSyncApiService, CloudSyncApiService>();
         services.AddTransient<IFinanceApiService, FinanceApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
+        services.AddTransient<IBulletinApiService, BulletinApiService>();
+        services.AddTransient<IResultValidationApiService, ResultValidationApiService>();
+        services.AddTransient<IDeliberationApiService, DeliberationApiService>();
+        services.AddTransient<IMentionsApiService, MentionsApiService>();
         services.AddTransient<IPedagogicalPeriodApiService, PedagogicalPeriodApiService>();
         services.AddTransient<IAcademicApiService, AcademicApiService>();
         services.AddTransient<IDocumentApiService, DocumentApiService>();
@@ -203,6 +207,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<CourseConfigurationViewModel>();
         services.AddTransient<RevenueAllocationConfigViewModel>();
         services.AddTransient<WithholdingConfigViewModel>();
+        services.AddTransient<MentionsConfigViewModel>();
         services.AddTransient<CurrencyManagementViewModel>();
         services.AddTransient<CloudSyncDashboardViewModel>();
         services.AddTransient<StudentsViewModel>();
@@ -229,6 +234,13 @@ public partial class App : System.Windows.Application
         services.AddTransient<PersonnelFunctionsViewModel>();
         services.AddTransient<PersonnelPlaceholderViewModel>();
         services.AddTransient<PersonnelHubViewModel>();
+        services.AddTransient<ClassResultsViewModel>();
+        services.AddTransient<IndividualResultViewModel>();
+        services.AddTransient<DeliberationViewModel>();
+        services.AddTransient<DeliberationWorkspaceViewModel>();
+        services.AddTransient<ResultsPlaceholderViewModel>();
+        services.AddTransient<ResultsHubViewModel>();
+        services.AddTransient<ResultValidationViewModel>();
 
         services.AddDesktopUpdates(configuration);
     }

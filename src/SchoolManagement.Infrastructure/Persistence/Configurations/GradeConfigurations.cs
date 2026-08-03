@@ -68,6 +68,63 @@ public class PeriodResultConfiguration : AuditableEntityConfiguration<PeriodResu
     }
 }
 
+public class ClassPeriodResultValidationConfiguration : AuditableEntityConfiguration<ClassPeriodResultValidation>
+{
+    public override void Configure(EntityTypeBuilder<ClassPeriodResultValidation> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("ClassPeriodResultValidations");
+        builder.Property(v => v.Status).HasConversion<int>();
+        builder.Property(v => v.ValidatedByUserName).HasMaxLength(150);
+        builder.Property(v => v.LockedByUserName).HasMaxLength(150);
+        builder.Property(v => v.Observations).HasMaxLength(1000);
+        builder.HasOne(v => v.School).WithMany().HasForeignKey(v => v.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(v => v.AcademicYear).WithMany().HasForeignKey(v => v.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(v => v.ClassRoom).WithMany().HasForeignKey(v => v.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(v => v.AcademicPeriod).WithMany().HasForeignKey(v => v.AcademicPeriodId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(v => new { v.SchoolId, v.AcademicYearId, v.ClassRoomId, v.AcademicPeriodId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+    }
+}
+
+public class ClassPeriodResultValidationEventConfiguration : AuditableEntityConfiguration<ClassPeriodResultValidationEvent>
+{
+    public override void Configure(EntityTypeBuilder<ClassPeriodResultValidationEvent> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("ClassPeriodResultValidationEvents");
+        builder.Property(e => e.Operation).HasConversion<int>();
+        builder.Property(e => e.UserName).HasMaxLength(150).IsRequired();
+        builder.Property(e => e.Observations).HasMaxLength(1000);
+        builder.HasOne(e => e.Validation)
+            .WithMany(v => v.Events)
+            .HasForeignKey(e => e.ValidationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(e => new { e.ValidationId, e.OccurredAtUtc });
+    }
+}
+
+public class ClassPeriodDeliberationMinutesConfiguration : AuditableEntityConfiguration<ClassPeriodDeliberationMinutes>
+{
+    public override void Configure(EntityTypeBuilder<ClassPeriodDeliberationMinutes> builder)
+    {
+        base.Configure(builder);
+        builder.ToTable("ClassPeriodDeliberationMinutes");
+        builder.Property(m => m.GeneralObservations).HasMaxLength(4000);
+        builder.Property(m => m.CouncilDecisions).HasMaxLength(4000);
+        builder.Property(m => m.PedagogicalRecommendations).HasMaxLength(4000);
+        builder.Property(m => m.RecordedByUserName).HasMaxLength(150).IsRequired();
+        builder.HasOne(m => m.School).WithMany().HasForeignKey(m => m.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(m => m.AcademicYear).WithMany().HasForeignKey(m => m.AcademicYearId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(m => m.ClassRoom).WithMany().HasForeignKey(m => m.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(m => m.AcademicPeriod).WithMany().HasForeignKey(m => m.AcademicPeriodId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(m => new { m.SchoolId, m.AcademicYearId, m.ClassRoomId, m.AcademicPeriodId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+    }
+}
+
 public class ReportCardConfiguration : AuditableEntityConfiguration<ReportCard>
 {
     public override void Configure(EntityTypeBuilder<ReportCard> builder)

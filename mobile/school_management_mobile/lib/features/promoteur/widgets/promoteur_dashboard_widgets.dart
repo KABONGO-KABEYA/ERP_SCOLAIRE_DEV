@@ -42,35 +42,14 @@ class PilotCard extends StatelessWidget {
 
   final Widget child;
   final VoidCallback? onTap;
-  final EdgeInsetsGeometry? padding;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
-    final content = Container(
-      width: double.infinity,
+    return ErpCard(
+      onTap: onTap,
       padding: padding ?? const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: ErpColors.navy.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
       child: child,
-    );
-
-    if (onTap == null) return content;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: content,
-      ),
     );
   }
 }
@@ -125,9 +104,15 @@ class KpiMoneyCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             formatMoney(amount, currency),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: ErpColors.navy),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+              color: ErpColors.navy,
+              height: 1.15,
+            ),
           ),
           const SizedBox(height: 6),
           Row(
@@ -181,10 +166,10 @@ class KpiStudentsCard extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                  color: ErpColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.school_rounded, size: 18, color: Color(0xFF8B5CF6)),
+                child: const Icon(Icons.school_rounded, size: 18, color: ErpColors.primary),
               ),
               const Spacer(),
               Icon(Icons.chevron_right_rounded, size: 18, color: ErpColors.textSecondary.withValues(alpha: 0.6)),
@@ -195,7 +180,12 @@ class KpiStudentsCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${students.total}',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ErpColors.navy),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+              color: ErpColors.navy,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -574,8 +564,37 @@ class SituationHeroCard extends StatelessWidget {
   final PromoterSituation situation;
   final String currency;
 
+  bool get _hasData =>
+      situation.totalRevenue != 0 || situation.totalExpenses != 0 || situation.availableBalance != 0;
+
   @override
   Widget build(BuildContext context) {
+    if (!_hasData) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ErpColors.border),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Situation financière',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: ErpColors.navy),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Aucune donnée financière disponible pour l’année scolaire.',
+              style: TextStyle(color: ErpColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
     final positive = situation.availableBalance >= 0;
     return Container(
       width: double.infinity,
@@ -600,22 +619,34 @@ class SituationHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Situation financière', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12)),
+          const Text(
+            'Situation financière',
+            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           Text(
             formatMoney(situation.availableBalance, currency),
             style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text('Solde disponible', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text(
+            'Solde disponible',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: _HeroStat(label: 'Recettes', value: formatMoney(situation.totalRevenue, currency)),
+                child: _HeroStat(
+                  label: 'Recettes annuelles',
+                  value: formatMoney(situation.totalRevenue, currency),
+                ),
               ),
               Expanded(
-                child: _HeroStat(label: 'Dépenses', value: formatMoney(situation.totalExpenses, currency)),
+                child: _HeroStat(
+                  label: 'Dépenses annuelles',
+                  value: formatMoney(situation.totalExpenses, currency),
+                ),
               ),
             ],
           ),

@@ -50,6 +50,16 @@ public static class Permissions
     public const string GradesCreate = "grades.create";
     public const string GradesUpdate = "grades.update";
 
+    public const string ResultsValidationRead = "results-validation.read";
+    public const string ResultsValidationValidate = "results-validation.validate";
+    public const string ResultsValidationLock = "results-validation.lock";
+    public const string ResultsValidationUnlock = "results-validation.unlock";
+
+    public const string DeliberationPvRead = "deliberation.pv.read";
+    public const string DeliberationPvWrite = "deliberation.pv.update";
+    public const string DeliberationDecisionRead = "deliberation.decision.read";
+    public const string DeliberationDecisionWrite = "deliberation.decision.update";
+
     public const string ReportsRead = "reports.read";
 
     public const string AccountingRead = "accounting.read";
@@ -71,6 +81,9 @@ public static class Permissions
         StudentCardsPrint, StudentCardsRenew, StudentCardsDeclareLost,
         CardTemplatesRead, CardTemplatesManage,
         GradesRead, GradesCreate, GradesUpdate,
+        ResultsValidationRead, ResultsValidationValidate, ResultsValidationLock, ResultsValidationUnlock,
+        DeliberationPvRead, DeliberationPvWrite,
+        DeliberationDecisionRead, DeliberationDecisionWrite,
         ReportsRead, AccountingRead, AccountingManage,
         AdminFull
     ];

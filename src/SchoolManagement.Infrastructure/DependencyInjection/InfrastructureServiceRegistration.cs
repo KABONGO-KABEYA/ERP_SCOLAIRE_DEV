@@ -14,7 +14,9 @@ using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Application.Schools.Interfaces;
 using SchoolManagement.Infrastructure.Auth;
 using SchoolManagement.Infrastructure.CloudSync;
+using SchoolManagement.Infrastructure.Notifications;
 using SchoolManagement.Infrastructure.Persistence;
+using SchoolManagement.Application.Notifications.Interfaces;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Application.Enrollment.Interfaces;
 using SchoolManagement.Infrastructure.Seeding;
@@ -61,6 +63,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
         services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();
         services.AddScoped<IEnrollmentMaintenanceService, EnrollmentMaintenanceService>();
+        services.AddSingleton<IPushNotificationSender, LoggingPushNotificationSender>();
 
         services.AddSingleton<DatabaseConnectionFactory>();
         // Legacy full-table sync — utilisé uniquement pour bootstrap initial (v1 → outbox).
@@ -87,6 +90,23 @@ public static class InfrastructureServiceRegistration
                     ValidAudience = jwtSettings.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
                     ClockSkew = TimeSpan.FromMinutes(1)
+                };
+
+                // SignalR : token via query string ?access_token=
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 };
             });
 

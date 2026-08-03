@@ -7,6 +7,10 @@ public static class ApiRoutes
     public const string Schools = $"{Base}/schools";
     public const string Students = $"{Base}/students";
     public const string Grades = $"{Base}/grades";
+    public const string Bulletins = $"{Base}/bulletins";
+    public const string ResultValidation = $"{Base}/result-validation";
+    public const string Deliberation = $"{Base}/deliberation";
+    public const string Mentions = $"{Base}/mentions";
     public const string Payments = $"{Base}/payments";
     public const string RevenueAllocation = $"{Base}/revenue-allocation";
     public const string Withholdings = $"{Base}/withholdings";

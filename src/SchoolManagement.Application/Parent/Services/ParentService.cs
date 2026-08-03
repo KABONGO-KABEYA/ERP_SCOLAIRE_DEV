@@ -241,6 +241,10 @@ public sealed class ParentService : IParentService
             c => c.Id == enrollment.ClassRoomId, cancellationToken)).FirstOrDefault();
         var pedagogicalClassId = classRoom?.PedagogicalClassId;
 
+        var school = (await _schoolRepository.FindAsync(s => s.Id == student.SchoolId, cancellationToken))
+            .FirstOrDefault();
+        var defaultFeeTypeId = school?.DefaultFeeTypeId;
+
         var feeTypeIds = new HashSet<Guid>();
         if (pedagogicalClassId.HasValue && enrollment.FeePricingCategoryId != Guid.Empty)
         {
@@ -278,7 +282,8 @@ public sealed class ParentService : IParentService
                 0,
                 0,
                 0,
-                []);
+                [],
+                defaultFeeTypeId);
         }
 
         var feeTypes = (await _feeTypeRepository.FindAsync(
@@ -336,7 +341,8 @@ public sealed class ParentService : IParentService
             totalExpected,
             totalPaid,
             totalBalance,
-            items);
+            items,
+            defaultFeeTypeId);
     }
 
     public async Task<IReadOnlyList<ParentBulletinSummaryDto>> GetChildBulletinsAsync(

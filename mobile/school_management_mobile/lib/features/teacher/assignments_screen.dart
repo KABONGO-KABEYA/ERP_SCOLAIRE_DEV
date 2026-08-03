@@ -3,82 +3,150 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../core/theme/erp_theme.dart';
 import '../../router/app_router.dart';
 import 'models/teacher_models.dart';
 
-class TeacherAssignmentsScreen extends ConsumerStatefulWidget {
+final teacherAssignmentsProvider =
+    FutureProvider.autoDispose<List<TeacherAssignment>>((ref) async {
+  return ref.watch(teacherRepositoryProvider).getAssignments();
+});
+
+/// Écran 1 — Mes classes (uniquement celles de l'enseignant).
+class TeacherAssignmentsScreen extends ConsumerWidget {
   const TeacherAssignmentsScreen({super.key});
 
   @override
-  ConsumerState<TeacherAssignmentsScreen> createState() => _TeacherAssignmentsScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(teacherAssignmentsProvider);
+
+    return Scaffold(
+      backgroundColor: ErpColors.pageBackground,
+      appBar: AppBar(
+        title: const Text('Cotation — Mes classes'),
+        actions: [
+          IconButton(
+            tooltip: 'Actualiser',
+            onPressed: () => ref.invalidate(teacherAssignmentsProvider),
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'Déconnexion',
+            icon: const Icon(Icons.logout),
+            onPressed: () => logout(ref, context),
+          ),
+        ],
+      ),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => _ErrorPane(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(teacherAssignmentsProvider),
+        ),
+        data: (assignments) {
+          final classes = groupAssignmentsByClass(assignments);
+          if (classes.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Aucune classe affectée.\nContactez l’administration.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(teacherAssignmentsProvider),
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              itemCount: classes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, i) {
+                final c = classes[i];
+                return _ClassCard(
+                  group: c,
+                  onTap: () => context.push(
+                    '/teacher/classes/${c.classRoomId}/courses'
+                    '?name=${Uri.encodeComponent(c.classRoomName)}'
+                    '&yearId=${Uri.encodeComponent(c.academicYearId)}',
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _TeacherAssignmentsScreenState extends ConsumerState<TeacherAssignmentsScreen> {
-  late Future<List<TeacherAssignment>> _future;
-  String? _userName;
+class _ClassCard extends StatelessWidget {
+  const _ClassCard({required this.group, required this.onTap});
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-    currentUserName().then((name) {
-      if (mounted) setState(() => _userName = name);
-    });
-  }
-
-  void _load() {
-    _future = ref.read(teacherRepositoryProvider).getAssignments();
-  }
+  final TeacherClassCard group;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes cours'),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: () => logout(ref, context)),
+    return ErpCard(
+      onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: ErpColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.class_outlined, color: ErpColors.primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  group.classRoomName,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${group.studentCount} élève${group.studentCount > 1 ? 's' : ''}'
+                  '  ·  ${group.courseCount} cours',
+                  style: const TextStyle(color: ErpColors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: ErpColors.textSecondary),
         ],
       ),
-      body: FutureBuilder<List<TeacherAssignment>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Erreur : ${snapshot.error}'));
-          }
+    );
+  }
+}
 
-          final assignments = snapshot.data ?? [];
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (_userName != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text('Bonjour, $_userName', style: Theme.of(context).textTheme.titleMedium),
-                ),
-              if (assignments.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Aucune affectation de cours pour ce compte.'),
-                  ),
-                ),
-              ...assignments.map((a) => Card(
-                    child: ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.menu_book)),
-                      title: Text(a.courseName),
-                      subtitle: Text('${a.classRoomName} • ${a.academicYearLabel}'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push(
-                        '/teacher/classes/${a.classRoomId}?courseId=${a.courseId}&yearId=${a.academicYearId}&course=${Uri.encodeComponent(a.courseName)}&class=${Uri.encodeComponent(a.classRoomName)}',
-                      ),
-                    ),
-                  )),
-            ],
-          );
-        },
+class _ErrorPane extends StatelessWidget {
+  const _ErrorPane({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onRetry, child: const Text('Réessayer')),
+          ],
+        ),
       ),
     );
   }

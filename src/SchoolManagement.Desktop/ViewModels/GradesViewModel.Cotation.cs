@@ -17,6 +17,7 @@ public partial class GradesViewModel
     private Guid _managedCourseId;
     private Guid? _managedAssignmentId;
     private string? _managedCourseName;
+    private readonly List<EvaluationTypeDto> _sessionEvaluationTypes = [];
 
     public ObservableCollection<AcademicYearDto> SessionYears { get; } = [];
     public ObservableCollection<CotationClassDto> CotationClasses { get; } = [];
@@ -48,6 +49,7 @@ public partial class GradesViewModel
     [ObservableProperty] private DateTime _newEvalDate = DateTime.Today;
     [ObservableProperty] private string _newEvalTitle = string.Empty;
     [ObservableProperty] private EvaluationTypeDto? _newEvalType;
+    [ObservableProperty] private int _newEvalMaxScore = 20;
     [ObservableProperty] private CotationEvaluationListItem? _editingEvaluation;
     [ObservableProperty] private bool _isManagedEvaluationsLoading;
     [ObservableProperty] private string? _managedEvaluationsError;
@@ -59,9 +61,9 @@ public partial class GradesViewModel
     public ObservableCollection<CotationEvaluationListItem> ManagedEvaluations { get; } = [];
 
     public bool ShowIdentificationPanel => !IsSessionOpen;
-    public bool ShowAssignmentsHome => IsSessionOpen && !IsEvaluationManagerOpen && !IsGradeGridOpen;
-    public bool ShowEvaluationManager => IsSessionOpen && IsEvaluationManagerOpen && !IsGradeGridOpen;
-    public bool ShowCotationWorkspace => IsSessionOpen && IsGradeGridOpen;
+    public bool ShowAssignmentsHome => IsSessionOpen && !IsEvaluationManagerOpen && !IsGradeGridOpen && !IsGlobalCotationOpen;
+    public bool ShowEvaluationManager => IsSessionOpen && IsEvaluationManagerOpen && !IsGradeGridOpen && !IsGlobalCotationOpen;
+    public bool ShowCotationWorkspace => IsSessionOpen && IsGradeGridOpen && !IsGlobalCotationOpen;
     public bool CanEnterGrades => HasActivePeriod;
     public bool ShowSwitchTeacherButton => IsSessionOpen && !IsTeacherIdentityLocked;
     public bool CanManageEvaluations => HasActivePeriod;
@@ -75,6 +77,10 @@ public partial class GradesViewModel
     }
 
     public bool HasManagedEvaluations => ManagedEvaluations.Count > 0;
+    public bool ShowManagedEvaluationsLoading =>
+        IsEvaluationManagerOpen
+        && IsManagedEvaluationsLoading
+        && EvaluationManagerTabIndex == 0;
     public bool ShowManagedEvaluationsEmpty =>
         IsEvaluationManagerOpen
         && !IsManagedEvaluationsLoading
@@ -94,7 +100,7 @@ public partial class GradesViewModel
         && EvaluationManagerTabIndex == 0;
     public bool ShowManagerTabPlaceholder =>
         IsEvaluationManagerOpen
-        && EvaluationManagerTabIndex is > 0 and <= 3;
+        && EvaluationManagerTabIndex is 2 or 3;
 
     public bool ShowManagerTabEvaluations => EvaluationManagerTabIndex == 0;
     public bool IsManagerTabNotes => EvaluationManagerTabIndex == 1;
@@ -159,6 +165,7 @@ public partial class GradesViewModel
         OnPropertyChanged(nameof(ShowAssignmentsHome));
         OnPropertyChanged(nameof(ShowEvaluationManager));
         OnPropertyChanged(nameof(ShowCotationWorkspace));
+        OnPropertyChanged(nameof(ShowGlobalCotation));
         OnPropertyChanged(nameof(ShowSwitchTeacherButton));
     }
 
@@ -167,6 +174,7 @@ public partial class GradesViewModel
         OnPropertyChanged(nameof(ShowAssignmentsHome));
         OnPropertyChanged(nameof(ShowEvaluationManager));
         OnPropertyChanged(nameof(ShowCotationWorkspace));
+        OnPropertyChanged(nameof(ShowGlobalCotation));
         OnPropertyChanged(nameof(CanManageEvaluations));
         if (value)
         {
@@ -191,6 +199,11 @@ public partial class GradesViewModel
         OnPropertyChanged(nameof(IsManagerTabHistory));
         OnPropertyChanged(nameof(ShowManagerTabPlaceholder));
         NotifyManagedEvaluationsState();
+        NotifyCourseNotesUi();
+        if (value == 1 && IsEvaluationManagerOpen)
+        {
+            _ = ReloadCourseNotesGridAsync();
+        }
     }
 
     partial void OnIsCreateEvalWizardOpenChanged(bool value)
@@ -213,6 +226,7 @@ public partial class GradesViewModel
         OnPropertyChanged(nameof(ShowAssignmentsHome));
         OnPropertyChanged(nameof(ShowEvaluationManager));
         OnPropertyChanged(nameof(ShowCotationWorkspace));
+        OnPropertyChanged(nameof(ShowGlobalCotation));
     }
 
     private void ApplyConnectedUserIdentity()
@@ -300,6 +314,7 @@ public partial class GradesViewModel
         IsSessionOpen = false;
         IsEvaluationManagerOpen = false;
         IsGradeGridOpen = false;
+        IsGlobalCotationOpen = false;
         TeacherPassword = string.Empty;
         SessionError = null;
         SessionAccessLabel = string.Empty;
@@ -309,6 +324,7 @@ public partial class GradesViewModel
         ClearWorkspaceSelections();
         CotationClasses.Clear();
         CotationPeriods.Clear();
+        _sessionEvaluationTypes.Clear();
         AssignmentCards.Clear();
         AssignmentClassGroups.Clear();
         ManagedEvaluations.Clear();
@@ -336,10 +352,11 @@ public partial class GradesViewModel
     }
 
     [RelayCommand]
-    private void BackToAssignments()
+    private async Task BackToAssignmentsAsync()
     {
         IsGradeGridOpen = false;
         IsEvaluationManagerOpen = false;
+        IsGlobalCotationOpen = false;
         IsParametersExpanded = false;
         IsCreateEvalDialogOpen = false;
         IsEditEvalDialogOpen = false;
@@ -354,6 +371,7 @@ public partial class GradesViewModel
         ActivePeriodDetails = string.Empty;
         NoOpenPeriodMessage = null;
         StatusMessage = null;
+        await RefreshAssignmentProgressAsync();
         NotifyBanner();
         NotifyCommands();
     }
@@ -368,6 +386,7 @@ public partial class GradesViewModel
         CurrentEvaluation = null;
         IsEvaluationManagerOpen = true;
         await ReloadManagedEvaluationsAsync();
+        await RefreshAssignmentProgressAsync();
         NotifyBanner();
         NotifyCommands();
     }
@@ -484,6 +503,9 @@ public partial class GradesViewModel
         NewEvalType = EvaluationTypes.FirstOrDefault();
         NewEvalTitle = string.Empty;
         NewEvalDate = DateTime.Today;
+        NewEvalMaxScore = SelectedCourse?.MaxPerPeriod > 0
+            ? SelectedCourse.MaxPerPeriod
+            : EvaluationMaxScore > 0 ? EvaluationMaxScore : 20;
         if (_activeCotationPeriod?.StartDate is DateOnly start
             && _activeCotationPeriod.EndDate is DateOnly end)
         {
@@ -542,6 +564,12 @@ public partial class GradesViewModel
                 return;
             }
 
+            if (NewEvalMaxScore <= 0)
+            {
+                EvalDialogError = "Le maximum de l'évaluation doit être supérieur à 0.";
+                return;
+            }
+
             CreateEvalWizardStep = 3;
             _openGradesAfterCreate = true;
             await ConfirmCreateEvaluationAsync();
@@ -573,6 +601,12 @@ public partial class GradesViewModel
             return;
         }
 
+        if (NewEvalMaxScore <= 0)
+        {
+            EvalDialogError = "Le maximum de l'évaluation doit être supérieur à 0.";
+            return;
+        }
+
         IsBusy = true;
         try
         {
@@ -586,13 +620,14 @@ public partial class GradesViewModel
                 null,
                 NewEvalTitle.Trim(),
                 1,
-                SelectedCourse.MaxPerPeriod > 0 ? SelectedCourse.MaxPerPeriod : EvaluationMaxScore,
+                NewEvalMaxScore,
                 DateOnly.FromDateTime(NewEvalDate.Date)));
 
             IsCreateEvalDialogOpen = false;
             IsCreateEvalWizardOpen = false;
             CreateEvalWizardStep = 1;
             await ReloadManagedEvaluationsAsync();
+            await RefreshAssignmentProgressAsync();
             var item = ManagedEvaluations.FirstOrDefault(e => e.Id == created.Id);
             var shouldOpen = _openGradesAfterCreate
                              || (item is not null && beforeIds.Contains(created.Id));
@@ -647,6 +682,7 @@ public partial class GradesViewModel
                       ?? EvaluationTypes.FirstOrDefault();
         NewEvalTitle = $"{item.Title} (copie)";
         NewEvalDate = DateTime.Today;
+        NewEvalMaxScore = item.MaxScore > 0 ? item.MaxScore : 20;
         if (_activeCotationPeriod?.StartDate is DateOnly start
             && _activeCotationPeriod.EndDate is DateOnly end)
         {
@@ -672,6 +708,7 @@ public partial class GradesViewModel
         EditingEvaluation = item;
         NewEvalTitle = item.Title;
         NewEvalDate = item.Source.EvaluationDate.ToDateTime(TimeOnly.MinValue);
+        NewEvalMaxScore = item.MaxScore > 0 ? item.MaxScore : 20;
         EvalDialogError = null;
         IsEditEvalDialogOpen = true;
     }
@@ -698,6 +735,12 @@ public partial class GradesViewModel
             return;
         }
 
+        if (NewEvalMaxScore <= 0)
+        {
+            EvalDialogError = "Le maximum de l'évaluation doit être supérieur à 0.";
+            return;
+        }
+
         IsBusy = true;
         try
         {
@@ -705,10 +748,12 @@ public partial class GradesViewModel
                 EditingEvaluation.Id,
                 new UpdateEvaluationRequest(
                     NewEvalTitle.Trim(),
-                    DateOnly.FromDateTime(NewEvalDate.Date)));
+                    DateOnly.FromDateTime(NewEvalDate.Date),
+                    NewEvalMaxScore));
             IsEditEvalDialogOpen = false;
             EditingEvaluation = null;
             await ReloadManagedEvaluationsAsync();
+            await RefreshAssignmentProgressAsync();
             StatusMessage = "Évaluation mise à jour.";
         }
         catch (Exception ex)
@@ -744,6 +789,7 @@ public partial class GradesViewModel
         {
             await _gradeApiService.DeleteEvaluationAsync(item.Id);
             await ReloadManagedEvaluationsAsync();
+            await RefreshAssignmentProgressAsync();
             StatusMessage = "Évaluation supprimée.";
         }
         catch (Exception ex)
@@ -808,6 +854,19 @@ public partial class GradesViewModel
             IsManagedEvaluationsLoading = false;
             NotifyManagedEvaluationsState();
             OnPropertyChanged(nameof(ManagerStudentCount));
+            if (EvaluationManagerTabIndex == 1)
+            {
+                await ReloadCourseNotesGridAsync();
+            }
+            else
+            {
+                _ = ReloadCourseNotesGridAsync();
+            }
+
+            if (IsGlobalCotationOpen)
+            {
+                _ = EnsurePedagogicalSheetLoadedAsync(force: true);
+            }
         }
     }
 
@@ -894,10 +953,12 @@ public partial class GradesViewModel
     private void NotifyManagedEvaluationsState()
     {
         OnPropertyChanged(nameof(HasManagedEvaluations));
+        OnPropertyChanged(nameof(ShowManagedEvaluationsLoading));
         OnPropertyChanged(nameof(ShowManagedEvaluationsEmpty));
         OnPropertyChanged(nameof(ShowManagedEvaluationsError));
         OnPropertyChanged(nameof(ShowManagedEvaluationsGrid));
         OnPropertyChanged(nameof(ShowManagerTabPlaceholder));
+        OnPropertyChanged(nameof(ShowCreateEvaluationInManager));
         OnPropertyChanged(nameof(ManagerKpiEvaluations));
         OnPropertyChanged(nameof(ManagerKpiStudents));
         OnPropertyChanged(nameof(ManagerKpiGradesEntered));
@@ -996,11 +1057,9 @@ public partial class GradesViewModel
                 ClassLocals.Add(ToClassLocal(c, session.AcademicYearId));
             }
 
-            EvaluationTypes.Clear();
-            foreach (var t in session.EvaluationTypes)
-            {
-                EvaluationTypes.Add(t);
-            }
+            _sessionEvaluationTypes.Clear();
+            _sessionEvaluationTypes.AddRange(session.EvaluationTypes);
+            RefreshAvailableEvaluationTypes();
 
             AssignmentCards.Clear();
             foreach (var a in session.Assignments)
@@ -1039,6 +1098,11 @@ public partial class GradesViewModel
 
     private void RebuildAssignmentClassGroups()
     {
+        var expandedIds = AssignmentClassGroups
+            .Where(g => g.IsExpanded)
+            .Select(g => g.ClassRoomId)
+            .ToHashSet();
+
         AssignmentClassGroups.Clear();
 
         // Ordre des classes = ordre actuel des affectations ; cours = ordre actuel dans chaque classe.
@@ -1058,7 +1122,48 @@ public partial class GradesViewModel
                 classGroup.Courses.Add(course);
             }
 
+            classGroup.IsExpanded = expandedIds.Contains(classGroup.ClassRoomId);
+            classGroup.NotifySummaryChanged();
             AssignmentClassGroups.Add(classGroup);
+        }
+    }
+
+    private async Task RefreshAssignmentProgressAsync()
+    {
+        if (_session is null || SelectedYear is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var assignments = await _gradeApiService.GetCotationAssignmentsAsync(
+                SelectedYear.Id,
+                _session.TeacherId);
+
+            var byId = assignments.ToDictionary(a => a.AssignmentId);
+            foreach (var card in AssignmentCards)
+            {
+                if (byId.TryGetValue(card.AssignmentId, out var dto))
+                {
+                    card.ApplyProgress(dto);
+                }
+            }
+
+            // Nouvelles affectations éventuelles
+            foreach (var dto in assignments)
+            {
+                if (AssignmentCards.All(c => c.AssignmentId != dto.AssignmentId))
+                {
+                    AssignmentCards.Add(new CotationAssignmentCard(dto));
+                }
+            }
+
+            RebuildAssignmentClassGroups();
+        }
+        catch
+        {
+            // Rafraîchissement opportuniste : ne bloque pas la navigation.
         }
     }
 
@@ -1241,9 +1346,45 @@ public partial class GradesViewModel
                 a.WeeklyHours));
         }
 
+        RefreshAvailableEvaluationTypes();
         NotifyBanner();
         NotifyCommands();
     }
+
+    /// <summary>
+    /// Sous-période « Travaux / Période » : le type Examen n'est pas proposé.
+    /// Sous-période « Examen » : tous les types restent disponibles.
+    /// </summary>
+    private void RefreshAvailableEvaluationTypes()
+    {
+        var selectedId = SelectedEvaluationType?.Id;
+        var newId = NewEvalType?.Id;
+
+        var filtered = _sessionEvaluationTypes.AsEnumerable();
+        if (_activeCotationPeriod?.Kind == AcademicSubPeriodKind.Travail)
+        {
+            filtered = filtered.Where(t => !IsExamenEvaluationType(t));
+        }
+
+        EvaluationTypes.Clear();
+        foreach (var type in filtered)
+        {
+            EvaluationTypes.Add(type);
+        }
+
+        SelectedEvaluationType = selectedId is Guid sid
+            ? EvaluationTypes.FirstOrDefault(t => t.Id == sid)
+            : null;
+        NewEvalType = newId is Guid nid
+            ? EvaluationTypes.FirstOrDefault(t => t.Id == nid) ?? EvaluationTypes.FirstOrDefault()
+            : NewEvalType is not null
+                ? EvaluationTypes.FirstOrDefault(t => t.Id == NewEvalType.Id) ?? EvaluationTypes.FirstOrDefault()
+                : NewEvalType;
+    }
+
+    private static bool IsExamenEvaluationType(EvaluationTypeDto type) =>
+        string.Equals(type.Code, "EXAMEN", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(type.Name, "Examen", StringComparison.OrdinalIgnoreCase);
 
     private void OnCotationPeriodChanged()
     {
@@ -1374,7 +1515,7 @@ public partial class GradesViewModel
     }
 }
 
-public sealed class CotationAssignmentCard
+public partial class CotationAssignmentCard : ObservableObject
 {
     public CotationAssignmentCard(CotationAssignmentDto dto)
     {
@@ -1387,6 +1528,7 @@ public sealed class CotationAssignmentCard
         TeacherDisplayName = dto.TeacherDisplayName;
         StudentCount = dto.StudentCount;
         MaxScore = dto.MaxScore;
+        ApplyProgress(dto);
     }
 
     public Guid AssignmentId { get; }
@@ -1399,10 +1541,41 @@ public sealed class CotationAssignmentCard
     public int StudentCount { get; }
     public int MaxScore { get; }
 
-    // Colonnes affichées à partir des données session uniquement (pas d'appel API supplémentaire).
-    public string EvaluationsText => "—";
-    public string ProgressText => "—";
-    public string LastEvaluationText => "—";
+    [ObservableProperty] private int _evaluationCount;
+    [ObservableProperty] private string _evaluationsText = "0";
+    [ObservableProperty] private string _lastActivityTitle = "Aucune activité";
+    [ObservableProperty] private string? _lastActivityDateText;
+    [ObservableProperty] private bool _hasLastActivityDate;
+    [ObservableProperty] private string _actionLabel = "COMMENCER";
+    [ObservableProperty] private bool _hasOpenPeriod = true;
+
+    public void ApplyProgress(CotationAssignmentDto dto)
+    {
+        EvaluationCount = dto.EvaluationCount;
+        EvaluationsText = dto.EvaluationCount.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        HasOpenPeriod = dto.HasOpenPeriod;
+
+        if (dto.EvaluationCount > 0
+            && !string.IsNullOrWhiteSpace(dto.LastEvaluationTitle)
+            && dto.LastEvaluationDate is DateOnly date)
+        {
+            LastActivityTitle = dto.LastEvaluationTitle;
+            LastActivityDateText = date.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.CurrentCulture);
+            HasLastActivityDate = true;
+        }
+        else
+        {
+            LastActivityTitle = "Aucune activité";
+            LastActivityDateText = null;
+            HasLastActivityDate = false;
+        }
+
+        ActionLabel = !dto.HasOpenPeriod
+            ? "CONSULTER"
+            : dto.EvaluationCount <= 0
+                ? "COMMENCER"
+                : "CONTINUER";
+    }
 }
 
 public partial class CotationClassGroup : ObservableObject
@@ -1423,13 +1596,28 @@ public partial class CotationClassGroup : ObservableObject
 
     public int CourseCount => Courses.Count;
 
+    public int GradedCourseCount => Courses.Count(c => c.EvaluationCount > 0);
+
     public string StudentCountLabel =>
         StudentCount <= 1 ? $"{StudentCount} élève" : $"{StudentCount} élèves";
 
     public string CourseCountLabel =>
         CourseCount <= 1 ? $"{CourseCount} cours" : $"{CourseCount} cours";
 
-    public string SummaryText => $"{CycleLabel} • {StudentCountLabel} • {CourseCountLabel}";
+    public string GradedCoursesLabel =>
+        $"Cours cotés {GradedCourseCount} / {CourseCount}";
+
+    public string SummaryText =>
+        $"{CycleLabel} • {StudentCountLabel} • {CourseCountLabel} • {GradedCoursesLabel}";
+
+    public void NotifySummaryChanged()
+    {
+        OnPropertyChanged(nameof(CourseCount));
+        OnPropertyChanged(nameof(GradedCourseCount));
+        OnPropertyChanged(nameof(CourseCountLabel));
+        OnPropertyChanged(nameof(GradedCoursesLabel));
+        OnPropertyChanged(nameof(SummaryText));
+    }
 
     [ObservableProperty]
     private bool _isExpanded;
@@ -1462,8 +1650,9 @@ public sealed class CotationEvaluationListItem
                 ? "Done"
                 : "Progress";
         CanEdit = periodOpen;
-        CanDelete = periodOpen && (dto.GradedCount == 0);
+        CanDelete = periodOpen && dto.GradedCount == 0;
         CanDuplicate = periodOpen;
+        CanEnterGrades = periodOpen || dto.GradedCount > 0;
     }
 
     public EvaluationDto Source { get; }
@@ -1483,4 +1672,5 @@ public sealed class CotationEvaluationListItem
     public bool CanEdit { get; }
     public bool CanDelete { get; }
     public bool CanDuplicate { get; }
+    public bool CanEnterGrades { get; }
 }

@@ -115,11 +115,25 @@ public sealed class DashboardController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<DashboardPaymentLineDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPayments(
         [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Today,
+        [FromQuery] Guid? feeTypeId = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetPaymentsDetailAsync(schoolId, scope, cancellationToken);
+        var data = await _dashboard.GetPaymentsDetailAsync(schoolId, scope, feeTypeId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DashboardPaymentLineDto>>.Ok(data));
+    }
+
+    [HttpGet("revenue-detail")]
+    [Authorize(Policy = Permissions.ReportsRead)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RevenuePointDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRevenueDetail(
+        [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Month,
+        [FromQuery] Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var schoolId = RequireSchoolId();
+        var data = await _dashboard.GetRevenueDetailAsync(schoolId, scope, feeTypeId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<RevenuePointDto>>.Ok(data));
     }
 
     [HttpGet("expenses")]

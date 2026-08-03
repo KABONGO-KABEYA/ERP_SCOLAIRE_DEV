@@ -323,6 +323,11 @@ public class AcademicPeriod : AuditableEntity, IAggregateRoot
 
     public DateTime? ClosedAt { get; set; }
 
+    /// <summary>
+    /// Période de repêchage (hors calendrier normal) — créée uniquement si au moins un élève est envoyé au repêchage.
+    /// </summary>
+    public bool IsRemedial { get; set; }
+
     public AcademicYear AcademicYear { get; set; } = null!;
 
     public AcademicMainPeriod? MainPeriod { get; set; }

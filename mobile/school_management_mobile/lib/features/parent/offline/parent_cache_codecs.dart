@@ -37,6 +37,7 @@ abstract final class ParentCacheCodecs {
         'totalExpected': s.totalExpected,
         'totalPaid': s.totalPaid,
         'totalBalance': s.totalBalance,
+        'defaultFeeTypeId': s.defaultFeeTypeId,
         'feeTypes': s.feeTypes.map(_feeTypeToJson).toList(),
       };
 

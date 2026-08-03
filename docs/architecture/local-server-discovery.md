@@ -25,6 +25,19 @@ Découverte automatique du serveur API sans configuration utilisateur.
 }
 ```
 
+## Critère Mode Local (mobile)
+
+Un serveur n’est classé **Local** que si **toutes** les conditions sont vraies :
+
+1. `GET /api/health` OK  
+2. Host IPv4 sur le **même préfixe /24** qu’une interface privée du téléphone  
+3. URL ≠ API cloud configurée  
+4. `health.server` ≠ `cloud`
+
+Sinon : bascule **Distant** (cloud joignable) ou **Cache**.
+
+Changement de réseau (connectivity) → **redécouverte complète** (pas un simple recheck last-IP).
+
 ## Modules
 
 | Plateforme | Emplacement |

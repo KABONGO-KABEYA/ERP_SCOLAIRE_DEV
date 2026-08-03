@@ -11,19 +11,33 @@ class ParentShellScreen extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  /// 5 destinations principales (hub Scolarité + Messages).
   static const _destinations = <_NavItem>[
     _NavItem(label: 'Accueil', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
     _NavItem(label: 'Paiements', icon: Icons.payments_outlined, selectedIcon: Icons.payments),
-    _NavItem(label: 'Notes', icon: Icons.school_outlined, selectedIcon: Icons.school, premium: true),
-    _NavItem(label: 'Bulletins', icon: Icons.description_outlined, selectedIcon: Icons.description, premium: true),
-    _NavItem(label: 'Comms', icon: Icons.forum_outlined, selectedIcon: Icons.forum, premium: true),
-    _NavItem(label: 'Notifs', icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, premium: true),
+    _NavItem(
+      label: 'Scolarité',
+      icon: Icons.school_outlined,
+      selectedIcon: Icons.school,
+      premium: true,
+    ),
+    _NavItem(
+      label: 'Messages',
+      icon: Icons.forum_outlined,
+      selectedIcon: Icons.forum,
+      premium: true,
+    ),
     _NavItem(label: 'Profil', icon: Icons.person_outline, selectedIcon: Icons.person),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(parentNotificationPollingProvider);
     final features = ref.watch(parentSubscriptionProvider).valueOrNull?.features;
+    final unread = ref.watch(parentNotificationUnreadCountProvider).valueOrNull ??
+        (ref.watch(parentNotificationInboxProvider).valueOrNull ?? const [])
+            .where((n) => !n.isRead)
+            .length;
 
     return Scaffold(
       body: navigationShell,
@@ -32,67 +46,24 @@ class ParentShellScreen extends ConsumerWidget {
         color: Theme.of(context).colorScheme.surface,
         child: SafeArea(
           child: SizedBox(
-            height: 68,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: _destinations.length,
-              itemBuilder: (context, index) {
-                final item = _destinations[index];
-                final selected = navigationShell.currentIndex == index;
-                final locked = item.premium && !_unlocked(features, index);
-                return InkWell(
-                  onTap: () => navigationShell.goBranch(
-                    index,
-                    initialLocation: index == navigationShell.currentIndex,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 76,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(
-                              selected ? item.selectedIcon : item.icon,
-                              color: selected
-                                  ? ErpColors.primary
-                                  : ErpColors.textSecondary,
-                              size: 24,
-                            ),
-                            if (locked)
-                              Positioned(
-                                right: -8,
-                                top: -4,
-                                child: Icon(
-                                  Icons.lock,
-                                  size: 12,
-                                  color: ErpColors.warning.withValues(alpha: 0.95),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                            color: selected
-                                ? ErpColors.primary
-                                : ErpColors.textSecondary,
-                          ),
-                        ),
-                      ],
+            height: 64,
+            child: Row(
+              children: [
+                for (var index = 0; index < _destinations.length; index++)
+                  Expanded(
+                    child: _NavButton(
+                      item: _destinations[index],
+                      selected: navigationShell.currentIndex == index,
+                      locked: _destinations[index].premium &&
+                          !_hubUnlocked(features, index),
+                      badgeCount: index == 3 ? unread : 0,
+                      onTap: () => navigationShell.goBranch(
+                        index,
+                        initialLocation: index == navigationShell.currentIndex,
+                      ),
                     ),
                   ),
-                );
-              },
+              ],
             ),
           ),
         ),
@@ -100,15 +71,93 @@ class ParentShellScreen extends ConsumerWidget {
     );
   }
 
-  bool _unlocked(ParentFeatureFlags? features, int index) {
+  bool _hubUnlocked(ParentFeatureFlags? features, int index) {
     if (features == null) return false;
     return switch (index) {
-      2 => features.notes,
-      3 => features.bulletins,
-      4 => features.communications,
-      5 => features.notifications,
+      2 => features.notes || features.bulletins || features.attendance,
+      3 => features.communications || features.notifications,
       _ => true,
     };
+  }
+}
+
+class _NavButton extends StatelessWidget {
+  const _NavButton({
+    required this.item,
+    required this.selected,
+    required this.locked,
+    required this.onTap,
+    this.badgeCount = 0,
+  });
+
+  final _NavItem item;
+  final bool selected;
+  final bool locked;
+  final VoidCallback onTap;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? ErpColors.primary : ErpColors.textSecondary;
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                selected ? item.selectedIcon : item.icon,
+                color: color,
+                size: 24,
+              ),
+              if (locked)
+                Positioned(
+                  right: -6,
+                  top: -4,
+                  child: Icon(
+                    Icons.lock,
+                    size: 11,
+                    color: ErpColors.accentGold,
+                  ),
+                ),
+              if (!locked && badgeCount > 0)
+                Positioned(
+                  right: -8,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: ErpColors.danger,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badgeCount > 9 ? '9+' : '$badgeCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -126,6 +175,7 @@ class _NavItem {
   final bool premium;
 }
 
+/// Indices shell : 0 Accueil, 1 Paiements, 2 Scolarité, 3 Messages, 4 Profil.
 void goParentBranch(BuildContext context, int index) {
   final shell = StatefulNavigationShell.maybeOf(context);
   if (shell != null) {
@@ -134,10 +184,8 @@ void goParentBranch(BuildContext context, int index) {
     const paths = [
       '/parent/home',
       '/parent/payments',
-      '/parent/notes',
-      '/parent/bulletins',
-      '/parent/communications',
-      '/parent/notifications',
+      '/parent/scolarite',
+      '/parent/messages',
       '/parent/profile',
     ];
     if (index >= 0 && index < paths.length) {

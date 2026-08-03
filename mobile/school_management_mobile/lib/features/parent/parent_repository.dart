@@ -89,16 +89,96 @@ class ParentRepository {
     }
   }
 
-  Future<List<ParentNotificationItem>> getNotifications() async {
+  Future<List<ParentNotificationItem>> getNotifications({
+    String? category,
+    String? query,
+  }) async {
     try {
+      final params = <String, String>{};
+      if (category != null && category.isNotEmpty) {
+        params['category'] = category;
+      }
+      if (query != null && query.trim().isNotEmpty) {
+        params['q'] = query.trim();
+      }
+      final qs = params.isEmpty
+          ? ''
+          : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
       return await _api.getList(
-        '/api/v1/parent/notifications',
+        '/api/v1/parent/notifications$qs',
         ParentNotificationItem.fromJson,
       );
     } catch (e) {
       if (_isNetworkFailure(e)) rethrow;
       return const [];
     }
+  }
+
+  /// Delta inbox (Foreground Service / catch-up SignalR).
+  Future<List<ParentNotificationItem>> getNotificationChanges({
+    String? afterId,
+    DateTime? since,
+    int take = 50,
+  }) async {
+    try {
+      final params = <String, String>{
+        'take': '$take',
+      };
+      if (afterId != null && afterId.trim().isNotEmpty) {
+        params['afterId'] = afterId.trim();
+      }
+      if (since != null) {
+        params['since'] = since.toUtc().toIso8601String();
+      }
+      if (!params.containsKey('afterId') && !params.containsKey('since')) {
+        return const [];
+      }
+      final qs =
+          '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+      return await _api.getList(
+        '/api/v1/parent/notifications/changes$qs',
+        ParentNotificationItem.fromJson,
+      );
+    } catch (e) {
+      if (_isNetworkFailure(e)) rethrow;
+      return const [];
+    }
+  }
+
+  Future<void> acknowledgeNotificationDelivered(String notificationId) async {
+    try {
+      await _api.post(
+        '/api/v1/parent/notifications/$notificationId/delivered',
+        null,
+      );
+    } catch (_) {}
+  }
+
+  Future<int> getUnreadNotificationCount() async {
+    try {
+      final data = await _api.getObject(
+        '/api/v1/parent/notifications/unread-count',
+        (json) => json,
+      );
+      return (data['count'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _api.post('/api/v1/parent/notifications/$notificationId/read', null);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _api.post('/api/v1/parent/notifications/read-all', null);
+  }
+
+  Future<void> registerDeviceToken(String token, {String platform = 'android'}) async {
+    await _api.post('/api/v1/parent/notifications/device-token', {
+      'token': token,
+      'platform': platform,
+    });
   }
 
   Future<List<ParentAttendanceDay>> getAttendance(String studentId) async {

@@ -33,11 +33,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\icone.png" />
+    <Resource Include="Assets\icone.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Assets\Right_Login.png" />
     <Resource Include="Assets\Version.png" />
     <Resource Include="Assets\login-background.png" />
     <Content Include="Assets\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\app.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

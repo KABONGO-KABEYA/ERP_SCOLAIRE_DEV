@@ -1,9 +1,11 @@
 using System.Linq.Expressions;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Grades.DTOs;
 using SchoolManagement.Application.Grades.Services;
+using SchoolManagement.Application.ResultValidation.Interfaces;
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Settings;
@@ -57,7 +59,8 @@ public class GradeServiceTests
         {
             Id = courseId,
             Name = "Mathématiques",
-            Coefficient = 2
+            Coefficient = 2,
+            MaxScore = 20
         };
 
         var courseAssignmentId = Guid.NewGuid();
@@ -138,7 +141,28 @@ public class GradeServiceTests
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(1);
 
         var courseAssignmentRepository = Substitute.For<IRepository<CourseAssignment>>();
+        courseAssignmentRepository.FindAsync(Arg.Any<Expression<Func<CourseAssignment, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<CourseAssignment>());
+
         var evaluationTypeRepository = Substitute.For<IRepository<EvaluationTypeDefinition>>();
+
+        var periodRepository = Substitute.For<IRepository<AcademicPeriod>>();
+        periodRepository.FindAsync(Arg.Any<Expression<Func<AcademicPeriod, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => Filter(
+                new AcademicPeriod { Id = periodId, MaxScore = 20 },
+                call.Arg<Expression<Func<AcademicPeriod, bool>>>()));
+
+        var resultCalculation = new ResultCalculationService(
+            new ResultCalculationEngine(),
+            NullLogger<ResultCalculationService>.Instance);
+
+        var resultValidation = Substitute.For<IResultValidationService>();
+        resultValidation.EnsureClassPeriodNotLockedAsync(
+                Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        resultValidation.RecordCalculationAsync(
+                Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
 
         var service = new GradeService(
             evaluationRepository,
@@ -155,11 +179,14 @@ public class GradeServiceTests
             evaluationTypeRepository,
             Substitute.For<IRepository<Teacher>>(),
             Substitute.For<IRepository<Section>>(),
-            Substitute.For<IRepository<AcademicPeriod>>(),
+            periodRepository,
+            Substitute.For<IRepository<AcademicMainPeriod>>(),
             Substitute.For<IRepository<SchoolManagement.Domain.Entities.Security.UserAccount>>(),
             Substitute.For<SchoolManagement.Application.Auth.Interfaces.IPasswordHasher>(),
             Substitute.For<ICurrentUserService>(),
-            unitOfWork);
+            unitOfWork,
+            resultCalculation,
+            resultValidation);
 
         var results = await service.CalculatePeriodResultsAsync(
             schoolId,
@@ -168,9 +195,11 @@ public class GradeServiceTests
         results.Should().HaveCount(2);
         results[0].StudentName.Should().Be("Kabongo Jean");
         results[0].Average.Should().Be(16);
+        results[0].Percentage.Should().Be(80);
         results[0].Rank.Should().Be(1);
         results[1].StudentName.Should().Be("Mputu Marie");
         results[1].Average.Should().Be(12);
+        results[1].Percentage.Should().Be(60);
         results[1].Rank.Should().Be(2);
     }
 

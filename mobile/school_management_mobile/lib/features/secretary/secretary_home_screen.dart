@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_storage.dart';
 import '../../core/providers/app_providers.dart';
-import 'widgets/secretary_ui_widgets.dart';
+import '../../core/theme/erp_theme.dart';
 
 class SecretaryHomeScreen extends ConsumerStatefulWidget {
   const SecretaryHomeScreen({super.key});
@@ -45,107 +45,86 @@ class _SecretaryHomeScreenState extends ConsumerState<SecretaryHomeScreen> {
           if (_userName != null)
             Text(
               'Bonjour, $_userName',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             canEnroll
-                ? 'Consultez les dossiers et enregistrez les élèves depuis votre téléphone.'
-                : 'Mode Distant : recherche et consultation OK. Les modifications (inscriptions, documents) nécessitent le Wi‑Fi de l\'école.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
+                ? 'Actions rapides'
+                : 'Mode Distant : consultation OK. Inscriptions sur le Wi‑Fi école.',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 28),
-          SecretaryHomeCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SecretaryFeatureIcon(icon: Icons.folder_shared_outlined),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dossier élève',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Rechercher un élève, consulter sa fiche et mettre à jour les documents (photo, etc.).',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                SecretaryFilledButton(
-                  onPressed: () => context.push('/secretary/students'),
-                  icon: Icons.search,
-                  label: 'Rechercher un élève',
-                ),
-              ],
-            ),
+          const SizedBox(height: 24),
+          _ActionCard(
+            icon: Icons.folder_shared_outlined,
+            title: 'Dossier élève',
+            onTap: () => context.push('/secretary/students'),
           ),
-          const SizedBox(height: 20),
-          SecretaryHomeCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SecretaryFeatureIcon(icon: Icons.person_add_alt_1),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Inscription élève',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Nouvelle inscription ou réinscription avec adresse, responsables et documents.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                SecretaryFilledButton(
-                  onPressed: canEnroll
-                      ? () => context.push('/secretary/enrollment?mode=new')
-                      : null,
-                  icon: Icons.add,
-                  label: 'Nouvelle inscription',
-                ),
-                const SizedBox(height: 14),
-                SecretaryOutlinedButton(
-                  onPressed: canEnroll
-                      ? () => context.push('/secretary/enrollment?mode=re')
-                      : null,
-                  icon: Icons.search,
-                  label: 'Réinscription',
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          _ActionCard(
+            icon: Icons.person_add_alt_1,
+            title: 'Nouvelle inscription',
+            enabled: canEnroll,
+            onTap: () => context.push('/secretary/enrollment?mode=new'),
+          ),
+          const SizedBox(height: 12),
+          _ActionCard(
+            icon: Icons.replay_outlined,
+            title: 'Réinscription',
+            enabled: canEnroll,
+            onTap: () => context.push('/secretary/enrollment?mode=re'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return ErpCard(
+      onTap: enabled ? onTap : null,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: ErpColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: ErpColors.primary, size: 26),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: ErpColors.navy,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: ErpColors.textSecondary),
+          ],
+        ),
       ),
     );
   }

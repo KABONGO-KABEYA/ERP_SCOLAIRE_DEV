@@ -4,13 +4,25 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/erp_theme.dart';
 import 'notifications/notification_service.dart';
-import 'parent_providers.dart';
 import 'widgets/parent_async_widgets.dart';
 import 'widgets/parent_ui_widgets.dart';
 import 'widgets/premium_feature_screen.dart';
+import 'parent_providers.dart';
 
 class ParentNotificationsScreen extends ConsumerWidget {
   const ParentNotificationsScreen({super.key});
+
+  static const _filters = <(String?, String)>[
+    (null, 'Toutes'),
+    ('Payment', 'Paiement'),
+    ('Bulletin', 'Bulletin'),
+    ('Grades', 'Notes'),
+    ('Discipline', 'Discipline'),
+    ('Merit', 'Mérite'),
+    ('Communication', 'Communication'),
+    ('Attendance', 'Présence'),
+    ('Administration', 'Administration'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,7 +34,22 @@ class ParentNotificationsScreen extends ConsumerWidget {
         false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        actions: unlocked
+            ? [
+                TextButton(
+                  onPressed: () async {
+                    await ref
+                        .read(parentNotificationInboxRepositoryProvider)
+                        .markAllRead();
+                    ref.invalidate(parentNotificationInboxProvider);
+                  },
+                  child: const Text('Tout lu'),
+                ),
+              ]
+            : null,
+      ),
       body: !unlocked
           ? const PremiumFeatureScreen(featureTitle: 'Notifications')
           : const _Body(),
@@ -30,18 +57,45 @@ class ParentNotificationsScreen extends ConsumerWidget {
   }
 }
 
-class _Body extends ConsumerWidget {
+class _Body extends ConsumerStatefulWidget {
   const _Body();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(parentNotificationsProvider);
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String _relativeDate(DateTime date) {
+    final local = date.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    final time = DateFormat('HH:mm').format(local);
+    if (day == today) return 'Aujourd\'hui · $time';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Hier · $time';
+    }
+    return DateFormat('dd/MM/yyyy · HH:mm').format(local);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(parentNotificationPollingProvider);
+    final async = ref.watch(parentNotificationInboxProvider);
+    final selectedCategory = ref.watch(parentNotificationCategoryFilterProvider);
     final permission = ref.watch(parentPushPermissionProvider);
-    final tokenAsync = ref.watch(parentFcmTokenProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(parentNotificationsProvider);
+        ref.invalidate(parentNotificationInboxProvider);
         ref.invalidate(parentPushPermissionProvider);
         ref.invalidate(parentFcmTokenProvider);
       },
@@ -53,60 +107,103 @@ class _Body extends ConsumerWidget {
           children: [
             ParentErrorState(
               message: 'Impossible de charger les notifications.\n$e',
-              onRetry: () => ref.invalidate(parentNotificationsProvider),
+              onRetry: () => ref.invalidate(parentNotificationInboxProvider),
             ),
           ],
         ),
         data: (items) {
           final status = permission.valueOrNull ??
               ParentPushPermissionStatus.unknown;
-          final token = tokenAsync.valueOrNull;
 
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher une notification…',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref
+                                .read(parentNotificationSearchProvider.notifier)
+                                .state = '';
+                            setState(() {});
+                          },
+                        ),
+                ),
+                onChanged: (v) {
+                  ref.read(parentNotificationSearchProvider.notifier).state = v;
+                  setState(() {});
+                },
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final (value, label) in ParentNotificationsScreen._filters) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(label),
+                          selected: selectedCategory == value,
+                          onSelected: (_) {
+                            ref
+                                .read(
+                                  parentNotificationCategoryFilterProvider
+                                      .notifier,
+                                )
+                                .state = value;
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               ErpCard(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Notifications push (FCM)',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _permissionLabel(status),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: ErpColors.textSecondary,
-                      ),
-                    ),
-                    if (token != null && token.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Token prêt (${token.substring(0, token.length.clamp(0, 12))}…)',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Architecture prête — Firebase Messaging à brancher.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: ErpColors.textSecondary,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_active_outlined,
+                          color: status == ParentPushPermissionStatus.granted
+                              ? ErpColors.primary
+                              : ErpColors.textSecondary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            status == ParentPushPermissionStatus.granted
+                                ? 'Une pastille « alertes actives » reste en barre de statut : les notifications arrivent même app en arrière-plan (toutes les ~8 s).'
+                                : status == ParentPushPermissionStatus.denied
+                                    ? 'Autorisation refusée — activez les notifications dans les réglages Android.'
+                                    : 'Autorisez les notifications pour recevoir les alertes hors de l’écran de l’app.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ErpColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: () async {
                         await ref
-                            .read(parentNotificationInboxRepositoryProvider)
-                            .ensurePermission();
+                            .read(parentNotificationServiceProvider)
+                            .requestPermission();
                         ref.invalidate(parentPushPermissionProvider);
-                        ref.invalidate(parentFcmTokenProvider);
                       },
                       icon: const Icon(Icons.notifications_active_outlined),
                       label: const Text('Activer les notifications'),
@@ -115,7 +212,7 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const ParentSectionTitle('Boîte de notifications'),
+              const ParentSectionTitle('Historique'),
               if (items.isEmpty)
                 const ParentEmptyState(
                   title: 'Aucune notification',
@@ -127,47 +224,109 @@ class _Body extends ConsumerWidget {
                   (n) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: ParentFadeSlide(
-                      child: ErpCard(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              n.isRead
-                                  ? Icons.notifications_none
-                                  : Icons.notifications_active,
-                              color: n.isRead
-                                  ? ErpColors.textSecondary
-                                  : ErpColors.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    n.title,
-                                    style: TextStyle(
-                                      fontWeight: n.isRead
-                                          ? FontWeight.w600
-                                          : FontWeight.w700,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius:
+                              BorderRadius.circular(ErpSpacing.cardRadius),
+                          onTap: () async {
+                            if (!n.isRead) {
+                              await ref
+                                  .read(
+                                    parentNotificationInboxRepositoryProvider,
+                                  )
+                                  .markRead(n.id);
+                              ref.invalidate(parentNotificationInboxProvider);
+                            }
+                          },
+                          child: ErpCard(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: n.isRead
+                                          ? ErpColors.border
+                                              .withValues(alpha: 0.4)
+                                          : ErpColors.primary
+                                              .withValues(alpha: 0.12),
+                                      child: Icon(
+                                        n.categoryIcon,
+                                        color: n.isRead
+                                            ? ErpColors.textSecondary
+                                            : ErpColors.primary,
+                                        size: 20,
+                                      ),
                                     ),
+                                    if (!n.isRead)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: const BoxDecoration(
+                                            color: ErpColors.danger,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              n.title,
+                                              style: TextStyle(
+                                                fontWeight: n.isRead
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            n.categoryLabel,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: ErpColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        n.message,
+                                        style: TextStyle(
+                                          height: 1.35,
+                                          color: n.isRead
+                                              ? ErpColors.textSecondary
+                                              : ErpColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _relativeDate(n.date),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: ErpColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(n.message),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    DateFormat('dd/MM/yyyy HH:mm')
-                                        .format(n.date.toLocal()),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: ErpColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -179,13 +338,4 @@ class _Body extends ConsumerWidget {
       ),
     );
   }
-
-  String _permissionLabel(ParentPushPermissionStatus status) => switch (status) {
-        ParentPushPermissionStatus.granted => 'Autorisation accordée',
-        ParentPushPermissionStatus.denied => 'Autorisation refusée',
-        ParentPushPermissionStatus.provisional => 'Autorisation provisoire',
-        ParentPushPermissionStatus.unsupported =>
-          'Push non branché (scaffolding local)',
-        ParentPushPermissionStatus.unknown => 'Statut inconnu',
-      };
 }

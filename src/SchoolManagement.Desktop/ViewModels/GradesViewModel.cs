@@ -45,133 +45,98 @@ public sealed class SavedEvaluationListItem(EvaluationDto evaluation)
 
 
 public partial class GradeEntryEditItem : ObservableObject
-
 {
-
     private readonly Action? _onChanged;
-
     private readonly int _maxScore;
 
-
-
     public GradeEntryEditItem(
-
         int rowNumber,
-
         Guid studentId,
-
         string registrationNumber,
-
         string studentName,
-
         decimal? score,
-
+        bool isAbsent,
         string? comment,
-
         int maxScore,
-
         Action? onChanged)
-
     {
-
         RowNumber = rowNumber;
-
         StudentId = studentId;
-
         RegistrationNumber = registrationNumber;
-
         StudentName = studentName;
-
         _maxScore = maxScore;
-
         _onChanged = onChanged;
-
-        _score = score;
-
+        _score = isAbsent ? null : score;
+        _isAbsent = isAbsent;
         _comment = comment;
-
     }
-
-
 
     public int RowNumber { get; }
 
-
-
     public Guid StudentId { get; }
-
-
 
     public string RegistrationNumber { get; }
 
-
-
     public string StudentName { get; }
 
-
-
     [ObservableProperty]
-
     private decimal? _score;
 
-
+    [ObservableProperty]
+    private bool _isAbsent;
 
     [ObservableProperty]
-
     private string? _comment;
 
-
-
     public string ScoreDisplay =>
+        IsAbsent ? "Abs" : Score?.ToString("0.##", CultureInfo.CurrentCulture) ?? string.Empty;
 
-        Score?.ToString("0.##", CultureInfo.CurrentCulture) ?? string.Empty;
-
-
+    public bool CanEditScore => !IsAbsent;
 
     partial void OnScoreChanged(decimal? value)
-
     {
+        if (IsAbsent)
+        {
+            if (value is not null)
+            {
+                Score = null;
+            }
+
+            return;
+        }
 
         if (value is < 0)
-
         {
-
             Score = 0;
-
             return;
-
         }
-
-
 
         if (value > _maxScore)
-
         {
-
             Score = _maxScore;
-
             return;
-
         }
 
-
-
         OnPropertyChanged(nameof(ScoreDisplay));
-
         _onChanged?.Invoke();
-
     }
 
+    partial void OnIsAbsentChanged(bool value)
+    {
+        if (value)
+        {
+            Score = null;
+        }
 
+        OnPropertyChanged(nameof(CanEditScore));
+        OnPropertyChanged(nameof(ScoreDisplay));
+        _onChanged?.Invoke();
+    }
 
     partial void OnCommentChanged(string? value) => _onChanged?.Invoke();
 
-
-
     public GradeEntryInput ToInput() =>
-
-        new(StudentId, Score ?? 0, false, Comment);
-
+        new(StudentId, IsAbsent ? 0 : Score ?? 0, IsAbsent, Comment);
 }
 
 
@@ -667,15 +632,15 @@ public partial class GradesViewModel : ViewModelBase
 
         StatTotalStudents = GradeEntries.Count;
 
-        StatGraded = GradeEntries.Count(e => e.Score.HasValue);
+        StatGraded = GradeEntries.Count(e => e.Score.HasValue && !e.IsAbsent);
 
-        StatNotGraded = GradeEntries.Count(e => !e.Score.HasValue);
+        StatNotGraded = GradeEntries.Count(e => !e.Score.HasValue && !e.IsAbsent);
 
 
 
         var scored = GradeEntries
 
-            .Where(e => e.Score.HasValue)
+            .Where(e => e.Score.HasValue && !e.IsAbsent)
 
             .Select(e => e.Score!.Value)
 
@@ -1269,7 +1234,9 @@ public partial class GradesViewModel : ViewModelBase
 
                     entry.StudentName,
 
-                    entry.Score == 0 && entry.Id == Guid.Empty ? null : entry.Score,
+                    entry.IsAbsent ? null : entry.Score == 0 && entry.Id == Guid.Empty ? null : entry.Score,
+
+                    entry.IsAbsent,
 
                     entry.Comment));
 
@@ -1290,6 +1257,8 @@ public partial class GradesViewModel : ViewModelBase
                     enrollment.StudentName,
 
                     null,
+
+                    false,
 
                     null));
 
@@ -1461,6 +1430,8 @@ public partial class GradesViewModel : ViewModelBase
 
         decimal? score,
 
+        bool isAbsent,
+
         string? comment) =>
 
         new(
@@ -1474,6 +1445,8 @@ public partial class GradesViewModel : ViewModelBase
             studentName,
 
             score,
+
+            isAbsent,
 
             comment,
 
@@ -1539,7 +1512,9 @@ public partial class GradesViewModel : ViewModelBase
 
         var invalid = GradeEntries.FirstOrDefault(e =>
 
-            e.Score is not null
+            !e.IsAbsent
+
+            && e.Score is not null
 
             && (e.Score < 0 || e.Score > EvaluationMaxScore));
 
@@ -1574,6 +1549,9 @@ public partial class GradesViewModel : ViewModelBase
             RefreshStatistics();
 
             await ReloadSavedEvaluationsAsync();
+            await RefreshAssignmentProgressAsync();
+            await ReloadCourseNotesGridAsync();
+            await EnsurePedagogicalSheetLoadedAsync(force: true);
 
         }
 

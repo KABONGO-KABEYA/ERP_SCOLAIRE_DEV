@@ -175,6 +175,10 @@ builder.Services.AddSingleton(fileStorageManager);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, sqlConnectionString);
 builder.Services.AddPermissionPolicies();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<
+    SchoolManagement.Application.Notifications.Interfaces.INotificationRealtimePublisher,
+    SchoolManagement.API.Notifications.SignalRNotificationRealtimePublisher>();
 
 if (cloudConfigManager.FileExists)
 {
@@ -416,10 +420,35 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<PedagogicalPeriodSchemaInitializer>>());
     await pedagogicalPeriodSchema.EnsureUpdatedAsync();
 
+    var resultValidationSchema = new ResultValidationSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<ResultValidationSchemaInitializer>>());
+    await resultValidationSchema.EnsureCreatedAsync();
+
+    var deliberationMinutesSchema = new DeliberationMinutesSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<DeliberationMinutesSchemaInitializer>>());
+    await deliberationMinutesSchema.EnsureCreatedAsync();
+
+    var deliberationDecisionSchema = new DeliberationDecisionSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<DeliberationDecisionSchemaInitializer>>());
+    await deliberationDecisionSchema.EnsureCreatedAsync();
+
+    var deliberationCatalogSchema = new DeliberationCatalogSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<DeliberationCatalogSchemaInitializer>>());
+    await deliberationCatalogSchema.EnsureCreatedAsync();
+
     var updateSchema = new ApplicationUpdateSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<ApplicationUpdateSchemaInitializer>>());
     await updateSchema.EnsureCreatedAsync();
+
+    var notificationSchema = new NotificationSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<NotificationSchemaInitializer>>());
+    await notificationSchema.EnsureCreatedAsync();
 
     // Development toujours ; Production/Cloud seulement si SEED_DATABASE=true|1
     // (utile pour un premier démarrage Coolify sur base vide — retirer ensuite).
@@ -452,6 +481,7 @@ app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<SchoolManagement.API.Hubs.ParentNotificationsHub>("/hubs/parent-notifications");
 
 Console.WriteLine($"Boot: listening ready ({builder.Configuration["ASPNETCORE_URLS"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "urls-from-host"})");
 app.Run();

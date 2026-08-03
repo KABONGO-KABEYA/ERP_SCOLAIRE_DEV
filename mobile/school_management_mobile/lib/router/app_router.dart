@@ -12,6 +12,7 @@ import '../features/parent/communications_screen.dart';
 import '../features/parent/dashboard_screen.dart';
 import '../features/parent/notes_screen.dart';
 import '../features/parent/notifications_screen.dart';
+import '../features/parent/hubs/parent_hub_screens.dart';
 import '../features/parent/parent_shell_screen.dart';
 import '../features/parent/payments_screen.dart';
 import '../features/parent/profile_screen.dart';
@@ -23,7 +24,7 @@ import '../features/parent/premium_subscription/screens/payment_success_screen.d
 import '../features/parent/premium_subscription/screens/phone_entry_screen.dart';
 import '../features/parent/premium_subscription/screens/subscription_history_screen.dart';
 import '../features/teacher/assignments_screen.dart';
-import '../features/teacher/class_screen.dart';
+import '../features/teacher/class_courses_screen.dart';
 import '../features/teacher/evaluations_screen.dart';
 import '../features/teacher/grade_entry_screen.dart';
 import '../features/direction/dashboard_screen.dart';
@@ -95,32 +96,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/parent/notes',
-                builder: (_, __) => const ParentNotesScreen(),
+                path: '/parent/scolarite',
+                builder: (_, __) => const ParentScolariteHubScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/parent/bulletins',
-                builder: (_, __) => const ParentBulletinsScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/parent/communications',
-                builder: (_, __) => const ParentCommunicationsScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/parent/notifications',
-                builder: (_, __) => const ParentNotificationsScreen(),
+                path: '/parent/messages',
+                builder: (_, __) => const ParentMessagesHubScreen(),
               ),
             ],
           ),
@@ -133,6 +118,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/parent/notes',
+        builder: (_, __) => const ParentNotesScreen(),
+      ),
+      GoRoute(
+        path: '/parent/bulletins',
+        builder: (_, __) => const ParentBulletinsScreen(),
+      ),
+      GoRoute(
+        path: '/parent/communications',
+        builder: (_, __) => const ParentCommunicationsScreen(),
+      ),
+      GoRoute(
+        path: '/parent/notifications',
+        builder: (_, __) => const ParentNotificationsScreen(),
       ),
       GoRoute(
         path: '/parent/subscription',
@@ -176,6 +177,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/promoteur/payments',
         builder: (context, state) => PromoteurPaymentsDetailScreen(
           scope: state.uri.queryParameters['scope'] ?? 'Today',
+          feeTypeId: state.uri.queryParameters['feeTypeId'],
+        ),
+      ),
+      // Recette du mois : totaux journaliers (pas la liste élèves).
+      GoRoute(
+        path: '/promoteur/recette-mois',
+        builder: (context, state) => PromoteurRevenueDetailScreen(
+          scope: 'Month',
+          feeTypeId: state.uri.queryParameters['feeTypeId'],
+          currency: state.uri.queryParameters['currency'] ?? 'CDF',
+        ),
+      ),
+      // Recette annuelle : totaux mensuels.
+      GoRoute(
+        path: '/promoteur/recette-annee',
+        builder: (context, state) => PromoteurRevenueDetailScreen(
+          scope: 'Year',
+          feeTypeId: state.uri.queryParameters['feeTypeId'],
+          currency: state.uri.queryParameters['currency'] ?? 'CDF',
+        ),
+      ),
+      GoRoute(
+        path: '/promoteur/revenue-detail',
+        builder: (context, state) => PromoteurRevenueDetailScreen(
+          scope: state.uri.queryParameters['scope'] ?? 'Month',
+          feeTypeId: state.uri.queryParameters['feeTypeId'],
+          currency: state.uri.queryParameters['currency'] ?? 'CDF',
         ),
       ),
       GoRoute(
@@ -224,23 +252,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/teacher/assignments', builder: (_, __) => const TeacherAssignmentsScreen()),
       GoRoute(
-        path: '/teacher/classes/:classRoomId',
-        builder: (context, state) => TeacherClassScreen(
+        path: '/teacher/classes/:classRoomId/courses',
+        builder: (context, state) => TeacherClassCoursesScreen(
           classRoomId: state.pathParameters['classRoomId']!,
-          courseId: state.uri.queryParameters['courseId'] ?? '',
+          className: state.uri.queryParameters['name'] ?? 'Classe',
           academicYearId: state.uri.queryParameters['yearId'] ?? '',
-          courseName: state.uri.queryParameters['course'] ?? 'Cours',
-          className: state.uri.queryParameters['class'] ?? 'Classe',
         ),
       ),
       GoRoute(
-        path: '/teacher/classes/:classRoomId/evaluations',
+        path: '/teacher/classes/:classRoomId/courses/:courseId/evaluations',
         builder: (context, state) => TeacherEvaluationsScreen(
           classRoomId: state.pathParameters['classRoomId']!,
-          courseId: state.uri.queryParameters['courseId'] ?? '',
+          courseId: state.pathParameters['courseId']!,
           academicYearId: state.uri.queryParameters['yearId'] ?? '',
-          courseName: state.uri.queryParameters['course'] ?? 'Cours',
-          className: state.uri.queryParameters['class'] ?? 'Classe',
+          courseName: state.uri.queryParameters['courseName'] ?? 'Cours',
+          className: state.uri.queryParameters['className'] ?? 'Classe',
+          maxScore: int.tryParse(state.uri.queryParameters['maxScore'] ?? '20') ?? 20,
         ),
       ),
       GoRoute(
@@ -250,6 +277,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           title: state.uri.queryParameters['title'] ?? 'Notes',
           maxScore: int.tryParse(state.uri.queryParameters['max'] ?? '20') ?? 20,
           classRoomId: state.uri.queryParameters['classRoomId'] ?? '',
+          isOpen: state.uri.queryParameters['open'] != 'false',
         ),
       ),
     ],

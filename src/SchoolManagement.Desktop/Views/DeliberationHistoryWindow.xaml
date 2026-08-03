@@ -1,0 +1,30 @@
+<Window x:Class="SchoolManagement.Desktop.Views.DeliberationHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Historique du conseil"
+        Width="720" Height="420"
+        WindowStartupLocation="CenterOwner"
+        Background="#F8FAFC">
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" LastChildFill="False">
+            <Button DockPanel.Dock="Right" Content="Fermer" Height="36" MinWidth="100"
+                    IsCancel="True" IsDefault="True"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Click="Close_Click" />
+        </DockPanel>
+        <DataGrid ItemsSource="{Binding HistoryItems}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column"
+                  BorderThickness="1" BorderBrush="#E2E8F0"
+                  GridLinesVisibility="Horizontal"
+                  AlternatingRowBackground="#F8FAFC">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Date / heure" Binding="{Binding WhenDisplay}" Width="140" />
+                <DataGridTextColumn Header="Utilisateur" Binding="{Binding UserName}" Width="120" />
+                <DataGridTextColumn Header="Catégorie" Binding="{Binding Category}" Width="100" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*" />
+                <DataGridTextColumn Header="Détail" Binding="{Binding Observation}" Width="1.2*" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

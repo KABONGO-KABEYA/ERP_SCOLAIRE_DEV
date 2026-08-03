@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
+import '../../core/widgets/erp_widgets.dart';
 import 'models/parent_models.dart';
 import 'offline/parent_offline_cache.dart';
 import 'parent_providers.dart';
 import 'widgets/parent_async_widgets.dart';
 import 'widgets/parent_payments_premium_widgets.dart';
 import 'widgets/parent_ui_widgets.dart';
+
+/// Sentinel : l'utilisateur a choisi « Tous » (≠ sélection pas encore initialisée).
+const _kAllFeeTypes = '__all__';
 
 class ParentPaymentsScreen extends ConsumerWidget {
   const ParentPaymentsScreen({super.key});
@@ -120,25 +125,29 @@ class ParentPaymentsScreen extends ConsumerWidget {
                 if (children.length > 1) const SizedBox(height: 12),
                 ParentOfflineBanner(visible: showOffline),
                 situationsAsync.when(
-                  loading: () => const ErpCard(
-                    child: SizedBox(
-                      height: 90,
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
+                  loading: () => const ErpLoadingState(),
+                  error: (e, _) => ErpErrorState(
+                    message: 'Erreur situation : $e',
+                    onRetry: () =>
+                        ref.invalidate(parentFeeSituationsProvider(studentId)),
                   ),
-                  error: (e, _) => ErpCard(child: Text('Erreur situation : $e')),
                   data: (situations) {
-                    if (situations.feeTypes.isEmpty) {
-                      return const ErpCard(
-                        child: Text(
-                          'Aucun type de frais applicable pour cet enfant.',
-                        ),
+                    final fees = situations.feeTypes
+                        .where((f) => f.feeTypeName.trim().isNotEmpty)
+                        .toList();
+                    if (fees.isEmpty) {
+                      return const ErpEmptyState(
+                        title: 'Aucun type de frais',
+                        description:
+                            'Aucun type de frais applicable pour cet enfant.',
+                        icon: Icons.payments_outlined,
                       );
                     }
 
                     ParentFeeTypeSituation? selectedFee;
-                    if (selectedFeeTypeId != null) {
-                      for (final fee in situations.feeTypes) {
+                    final wantsAll = selectedFeeTypeId == _kAllFeeTypes;
+                    if (!wantsAll && selectedFeeTypeId != null) {
+                      for (final fee in fees) {
                         if (fee.feeTypeId == selectedFeeTypeId) {
                           selectedFee = fee;
                           break;
@@ -146,41 +155,68 @@ class ParentPaymentsScreen extends ConsumerWidget {
                       }
                     }
 
-                    final timelineFee = selectedFee ?? situations.feeTypes.first;
-                    final summary = selectedFee?.asSummary ?? situations.overallSummary;
-                    final title = selectedFee == null
-                        ? 'Situation des paiements'
-                        : selectedFee.feeTypeName;
-                    final subtitle = selectedFee == null
-                        ? 'Année ${situations.academicYearLabel} · tous les types'
-                        : 'Année ${situations.academicYearLabel}';
+                    // Première ouverture / enfant changé : frais principal école.
+                    final defaultId = situations.resolveDefaultFeeTypeId();
+                    if (!wantsAll &&
+                        selectedFee == null &&
+                        selectedFeeTypeId == null &&
+                        defaultId != null) {
+                      for (final fee in fees) {
+                        if (fee.feeTypeId == defaultId) {
+                          selectedFee = fee;
+                          break;
+                        }
+                      }
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!context.mounted) return;
+                        if (ref.read(selectedFeeTypeIdProvider) == null) {
+                          ref.read(selectedFeeTypeIdProvider.notifier).state =
+                              defaultId;
+                        }
+                      });
+                    }
+
+                    final summary =
+                        selectedFee?.asSummary ?? situations.overallSummary;
+                    final chipSelectedId = wantsAll
+                        ? null
+                        : (selectedFee?.feeTypeId ?? selectedFeeTypeId);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const ParentSectionTitle('Type de frais'),
                         ParentFeeTypeChips(
-                          feeTypes: situations.feeTypes,
-                          selectedFeeTypeId: selectedFeeTypeId,
-                          onChanged: (id) =>
-                              ref.read(selectedFeeTypeIdProvider.notifier).state = id,
+                          feeTypes: fees,
+                          selectedFeeTypeId: chipSelectedId,
+                          showAll: true,
+                          onChanged: (id) {
+                            ref.read(selectedFeeTypeIdProvider.notifier).state =
+                                id ?? _kAllFeeTypes;
+                          },
                         ),
                         const SizedBox(height: 14),
                         ParentPaymentSummaryCard(
                           summary: summary,
-                          title: title,
-                          subtitle: subtitle,
+                          title: selectedFee?.feeTypeName ??
+                              'Situation des paiements',
+                          subtitle: selectedFee == null
+                              ? 'Année ${situations.academicYearLabel} · tous les types'
+                              : 'Année ${situations.academicYearLabel}',
+                          showProgress: true,
                         ),
-                        const SizedBox(height: 12),
-                        ParentInstallmentTimeline(feeType: timelineFee),
-                        if (selectedFee != null) ...[
+                        if (selectedFee != null &&
+                            selectedFee.installments.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          ParentFeeInstallmentsCard(feeType: selectedFee),
-                        ] else ...[
-                          const SizedBox(height: 12),
-                          for (final fee in situations.feeTypes) ...[
-                            _FeeTypeOverviewTile(
+                          ParentInstallmentTimeline(feeType: selectedFee),
+                        ],
+                        if (selectedFee == null) ...[
+                          const SizedBox(height: 16),
+                          const ParentSectionTitle('Situations de frais'),
+                          for (final fee in fees) ...[
+                            _FeeSituationCard(
                               fee: fee,
+                              selected: false,
                               onTap: () => ref
                                   .read(selectedFeeTypeIdProvider.notifier)
                                   .state = fee.feeTypeId,
@@ -192,7 +228,7 @@ class ParentPaymentsScreen extends ConsumerWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 ParentSectionTitle(
                   'Historique des paiements',
                   action: paymentsAsync.maybeWhen(
@@ -216,18 +252,23 @@ class ParentPaymentsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 paymentsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Erreur : $e'),
+                  loading: () => const ErpLoadingState(),
+                  error: (e, _) => ErpErrorState(message: 'Erreur : $e'),
                   data: (payments) {
                     final filtered = filterParentPayments(
                       payments: payments,
-                      feeTypeId: selectedFeeTypeId,
+                      feeTypeId: (selectedFeeTypeId == null ||
+                              selectedFeeTypeId == _kAllFeeTypes)
+                          ? null
+                          : selectedFeeTypeId,
                       query: searchQuery,
                       periodDays: periodFilter,
                     );
                     if (filtered.isEmpty) {
-                      return const ErpCard(
-                        child: Text('Aucun paiement enregistré.'),
+                      return const ErpEmptyState(
+                        title: 'Aucun paiement',
+                        description: 'Aucun paiement enregistré pour ce filtre.',
+                        icon: Icons.receipt_long_outlined,
                       );
                     }
                     return Column(
@@ -238,7 +279,7 @@ class ParentPaymentsScreen extends ConsumerWidget {
                             onViewReceipt: () => _openReceipt(context, ref, p),
                             onDownloadPdf: () => _openReceipt(context, ref, p),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
                         ],
                       ],
                     );
@@ -253,51 +294,139 @@ class ParentPaymentsScreen extends ConsumerWidget {
   }
 }
 
-class _FeeTypeOverviewTile extends StatelessWidget {
-  const _FeeTypeOverviewTile({required this.fee, required this.onTap});
+class _FeeSituationCard extends StatelessWidget {
+  const _FeeSituationCard({
+    required this.fee,
+    required this.selected,
+    required this.onTap,
+  });
 
   final ParentFeeTypeSituation fee;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ErpCard(
-      padding: const EdgeInsets.all(14),
+    final fmt = NumberFormat('#,##0.##');
+    final remainingColor =
+        fee.balance > 0 ? ErpColors.danger : ErpColors.success;
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(ErpSpacing.cardRadius),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: ErpColors.card,
+            borderRadius: BorderRadius.circular(ErpSpacing.cardRadius),
+            border: Border.all(
+              color: selected ? ErpColors.primary : ErpColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    fee.feeTypeName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: ErpColors.navy,
+                  Expanded(
+                    child: Text(
+                      fee.feeTypeName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: ErpColors.navy,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'À payer ${fee.amountExpected.toStringAsFixed(0)} ${fee.currencyLabel}'
-                    ' · Payé ${fee.amountPaid.toStringAsFixed(0)} ${fee.currencyLabel}'
-                    ' · Reste ${fee.balance.toStringAsFixed(0)} ${fee.currencyLabel}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (fee.isInOrder ? ErpColors.success : ErpColors.warning)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      fee.isInOrder ? 'En ordre' : 'À régler',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: fee.isInOrder ? ErpColors.success : ErpColors.warning,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            Icon(
-              fee.isInOrder ? Icons.check_circle : Icons.chevron_right,
-              color: fee.isInOrder ? ErpColors.success : ErpColors.textSecondary,
-            ),
-          ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AmountCol(
+                      label: 'Dû',
+                      value: '${fmt.format(fee.amountExpected)} ${fee.currencyLabel}',
+                    ),
+                  ),
+                  Expanded(
+                    child: _AmountCol(
+                      label: 'Payé',
+                      value: '${fmt.format(fee.amountPaid)} ${fee.currencyLabel}',
+                      valueColor: ErpColors.success,
+                    ),
+                  ),
+                  Expanded(
+                    child: _AmountCol(
+                      label: 'Reste',
+                      value: '${fmt.format(fee.balance)} ${fee.currencyLabel}',
+                      valueColor: remainingColor,
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _AmountCol extends StatelessWidget {
+  const _AmountCol({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? ErpColors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -73,7 +73,24 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
     await _load(force: true);
   }
 
-  void _openPayments(String scope) => context.push('/promoteur/payments?scope=$scope');
+  void _openPayments(String scope) {
+    final fee = _selectedFeeTypeId ?? _data?.selectedFeeTypeId;
+    final feeQ = fee == null || fee.isEmpty ? '' : '&feeTypeId=$fee';
+    context.push('/promoteur/payments?scope=$scope$feeQ');
+  }
+
+  void _openRevenueDetail(String scope) {
+    final fee = _selectedFeeTypeId ?? _data?.selectedFeeTypeId;
+    final currency = _data?.currency ?? 'CDF';
+    final feeQ = fee == null || fee.isEmpty ? '' : '&feeTypeId=$fee';
+    // Routes dédiées : jamais /promoteur/payments (liste élèves).
+    final path = scope.toLowerCase() == 'year'
+        ? '/promoteur/recette-annee'
+        : '/promoteur/recette-mois';
+    context.push(
+      '$path?currency=${Uri.encodeComponent(currency)}$feeQ',
+    );
+  }
 
   void _openExpenses(String scope, {String? category}) {
     final q = category == null ? '' : '&category=${Uri.encodeComponent(category)}';
@@ -211,7 +228,7 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                       changePercent: data.kpis.monthRevenue.changePercent,
                                       comparisonLabel: data.kpis.monthRevenue.comparisonLabel,
                                       accent: const Color(0xFF06B6D4),
-                                      onTap: () => _openPayments('Month'),
+                                      onTap: () => _openRevenueDetail('Month'),
                                     ),
                                   ),
                                 ],
@@ -228,7 +245,7 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                       changePercent: data.kpis.yearRevenue.changePercent,
                                       comparisonLabel: data.kpis.yearRevenue.comparisonLabel,
                                       accent: ErpColors.success,
-                                      onTap: () => _openPayments('Year'),
+                                      onTap: () => _openRevenueDetail('Year'),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -276,11 +293,14 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                 ),
                                 WithholdingsList(items: data.withholdings, currency: currency),
                               ],
-                              const PilotSectionTitle('Situation financière'),
+                              const PilotSectionTitle(
+                                'Situation financière',
+                                subtitle: 'Recettes du frais suivi − dépenses de l’année scolaire',
+                              ),
                               SituationHeroCard(situation: data.situation, currency: currency),
-                              PilotSectionTitle(
+                              const PilotSectionTitle(
                                 'Créances',
-                                subtitle: 'Inscrits année en cours × tarif du frais suivi (comme Encaissements)',
+                                subtitle: 'À percevoir / Débiteurs = échéances dépassées · En ordre / Recouvrement = année',
                               ),
                               ReceivablesGrid(
                                 receivables: data.receivables,

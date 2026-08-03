@@ -6,15 +6,23 @@ using SchoolManagement.Application.Common;
 
 using SchoolManagement.Application.Common.Interfaces;
 
+using SchoolManagement.Application.Grades.Calculation;
+
 using SchoolManagement.Application.Grades.DTOs;
 
 using SchoolManagement.Application.Grades.Interfaces;
+
+using SchoolManagement.Application.Notifications.Interfaces;
+
+using SchoolManagement.Application.ResultValidation.Interfaces;
 
 using SchoolManagement.Application.Schools;
 
 using SchoolManagement.Application.Auth.Interfaces;
 
 using SchoolManagement.Domain.Entities.Academic;
+
+using SchoolManagement.Domain.Entities.Deliberation;
 
 using SchoolManagement.Domain.Entities.Grades;
 
@@ -66,13 +74,25 @@ public sealed partial class GradeService : IGradeService
 
     private readonly IRepository<AcademicPeriod> _periodRepository;
 
+    private readonly IRepository<AcademicMainPeriod> _mainPeriodRepository;
+
     private readonly IRepository<UserAccount> _userRepository;
+
+    private readonly IRepository<ResultMentionDefinition> _mentionRepository;
+
+    private readonly IRepository<PedagogicalBonusPoint> _bonusRepository;
 
     private readonly IPasswordHasher _passwordHasher;
 
     private readonly ICurrentUserService _currentUser;
 
     private readonly IUnitOfWork _unitOfWork;
+
+    private readonly IResultCalculationService _resultCalculation;
+
+    private readonly IResultValidationService _resultValidation;
+
+    private readonly INotificationService _notifications;
 
 
 
@@ -108,13 +128,25 @@ public sealed partial class GradeService : IGradeService
 
         IRepository<AcademicPeriod> periodRepository,
 
+        IRepository<AcademicMainPeriod> mainPeriodRepository,
+
         IRepository<UserAccount> userRepository,
+
+        IRepository<ResultMentionDefinition> mentionRepository,
+
+        IRepository<PedagogicalBonusPoint> bonusRepository,
 
         IPasswordHasher passwordHasher,
 
         ICurrentUserService currentUser,
 
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+
+        IResultCalculationService resultCalculation,
+
+        IResultValidationService resultValidation,
+
+        INotificationService notifications)
 
     {
 
@@ -148,13 +180,25 @@ public sealed partial class GradeService : IGradeService
 
         _periodRepository = periodRepository;
 
+        _mainPeriodRepository = mainPeriodRepository;
+
         _userRepository = userRepository;
+
+        _mentionRepository = mentionRepository;
+
+        _bonusRepository = bonusRepository;
 
         _passwordHasher = passwordHasher;
 
         _currentUser = currentUser;
 
         _unitOfWork = unitOfWork;
+
+        _resultCalculation = resultCalculation;
+
+        _resultValidation = resultValidation;
+
+        _notifications = notifications;
 
     }
 
@@ -257,6 +301,9 @@ public sealed partial class GradeService : IGradeService
             p => p.Id == request.AcademicPeriodId,
             cancellationToken)).FirstOrDefault()
             ?? throw new DomainException("Sous-période introuvable.");
+
+        await _resultValidation.EnsureClassPeriodNotLockedAsync(
+            schoolId, request.ClassRoomId, request.AcademicPeriodId, cancellationToken);
 
         if (period.MainPeriodId.HasValue)
         {
@@ -501,6 +548,8 @@ public sealed partial class GradeService : IGradeService
 
         await EnsureEvaluationBelongsToSchoolAsync(schoolId, evaluation, cancellationToken);
         await EnsurePeriodAllowsMutationAsync(evaluation.AcademicPeriodId, cancellationToken);
+        await _resultValidation.EnsureClassPeriodNotLockedAsync(
+            schoolId, evaluation.ClassRoomId, evaluation.AcademicPeriodId, cancellationToken);
 
         var title = request.Title.Trim();
         if (string.IsNullOrWhiteSpace(title))
@@ -538,6 +587,11 @@ public sealed partial class GradeService : IGradeService
 
         evaluation.Title = title;
         evaluation.EvaluationDate = request.EvaluationDate;
+        if (request.MaxScore > 0)
+        {
+            evaluation.MaxScore = request.MaxScore;
+        }
+
         await _evaluationRepository.UpdateAsync(evaluation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -566,6 +620,8 @@ public sealed partial class GradeService : IGradeService
 
         await EnsureEvaluationBelongsToSchoolAsync(schoolId, evaluation, cancellationToken);
         await EnsurePeriodAllowsMutationAsync(evaluation.AcademicPeriodId, cancellationToken);
+        await _resultValidation.EnsureClassPeriodNotLockedAsync(
+            schoolId, evaluation.ClassRoomId, evaluation.AcademicPeriodId, cancellationToken);
 
         var grades = await _gradeRepository.FindAsync(g => g.EvaluationId == evaluationId, cancellationToken);
         if (grades.Count > 0 && !_currentUser.IsAdministrator)
@@ -752,7 +808,13 @@ public sealed partial class GradeService : IGradeService
 
 
     public async Task SubmitGradesAsync(Guid schoolId, SubmitGradesRequest request, CancellationToken cancellationToken = default)
+        => await SubmitGradesInternalAsync(schoolId, request, recalculatePeriodResults: true, cancellationToken);
 
+    private async Task SubmitGradesInternalAsync(
+        Guid schoolId,
+        SubmitGradesRequest request,
+        bool recalculatePeriodResults,
+        CancellationToken cancellationToken)
     {
 
         var evaluation = (await _evaluationRepository.FindAsync(e => e.Id == request.EvaluationId, cancellationToken)).FirstOrDefault()
@@ -769,21 +831,35 @@ public sealed partial class GradeService : IGradeService
 
         }
 
+        await _resultValidation.EnsureClassPeriodNotLockedAsync(
+            schoolId, evaluation.ClassRoomId, evaluation.AcademicPeriodId, cancellationToken);
 
+        var definition = new EvaluationDefinitionInput(
+            evaluation.Id,
+            evaluation.CourseId,
+            "—",
+            evaluation.Weight <= 0 ? 1 : evaluation.Weight,
+            evaluation.MaxScore,
+            evaluation.EnrollmentId);
+
+        var scoreInputs = request.Grades
+            .Select(g => ScoreEntryStatusMapper.ToInput(
+                evaluation.Id,
+                g.StudentId,
+                g.Score,
+                g.IsAbsent,
+                g.Comment))
+            .ToList();
+
+        var validation = _resultCalculation.ValidateScores([definition], scoreInputs);
+        if (!validation.IsValid)
+        {
+            throw new DomainException(validation.Issues[0].Message);
+        }
 
         foreach (var input in request.Grades)
 
         {
-
-            if (input.Score > evaluation.MaxScore)
-
-            {
-
-                throw new DomainException($"La note ne peut pas dépasser {evaluation.MaxScore}.");
-
-            }
-
-
 
             var existing = await _gradeRepository.FindAsync(
 
@@ -835,6 +911,39 @@ public sealed partial class GradeService : IGradeService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        try
+        {
+            var course = await _courseRepository.GetByIdAsync(evaluation.CourseId, cancellationToken);
+            var courseName = string.IsNullOrWhiteSpace(course?.Name) ? "un cours" : course!.Name;
+            foreach (var studentId in request.Grades.Select(g => g.StudentId).Distinct())
+            {
+                await _notifications.NotifyStudentParentsAsync(
+                    schoolId,
+                    studentId,
+                    NotificationCategory.Grades,
+                    NotificationEventType.GradeRecorded,
+                    "📚 Nouvelle cote publiée",
+                    $"Les résultats du cours de {courseName} sont disponibles.",
+                    dataJson: $"{{\"evaluationId\":\"{evaluation.Id}\",\"studentId\":\"{studentId}\"}}",
+                    deepLink: "/parent/notes",
+                    cancellationToken: cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ne jamais faire échouer la saisie de notes si la notification échoue.
+        }
+
+        if (recalculatePeriodResults)
+        {
+            await CalculatePeriodResultsAsync(
+                schoolId,
+                new CalculatePeriodResultsRequest(
+                    evaluation.ClassRoomId,
+                    evaluation.AcademicYearId,
+                    evaluation.AcademicPeriodId),
+                cancellationToken);
+        }
     }
 
 
@@ -875,7 +984,8 @@ public sealed partial class GradeService : IGradeService
 
             cancellationToken);
 
-
+        await _resultValidation.EnsureClassPeriodNotLockedAsync(
+            schoolId, request.ClassRoomId, request.AcademicPeriodId, cancellationToken);
 
         var enrollments = await _enrollmentRepository.FindAsync(
 
@@ -901,7 +1011,11 @@ public sealed partial class GradeService : IGradeService
 
         var evaluationIds = evaluations.Select(e => e.Id).ToList();
 
-        var allGrades = await _gradeRepository.FindAsync(g => evaluationIds.Contains(g.EvaluationId), cancellationToken);
+        var allGrades = evaluationIds.Count == 0
+
+            ? Array.Empty<GradeEntry>()
+
+            : await _gradeRepository.FindAsync(g => evaluationIds.Contains(g.EvaluationId), cancellationToken);
 
         var courseIds = evaluations.Select(e => e.CourseId).Distinct().ToList();
 
@@ -913,165 +1027,242 @@ public sealed partial class GradeService : IGradeService
 
         var courseMap = courses.ToDictionary(c => c.Id);
 
+        var assignments = await _courseAssignmentRepository.FindAsync(
+            a => a.AcademicYearId == request.AcademicYearId
+                 && a.ClassRoomId == request.ClassRoomId
+                 && a.IsActive,
+            cancellationToken);
+        var assignmentMaxByCourse = assignments
+            .GroupBy(a => a.CourseId)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var max = g.First().MaxScore;
+                    return max > 0 ? max : 0;
+                });
 
+        var period = (await _periodRepository.FindAsync(
+            p => p.Id == request.AcademicPeriodId,
+            cancellationToken)).FirstOrDefault();
+        var periodMax = period is { MaxScore: > 0 } ? period.MaxScore : 0;
 
-        var averages = new Dictionary<Guid, decimal>();
+        var previousResults = await _periodResultRepository.FindAsync(
+            p => p.ClassRoomId == request.ClassRoomId && p.AcademicPeriodId == request.AcademicPeriodId,
+            cancellationToken);
+        var previousByStudent = previousResults.ToDictionary(p => p.StudentId);
 
+        var rules = await CreatePeriodResultRulesAsync(schoolId, cancellationToken);
 
+        var bonuses = await _bonusRepository.FindAsync(
+            b => b.SchoolId == schoolId
+                 && b.ClassRoomId == request.ClassRoomId
+                 && b.AcademicPeriodId == request.AcademicPeriodId
+                 && !b.IsCancelled,
+            cancellationToken);
+        var bonusByStudentCourse = bonuses
+            .GroupBy(b => b.StudentId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyDictionary<Guid, decimal>)g
+                    .GroupBy(x => x.CourseId)
+                    .ToDictionary(cg => cg.Key, cg => cg.Sum(x => x.PointsAdded)));
 
-        foreach (var studentId in studentIds)
-
-        {
-
-            decimal weightedSum = 0;
-
-            decimal totalWeight = 0;
-
-
-
-            foreach (var evaluation in evaluations)
-
+        var courseContexts = evaluations
+            .GroupBy(e => e.CourseId)
+            .Select(g =>
             {
-
-                if (evaluation.EnrollmentId is Guid enrollmentId)
-
+                var courseId = g.Key;
+                courseMap.TryGetValue(courseId, out var courseEntity);
+                var targetMax = periodMax;
+                if (assignmentMaxByCourse.TryGetValue(courseId, out var assignmentMax) && assignmentMax > 0)
                 {
-
-                    var enrollment = enrollments.FirstOrDefault(e => e.Id == enrollmentId);
-
-                    if (enrollment is null || enrollment.StudentId != studentId)
-
-                    {
-
-                        continue;
-
-                    }
-
+                    targetMax = assignmentMax;
+                }
+                else if (courseEntity is { MaxScore: > 0 })
+                {
+                    targetMax = courseEntity.MaxScore;
                 }
 
-
-
-                var grade = allGrades.FirstOrDefault(g => g.EvaluationId == evaluation.Id && g.StudentId == studentId && !g.IsAbsent);
-
-                if (grade is null)
-
+                if (targetMax <= 0)
                 {
-
-                    continue;
-
+                    targetMax = g.Max(e => e.MaxScore > 0 ? e.MaxScore : 0);
                 }
 
+                return new CourseContextInput(
+                    courseId,
+                    courseEntity?.Name ?? "—",
+                    courseEntity?.Coefficient is > 0 ? courseEntity.Coefficient : 1,
+                    targetMax,
+                    g.Select(e => new EvaluationDefinitionInput(
+                        e.Id,
+                        e.CourseId,
+                        courseEntity?.Name ?? "—",
+                        e.Weight <= 0 ? 1 : e.Weight,
+                        e.MaxScore > 0 ? e.MaxScore : (periodMax > 0 ? periodMax : 0),
+                        e.EnrollmentId)).ToList());
+            })
+            .ToList();
 
-
-                var coefficient = courseMap.GetValueOrDefault(evaluation.CourseId)?.Coefficient ?? 1;
-
-                weightedSum += grade.Score * evaluation.Weight * coefficient;
-
-                totalWeight += evaluation.Weight * coefficient;
-
-            }
-
-
-
-            averages[studentId] = totalWeight > 0 ? Math.Round(weightedSum / totalWeight, 2) : 0;
-
-        }
-
-
-
-        var ranked = averages.OrderByDescending(a => a.Value).ToList();
-
-        var classSize = ranked.Count;
-
-        var results = new List<PeriodResultDto>();
-
-
-
-        for (var i = 0; i < ranked.Count; i++)
-
+        var enrollmentById = enrollments.ToDictionary(e => e.Id);
+        var studentInputs = studentIds.Select(studentId =>
         {
-
-            var studentId = ranked[i].Key;
-
-            var average = ranked[i].Value;
-
-            var percentage = Math.Round(average / 20m * 100m, 2);
-
-            var rank = i + 1;
-
-
-
             studentMap.TryGetValue(studentId, out var student);
-
             var name = StudentDisplayName.FormatOrDefault(student);
 
-
-
-            var existing = await _periodResultRepository.FindAsync(
-
-                p => p.StudentId == studentId && p.AcademicPeriodId == request.AcademicPeriodId, cancellationToken);
-
-
-
-            if (existing.Count > 0)
-
+            var scores = new List<ScoreEntryInput>();
+            foreach (var evaluation in evaluations)
             {
-
-                var pr = existing[0];
-
-                pr.Average = average;
-
-                pr.Percentage = percentage;
-
-                pr.Rank = rank;
-
-                pr.ClassSize = classSize;
-
-                await _periodResultRepository.UpdateAsync(pr, cancellationToken);
-
-            }
-
-            else
-
-            {
-
-                await _periodResultRepository.AddAsync(new PeriodResult
-
+                if (evaluation.EnrollmentId is Guid enrollmentId)
                 {
+                    if (!enrollmentById.TryGetValue(enrollmentId, out var enrollment)
+                        || enrollment.StudentId != studentId)
+                    {
+                        continue;
+                    }
+                }
 
-                    StudentId = studentId,
+                var grade = allGrades.FirstOrDefault(g => g.EvaluationId == evaluation.Id && g.StudentId == studentId);
+                if (grade is null)
+                {
+                    scores.Add(new ScoreEntryInput(evaluation.Id, studentId, null, ScoreEntryStatus.NotGraded));
+                    continue;
+                }
 
-                    AcademicYearId = request.AcademicYearId,
-
-                    AcademicPeriodId = request.AcademicPeriodId,
-
-                    ClassRoomId = request.ClassRoomId,
-
-                    Average = average,
-
-                    Percentage = percentage,
-
-                    Rank = rank,
-
-                    ClassSize = classSize
-
-                }, cancellationToken);
-
+                scores.Add(ScoreEntryStatusMapper.ToInput(
+                    evaluation.Id,
+                    studentId,
+                    grade.Score,
+                    grade.IsAbsent,
+                    grade.Comment));
             }
 
+            return new StudentScoresInput(
+                studentId,
+                name,
+                scores,
+                bonusByStudentCourse.GetValueOrDefault(studentId));
+        }).ToList();
 
+        var previousSnapshots = previousByStudent
+            .Select(p => new PreviousCourseResultSnapshot(
+                p.Key,
+                Guid.Empty,
+                p.Value.Average,
+                p.Value.Percentage))
+            .ToList();
 
-            results.Add(new PeriodResultDto(studentId, name, average, percentage, rank, classSize, null, ClassCouncilDecision.EnAttente));
+        var recalculation = _resultCalculation.RecalculateClass(
+            studentInputs,
+            courseContexts,
+            rules,
+            previousSnapshots);
 
+        var rankingByStudent = recalculation.Ranking.ToDictionary(r => r.StudentId);
+        var classSize = recalculation.Statistics.ClassSize;
+        var results = new List<PeriodResultDto>();
+
+        foreach (var studentResult in recalculation.Students)
+        {
+            rankingByStudent.TryGetValue(studentResult.StudentId, out var rankEntry);
+            var average = studentResult.Average ?? 0;
+            var percentage = studentResult.Percentage ?? 0;
+            var rank = rankEntry?.Rank ?? 0;
+
+            if (previousByStudent.TryGetValue(studentResult.StudentId, out var existing))
+            {
+                existing.Average = average;
+                existing.Percentage = percentage;
+                existing.Rank = rank;
+                existing.ClassSize = classSize;
+                existing.Appreciation = studentResult.Mention;
+                existing.CouncilDecision = studentResult.Decision;
+                await _periodResultRepository.UpdateAsync(existing, cancellationToken);
+            }
+            else
+            {
+                await _periodResultRepository.AddAsync(new PeriodResult
+                {
+                    SchoolId = schoolId,
+                    StudentId = studentResult.StudentId,
+                    AcademicYearId = request.AcademicYearId,
+                    AcademicPeriodId = request.AcademicPeriodId,
+                    ClassRoomId = request.ClassRoomId,
+                    Average = average,
+                    Percentage = percentage,
+                    Rank = rank,
+                    ClassSize = classSize,
+                    Appreciation = studentResult.Mention,
+                    CouncilDecision = studentResult.Decision
+                }, cancellationToken);
+            }
+
+            results.Add(new PeriodResultDto(
+                studentResult.StudentId,
+                studentResult.StudentName,
+                average,
+                percentage,
+                rank,
+                classSize,
+                studentResult.Mention,
+                studentResult.Decision));
         }
 
-
-
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return results;
-
+        await _resultValidation.RecordCalculationAsync(
+            schoolId,
+            request.AcademicYearId,
+            request.ClassRoomId,
+            request.AcademicPeriodId,
+            cancellationToken);
+        return results.OrderBy(r => r.Rank).ThenBy(r => r.StudentName).ToList();
     }
+
+    /// <summary>
+    /// Règles utilisées pour les PeriodResult (moyenne normalisée + mentions paramétrées).
+    /// </summary>
+    private async Task<ResultCalculationRules> CreatePeriodResultRulesAsync(
+        Guid schoolId,
+        CancellationToken cancellationToken)
+    {
+        var defaults = ResultCalculationRules.CreateDefault();
+        var mentions = (await _mentionRepository.FindAsync(
+            m => m.SchoolId == schoolId && m.IsActive, cancellationToken))
+            .OrderByDescending(m => m.MinPercentageInclusive)
+            .Select(m => new MentionThreshold(
+                m.MinPercentageInclusive,
+                m.Label,
+                m.MaxPercentageInclusive))
+            .ToList();
+
+        // Seed minimal si aucune mention configurée (premier calcul avant délibération).
+        if (mentions.Count == 0)
+        {
+            mentions =
+            [
+                new MentionThreshold(55m, "Satisfaction", 69m),
+                new MentionThreshold(70m, "Distinction", 79m),
+                new MentionThreshold(80m, "Grande distinction", 90m),
+                new MentionThreshold(91m, "Élite", 100m)
+            ];
+        }
+
+        return new ResultCalculationRules
+        {
+            RoundingMode = defaults.RoundingMode,
+            CourseAggregationMode = CourseAggregationMode.WeightedNormalized,
+            UnjustifiedAbsenceMode = defaults.UnjustifiedAbsenceMode,
+            JustifiedAbsenceMode = defaults.JustifiedAbsenceMode,
+            ExcusedMode = defaults.ExcusedMode,
+            DispensedMode = defaults.DispensedMode,
+            Mentions = mentions,
+            Decision = defaults.Decision
+        };
+    }
+
+    private static ResultCalculationRules CreatePedagogicalSheetRules() =>
+        ResultCalculationRules.CreateDefault();
+
 
 
 

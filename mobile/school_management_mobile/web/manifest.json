@@ -3,7 +3,7 @@
     "short_name": "ERP Scolaire",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FFFFFF",
+    "background_color": "#0B1F47",
     "theme_color": "#1E5EFF",
     "description": "Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction).",
     "orientation": "portrait-primary",

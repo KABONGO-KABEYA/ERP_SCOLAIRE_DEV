@@ -7,8 +7,11 @@ class ConnectionProbe {
   Future<ConnectionSnapshot> probe({
     Duration localTimeout = const Duration(seconds: 2),
     Duration cloudTimeout = const Duration(seconds: 3),
+    bool full = true,
   }) async {
-    final result = await LocalServerDiscovery.instance.rediscover();
+    final result = full
+        ? await LocalServerDiscovery.instance.rediscover()
+        : await LocalServerDiscovery.instance.recheck();
     return _map(result);
   }
 

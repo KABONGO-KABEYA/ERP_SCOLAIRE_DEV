@@ -42,7 +42,8 @@ public sealed record CreateEvaluationRequest(
 
 public sealed record UpdateEvaluationRequest(
     string Title,
-    DateOnly EvaluationDate);
+    DateOnly EvaluationDate,
+    int MaxScore);
 
 public sealed record GradeEntryDto(
     Guid Id,

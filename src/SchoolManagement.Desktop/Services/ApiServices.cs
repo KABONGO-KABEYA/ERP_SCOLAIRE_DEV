@@ -1341,6 +1341,103 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
             $"api/v1/grades/cotation/periods?academicYearId={academicYearId}&classRoomId={classRoomId}",
             cancellationToken);
 
+    public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationAssignmentDto>> GetCotationAssignmentsAsync(
+        Guid academicYearId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.CotationAssignmentDto>>(
+            $"api/v1/grades/cotation/assignments?academicYearId={academicYearId}&teacherId={teacherId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.GlobalCotationGridDto> GetGlobalCotationGridAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.GlobalCotationGridDto>(
+            $"api/v1/grades/cotation/global-grid?academicYearId={academicYearId}&classRoomId={classRoomId}&teacherId={teacherId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.SaveGlobalCotationResultDto> SaveGlobalCotationAsync(
+        SchoolManagement.Application.Grades.DTOs.SaveGlobalCotationRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Grades.DTOs.SaveGlobalCotationResultDto>(
+            "api/v1/grades/cotation/global-save",
+            request,
+            cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionSummaryDto>> GetGlobalCotationSessionsAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionSummaryDto>>(
+            $"api/v1/grades/cotation/global-sessions?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}&teacherId={teacherId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionLoadDto> LoadGlobalCotationSessionAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid teacherId,
+        Guid evaluationTypeId,
+        string title,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.GlobalCotationSessionLoadDto>(
+            $"api/v1/grades/cotation/global-session?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}&teacherId={teacherId}&evaluationTypeId={evaluationTypeId}&title={Uri.EscapeDataString(title)}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.CourseNotesGridDto> GetCourseNotesGridAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid courseId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.CourseNotesGridDto>(
+            $"api/v1/grades/cotation/course-notes-grid?academicYearId={academicYearId}&classRoomId={classRoomId}&courseId={courseId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetContextDto> GetPedagogicalSheetContextAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetContextDto>(
+            $"api/v1/grades/cotation/pedagogical-sheet/context?academicYearId={academicYearId}&classRoomId={classRoomId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetDto> GetPedagogicalSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.PedagogicalSheetDto>(
+            $"api/v1/grades/cotation/pedagogical-sheet?academicYearId={academicYearId}&classRoomId={classRoomId}&mode={(int)mode}&periodId={periodId}&teacherId={teacherId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.ClassResultsSheetDto> GetClassResultsSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.ClassResultsSheetDto>(
+            $"api/v1/grades/results/class-sheet?academicYearId={academicYearId}&classRoomId={classRoomId}&mode={(int)mode}&periodId={periodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Grades.DTOs.IndividualResultDto> GetIndividualResultAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid studentId,
+        SchoolManagement.Application.Grades.DTOs.PedagogicalSheetPeriodMode mode,
+        Guid periodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Grades.DTOs.IndividualResultDto>(
+            $"api/v1/grades/results/individual?academicYearId={academicYearId}&classRoomId={classRoomId}&studentId={studentId}&mode={(int)mode}&periodId={periodId}",
+            cancellationToken);
+
     public Task<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>> GetEvaluationsAsync(
         Guid classRoomId, Guid academicPeriodId, CancellationToken cancellationToken = default) =>
         GetAsync<IReadOnlyList<SchoolManagement.Application.Grades.DTOs.EvaluationDto>>(
@@ -1389,6 +1486,209 @@ public sealed class GradeApiService : ApiServiceBase, IGradeApiService
         SchoolManagement.Application.Grades.DTOs.SubmitGradesRequest request,
         CancellationToken cancellationToken = default) =>
         PostAsync<object>("api/v1/grades/entries", request, cancellationToken);
+}
+
+/// <summary>Client Bulletins — pas de calcul ; délègue à l'API / ResultCalculationService.</summary>
+public sealed class BulletinApiService : ApiServiceBase, IBulletinApiService
+{
+    public BulletinApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.Bulletins.DTOs.IndividualBulletinDto> GetIndividualBulletinAsync(
+        SchoolManagement.Application.Bulletins.DTOs.IndividualBulletinRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Bulletins.DTOs.IndividualBulletinDto>(
+            "api/v1/bulletins/individual", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Bulletins.DTOs.ClassBulletinsBatchDto> GetClassBulletinsAsync(
+        SchoolManagement.Application.Bulletins.DTOs.ClassBulletinsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Bulletins.DTOs.ClassBulletinsBatchDto>(
+            "api/v1/bulletins/class", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto>> GetPrintHistoryAsync(
+        Guid? academicYearId = null,
+        Guid? classRoomId = null,
+        Guid? studentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (academicYearId.HasValue)
+        {
+            query.Add($"academicYearId={academicYearId}");
+        }
+
+        if (classRoomId.HasValue)
+        {
+            query.Add($"classRoomId={classRoomId}");
+        }
+
+        if (studentId.HasValue)
+        {
+            query.Add($"studentId={studentId}");
+        }
+
+        var suffix = query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto>>(
+            $"api/v1/bulletins/print-history{suffix}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto> RecordPrintAsync(
+        SchoolManagement.Application.Bulletins.DTOs.RecordBulletinPrintRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Bulletins.DTOs.BulletinPrintHistoryDto>(
+            "api/v1/bulletins/print-history", request, cancellationToken);
+}
+
+public sealed class ResultValidationApiService : ApiServiceBase, IResultValidationApiService
+{
+    public ResultValidationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> GetSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto>(
+            $"api/v1/result-validation/sheet?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationReadinessDto> GetReadinessAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationReadinessDto>(
+            $"api/v1/result-validation/readiness?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> ValidateAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto>(
+            "api/v1/result-validation/validate", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> CancelAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto>(
+            "api/v1/result-validation/cancel", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> LockAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto>(
+            "api/v1/result-validation/lock", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto> UnlockAsync(
+        SchoolManagement.Application.ResultValidation.DTOs.ResultValidationActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ResultValidation.DTOs.ResultValidationSheetDto>(
+            "api/v1/result-validation/unlock", request, cancellationToken);
+}
+
+public sealed class DeliberationApiService : ApiServiceBase, IDeliberationApiService
+{
+    public DeliberationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> GetSheetAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto>(
+            $"api/v1/deliberation/sheet?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto> GetMinutesAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto>(
+            $"api/v1/deliberation/minutes?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto> SaveMinutesAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveDeliberationMinutesRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationMinutesDto>(
+            "api/v1/deliberation/minutes", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto> GetDecisionAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid studentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto>(
+            $"api/v1/deliberation/decision?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}&studentId={studentId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto> SaveDecisionAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveDeliberationDecisionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationDecisionDialogDto>(
+            "api/v1/deliberation/decision", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> SaveConductAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SaveStudentConductRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto>(
+            "api/v1/deliberation/conduct", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto> SaveBonusAsync(
+        SchoolManagement.Application.Deliberation.DTOs.SavePedagogicalBonusRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Deliberation.DTOs.DeliberationSheetDto>(
+            "api/v1/deliberation/bonus", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.PedagogicalBonusDialogDto> GetBonusDialogAsync(
+        Guid academicYearId,
+        Guid classRoomId,
+        Guid academicPeriodId,
+        Guid studentId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Deliberation.DTOs.PedagogicalBonusDialogDto>(
+            $"api/v1/deliberation/bonus-dialog?academicYearId={academicYearId}&classRoomId={classRoomId}&academicPeriodId={academicPeriodId}&studentId={studentId}",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto> ValidateClassAsync(
+        SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto>(
+            "api/v1/deliberation/validate-class", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto> CancelClassValidationAsync(
+        SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Deliberation.DTOs.ValidateDeliberationClassResultDto>(
+            "api/v1/deliberation/cancel-class-validation", request, cancellationToken);
+}
+
+public sealed class MentionsApiService : ApiServiceBase, IMentionsApiService
+{
+    public MentionsApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto>> GetAllAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto>>(
+            "api/v1/mentions", cancellationToken);
+
+    public Task<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto> CreateAsync(
+        SchoolManagement.Application.Mentions.DTOs.CreateResultMentionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto>(
+            "api/v1/mentions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto> UpdateAsync(
+        Guid id,
+        SchoolManagement.Application.Mentions.DTOs.UpdateResultMentionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Mentions.DTOs.ResultMentionDto>(
+            $"api/v1/mentions/{id}", request, cancellationToken);
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"api/v1/mentions/{id}", cancellationToken);
 }
 
 public sealed class PedagogicalPeriodApiService : ApiServiceBase, IPedagogicalPeriodApiService

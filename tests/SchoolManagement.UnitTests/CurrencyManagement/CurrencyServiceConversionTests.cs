@@ -98,6 +98,10 @@ public sealed class CurrencyServiceConversionTests
         public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public async Task ExecuteInTransactionAsync(
+            Func<CancellationToken, Task> action,
+            CancellationToken cancellationToken = default) =>
+            await action(cancellationToken);
     }
 
     private sealed class FakeRepository<T> : IRepository<T> where T : class

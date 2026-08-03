@@ -1,0 +1,295 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.ClassResultsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Loaded="ClassResultsView_OnLoaded"
+             Unloaded="ClassResultsView_OnUnloaded">
+    <Grid Margin="20,16,20,16" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Onglets segmentés (comme Saisie globale / Vue globale) -->
+        <Border Grid.Row="0" Margin="0,0,0,8" Padding="4" HorizontalAlignment="Left"
+                Background="#F1F5F9" CornerRadius="10">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Sous-période" Height="32" MinWidth="128" Padding="14,0"
+                        Command="{Binding SelectSubPeriodModeCommand}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="#64748B" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#E2E8F0" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSubPeriodMode}" Value="True">
+                                    <Setter Property="Foreground" Value="#0B1F47" />
+                                    <Setter Property="Background" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="Période principale" Height="32" MinWidth="128" Padding="14,0"
+                        Command="{Binding SelectMainPeriodModeCommand}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="Foreground" Value="#64748B" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#E2E8F0" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSubPeriodMode}" Value="False">
+                                    <Setter Property="Foreground" Value="#0B1F47" />
+                                    <Setter Property="Background" Value="White" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar filtres / actions -->
+        <Border Grid.Row="1"
+                Margin="0,0,0,10"
+                Padding="12,10"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Margin="0,0,6,0" Height="30" Padding="10,0"
+                            Command="{Binding ExportExcelCommand}"
+                            Style="{StaticResource ErpSecondaryButton}"
+                            ToolTip="Exporter Excel">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="MicrosoftExcel" Width="14" Height="14"
+                                                     Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Excel" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Margin="0,0,6,0" Height="30" Padding="10,0"
+                            Command="{Binding ExportPdfCommand}"
+                            Style="{StaticResource ErpSecondaryButton}"
+                            ToolTip="Exporter PDF">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FilePdfBox" Width="14" Height="14"
+                                                     Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="PDF" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Margin="0,0,6,0" Height="30" Padding="10,0"
+                            Command="{Binding PrintCommand}"
+                            Style="{StaticResource ErpSecondaryButton}"
+                            ToolTip="Imprimer">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PrinterOutline" Width="14" Height="14"
+                                                     Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Imprimer" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Height="30" Padding="10,0"
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource ErpSecondaryButton}"
+                            Content="Actualiser" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox Width="200" Height="30" Margin="0,0,8,0"
+                              ItemsSource="{Binding ClassRooms}"
+                              SelectedItem="{Binding SelectedClassRoom}"
+                              DisplayMemberPath="Name"
+                              materialDesign:HintAssist.Hint="Classe" />
+
+                    <ComboBox Width="180" Height="30" Margin="0,0,8,0"
+                              ItemsSource="{Binding PeriodOptions}"
+                              SelectedItem="{Binding SelectedPeriod}"
+                              DisplayMemberPath="Name"
+                              materialDesign:HintAssist.Hint="Période" />
+
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="8" Padding="8,0" Height="30" MinWidth="220" Margin="0,0,8,0">
+                        <DockPanel>
+                            <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16"
+                                                     Foreground="#94A3B8" VerticalAlignment="Center"
+                                                     DockPanel.Dock="Left" Margin="0,0,6,0" />
+                            <TextBox BorderThickness="0" Background="Transparent"
+                                     VerticalContentAlignment="Center" FontSize="12"
+                                     materialDesign:HintAssist.Hint="Rechercher un élève…"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
+                    </Border>
+
+                    <ComboBox Width="130" Height="30"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedItem="{Binding SelectedSort}"
+                              DisplayMemberPath="Label"
+                              materialDesign:HintAssist.Hint="Tri" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Grille style Vue globale -->
+        <Border Grid.Row="2"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="0"
+                Background="White"
+                ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="#0B1F47" Padding="0">
+                    <Grid x:Name="ClassResultsHeaderRoot">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid x:Name="ClassResultsFrozenHeader" />
+                        <ScrollViewer x:Name="ClassResultsHeaderScroll"
+                                      Grid.Column="1"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      Focusable="False">
+                            <Grid x:Name="ClassResultsScrollableHeader" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <DataGrid x:Name="ResultsGrid"
+                          Grid.Row="1"
+                          ItemsSource="{Binding FilteredRows}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserReorderColumns="False"
+                          CanUserResizeColumns="True"
+                          IsReadOnly="True"
+                          HeadersVisibility="None"
+                          SelectionUnit="FullRow"
+                          FrozenColumnCount="3"
+                          RowHeight="34"
+                          BorderThickness="0"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#F1F5F9"
+                          VerticalGridLinesBrush="#F1F5F9"
+                          AlternatingRowBackground="#F8FAFC"
+                          Background="Transparent"
+                          EnableRowVirtualization="True"
+                          EnableColumnVirtualization="True"
+                          MouseDoubleClick="ResultsGrid_OnMouseDoubleClick"
+                          Loaded="ResultsGrid_OnLoaded" />
+
+                <Border Grid.Row="0" Grid.RowSpan="2"
+                        Background="White"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Opacity="0.85">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <ProgressBar Width="160" Height="4" IsIndeterminate="True" />
+                        <TextBlock Margin="0,10,0,0" FontSize="12" Foreground="#64748B"
+                                   Text="Chargement des résultats…" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- KPI style Vue globale -->
+        <Border Grid.Row="3"
+                Margin="0,8,0,0"
+                Padding="10,8"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="12">
+            <DockPanel LastChildFill="False">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#EEF2FF" CornerRadius="8" Padding="10,5" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Moyenne" FontSize="11" Foreground="#6366F1" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#312E81"
+                                       Text="{Binding SummaryClassAverage}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#ECFDF5" CornerRadius="8" Padding="10,5" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Max" FontSize="11" Foreground="#059669" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#065F46"
+                                       Text="{Binding SummaryMax}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#FFF7ED" CornerRadius="8" Padding="10,5" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Min" FontSize="11" Foreground="#EA580C" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#9A3412"
+                                       Text="{Binding SummaryMin}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#F8FAFC" CornerRadius="8" Padding="10,5" Margin="0,0,8,0"
+                            BorderBrush="#E2E8F0" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Élèves" FontSize="11" Foreground="#64748B" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#0F172A"
+                                       Text="{Binding StudentCount}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#F8FAFC" CornerRadius="8" Padding="10,5"
+                            BorderBrush="#E2E8F0" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Côtés" FontSize="11" Foreground="#64748B" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock FontSize="12" FontWeight="Bold" Foreground="#0F172A"
+                                       Text="{Binding GradedCount}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <TextBlock DockPanel.Dock="Right"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="#64748B"
+                           Text="{Binding StatusMessage}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

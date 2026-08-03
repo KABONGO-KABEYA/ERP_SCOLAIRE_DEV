@@ -53,7 +53,8 @@ public sealed record ParentFeeSituationsResultDto(
     decimal TotalExpected,
     decimal TotalPaid,
     decimal TotalBalance,
-    IReadOnlyList<ParentFeeTypeSituationDto> FeeTypes);
+    IReadOnlyList<ParentFeeTypeSituationDto> FeeTypes,
+    Guid? DefaultFeeTypeId = null);
 
 public sealed record ParentBulletinSummaryDto(
     Guid AcademicPeriodId,

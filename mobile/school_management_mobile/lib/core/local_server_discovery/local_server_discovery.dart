@@ -11,6 +11,9 @@ import 'discovery_constants.dart';
 import 'discovery_models.dart';
 
 /// Porte d'entrée unique Mobile pour découvrir le serveur API.
+///
+/// Convention : Mode Local = serveur école joignable **sur le même sous-réseau
+/// privé (/24)** que le téléphone. Joignable hors Wi‑Fi école ≠ Local.
 class LocalServerDiscovery {
   LocalServerDiscovery._();
   static final LocalServerDiscovery instance = LocalServerDiscovery._();
@@ -35,66 +38,104 @@ class LocalServerDiscovery {
 
   Future<DiscoveryResult> rediscover() => discover(force: true);
 
-  Future<DiscoveryResult> _run(int gen) async {
-    _publish(DiscoveryResult.detecting);
+  /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
+  /// Si le Local n'est plus éligible → découverte complète.
+  Future<DiscoveryResult> recheck() async {
+    final prefixes = await _localPrefixes();
+    final candidates = <String>{};
+    final current = _current.baseUrl;
+    if (current != null && ApiConfig.isValidBaseUrl(current)) {
+      candidates.add(ApiConfig.normalize(current));
+    }
+    final last = await _loadLast();
+    if (last != null) candidates.add(last);
 
-    debugPrint('[Discovery] Recherche mDNS...');
-    final mdns = await _tryMdns();
-    if (gen != _generation) return _current;
-    if (mdns != null) {
-      await _saveLast(mdns.baseUrl!);
-      debugPrint('[Discovery] Passage en serveur local');
-      return _publish(mdns);
+    for (final base in candidates) {
+      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base)) continue;
+      debugPrint('[Discovery] Recheck léger $base');
+      final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+      final local = _acceptLocal(
+        base: base,
+        health: health,
+        source: DiscoverySource.lastKnown,
+        devicePrefixes: prefixes,
+        messagePrefix: 'Serveur local',
+      );
+      if (local != null) return _publish(local);
+      debugPrint(
+        '[Discovery] Recheck refuse Local base=$base '
+        'sameSubnet=${_isSameSubnet(base, prefixes)} '
+        'health.server=${health?.server}',
+      );
     }
 
-    debugPrint('[Discovery] Dernière IP connue');
-    final last = await _loadLast();
-    if (last != null) {
-      debugPrint('[Discovery] Vérification Health $last');
-      final health = await _probe(last, DiscoveryConstants.lastKnownTimeout);
-      if (gen != _generation) return _current;
-      if (health != null) {
-        return _publish(DiscoveryResult(
-          mode: DiscoveryMode.local,
-          source: DiscoverySource.lastKnown,
-          baseUrl: ApiConfig.normalize(last),
-          health: health,
-          message: 'Serveur local (dernière IP) — ${health.school}',
-        ));
-      }
+    // Ancienne IP locale hors sous-réseau courant → ne plus la privilégier.
+    if (last != null && !_isSameSubnet(last, prefixes)) {
+      debugPrint('[Discovery] lastKnown hors sous-réseau → clear ($last)');
       await _clearLast();
     }
 
+    final remote = await _tryRemote();
+    if (remote != null) return _publish(remote);
+
+    debugPrint('[Discovery] Recheck échoué → découverte complète');
+    return rediscover();
+  }
+
+  Future<DiscoveryResult> _run(int gen) async {
+    _publish(DiscoveryResult.detecting);
+    final prefixes = await _localPrefixes();
+    debugPrint('[Discovery] Préfixes device: ${prefixes.join(', ')}');
+
+    // 1) Dernière IP connue — uniquement si encore sur le même /24.
+    debugPrint('[Discovery] Dernière IP connue');
+    final last = await _loadLast();
+    if (last != null && !_isVirtualBaseUrl(last) && !_isCloudBaseUrl(last)) {
+      if (!_isSameSubnet(last, prefixes)) {
+        debugPrint('[Discovery] lastKnown hors sous-réseau → ignoré ($last)');
+        await _clearLast();
+      } else {
+        debugPrint('[Discovery] Vérification Health $last');
+        final health = await _probe(last, DiscoveryConstants.lastKnownTimeout);
+        if (gen != _generation) return _current;
+        final local = _acceptLocal(
+          base: last,
+          health: health,
+          source: DiscoverySource.lastKnown,
+          devicePrefixes: prefixes,
+          messagePrefix: 'Serveur local (dernière IP)',
+        );
+        if (local != null) return _publish(local);
+        await _clearLast();
+      }
+    }
+
+    // 2) mDNS (mêmes sous-réseaux uniquement)
+    debugPrint('[Discovery] Recherche mDNS...');
+    final mdns = await _tryMdns(prefixes);
+    if (gen != _generation) return _current;
+    if (mdns != null) {
+      await _saveLast(mdns.baseUrl!);
+      debugPrint('[Discovery] Passage en serveur local (mDNS)');
+      return _publish(mdns);
+    }
+
+    // 3) Scan sous-réseau courant
     debugPrint('[Discovery] Scan réseau');
-    final scanned = await _scanSubnet();
+    final scanned = await _scanSubnet(prefixes);
     if (gen != _generation) return _current;
     if (scanned != null) {
       await _saveLast(scanned.baseUrl!);
-      debugPrint('[Discovery] Passage en serveur local');
+      debugPrint('[Discovery] Passage en serveur local (scan)');
       return _publish(scanned);
     }
 
-    final remote = ApiConfig.effectiveCloudBaseUrl ??
-        DiscoveryConstants.defaultRemoteBaseUrl;
-    debugPrint('[Discovery] Vérification Health distant $remote');
-    final remoteHealth =
-        await _probe(remote, DiscoveryConstants.lastKnownTimeout);
+    // 4) Cloud → Mode Distant
     if (gen != _generation) return _current;
-    if (remoteHealth != null) {
+    final remote = await _tryRemote();
+    if (remote != null) {
       debugPrint('[Discovery] Passage en serveur distant');
-      return _publish(DiscoveryResult(
-        mode: DiscoveryMode.remote,
-        source: DiscoverySource.remote,
-        baseUrl: ApiConfig.normalize(remote),
-        health: HealthInfo(
-          status: 'ok',
-          server: 'cloud',
-          school: remoteHealth.school,
-          version: remoteHealth.version,
-          time: remoteHealth.time,
-        ),
-        message: 'Serveur distant — ${remoteHealth.school}',
-      ));
+      return _publish(remote);
     }
 
     return _publish(DiscoveryResult.offline(
@@ -108,12 +149,95 @@ class LocalServerDiscovery {
     return result;
   }
 
-  Future<DiscoveryResult?> _tryMdns() async {
+  Future<DiscoveryResult?> _tryRemote() async {
+    final remote = ApiConfig.effectiveCloudBaseUrl ??
+        DiscoveryConstants.defaultRemoteBaseUrl;
+    debugPrint('[Discovery] Vérification Health distant $remote');
+    final remoteHealth =
+        await _probe(remote, DiscoveryConstants.lastKnownTimeout);
+    if (remoteHealth == null) return null;
+    return DiscoveryResult(
+      mode: DiscoveryMode.remote,
+      source: DiscoverySource.remote,
+      baseUrl: ApiConfig.normalize(remote),
+      health: HealthInfo(
+        status: 'ok',
+        server: 'cloud',
+        school: remoteHealth.school,
+        version: remoteHealth.version,
+        time: remoteHealth.time,
+      ),
+      message: 'Serveur distant — ${remoteHealth.school}',
+    );
+  }
+
+  /// Accepte Local seulement : probe OK + même /24 + pas cloud + health ≠ cloud.
+  DiscoveryResult? _acceptLocal({
+    required String base,
+    required HealthInfo? health,
+    required DiscoverySource source,
+    required List<String> devicePrefixes,
+    required String messagePrefix,
+  }) {
+    if (health == null) return null;
+    if (_isCloudBaseUrl(base)) {
+      debugPrint('[Discovery] Refuse Local (URL cloud) $base');
+      return null;
+    }
+    final serverKind = health.server.trim().toLowerCase();
+    if (serverKind == 'cloud') {
+      debugPrint('[Discovery] Refuse Local (health.server=cloud) $base');
+      return null;
+    }
+    if (!_isSameSubnet(base, devicePrefixes)) {
+      debugPrint(
+        '[Discovery] Refuse Local (hors sous-réseau) $base '
+        'devicePrefixes=${devicePrefixes.join(',')}',
+      );
+      return null;
+    }
+    final host = _hostOf(base) ?? '?';
+    final prefix = DiscoveryConstants.ipv4Prefix(host);
+    debugPrint(
+      '[Discovery] Accept Local base=$base host=$host '
+      'prefix=$prefix health.server=${health.server}',
+    );
+    return DiscoveryResult(
+      mode: DiscoveryMode.local,
+      source: source,
+      baseUrl: ApiConfig.normalize(base),
+      health: health,
+      message: '$messagePrefix — ${health.school}',
+    );
+  }
+
+  Future<DiscoveryResult?> _tryMdns(List<String> localPrefixes) async {
     final client = MDnsClient();
     try {
       await client.start();
       final completer = Completer<DiscoveryResult?>();
       final seen = <String>{};
+
+      Future<void> tryBase(String base) async {
+        if (!seen.add(base) || completer.isCompleted) return;
+        if (!_isSameSubnet(base, localPrefixes)) {
+          debugPrint('[Discovery] mDNS hors sous-réseau ignoré $base');
+          return;
+        }
+        debugPrint('[Discovery] Service trouvé');
+        debugPrint('[Discovery] Vérification Health $base');
+        final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+        final local = _acceptLocal(
+          base: base,
+          health: health,
+          source: DiscoverySource.mdns,
+          devicePrefixes: localPrefixes,
+          messagePrefix: 'Serveur local découvert (mDNS)',
+        );
+        if (local != null && !completer.isCompleted) {
+          completer.complete(local);
+        }
+      }
 
       Future<void> handlePtr(PtrResourceRecord ptr) async {
         await for (final srv in client.lookup<SrvResourceRecord>(
@@ -122,23 +246,15 @@ class LocalServerDiscovery {
           await for (final ip in client.lookup<IPAddressResourceRecord>(
             ResourceRecordQuery.addressIPv4(srv.target),
           )) {
+            if (completer.isCompleted) return;
+            final host = ip.address.address;
+            if (DiscoveryConstants.isLikelyVirtualHost(host)) {
+              debugPrint('[Discovery] IP virtuelle ignorée $host');
+              continue;
+            }
             final port =
                 srv.port == 0 ? DiscoveryConstants.apiPort : srv.port;
-            final base = 'http://${ip.address.address}:$port';
-            if (!seen.add(base)) continue;
-            debugPrint('[Discovery] Service trouvé');
-            debugPrint('[Discovery] Vérification Health $base');
-            final health =
-                await _probe(base, DiscoveryConstants.lastKnownTimeout);
-            if (health != null && !completer.isCompleted) {
-              completer.complete(DiscoveryResult(
-                mode: DiscoveryMode.local,
-                source: DiscoverySource.mdns,
-                baseUrl: ApiConfig.normalize(base),
-                health: health,
-                message: 'Serveur local découvert (mDNS) — ${health.school}',
-              ));
-            }
+            await tryBase('http://$host:$port');
           }
         }
       }
@@ -158,19 +274,10 @@ class LocalServerDiscovery {
             type: InternetAddressType.IPv4,
           );
           for (final addr in list) {
+            if (DiscoveryConstants.isLikelyVirtualHost(addr.address)) continue;
             final base =
                 'http://${addr.address}:${DiscoveryConstants.apiPort}';
-            final health =
-                await _probe(base, DiscoveryConstants.lastKnownTimeout);
-            if (health != null && !completer.isCompleted) {
-              completer.complete(DiscoveryResult(
-                mode: DiscoveryMode.local,
-                source: DiscoverySource.mdns,
-                baseUrl: ApiConfig.normalize(base),
-                health: health,
-                message: 'Serveur local via ${DiscoveryConstants.hostName}',
-              ));
-            }
+            await tryBase(base);
           }
         } catch (_) {}
       }());
@@ -192,8 +299,7 @@ class LocalServerDiscovery {
     }
   }
 
-  Future<DiscoveryResult?> _scanSubnet() async {
-    final prefixes = await _localPrefixes();
+  Future<DiscoveryResult?> _scanSubnet(List<String> prefixes) async {
     if (prefixes.isEmpty) return null;
 
     final candidates = <String>[];
@@ -213,15 +319,16 @@ class LocalServerDiscovery {
         if (i >= candidates.length) break;
         final url = candidates[i];
         final health = await _probe(url, DiscoveryConstants.scanProbeTimeout);
-        if (health != null && !completer.isCompleted) {
+        final local = _acceptLocal(
+          base: url,
+          health: health,
+          source: DiscoverySource.subnetScan,
+          devicePrefixes: prefixes,
+          messagePrefix: 'Serveur local trouvé par scan',
+        );
+        if (local != null && !completer.isCompleted) {
           debugPrint('[Discovery] Serveur trouvé $url');
-          completer.complete(DiscoveryResult(
-            mode: DiscoveryMode.local,
-            source: DiscoverySource.subnetScan,
-            baseUrl: ApiConfig.normalize(url),
-            health: health,
-            message: 'Serveur local trouvé par scan — $url',
-          ));
+          completer.complete(local);
         }
       }
     });
@@ -239,21 +346,55 @@ class LocalServerDiscovery {
         includeLinkLocal: false,
       )) {
         for (final addr in iface.addresses) {
-          final parts = addr.address.split('.');
-          if (parts.length != 4) continue;
-          final a = int.tryParse(parts[0]) ?? -1;
-          final b = int.tryParse(parts[1]) ?? -1;
-          final private = a == 10 ||
-              (a == 172 && b >= 16 && b <= 31) ||
-              (a == 192 && b == 168);
-          if (!private) continue;
-          prefixes.add('${parts[0]}.${parts[1]}.${parts[2]}');
+          if (DiscoveryConstants.isLikelyVirtualHost(addr.address)) continue;
+          if (!DiscoveryConstants.isPrivateIpv4(addr.address)) continue;
+          final prefix = DiscoveryConstants.ipv4Prefix(addr.address);
+          if (prefix != null) prefixes.add(prefix);
         }
       }
     } catch (e) {
       debugPrint('[Discovery] Interfaces réseau: $e');
     }
     return prefixes.toList();
+  }
+
+  bool _isSameSubnet(String baseUrl, List<String> devicePrefixes) {
+    if (devicePrefixes.isEmpty) return false;
+    final host = _hostOf(baseUrl);
+    if (host == null) return false;
+    final prefix = DiscoveryConstants.ipv4Prefix(host);
+    if (prefix == null) return false;
+    return devicePrefixes.contains(prefix);
+  }
+
+  bool _isCloudBaseUrl(String baseUrl) {
+    final cloud = ApiConfig.effectiveCloudBaseUrl ??
+        DiscoveryConstants.defaultRemoteBaseUrl;
+    try {
+      final a = Uri.parse(ApiConfig.normalize(baseUrl));
+      final b = Uri.parse(ApiConfig.normalize(cloud));
+      return a.host.toLowerCase() == b.host.toLowerCase() &&
+          (a.hasPort ? a.port : _defaultPort(a.scheme)) ==
+              (b.hasPort ? b.port : _defaultPort(b.scheme));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int _defaultPort(String scheme) => scheme == 'https' ? 443 : 80;
+
+  String? _hostOf(String baseUrl) {
+    try {
+      return Uri.parse(ApiConfig.normalize(baseUrl)).host;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isVirtualBaseUrl(String baseUrl) {
+    final host = _hostOf(baseUrl);
+    if (host == null) return false;
+    return DiscoveryConstants.isLikelyVirtualHost(host);
   }
 
   Future<HealthInfo?> _probe(String baseUrl, Duration timeout) async {
@@ -267,19 +408,15 @@ class LocalServerDiscovery {
       ));
       final response = await dio.get<dynamic>(DiscoveryConstants.healthPath);
       final data = response.data;
-      if (data is Map<String, dynamic>) {
-        final status = (data['status'] ?? '').toString().toLowerCase();
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        final status = (map['status'] ?? '').toString().toLowerCase();
         if (status == 'ok' || status == 'healthy') {
-          return HealthInfo.fromJson(data);
+          return HealthInfo.fromJson(map);
         }
       }
-      return HealthInfo(
-        status: 'ok',
-        server: 'local',
-        school: 'École',
-        version: '1.0.0',
-        time: DateTime.now().toUtc(),
-      );
+      // Réponse non JSON / inattendue : ne pas forcer server=local.
+      return null;
     } catch (_) {
       return null;
     }

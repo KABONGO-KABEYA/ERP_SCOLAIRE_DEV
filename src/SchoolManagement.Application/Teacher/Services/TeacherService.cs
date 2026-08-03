@@ -2,6 +2,7 @@ namespace SchoolManagement.Application.Teacher.Services;
 
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Grades.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Teacher.DTOs;
 using SchoolManagement.Application.Teacher.Interfaces;
@@ -18,7 +19,7 @@ public sealed class TeacherService : ITeacherService
     private readonly IRepository<AcademicYear> _yearRepository;
     private readonly IRepository<Enrollment> _enrollmentRepository;
     private readonly IRepository<Student> _studentRepository;
-    private readonly IRepository<AcademicPeriod> _periodRepository;
+    private readonly IGradeService _gradeService;
 
     public TeacherService(
         IRepository<CourseAssignment> assignmentRepository,
@@ -28,7 +29,7 @@ public sealed class TeacherService : ITeacherService
         IRepository<AcademicYear> yearRepository,
         IRepository<Enrollment> enrollmentRepository,
         IRepository<Student> studentRepository,
-        IRepository<AcademicPeriod> periodRepository)
+        IGradeService gradeService)
     {
         _assignmentRepository = assignmentRepository;
         _courseRepository = courseRepository;
@@ -37,7 +38,7 @@ public sealed class TeacherService : ITeacherService
         _yearRepository = yearRepository;
         _enrollmentRepository = enrollmentRepository;
         _studentRepository = studentRepository;
-        _periodRepository = periodRepository;
+        _gradeService = gradeService;
     }
 
     public async Task<IReadOnlyList<TeacherAssignmentDto>> GetMyAssignmentsAsync(
@@ -45,7 +46,9 @@ public sealed class TeacherService : ITeacherService
         Guid schoolId,
         CancellationToken cancellationToken = default)
     {
-        var assignments = await _assignmentRepository.FindAsync(a => a.TeacherId == teacherId, cancellationToken);
+        var assignments = await _assignmentRepository.FindAsync(
+            a => a.TeacherId == teacherId && a.IsActive,
+            cancellationToken);
         if (assignments.Count == 0)
         {
             return [];
@@ -56,14 +59,27 @@ public sealed class TeacherService : ITeacherService
         var yearIds = assignments.Select(a => a.AcademicYearId).Distinct().ToList();
 
         var courses = await _courseRepository.FindAsync(c => courseIds.Contains(c.Id), cancellationToken);
-        var classes = await _classRoomRepository.FindAsync(c => classIds.Contains(c.Id) && c.SchoolId == schoolId, cancellationToken);
-        var years = await _yearRepository.FindAsync(y => yearIds.Contains(y.Id) && y.SchoolId == schoolId, cancellationToken);
-        var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(_pedagogicalClassRepository, schoolId, cancellationToken);
+        var classes = await _classRoomRepository.FindAsync(
+            c => classIds.Contains(c.Id) && c.SchoolId == schoolId,
+            cancellationToken);
+        var years = await _yearRepository.FindAsync(
+            y => yearIds.Contains(y.Id) && y.SchoolId == schoolId,
+            cancellationToken);
+        var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(
+            _pedagogicalClassRepository, schoolId, cancellationToken);
         classes = classes.Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap)).ToList();
 
         var courseMap = courses.ToDictionary(c => c.Id);
         var classMap = classes.ToDictionary(c => c.Id);
         var yearMap = years.ToDictionary(y => y.Id);
+
+        var selectableClassIds = classMap.Keys.ToHashSet();
+        var enrollments = await _enrollmentRepository.FindAsync(
+            e => selectableClassIds.Contains(e.ClassRoomId) && e.IsActive,
+            cancellationToken);
+        var studentCountByClass = enrollments
+            .GroupBy(e => e.ClassRoomId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.StudentId).Distinct().Count());
 
         return assignments
             .Where(a => courseMap.ContainsKey(a.CourseId) && classMap.ContainsKey(a.ClassRoomId))
@@ -74,7 +90,11 @@ public sealed class TeacherService : ITeacherService
                 a.ClassRoomId,
                 classMap[a.ClassRoomId].Name,
                 a.AcademicYearId,
-                yearMap.GetValueOrDefault(a.AcademicYearId)?.Label ?? "—"))
+                yearMap.GetValueOrDefault(a.AcademicYearId)?.Label ?? "—",
+                a.MaxScore <= 0 ? 20 : a.MaxScore,
+                studentCountByClass.GetValueOrDefault(a.ClassRoomId)))
+            .OrderBy(a => a.ClassRoomName)
+            .ThenBy(a => a.CourseName)
             .ToList();
     }
 
@@ -85,7 +105,8 @@ public sealed class TeacherService : ITeacherService
         CancellationToken cancellationToken = default)
     {
         var hasAccess = await _assignmentRepository.FindAsync(
-            a => a.TeacherId == teacherId && a.ClassRoomId == classRoomId, cancellationToken);
+            a => a.TeacherId == teacherId && a.ClassRoomId == classRoomId && a.IsActive,
+            cancellationToken);
 
         if (hasAccess.Count == 0)
         {
@@ -101,11 +122,13 @@ public sealed class TeacherService : ITeacherService
             cancellationToken);
 
         var enrollments = await _enrollmentRepository.FindAsync(
-            e => e.ClassRoomId == classRoomId && e.IsActive, cancellationToken);
+            e => e.ClassRoomId == classRoomId && e.IsActive,
+            cancellationToken);
 
         var studentIds = enrollments.Select(e => e.StudentId).Distinct().ToList();
         var students = await _studentRepository.FindAsync(
-            s => studentIds.Contains(s.Id) && s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
+            s => studentIds.Contains(s.Id) && s.SchoolId == schoolId && !s.IsArchived,
+            cancellationToken);
 
         return students
             .OrderBy(s => s.LastName)
@@ -114,21 +137,26 @@ public sealed class TeacherService : ITeacherService
             .ToList();
     }
 
-    public async Task<IReadOnlyList<TeacherPeriodDto>> GetAcademicPeriodsAsync(
+    public async Task<IReadOnlyList<TeacherPeriodDto>> GetOpenCotationPeriodsAsync(
         Guid schoolId,
         Guid academicYearId,
+        Guid classRoomId,
         CancellationToken cancellationToken = default)
     {
-        var year = await SchoolConfigurationGuards.EnsureActiveAcademicYearAsync(
-            _yearRepository,
-            schoolId,
-            academicYearId,
-            cancellationToken);
+        var periods = await _gradeService.GetCotationPeriodsAsync(
+            schoolId, academicYearId, classRoomId, cancellationToken);
 
-        var periods = await _periodRepository.FindAsync(p => p.AcademicYearId == year.Id, cancellationToken);
+        // Desktop : uniquement les ouvertes (liste déjà filtrée Ouverte ; exclure IsClosed).
         return periods
-            .OrderBy(p => p.OrderIndex)
-            .Select(p => new TeacherPeriodDto(p.Id, p.Name, p.OrderIndex))
+            .Where(p => !p.IsClosed)
+            .Select(p => new TeacherPeriodDto(
+                p.Id,
+                p.Name,
+                p.OrderIndex,
+                p.IsClosed,
+                p.KindLabel,
+                p.StartDate,
+                p.EndDate))
             .ToList();
     }
 }

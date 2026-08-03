@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/erp_theme.dart';
 import '../models/parent_models.dart';
 
-/// Timeline des tranches (Paiements Premium).
+/// Timeline des tranches — sans barre de progression (déjà sur le résumé).
 class ParentInstallmentTimeline extends StatelessWidget {
   const ParentInstallmentTimeline({super.key, required this.feeType});
 
@@ -20,47 +20,34 @@ class ParentInstallmentTimeline extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Progression — ${feeType.feeTypeName}',
+            'TRANCHES — ${feeType.feeTypeName}',
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 14,
               color: ErpColors.navy,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${(feeType.progress * 100).toStringAsFixed(0)} % payé',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: ErpColors.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: feeType.progress,
-              minHeight: 10,
-              backgroundColor: ErpColors.border,
-              color: ErpColors.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           for (final line in feeType.installments) ...[
             _TimelineStep(
               done: line.remaining <= 0 && line.amountExpected > 0,
               partial: line.amountPaid > 0 && line.remaining > 0,
               title: line.installmentName,
-              subtitle:
-                  '${fmt.format(line.amountPaid)} / ${fmt.format(line.amountExpected)} ${feeType.currencyLabel}',
+              paid: '${fmt.format(line.amountPaid)} ${feeType.currencyLabel}',
+              due: '${fmt.format(line.amountExpected)} ${feeType.currencyLabel}',
+              remaining: line.remaining,
+              currencyLabel: feeType.currencyLabel,
             ),
             if (line != feeType.installments.last)
               const Padding(
-                padding: EdgeInsets.only(left: 11),
+                padding: EdgeInsets.only(left: 11, top: 2, bottom: 2),
                 child: SizedBox(
-                  height: 14,
-                  child: VerticalDivider(width: 2, thickness: 2, color: ErpColors.border),
+                  height: 12,
+                  child: VerticalDivider(
+                    width: 2,
+                    thickness: 2,
+                    color: ErpColors.border,
+                  ),
                 ),
               ),
           ],
@@ -75,13 +62,19 @@ class _TimelineStep extends StatelessWidget {
     required this.done,
     required this.partial,
     required this.title,
-    required this.subtitle,
+    required this.paid,
+    required this.due,
+    required this.remaining,
+    required this.currencyLabel,
   });
 
   final bool done;
   final bool partial;
   final String title;
-  final String subtitle;
+  final String paid;
+  final String due;
+  final double remaining;
+  final String currencyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -91,11 +84,12 @@ class _TimelineStep extends StatelessWidget {
     final icon = done
         ? Icons.check_circle
         : (partial ? Icons.timelapse : Icons.radio_button_unchecked);
+    final fmt = NumberFormat('#,##0.##');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 22, color: color),
+        Icon(icon, size: 20, color: color),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -105,14 +99,29 @@ class _TimelineStep extends StatelessWidget {
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
+                  fontSize: 13,
                   decoration: done ? TextDecoration.lineThrough : null,
                   color: done ? ErpColors.textSecondary : ErpColors.textPrimary,
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
+                '$paid / $due',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: ErpColors.textPrimary,
+                ),
               ),
+              if (remaining > 0)
+                Text(
+                  'Reste ${fmt.format(remaining)} $currencyLabel',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: ErpColors.danger,
+                  ),
+                ),
             ],
           ),
         ),
@@ -141,22 +150,31 @@ class ParentPaymentsSearchBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          onChanged: onQueryChanged,
-          decoration: InputDecoration(
-            hintText: 'Rechercher (type, reçu, montant…)',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: ErpColors.border),
+        SizedBox(
+          height: 38,
+          child: TextField(
+            onChanged: onQueryChanged,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Rechercher (type, reçu, montant…)',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(ErpSpacing.inputRadius),
+                borderSide: const BorderSide(color: ErpColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(ErpSpacing.inputRadius),
+                borderSide: const BorderSide(color: ErpColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(ErpSpacing.inputRadius),
+                borderSide: const BorderSide(color: ErpColors.primary, width: 1.5),
+              ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: ErpColors.border),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
         const SizedBox(height: 10),
@@ -172,10 +190,15 @@ class ParentPaymentsSearchBar extends StatelessWidget {
               ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
+                  child: FilterChip(
                     label: Text(period.$2),
                     selected: selectedPeriod == period.$1,
+                    showCheckmark: false,
                     onSelected: (_) => onPeriodChanged?.call(period.$1),
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(ErpSpacing.chipRadius),
+                    ),
                   ),
                 ),
             ],

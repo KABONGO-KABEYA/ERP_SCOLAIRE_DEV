@@ -27,6 +27,7 @@ public partial class SettingsViewModel : ViewModelBase
         SchoolFeeConfigurationViewModel schoolFeeConfiguration,
         RevenueAllocationConfigViewModel revenueAllocationConfig,
         WithholdingConfigViewModel withholdingConfig,
+        MentionsConfigViewModel mentionsConfig,
         CurrencyManagementViewModel currencyManagement,
         CloudSyncDashboardViewModel cloudSyncDashboard,
         CourseConfigurationViewModel courseConfiguration)
@@ -40,6 +41,7 @@ public partial class SettingsViewModel : ViewModelBase
         SchoolFeeConfiguration = schoolFeeConfiguration;
         RevenueAllocationConfig = revenueAllocationConfig;
         WithholdingConfig = withholdingConfig;
+        MentionsConfig = mentionsConfig;
         CurrencyManagement = currencyManagement;
         CloudSyncDashboard = cloudSyncDashboard;
         CourseConfiguration = courseConfiguration;
@@ -69,6 +71,7 @@ public partial class SettingsViewModel : ViewModelBase
                 [
                     new SettingsNodeViewModel("Établissement", "Domain", SettingsSection.Etablissement),
                     new SettingsNodeViewModel("Règlement d'ordre intérieur de l'école", "TextBoxOutline", SettingsSection.Reglement),
+                    new SettingsNodeViewModel("Mentions (pourcentages)", "MedalOutline", SettingsSection.Mentions),
                     new SettingsNodeViewModel("Structure pédagogique / Classes", "GoogleClassroom", SettingsSection.StructurePedagogique),
                     new SettingsNodeViewModel("Années scolaires", "CalendarRange", SettingsSection.AnneesScolaires),
                     new SettingsNodeViewModel("Frais scolaires", "CashMultiple", SettingsSection.FraisScolaires),
@@ -281,6 +284,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public WithholdingConfigViewModel WithholdingConfig { get; }
 
+    public MentionsConfigViewModel MentionsConfig { get; }
+
     public CurrencyManagementViewModel CurrencyManagement { get; }
 
     public CloudSyncDashboardViewModel CloudSyncDashboard { get; }
@@ -332,6 +337,7 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsFraisScolairesSelected
         && !IsRepartitionRecettesSelected
         && !IsRetenuesSelected
+        && !IsMentionsSelected
         && !IsCurrencySectionSelected
         && !IsSyncCloudSelected
         && !IsMisesAJourSelected
@@ -346,6 +352,8 @@ public partial class SettingsViewModel : ViewModelBase
     public bool IsEnseignantsSelected => SelectedSettingsNode?.Section == SettingsSection.Enseignants;
 
     public bool IsReglementSelected => SelectedSettingsNode?.Section == SettingsSection.Reglement;
+
+    public bool IsMentionsSelected => SelectedSettingsNode?.Section == SettingsSection.Mentions;
 
     public bool IsPlaceholderSectionSelected => false;
 
@@ -368,6 +376,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             SettingsSection.Etablissement => "Informations générales, devises autorisées, logos, en-têtes, signatures et identité documentaire de l'établissement.",
             SettingsSection.Reglement => "Rédigez et enregistrez le règlement d'ordre intérieur de l'établissement.",
+            SettingsSection.Mentions => "Définissez les mentions honorifiques attribuées automatiquement selon le pourcentage (ex. Satisfaction 55–69 %).",
             SettingsSection.StructurePedagogique => "Organisez les classes selon les 4 sections RDC : Maternelle, Primaire, Secondaire générale (7e–8e) et Humanité.",
             SettingsSection.AnneesScolaires => "Créez les années scolaires et définissez l'année courante utilisée dans les autres modules.",
             SettingsSection.FraisScolaires => "Définissez les montants des frais par année scolaire, classe, type de frais et tranche.",
@@ -422,6 +431,10 @@ public partial class SettingsViewModel : ViewModelBase
             else if (item.Key == "retenues")
             {
                 WithholdingConfig.LoadCommand.Execute(null);
+            }
+            else if (item.Key == "mentions")
+            {
+                MentionsConfig.LoadCommand.Execute(null);
             }
             else if (item.Key == "etablissement")
             {
@@ -549,6 +562,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsUtilisateursSelected));
         OnPropertyChanged(nameof(IsEnseignantsSelected));
         OnPropertyChanged(nameof(IsReglementSelected));
+        OnPropertyChanged(nameof(IsMentionsSelected));
         OnPropertyChanged(nameof(IsPlaceholderSectionSelected));
         OnPropertyChanged(nameof(SelectedSectionTitle));
         OnPropertyChanged(nameof(SelectedSectionDescription));
@@ -561,6 +575,10 @@ public partial class SettingsViewModel : ViewModelBase
         else if (value?.Section == SettingsSection.Reglement)
         {
             _ = LoadRegulationAsync();
+        }
+        else if (value?.Section == SettingsSection.Mentions)
+        {
+            MentionsConfig.LoadCommand.Execute(null);
         }
         else if (value?.Section is SettingsSection.Monnaies
             or SettingsSection.TauxChange
@@ -1439,7 +1457,8 @@ public enum SettingsSection
     TauxChange = 14,
     DevisesEtablissement = 15,
     HistoriqueTaux = 16,
-    MisesAJour = 17
+    MisesAJour = 17,
+    Mentions = 18
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

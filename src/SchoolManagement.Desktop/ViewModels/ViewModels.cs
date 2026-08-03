@@ -70,6 +70,7 @@ public partial class ShellViewModel : ViewModelBase
             new ModuleNavItem("Académique", "School", typeof(AcademicViewModel)),
             new ModuleNavItem("Calendrier pédagogique", "CalendarClock", typeof(PedagogicalPeriodsViewModel)),
             new ModuleNavItem("Cotation", "ClipboardEdit", typeof(GradesViewModel)),
+            new ModuleNavItem("Résultats scolaires", "SchoolOutline", typeof(ResultsHubViewModel)),
             new ModuleNavItem("Financier", "Cash", typeof(FinanceHubViewModel)),
             new ModuleNavItem("Documents", "FileDocument", typeof(DocumentsViewModel)),
             new ModuleNavItem("Statistiques", "ChartBar", typeof(StatisticsViewModel))

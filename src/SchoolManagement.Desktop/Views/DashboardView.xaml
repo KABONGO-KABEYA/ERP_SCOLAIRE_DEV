@@ -22,26 +22,26 @@
                             <materialDesign:PackIcon Kind="AccountGroup" Width="24" Height="24"
                                                      Foreground="{StaticResource ErpPrimaryBrush}"
                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                            </Border>
                         <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Élèves inscrits" />
                         <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiStudents}" />
                         <TextBlock FontSize="12" FontWeight="SemiBold"
                                    Foreground="{Binding KpiStudentsTrendPositive, Converter={StaticResource TrendToBrush}}"
                                    Text="{Binding KpiStudentsTrendDisplay}" />
                     </StackPanel>
-                </Border>
+            </Border>
                 <Border Style="{StaticResource ErpStatCard}">
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#DCFCE7">
                             <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="#16A34A"
                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                            </Border>
                         <TextBlock Margin="0,12,0,2" Style="{StaticResource ErpStatLabel}" Text="Personnel" />
                         <TextBlock Style="{StaticResource ErpStatValue}" FontSize="28" Text="{Binding KpiTeachers}" />
                         <TextBlock FontSize="12" FontWeight="SemiBold"
                                    Foreground="{Binding KpiTeachersTrendPositive, Converter={StaticResource TrendToBrush}}"
                                    Text="{Binding KpiTeachersTrendDisplay}" />
-                    </StackPanel>
+                        </StackPanel>
                 </Border>
                 <Border Style="{StaticResource ErpStatCard}">
                     <StackPanel VerticalAlignment="Center">
@@ -160,7 +160,7 @@
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                                         Visibility="{Binding AlertsLoading, Converter={StaticResource BoolToVis}}">
                                 <ProgressBar IsIndeterminate="True" Width="120" Height="4" />
-                            </StackPanel>
+                    </StackPanel>
                             <ItemsControl ItemsSource="{Binding AlertSummaries}"
                                           Visibility="{Binding AlertsLoading, Converter={StaticResource InvBoolToVis}}">
                                 <ItemsControl.ItemTemplate>
@@ -357,7 +357,7 @@
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}"
                                                Text="Nouvelle inscription" TextWrapping="Wrap" Width="90" />
-                                </StackPanel>
+                            </StackPanel>
                             </Button>
                             <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenPaymentsCommand}">
                                 <StackPanel HorizontalAlignment="Center">
@@ -365,7 +365,7 @@
                                                              HorizontalAlignment="Center" />
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Paiement" />
-                                </StackPanel>
+                            </StackPanel>
                             </Button>
                             <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenPersonnelCommand}">
                                 <StackPanel HorizontalAlignment="Center">
@@ -373,7 +373,7 @@
                                                              HorizontalAlignment="Center" />
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Personnel" />
-                                </StackPanel>
+                    </StackPanel>
                             </Button>
                             <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenClassCommand}">
                                 <StackPanel HorizontalAlignment="Center">
@@ -389,7 +389,7 @@
                                                              HorizontalAlignment="Center" />
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Dépense" />
-                                </StackPanel>
+                            </StackPanel>
                             </Button>
                             <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenReportsCommand}">
                                 <StackPanel HorizontalAlignment="Center">
@@ -406,7 +406,7 @@
                                                              HorizontalAlignment="Center" />
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Paramètres" />
-                                </StackPanel>
+                            </StackPanel>
                             </Button>
                             <Button Style="{StaticResource ErpQuickActionButton}" Command="{Binding OpenBackupCommand}">
                                 <StackPanel HorizontalAlignment="Center">
@@ -414,7 +414,7 @@
                                                              HorizontalAlignment="Center" />
                                     <TextBlock Margin="0,8,0,0" TextAlignment="Center" FontSize="11"
                                                Foreground="{StaticResource ErpTextPrimaryBrush}" Text="Sauvegarde" />
-                                </StackPanel>
+                        </StackPanel>
                             </Button>
                         </WrapPanel>
                     </StackPanel>

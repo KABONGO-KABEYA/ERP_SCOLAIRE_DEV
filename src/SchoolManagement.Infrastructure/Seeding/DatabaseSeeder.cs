@@ -40,6 +40,7 @@ public sealed class DatabaseSeeder
     {
         await SeedPermissionsAsync(cancellationToken);
         await SeedAdminUserAsync(cancellationToken);
+        await SeedResultValidationRolePermissionsAsync(cancellationToken);
         await SeedParentDemoAsync(cancellationToken);
         await SeedKabeyaParentAsync(cancellationToken);
         await SeedDemoAcademicStructureAsync(cancellationToken);
@@ -85,8 +86,80 @@ public sealed class DatabaseSeeder
             "print" => PermissionAction.Print,
             "renew" => PermissionAction.Renew,
             "declare-lost" => PermissionAction.Update,
+            "validate" => PermissionAction.Approve,
+            "lock" => PermissionAction.Approve,
+            "unlock" => PermissionAction.Approve,
             _ => throw new ArgumentException($"Action de permission inconnue : '{actionToken}'.")
         };
+
+    private async Task SeedResultValidationRolePermissionsAsync(CancellationToken cancellationToken)
+    {
+        var school = await _context.Schools.FirstOrDefaultAsync(cancellationToken);
+        if (school is null)
+        {
+            return;
+        }
+
+        async Task AssignAsync(string roleCode, params string[] permissionCodes)
+        {
+            var role = await _context.Roles.FirstOrDefaultAsync(
+                r => r.SchoolId == school.Id && r.Code == roleCode, cancellationToken);
+            if (role is null)
+            {
+                return;
+            }
+
+            var codes = permissionCodes.ToList();
+            var permissions = (await _context.Permissions.ToListAsync(cancellationToken))
+                .Where(p => codes.Contains(p.Code))
+                .ToList();
+
+            foreach (var permission in permissions)
+            {
+                if (!await _context.RolePermissions.AnyAsync(
+                        rp => rp.RoleId == role.Id && rp.PermissionId == permission.Id, cancellationToken))
+                {
+                    _context.RolePermissions.Add(new RolePermission
+                    {
+                        RoleId = role.Id,
+                        PermissionId = permission.Id
+                    });
+                }
+            }
+        }
+
+        await AssignAsync("TEACHER", Permissions.ResultsValidationRead);
+        await AssignAsync("TEACHER", Permissions.DeliberationPvRead);
+        await AssignAsync("TEACHER", Permissions.DeliberationDecisionRead);
+        await AssignAsync(
+            "DIRECTION",
+            Permissions.ResultsValidationRead,
+            Permissions.ResultsValidationValidate,
+            Permissions.DeliberationPvRead,
+            Permissions.DeliberationPvWrite,
+            Permissions.DeliberationDecisionRead,
+            Permissions.DeliberationDecisionWrite);
+        await AssignAsync(
+            "PREFET",
+            Permissions.ResultsValidationRead,
+            Permissions.ResultsValidationValidate,
+            Permissions.DeliberationPvRead,
+            Permissions.DeliberationPvWrite,
+            Permissions.DeliberationDecisionRead,
+            Permissions.DeliberationDecisionWrite);
+        await AssignAsync(
+            "PROMOTEUR",
+            Permissions.ResultsValidationRead,
+            Permissions.ResultsValidationValidate,
+            Permissions.ResultsValidationLock,
+            Permissions.ResultsValidationUnlock,
+            Permissions.DeliberationPvRead,
+            Permissions.DeliberationPvWrite,
+            Permissions.DeliberationDecisionRead,
+            Permissions.DeliberationDecisionWrite);
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 
     private async Task SeedAdminUserAsync(CancellationToken cancellationToken)
     {
@@ -686,7 +759,12 @@ public sealed class DatabaseSeeder
         }
 
         var gradePermissions = await _context.Permissions
-            .Where(p => p.Code == Permissions.GradesRead || p.Code == Permissions.GradesCreate || p.Code == Permissions.GradesUpdate)
+            .Where(p => p.Code == Permissions.GradesRead
+                || p.Code == Permissions.GradesCreate
+                || p.Code == Permissions.GradesUpdate
+                || p.Code == Permissions.ResultsValidationRead
+                || p.Code == Permissions.DeliberationPvRead
+                || p.Code == Permissions.DeliberationDecisionRead)
             .ToListAsync(cancellationToken);
 
         foreach (var permission in gradePermissions)
@@ -749,7 +827,13 @@ public sealed class DatabaseSeeder
                 || p.Code == Permissions.PaymentsRead
                 || p.Code == Permissions.GradesRead
                 || p.Code == Permissions.StudentsRead
-                || p.Code == Permissions.SchoolsRead)
+                || p.Code == Permissions.SchoolsRead
+                || p.Code == Permissions.ResultsValidationRead
+                || p.Code == Permissions.ResultsValidationValidate
+                || p.Code == Permissions.DeliberationPvRead
+                || p.Code == Permissions.DeliberationPvWrite
+                || p.Code == Permissions.DeliberationDecisionRead
+                || p.Code == Permissions.DeliberationDecisionWrite)
             .ToListAsync(cancellationToken);
 
         foreach (var permission in directionPermissions)

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
+import '../../core/widgets/erp_widgets.dart';
 import '../enrollment/models/enrollment_models.dart';
 
 class SecretaryStudentSearchScreen extends ConsumerStatefulWidget {
@@ -72,37 +73,24 @@ class _SecretaryStudentSearchScreenState extends ConsumerState<SecretaryStudentS
       backgroundColor: ErpColors.pageBackground,
       appBar: AppBar(
         title: const Text('Rechercher un élève'),
-        backgroundColor: Colors.white,
-        foregroundColor: ErpColors.navy,
-        elevation: 0,
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
+            child: ErpSearchBar(
               controller: _controller,
               autofocus: true,
-              textInputAction: TextInputAction.search,
-              onChanged: _onQueryChanged,
+              hintText: 'Nom, matricule, téléphone…',
+              onChanged: (v) {
+                setState(() {});
+                _onQueryChanged(v);
+              },
               onSubmitted: (v) => _search(v.trim()),
-              decoration: InputDecoration(
-                hintText: 'Nom, matricule, téléphone…',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _controller.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _controller.clear();
-                          _onQueryChanged('');
-                          setState(() {});
-                        },
-                      ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+              onClear: () {
+                setState(() {});
+                _onQueryChanged('');
+              },
             ),
           ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
@@ -113,53 +101,64 @@ class _SecretaryStudentSearchScreenState extends ConsumerState<SecretaryStudentS
             ),
           Expanded(
             child: _results.isEmpty && !_loading && _lastQuery.length >= 2
-                ? const Center(child: Text('Aucun élève trouvé.', style: TextStyle(color: ErpColors.textSecondary)))
+                ? const Center(
+                    child: Text(
+                      'Aucun élève trouvé.',
+                      style: TextStyle(color: ErpColors.textSecondary),
+                    ),
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     itemCount: _results.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final s = _results[index];
-                      return Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () => context.push('/secretary/students/${s.id}'),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: ErpColors.primary.withValues(alpha: 0.12),
-                                  child: Text(
-                                    s.lastName.isNotEmpty ? s.lastName[0].toUpperCase() : '?',
-                                    style: const TextStyle(color: ErpColors.primary, fontWeight: FontWeight.w700),
-                                  ),
+                      return ErpCard(
+                        onTap: () => context.push('/secretary/students/${s.id}'),
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: ErpColors.primary.withValues(alpha: 0.1),
+                              child: Text(
+                                s.lastName.isNotEmpty ? s.lastName[0].toUpperCase() : '?',
+                                style: const TextStyle(
+                                  color: ErpColors.primary,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(s.fullName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        s.registrationNumber,
-                                        style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
-                                      ),
-                                      if (s.previousClassName != null && s.previousClassName!.isNotEmpty)
-                                        Text(
-                                          s.previousClassName!,
-                                          style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.chevron_right, color: ErpColors.textSecondary),
-                              ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.fullName,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    s.registrationNumber,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: ErpColors.textPrimary,
+                                    ),
+                                  ),
+                                  if (s.previousClassName != null &&
+                                      s.previousClassName!.isNotEmpty)
+                                    Text(
+                                      s.previousClassName!,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: ErpColors.textSecondary,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: ErpColors.textSecondary),
+                          ],
                         ),
                       );
                     },

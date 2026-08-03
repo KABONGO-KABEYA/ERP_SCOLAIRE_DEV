@@ -7,9 +7,18 @@ public sealed record TeacherAssignmentDto(
     Guid ClassRoomId,
     string ClassRoomName,
     Guid AcademicYearId,
-    string AcademicYearLabel);
+    string AcademicYearLabel,
+    int MaxScore,
+    int StudentCount);
 
-public sealed record TeacherPeriodDto(Guid Id, string Name, int OrderIndex);
+public sealed record TeacherPeriodDto(
+    Guid Id,
+    string Name,
+    int OrderIndex,
+    bool IsClosed,
+    string KindLabel,
+    DateOnly? StartDate,
+    DateOnly? EndDate);
 
 public sealed record TeacherStudentDto(
     Guid StudentId,

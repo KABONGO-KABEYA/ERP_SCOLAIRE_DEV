@@ -58,6 +58,7 @@ public static class SettingsNavCatalog
             Items =
             [
                 new SettingsNavItem { Key = "reglement", Title = "Règlement intérieur", IconKind = "TextBoxOutline", Section = SettingsSection.Reglement },
+                new SettingsNavItem { Key = "mentions", Title = "Mentions (pourcentages)", IconKind = "MedalOutline", Section = SettingsSection.Mentions },
                 new SettingsNavItem { Key = "calendrier", Title = "Calendrier scolaire", IconKind = "CalendarMonth", Section = null },
                 new SettingsNavItem { Key = "types-evaluations", Title = "Types d'évaluations", IconKind = "ClipboardListOutline", Section = null },
                 new SettingsNavItem { Key = "coefficients", Title = "Coefficients", IconKind = "Numeric", Section = null }

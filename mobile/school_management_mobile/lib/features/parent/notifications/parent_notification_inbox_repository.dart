@@ -2,7 +2,7 @@ import '../models/parent_models.dart';
 import '../parent_repository.dart';
 import 'notification_service.dart';
 
-/// Repository notifications parent — API + boîte locale FCM scaffolding.
+/// Repository notifications parent — source de vérité = API uniquement.
 class ParentNotificationInboxRepository {
   ParentNotificationInboxRepository({
     required ParentRepository parentRepository,
@@ -13,27 +13,41 @@ class ParentNotificationInboxRepository {
   final ParentRepository _parentRepository;
   final ParentNotificationService _notificationService;
 
-  Future<List<ParentNotificationItem>> getInbox() async {
-    final remote = await _parentRepository.getNotifications();
-    final localService = _notificationService;
-    final local = localService is LocalParentNotificationService
-        ? localService.localInbox
-            .map(
-              (m) => ParentNotificationItem(
-                id: m.id,
-                title: m.title,
-                message: m.body,
-                date: m.receivedAt ?? DateTime.now(),
-                isRead: false,
-              ),
-            )
-            .toList()
-        : const <ParentNotificationItem>[];
-
-    final merged = [...local, ...remote];
-    merged.sort((a, b) => b.date.compareTo(a.date));
-    return merged;
+  Future<List<ParentNotificationItem>> getInbox({
+    String? category,
+    String? query,
+  }) async {
+    final remote = await _parentRepository.getNotifications(
+      category: category,
+      query: query,
+    );
+    // Dédupliquer par id, puis par contenu proche (double envoi serveur).
+    final byId = <String, ParentNotificationItem>{};
+    for (final item in remote) {
+      final key = item.id.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      byId.putIfAbsent(key, () => item);
+    }
+    final list = <ParentNotificationItem>[];
+    final contentKeys = <String>{};
+    final sorted = byId.values.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    for (final item in sorted) {
+      final minute = item.date.toUtc().millisecondsSinceEpoch ~/ 60000;
+      final contentKey =
+          '${item.title.trim().toLowerCase()}|${item.message.trim().toLowerCase()}|$minute';
+      if (!contentKeys.add(contentKey)) continue;
+      list.add(item);
+    }
+    return list;
   }
+
+  Future<int> unreadCount() => _parentRepository.getUnreadNotificationCount();
+
+  Future<void> markRead(String notificationId) =>
+      _parentRepository.markNotificationRead(notificationId);
+
+  Future<void> markAllRead() => _parentRepository.markAllNotificationsRead();
 
   Future<ParentPushDeviceRegistration?> currentRegistration() async {
     final token = await _notificationService.getDeviceToken();
