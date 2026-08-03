@@ -78,6 +78,17 @@ public partial class App : System.Windows.Application
             args.Handled = true;
         };
 
+        var httpFactory = _host.Services.GetRequiredService<IHttpClientFactory>();
+        if (await InitialSetupViewModel.NeedsSetupAsync(httpFactory))
+        {
+            var setupWindow = _host.Services.GetRequiredService<InitialSetupWindow>();
+            if (setupWindow.ShowDialog() != true)
+            {
+                Shutdown();
+                return;
+            }
+        }
+
         var loginViewModel = _host.Services.GetRequiredService<LoginViewModel>();
         var loggedIn = await loginViewModel.TryAutoLoginAsync();
 
@@ -196,6 +207,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<MainWindowViewModel>();
         services.AddTransient<LoginWindow>();
         services.AddTransient<LoginViewModel>();
+        services.AddTransient<InitialSetupWindow>();
+        services.AddTransient<InitialSetupViewModel>();
         services.AddTransient<ChangePasswordWindow>();
         services.AddTransient<ChangePasswordViewModel>();
         services.AddTransient<ShellViewModel>();

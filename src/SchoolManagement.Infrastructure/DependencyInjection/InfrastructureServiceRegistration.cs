@@ -12,6 +12,7 @@ using SchoolManagement.Application.CloudSync;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Application.Schools.Interfaces;
+using SchoolManagement.Application.Setup.Interfaces;
 using SchoolManagement.Infrastructure.Auth;
 using SchoolManagement.Infrastructure.CloudSync;
 using SchoolManagement.Infrastructure.Notifications;
@@ -21,6 +22,7 @@ using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Application.Enrollment.Interfaces;
 using SchoolManagement.Infrastructure.Seeding;
 using SchoolManagement.Infrastructure.Services;
+using SchoolManagement.Infrastructure.Setup;
 
 public static class InfrastructureServiceRegistration
 {
@@ -56,6 +58,7 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<IInitialSetupService, InitialSetupService>();
         services.AddScoped<ICurriculumSeedService, CurriculumSeeder>();
         services.AddScoped<CurriculumSeeder>();
         services.AddScoped<ISectionConsolidationService, SectionConsolidationService>();

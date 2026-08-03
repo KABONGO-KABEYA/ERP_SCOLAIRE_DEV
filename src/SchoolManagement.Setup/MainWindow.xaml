@@ -1,0 +1,151 @@
+<Window x:Class="SchoolManagement.Setup.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ERP Scolaire — Assistant d'installation"
+        Height="720" Width="860"
+        MinHeight="640" MinWidth="760"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
+  <DockPanel Margin="20">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <TextBlock Text="ERP Administration Scolaire" FontSize="22" FontWeight="SemiBold"
+                 Foreground="{StaticResource PrimaryBrush}"/>
+      <TextBlock x:Name="TxtStepTitle" Text="Étape 1 — Type d'installation" Margin="0,4,0,0"
+                 Foreground="#555" FontSize="14"/>
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button x:Name="BtnBack" Content="Précédent" Width="110" Height="36" Margin="0,0,8,0" Click="BtnBack_Click"/>
+      <Button x:Name="BtnNext" Content="Suivant" Width="120" Height="36"
+              Background="{StaticResource AccentBrush}" Foreground="White" FontWeight="SemiBold"
+              Click="BtnNext_Click"/>
+    </StackPanel>
+
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="140"/>
+      </Grid.RowDefinitions>
+
+      <!-- Étape 1 : Rôle -->
+      <Border x:Name="Step1" Padding="16" Background="White" CornerRadius="4">
+        <StackPanel>
+          <TextBlock Text="Choisissez le type d'installation" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+          <RadioButton x:Name="RbServer" Content="Installation Serveur (API + Desktop + sync cloud + fichiers)"
+                       IsChecked="True" Margin="0,0,0,8"/>
+          <TextBlock Text="Machine principale de l'école. Configure SQL, cloud, dossier partagé et service Windows."
+                     Margin="24,0,0,16" TextWrapping="Wrap" Foreground="#666"/>
+          <RadioButton x:Name="RbClient" Content="Installation Poste Client (Desktop uniquement)" Margin="0,0,0,8"/>
+          <TextBlock Text="PC secrétariat / direction. Se connecte à l'API du serveur école."
+                     Margin="24,0,0,0" TextWrapping="Wrap" Foreground="#666"/>
+          <TextBlock Text="Dossier d'installation" Margin="0,20,0,4"/>
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="…" Width="36" Margin="8,0,0,0" Click="BtnBrowse_Click"/>
+            <TextBox x:Name="TxtInstallRoot" Height="28" VerticalContentAlignment="Center"/>
+          </DockPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Étape 2 : SQL local -->
+      <Border x:Name="Step2" Padding="16" Background="White" CornerRadius="4" Visibility="Collapsed">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <TextBlock Grid.ColumnSpan="2" Text="Configuration SQL Server local" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+          <TextBlock Grid.Row="1" Text="Instance SQL" VerticalAlignment="Center"/>
+          <ComboBox x:Name="CmbSql" Grid.Row="1" Grid.Column="1" Height="28" Margin="0,0,0,8" IsEditable="True"/>
+          <TextBlock Grid.Row="2" Text="Base de données" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtDatabase" Grid.Row="2" Grid.Column="1" Height="28" Margin="0,0,0,8"
+                   Text="SchoolManagementRDC_Production" VerticalContentAlignment="Center"/>
+          <TextBlock Grid.Row="3" Text="Authentification" VerticalAlignment="Center"/>
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <RadioButton x:Name="RbWinAuth" Content="Windows" IsChecked="True" Margin="0,0,16,0" Checked="Auth_Changed"/>
+            <RadioButton x:Name="RbSqlAuth" Content="SQL" Checked="Auth_Changed"/>
+          </StackPanel>
+          <TextBlock x:Name="LblSqlUser" Grid.Row="4" Text="Login SQL" VerticalAlignment="Center" Visibility="Collapsed"/>
+          <TextBox x:Name="TxtSqlUser" Grid.Row="4" Grid.Column="1" Height="28" Margin="0,0,0,8" Text="sa" Visibility="Collapsed"/>
+          <TextBlock x:Name="LblSqlPwd" Grid.Row="5" Text="Mot de passe" VerticalAlignment="Center" Visibility="Collapsed"/>
+          <PasswordBox x:Name="TxtSqlPassword" Grid.Row="5" Grid.Column="1" Height="28" Margin="0,0,0,8" Visibility="Collapsed"/>
+          <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="Tester la connexion SQL" Width="180" Height="34" Click="BtnTestSql_Click"/>
+            <TextBlock x:Name="TxtSqlStatus" Margin="12,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Étape 3 : Cloud -->
+      <Border x:Name="Step3" Padding="16" Background="White" CornerRadius="4" Visibility="Collapsed">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <TextBlock Grid.ColumnSpan="2" Text="Configuration SQL Cloud (synchronisation)" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox x:Name="ChkCloud" Grid.Row="1" Grid.ColumnSpan="2" Content="Activer la synchronisation Local → Cloud"
+                    IsChecked="True" Margin="0,0,0,12"/>
+          <TextBlock Grid.Row="2" Text="IP / Domaine" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtCloudServer" Grid.Row="2" Grid.Column="1" Height="28" Margin="0,0,0,8" Text="169.58.93.203"/>
+          <TextBlock Grid.Row="3" Text="Port" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtCloudPort" Grid.Row="3" Grid.Column="1" Height="28" Margin="0,0,0,8" Text="1433" Width="100" HorizontalAlignment="Left"/>
+          <TextBlock Grid.Row="4" Text="Base cloud" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtCloudDatabase" Grid.Row="4" Grid.Column="1" Height="28" Margin="0,0,0,8" Text="SchoolManagementRDC_Production"/>
+          <TextBlock Grid.Row="5" Text="Login SQL" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtCloudUser" Grid.Row="5" Grid.Column="1" Height="28" Margin="0,0,0,8" Text="sa"/>
+          <TextBlock Grid.Row="6" Text="Mot de passe" VerticalAlignment="Center"/>
+          <PasswordBox x:Name="TxtCloudPassword" Grid.Row="6" Grid.Column="1" Height="28" Margin="0,0,0,8"/>
+          <StackPanel Grid.Row="7" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="Tester la connexion Cloud" Width="200" Height="34" Click="BtnTestCloud_Click"/>
+            <TextBlock x:Name="TxtCloudStatus" Margin="12,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Étape 4 : Fichiers -->
+      <Border x:Name="Step4" Padding="16" Background="White" CornerRadius="4" Visibility="Collapsed">
+        <StackPanel>
+          <TextBlock Text="Serveur de fichiers (documents élèves)" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+          <TextBlock Text="Dossier de stockage" Margin="0,0,0,4"/>
+          <DockPanel Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="…" Width="36" Margin="8,0,0,0" Click="BtnBrowseStorage_Click"/>
+            <TextBox x:Name="TxtStorageRoot" Height="28" Text="D:\ERP_SCOLAIRE" VerticalContentAlignment="Center"/>
+          </DockPanel>
+          <CheckBox x:Name="ChkShare" Content="Créer le partage Windows (ERP_Dossiers)" IsChecked="True" Margin="0,0,0,12"/>
+          <Button Content="Tester l'accès au dossier" Width="200" Height="34" HorizontalAlignment="Left" Click="BtnTestStorage_Click"/>
+          <TextBlock x:Name="TxtStorageStatus" Margin="0,8,0,0" FontWeight="SemiBold"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Étape 5 : Client URL / Récap + Install -->
+      <Border x:Name="Step5" Padding="16" Background="White" CornerRadius="4" Visibility="Collapsed">
+        <StackPanel>
+          <TextBlock x:Name="TxtRecapTitle" Text="Récapitulatif et installation" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+          <StackPanel x:Name="PnlClientUrl">
+            <TextBlock Text="URL API du serveur école" Margin="0,0,0,4"/>
+            <TextBox x:Name="TxtApiUrl" Height="28" Text="http://localhost:5096/" Margin="0,0,0,12"/>
+          </StackPanel>
+          <TextBlock x:Name="TxtRecap" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <CheckBox x:Name="ChkShortcut" Content="Créer un raccourci Bureau" IsChecked="True"/>
+          <CheckBox x:Name="ChkStart" Content="Démarrer après installation" IsChecked="True" Margin="0,6,0,0"/>
+          <CheckBox x:Name="ChkVirgin" Content="Appliquer une base Production vierge (recommandé)" IsChecked="True" Margin="0,6,0,0"/>
+        </StackPanel>
+      </Border>
+
+      <GroupBox Grid.Row="1" Header="Journal" Padding="6" Margin="0,12,0,0">
+        <TextBox x:Name="TxtLog" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="11" Background="#111827" Foreground="#E5E7EB" BorderThickness="0"/>
+      </GroupBox>
+    </Grid>
+  </DockPanel>
+</Window>

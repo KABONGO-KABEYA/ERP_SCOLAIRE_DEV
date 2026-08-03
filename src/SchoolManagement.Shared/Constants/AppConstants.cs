@@ -33,6 +33,7 @@ public static class ApiRoutes
     public const string Personnel = $"{Base}/personnel";
     public const string CloudSync = $"{Base}/cloud-sync";
     public const string Update = $"{Base}/update";
+    public const string Setup = $"{Base}/setup";
 }
 
 public static class AppConstants

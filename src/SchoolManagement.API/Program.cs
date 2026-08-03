@@ -57,16 +57,28 @@ catch (Exception ex)
 
 async Task RunAsync()
 {
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    // Service Windows : cwd = System32 — forcer la racine sur le dossier de l'exe.
+    ContentRootPath = AppContext.BaseDirectory,
+});
+
+// Permet d'héberger l'API comme service Windows (setup serveur).
+builder.Host.UseWindowsService();
+
+var logsDir = Path.Combine(AppContext.BaseDirectory, "logs");
+Directory.CreateDirectory(logsDir);
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File("logs/api-.log", rollingInterval: RollingInterval.Day));
+    .WriteTo.File(Path.Combine(logsDir, "api-.log"), rollingInterval: RollingInterval.Day));
 
 Console.WriteLine("Boot: reading SQL / JWT environment...");
+Console.WriteLine("Boot: ContentRoot = " + builder.Environment.ContentRootPath);
 var encryption = EncryptionServiceFactory.Create();
 var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory, encryption);
 
