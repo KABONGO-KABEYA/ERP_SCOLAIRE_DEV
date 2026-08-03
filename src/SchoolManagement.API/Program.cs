@@ -127,6 +127,19 @@ else
     Log.Information("Connexion SQL Server validée via {ConfigFile}.", DatabaseConfigurationManager.FileName);
 }
 
+try
+{
+    DatabaseEnvironmentGuard.EnsureSafe(builder.Environment, sqlConnectionString);
+    Log.Information(
+        "Garde BD OK — Env={Env}, Database={Database}",
+        builder.Environment.EnvironmentName,
+        DatabaseEnvironmentGuard.ExtractDatabaseName(sqlConnectionString));
+}
+catch (Exception ex)
+{
+    await FatalExitAsync("Garde environnement / base de données : {Error}", ex.Message);
+}
+
 var fileStorageManager = new FileStorageConfigurationManager(AppContext.BaseDirectory);
 var fileStorageRoot =
     builder.Configuration["FileStorage:Root"]
@@ -450,16 +463,35 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<NotificationSchemaInitializer>>());
     await notificationSchema.EnsureCreatedAsync();
 
-    // Development toujours ; Production/Cloud seulement si SEED_DATABASE=true|1
-    // (utile pour un premier démarrage Coolify sur base vide — retirer ensuite).
+    // Seed système (permissions + admin) : Development toujours ; Production seulement si SEED_DATABASE=true|1
+    // Seed démo : Development uniquement (jamais Production, sauf ALLOW_DEMO_SEED=true explicite).
     var seedFlag = Environment.GetEnvironmentVariable("SEED_DATABASE");
-    var shouldSeed = app.Environment.IsDevelopment()
+    var allowDemoFlag = Environment.GetEnvironmentVariable("ALLOW_DEMO_SEED");
+    var shouldSeedSystem = app.Environment.IsDevelopment()
         || string.Equals(seedFlag, "true", StringComparison.OrdinalIgnoreCase)
         || string.Equals(seedFlag, "1", StringComparison.OrdinalIgnoreCase);
-    if (shouldSeed)
+    var includeDemoConfig = app.Configuration.GetValue("Seed:IncludeDemoData", app.Environment.IsDevelopment());
+    var allowDemoExplicit =
+        string.Equals(allowDemoFlag, "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(allowDemoFlag, "1", StringComparison.OrdinalIgnoreCase);
+    var shouldSeedDemo = shouldSeedSystem
+        && includeDemoConfig
+        && (app.Environment.IsDevelopment() || allowDemoExplicit)
+        && !DatabaseEnvironmentGuard.IsProductionDatabase(sqlConnectionString);
+
+    if (shouldSeedSystem)
     {
         var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-        await seeder.SeedAsync();
+        await seeder.SeedSystemAsync();
+        if (shouldSeedDemo)
+        {
+            await seeder.SeedDemoAsync();
+            Log.Information("Seed Development : données de démonstration chargées.");
+        }
+        else if (!app.Environment.IsDevelopment())
+        {
+            Log.Information("Seed Production : système uniquement (pas de données de démonstration).");
+        }
     }
 }
 

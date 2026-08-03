@@ -140,7 +140,7 @@ public sealed class DatabaseConfigurationManager
         {
             ["SERVEUR"] = "localhost",
             ["PORT"] = "1433",
-            ["BASE"] = "SchoolManagementRDC",
+            ["BASE"] = "SchoolManagementRDC_Development",
             ["AUTHENTIFICATION"] = "SQL",
             ["UTILISATEUR"] = "sa",
             ["MOTDEPASSE"] = encryptedPassword

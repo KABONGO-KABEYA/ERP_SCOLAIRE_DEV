@@ -8,9 +8,12 @@ Les migrations EF Core sont générées dans :
 
 ```
 Server=localhost\HEROS_SQL19
-Database=SchoolManagementRDC
-User Id=sa
+Database=SchoolManagementRDC_Development
+Trusted_Connection=True
 ```
+
+> Bases séparées : Development = `SchoolManagementRDC_Development`, Production = `SchoolManagementRDC_Production`.  
+> Voir `docs/rapport-db-production-development.md`.
 
 > L'instance détectée sur cette machine est **HEROS_SQL19** (SQL Server 2019).
 

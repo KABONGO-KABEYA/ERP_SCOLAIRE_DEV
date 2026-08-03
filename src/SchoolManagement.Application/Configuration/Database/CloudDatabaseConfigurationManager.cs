@@ -176,7 +176,7 @@ public sealed class CloudDatabaseConfigurationManager
             ["INTERVALLE_MINUTES"] = "5",
             ["SERVEUR"] = "161.97.105.22",
             ["PORT"] = "1433",
-            ["BASE"] = "SchoolManagementRDC",
+            ["BASE"] = "SchoolManagementRDC_Production",
             ["AUTHENTIFICATION"] = "SQL",
             ["UTILISATEUR"] = "sa",
             ["MOTDEPASSE"] = encryptedPassword

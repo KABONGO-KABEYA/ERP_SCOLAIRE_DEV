@@ -38,9 +38,21 @@ public sealed class DatabaseSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
+        await SeedSystemAsync(cancellationToken);
+        await SeedDemoAsync(cancellationToken);
+    }
+
+    /// <summary>Permissions, rôles admin, compte Super Admin — sûr pour Production.</summary>
+    public async Task SeedSystemAsync(CancellationToken cancellationToken = default)
+    {
         await SeedPermissionsAsync(cancellationToken);
         await SeedAdminUserAsync(cancellationToken);
         await SeedResultValidationRolePermissionsAsync(cancellationToken);
+    }
+
+    /// <summary>Données de démonstration — Development uniquement.</summary>
+    public async Task SeedDemoAsync(CancellationToken cancellationToken = default)
+    {
         await SeedParentDemoAsync(cancellationToken);
         await SeedKabeyaParentAsync(cancellationToken);
         await SeedDemoAcademicStructureAsync(cancellationToken);
