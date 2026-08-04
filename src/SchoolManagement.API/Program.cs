@@ -249,7 +249,13 @@ Log.Information(
     deploymentOptions.IsCloudReadOnly);
 
 builder.Services.AddControllers();
-builder.Services.AddHostedService<SchoolManagement.LocalServerDiscovery.MdnsServiceAdvertiser>();
+var deploymentRolePreview = builder.Configuration["Deployment:Role"]
+    ?? Environment.GetEnvironmentVariable("Deployment__Role")
+    ?? "Local";
+if (!deploymentRolePreview.Equals("Cloud", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHostedService<SchoolManagement.LocalServerDiscovery.MdnsServiceAdvertiser>();
+}
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 builder.Services.AddApiVersioning(options =>
@@ -490,6 +496,11 @@ var app = builder.Build();
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<NotificationSchemaInitializer>>());
     await notificationSchema.EnsureCreatedAsync();
+
+    var parentActivationSchema = new ParentActivationSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<ParentActivationSchemaInitializer>>());
+    await parentActivationSchema.EnsureCreatedAsync();
 
     // Seed système (permissions + admin) : Development toujours ; Production seulement si SEED_DATABASE=true|1
     // Seed démo : Development uniquement (jamais Production, sauf ALLOW_DEMO_SEED=true explicite).

@@ -37,6 +37,18 @@ if [ -z "${Jwt__SecretKey:-}" ]; then
   exit 1
 fi
 
+ROLE="${Deployment__Role:-Local}"
+if [ "$ROLE" = "Cloud" ] || [ "${ASPNETCORE_ENVIRONMENT:-Production}" = "Production" ]; then
+  if [ -z "${ERP_CONFIG_ENCRYPTION_KEY:-}" ]; then
+    echo "FATAL: ERP_CONFIG_ENCRYPTION_KEY is missing (obligatoire Cloud/Production Linux)."
+    exit 1
+  fi
+  if [ "${ERP_CONFIG_ENCRYPTION_KEY}" = "SchoolManagement.ERP.Docker.DevKey.ChangeMe" ]; then
+    echo "FATAL: ERP_CONFIG_ENCRYPTION_KEY must not be the development default key."
+    exit 1
+  fi
+fi
+
 set +e
 dotnet SchoolManagement.API.dll
 code=$?

@@ -28,7 +28,33 @@ public sealed class ServerIdentityProvider : IServerIdentityProvider
         _configuration = configuration;
         _logger = logger;
         var encryption = EncryptionServiceFactory.Create();
-        _fileStore = new ServerIdentityFileStore(AppContext.BaseDirectory, encryption);
+        var identityDirectory = ResolveIdentityDirectory(configuration);
+        _fileStore = new ServerIdentityFileStore(identityDirectory, encryption);
+        _logger.LogDebug("ServerIdentity directory: {Dir}", identityDirectory);
+    }
+
+    private static string ResolveIdentityDirectory(IConfiguration configuration)
+    {
+        var fromEnv = Environment.GetEnvironmentVariable("SERVER_IDENTITY_DIR");
+        if (!string.IsNullOrWhiteSpace(fromEnv))
+        {
+            return fromEnv.Trim();
+        }
+
+        var fromConfig = configuration["ServerIdentity:Directory"];
+        if (!string.IsNullOrWhiteSpace(fromConfig))
+        {
+            return fromConfig.Trim();
+        }
+
+        var fileStorage = configuration["FileStorage:Root"]
+                          ?? Environment.GetEnvironmentVariable("FILE_STORAGE_ROOT");
+        if (!string.IsNullOrWhiteSpace(fileStorage))
+        {
+            return Path.Combine(fileStorage.Trim(), "server-identity");
+        }
+
+        return AppContext.BaseDirectory;
     }
 
     public ServerIdentitySnapshot Current
@@ -129,14 +155,36 @@ public sealed class ServerIdentityProvider : IServerIdentityProvider
 public sealed class ServerIdentityInitializationHostedService : IHostedService
 {
     private readonly IServerIdentityProvider _provider;
+    private readonly ILogger<ServerIdentityInitializationHostedService> _logger;
 
-    public ServerIdentityInitializationHostedService(IServerIdentityProvider provider)
+    public ServerIdentityInitializationHostedService(
+        IServerIdentityProvider provider,
+        ILogger<ServerIdentityInitializationHostedService> logger)
     {
         _provider = provider;
+        _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken) =>
-        await _provider.RefreshAsync(cancellationToken);
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _provider.RefreshAsync(cancellationToken);
+        }
+        catch (ServerIdentityCorruptedException ex)
+        {
+            _logger.LogCritical(
+                ex,
+                "ServerIdentity.json invalide ou clé AES incorrecte — l'API reste en ligne avec identité placeholder. " +
+                "Corrigez ERP_CONFIG_ENCRYPTION_KEY, restaurez ServerIdentity.json.bak ou supprimez le fichier sur le volume persistant.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(
+                ex,
+                "Échec initialisation identité serveur — placeholder actif. Vérifiez SERVER_IDENTITY_DIR / permissions volume.");
+        }
+    }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

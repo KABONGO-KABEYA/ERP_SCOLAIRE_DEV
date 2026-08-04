@@ -42,6 +42,7 @@ ENV PORT=1804 \
     ASPNETCORE_URLS=http://0.0.0.0:1804 \
     ASPNETCORE_ENVIRONMENT=Production \
     FILE_STORAGE_ROOT=/app/data/files \
+    SERVER_IDENTITY_DIR=/app/data/files/server-identity \
     Deployment__Role=Cloud \
     Deployment__ReadOnly=true
 
@@ -50,7 +51,7 @@ EXPOSE 1804
 COPY --from=build /app/publish .
 
 # Shell form = expansion de $PORT (Coolify peut injecter PORT)
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
+HEALTHCHECK --interval=20s --timeout=8s --start-period=180s --retries=6 \
   CMD curl -fsS "http://127.0.0.1:${PORT:-1804}/api/v1/health" || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

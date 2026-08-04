@@ -24,6 +24,7 @@ services:
       Deployment__Role: Cloud
       Deployment__ReadOnly: "true"
       FILE_STORAGE_ROOT: /app/data/files
+      SERVER_IDENTITY_DIR: /app/data/files/server-identity
       SQL_CONNECTION_STRING: ${SQL_CONNECTION_STRING}
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       Jwt__Issuer: ${JWT_ISSUER:-SchoolManagementRDC}
@@ -38,7 +39,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 45s
+      start_period: 180s
 
   # Profil optionnel : SQL dans Compose (dev / bootstrap).
   # Démarrer avec : docker compose --profile full up -d --build

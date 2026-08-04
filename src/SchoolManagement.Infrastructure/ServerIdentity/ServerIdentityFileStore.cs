@@ -22,6 +22,7 @@ internal sealed class ServerIdentityFileStore
 
     public ServerIdentityFileStore(string applicationBaseDirectory, IEncryptionService encryption)
     {
+        Directory.CreateDirectory(applicationBaseDirectory);
         _path = Path.Combine(applicationBaseDirectory, FileName);
         _backupPath = Path.Combine(applicationBaseDirectory, BackupFileName);
         _encryption = encryption;
