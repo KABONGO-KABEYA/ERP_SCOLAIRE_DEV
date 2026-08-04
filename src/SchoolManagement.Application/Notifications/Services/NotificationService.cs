@@ -157,6 +157,7 @@ public sealed class NotificationService : INotificationService
     }
 
     public async Task<IReadOnlyList<ParentNotificationDto>> GetInboxAsync(
+        Guid schoolId,
         Guid userAccountId,
         NotificationCategory? category = null,
         string? search = null,
@@ -174,7 +175,7 @@ public sealed class NotificationService : INotificationService
 
         var notificationIds = recipients.Select(r => r.NotificationId).ToHashSet();
         var notifications = await _notificationRepository.FindAsync(
-            n => notificationIds.Contains(n.Id),
+            n => notificationIds.Contains(n.Id) && n.SchoolId == schoolId,
             cancellationToken);
 
         var byId = notifications.ToDictionary(n => n.Id);
@@ -207,6 +208,7 @@ public sealed class NotificationService : INotificationService
     }
 
     public async Task<IReadOnlyList<ParentNotificationDto>> GetChangesAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid? afterId = null,
         DateTime? since = null,
@@ -224,7 +226,7 @@ public sealed class NotificationService : INotificationService
 
         var notificationIds = recipients.Select(r => r.NotificationId).ToHashSet();
         var notifications = await _notificationRepository.FindAsync(
-            n => notificationIds.Contains(n.Id),
+            n => notificationIds.Contains(n.Id) && n.SchoolId == schoolId,
             cancellationToken);
         var byId = notifications.ToDictionary(n => n.Id);
 
@@ -294,20 +296,38 @@ public sealed class NotificationService : INotificationService
     }
 
     public async Task<int> GetUnreadCountAsync(
+        Guid schoolId,
         Guid userAccountId,
         CancellationToken cancellationToken = default)
     {
         var recipients = await _recipientRepository.FindAsync(
             r => r.UserAccountId == userAccountId && !r.IsRead,
             cancellationToken);
-        return recipients.Count;
+        if (recipients.Count == 0)
+        {
+            return 0;
+        }
+
+        var notificationIds = recipients.Select(r => r.NotificationId).ToHashSet();
+        var notifications = await _notificationRepository.FindAsync(
+            n => notificationIds.Contains(n.Id) && n.SchoolId == schoolId,
+            cancellationToken);
+        var allowed = notifications.Select(n => n.Id).ToHashSet();
+        return recipients.Count(r => allowed.Contains(r.NotificationId));
     }
 
     public async Task MarkReadAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid notificationId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureParentNotificationSchoolAsync(
+            schoolId,
+            userAccountId,
+            notificationId,
+            cancellationToken);
+
         var row = (await _recipientRepository.FindAsync(
             r => r.UserAccountId == userAccountId && r.NotificationId == notificationId,
             cancellationToken)).FirstOrDefault();
@@ -323,6 +343,7 @@ public sealed class NotificationService : INotificationService
     }
 
     public async Task MarkAllReadAsync(
+        Guid schoolId,
         Guid userAccountId,
         CancellationToken cancellationToken = default)
     {
@@ -334,8 +355,14 @@ public sealed class NotificationService : INotificationService
             return;
         }
 
+        var notificationIds = unread.Select(r => r.NotificationId).ToHashSet();
+        var notifications = await _notificationRepository.FindAsync(
+            n => notificationIds.Contains(n.Id) && n.SchoolId == schoolId,
+            cancellationToken);
+        var allowed = notifications.Select(n => n.Id).ToHashSet();
+
         var now = DateTime.UtcNow;
-        foreach (var row in unread)
+        foreach (var row in unread.Where(r => allowed.Contains(r.NotificationId)))
         {
             row.IsRead = true;
             row.ReadAt = now;
@@ -346,10 +373,17 @@ public sealed class NotificationService : INotificationService
     }
 
     public async Task MarkDeliveredAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid notificationId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureParentNotificationSchoolAsync(
+            schoolId,
+            userAccountId,
+            notificationId,
+            cancellationToken);
+
         var row = (await _recipientRepository.FindAsync(
             r => r.UserAccountId == userAccountId && r.NotificationId == notificationId,
             cancellationToken)).FirstOrDefault();
@@ -361,6 +395,31 @@ public sealed class NotificationService : INotificationService
         row.DeliveredAt = DateTime.UtcNow;
         await _recipientRepository.UpdateAsync(row, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureParentNotificationSchoolAsync(
+        Guid schoolId,
+        Guid userAccountId,
+        Guid notificationId,
+        CancellationToken cancellationToken)
+    {
+        var notification = (await _notificationRepository.FindAsync(
+            n => n.Id == notificationId,
+            cancellationToken)).FirstOrDefault()
+            ?? throw new UnauthorizedAccessException("Notification introuvable.");
+
+        if (notification.SchoolId != schoolId)
+        {
+            throw new UnauthorizedAccessException("Notification hors contexte école.");
+        }
+
+        var recipient = (await _recipientRepository.FindAsync(
+            r => r.UserAccountId == userAccountId && r.NotificationId == notificationId,
+            cancellationToken)).FirstOrDefault();
+        if (recipient is null)
+        {
+            throw new UnauthorizedAccessException("Notification non destinée à ce compte.");
+        }
     }
 
     public async Task RegisterDeviceTokenAsync(
@@ -552,6 +611,7 @@ public sealed class NotificationService : INotificationService
         return new ParentNotificationDto(
             notification.Id,
             recipient.Id,
+            notification.SchoolId,
             notification.Title,
             notification.Body,
             notification.OccurredAt,

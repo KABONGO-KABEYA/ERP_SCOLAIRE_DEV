@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_storage.dart';
 import '../core/providers/app_providers.dart';
+import '../core/connection/connection_mode_notifier.dart';
+import '../core/school_binding/school_binding_gate.dart';
+import '../features/parent/activation/parent_activation_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/parent/attendance_screen.dart';
 import '../features/parent/bulletins_screen.dart';
@@ -48,8 +51,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (authState.isLoading) return null;
       final loggedIn = authState.value ?? false;
       final onLogin = state.matchedLocation == '/login';
+      final onActivate = state.matchedLocation.startsWith('/parent/activate');
+      final connection = ref.read(connectionModeProvider);
 
-      if (!loggedIn && !onLogin) return '/login';
+      if (connection.requiresReauthentication) {
+        if (!loggedIn && onLogin) return null;
+        await ref.read(authStateProvider.notifier).setLoggedIn(false);
+        if (!onLogin && !onActivate) {
+          return '/login?reason=server_instance';
+        }
+      }
+
+      if (loggedIn &&
+          await AuthStorage.isParent &&
+          await SchoolBindingGate.shouldBlockParentSessionWithoutBinding()) {
+        await ref.read(authStateProvider.notifier).setLoggedIn(false);
+        if (!onActivate) {
+          return '/parent/activate?reason=binding_required';
+        }
+      }
+
+      if (!loggedIn && !onLogin && !onActivate) return '/login';
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
 
       if (state.matchedLocation == '/children') {
@@ -69,6 +91,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/parent/activate',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return ParentActivationScreen(initialToken: token);
+        },
+      ),
       GoRoute(
         path: '/children',
         redirect: (_, __) => '/parent/home',

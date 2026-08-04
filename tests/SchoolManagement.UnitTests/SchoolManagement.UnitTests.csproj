@@ -6,8 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\SchoolManagement.API\SchoolManagement.API.csproj" />
     <ProjectReference Include="..\..\src\SchoolManagement.Application\SchoolManagement.Application.csproj" />
     <ProjectReference Include="..\..\src\SchoolManagement.Domain\SchoolManagement.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SchoolManagement.Infrastructure\SchoolManagement.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\SchoolManagement.Updates\SchoolManagement.Updates.csproj" />
   </ItemGroup>
 

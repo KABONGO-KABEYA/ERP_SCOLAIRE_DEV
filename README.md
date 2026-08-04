@@ -50,14 +50,18 @@ Tableau de bord · Paramétrage · Élèves · Académique · Notes · Financier
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
+- [Architecture métier](docs/architecture.md)
+- [Architecture connexion v2 — rapport final](docs/architecture/rapport-final-architecture-v2.md)
+- [Déploiement production connexion](docs/exploitation/deploiement-production-connexion-v2.md)
 - [Guide de démarrage](docs/guide-demarrage.md)
 - [Référence API](docs/api-reference.md)
 - [Modules métier](docs/modules/README.md)
 
 ## Statut du projet
 
-Tous les modules prévus (scaffolding → base de données → API → Desktop → Mobile → tests → documentation) sont **implémentés** pour la version 1.0 de démonstration.
+**Architecture connexion parent / école / Bootstrap (v2.0.1) :** terminée — [rapport final](docs/architecture/rapport-final-architecture-v2.md).
+
+Modules ERP (scaffolding → API → Desktop → Mobile → tests) : base **v1.0 démonstration** ; reprise du **métier** après clôture connexion.
 
 ## Licence
 

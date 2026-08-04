@@ -182,11 +182,14 @@ public class GradeServiceTests
             periodRepository,
             Substitute.For<IRepository<AcademicMainPeriod>>(),
             Substitute.For<IRepository<SchoolManagement.Domain.Entities.Security.UserAccount>>(),
+            Substitute.For<IRepository<SchoolManagement.Domain.Entities.Deliberation.ResultMentionDefinition>>(),
+            Substitute.For<IRepository<SchoolManagement.Domain.Entities.Deliberation.PedagogicalBonusPoint>>(),
             Substitute.For<SchoolManagement.Application.Auth.Interfaces.IPasswordHasher>(),
             Substitute.For<ICurrentUserService>(),
             unitOfWork,
             resultCalculation,
-            resultValidation);
+            resultValidation,
+            Substitute.For<SchoolManagement.Application.Notifications.Interfaces.INotificationService>());
 
         var results = await service.CalculatePeriodResultsAsync(
             schoolId,

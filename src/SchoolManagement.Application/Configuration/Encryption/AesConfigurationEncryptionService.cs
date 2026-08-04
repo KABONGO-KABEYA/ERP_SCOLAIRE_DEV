@@ -19,11 +19,22 @@ public sealed class AesConfigurationEncryptionService : IEncryptionService
         var raw = Environment.GetEnvironmentVariable("ERP_CONFIG_ENCRYPTION_KEY");
         if (string.IsNullOrWhiteSpace(raw))
         {
-            raw = "SchoolManagement.ERP.Docker.DevKey.ChangeMe";
+            var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var isDevelopment = string.Equals(envName, "Development", StringComparison.OrdinalIgnoreCase);
+            if (!isDevelopment)
+            {
+                throw new InvalidOperationException(
+                    "Variable d'environnement ERP_CONFIG_ENCRYPTION_KEY obligatoire hors développement " +
+                    "(Cloud / Production Linux).");
+            }
+
+            raw = DevFallbackKey;
         }
 
         _key = SHA256.HashData(Encoding.UTF8.GetBytes(raw.Trim()));
     }
+
+    public const string DevFallbackKey = "SchoolManagement.ERP.Docker.DevKey.ChangeMe";
 
     public string Encrypt(string plainText)
     {

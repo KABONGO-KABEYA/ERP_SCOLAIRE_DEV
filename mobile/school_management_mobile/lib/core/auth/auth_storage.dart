@@ -1,5 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../cache/cache_partition_policy.dart';
+
 class AuthStorage {
   AuthStorage._();
 
@@ -10,6 +12,18 @@ class AuthStorage {
   static const _rolesKey = 'user_roles';
   static const _permissionsKey = 'user_permissions';
 
+  static const _sessionKeys = [
+    _accessTokenKey,
+    _refreshTokenKey,
+    _userNameKey,
+    _rolesKey,
+    _permissionsKey,
+  ];
+
+  static Future<String> _resolveKey(String base) async {
+    return CachePartitionPolicy.scopeKey(base);
+  }
+
   static Future<void> saveSession({
     required String accessToken,
     required String refreshToken,
@@ -17,27 +31,48 @@ class AuthStorage {
     required List<String> roles,
     required List<String> permissions,
   }) async {
-    await _storage.write(key: _accessTokenKey, value: accessToken);
-    await _storage.write(key: _refreshTokenKey, value: refreshToken);
-    await _storage.write(key: _userNameKey, value: userName);
-    await _storage.write(key: _rolesKey, value: roles.join(','));
-    await _storage.write(key: _permissionsKey, value: permissions.join(','));
+    await _storage.write(
+      key: await _resolveKey(_accessTokenKey),
+      value: accessToken,
+    );
+    await _storage.write(
+      key: await _resolveKey(_refreshTokenKey),
+      value: refreshToken,
+    );
+    await _storage.write(
+      key: await _resolveKey(_userNameKey),
+      value: userName,
+    );
+    await _storage.write(
+      key: await _resolveKey(_rolesKey),
+      value: roles.join(','),
+    );
+    await _storage.write(
+      key: await _resolveKey(_permissionsKey),
+      value: permissions.join(','),
+    );
   }
 
-  static Future<String?> get accessToken => _storage.read(key: _accessTokenKey);
+  static Future<String?> get accessToken async {
+    return _storage.read(key: await _resolveKey(_accessTokenKey));
+  }
 
-  static Future<String?> get refreshToken => _storage.read(key: _refreshTokenKey);
+  static Future<String?> get refreshToken async {
+    return _storage.read(key: await _resolveKey(_refreshTokenKey));
+  }
 
-  static Future<String?> get userName => _storage.read(key: _userNameKey);
+  static Future<String?> get userName async {
+    return _storage.read(key: await _resolveKey(_userNameKey));
+  }
 
   static Future<List<String>> get roles async {
-    final raw = await _storage.read(key: _rolesKey);
+    final raw = await _storage.read(key: await _resolveKey(_rolesKey));
     if (raw == null || raw.isEmpty) return [];
     return raw.split(',').where((r) => r.isNotEmpty).toList();
   }
 
   static Future<List<String>> get permissions async {
-    final raw = await _storage.read(key: _permissionsKey);
+    final raw = await _storage.read(key: await _resolveKey(_permissionsKey));
     if (raw == null || raw.isEmpty) return [];
     return raw.split(',').where((p) => p.isNotEmpty).toList();
   }
@@ -87,5 +122,20 @@ class AuthStorage {
     return '/parent/home';
   }
 
-  static Future<void> clear() => _storage.deleteAll();
+  /// Efface la session courante (clés scopées ou legacy) — ne touche pas `device_id` / `school_binding`.
+  static Future<void> clearSession() async {
+    if (await CachePartitionPolicy.isPartitioningEnabled) {
+      for (final base in _sessionKeys) {
+        await _storage.delete(key: await _resolveKey(base));
+      }
+      return;
+    }
+
+    for (final base in _sessionKeys) {
+      await _storage.delete(key: base);
+    }
+  }
+
+  /// Alias historique — préférer [clearSession].
+  static Future<void> clear() => clearSession();
 }

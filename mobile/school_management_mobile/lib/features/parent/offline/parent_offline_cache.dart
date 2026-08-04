@@ -3,43 +3,84 @@ import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../../core/cache/cache_partition_policy.dart';
+
 /// Cache Hive isolé pour le portail parent (Sprint 4).
-/// N'altère pas ParentRepository — utilisé uniquement par les providers.
+/// Étape 5 : box scopée par `schoolId` si `STRICT_SCHOOL_DISCOVERY`.
 class ParentOfflineCache {
   ParentOfflineCache._(this._box);
 
-  static const boxName = 'parent_offline_v1';
+  static const boxNameBase = 'parent_offline_v1';
   static ParentOfflineCache? _instance;
+  static bool _hiveReady = false;
 
   final Box<String> _box;
 
   static Future<ParentOfflineCache> init() async {
-    if (_instance != null) return _instance!;
+    await _ensureHiveInitialized();
+    await ensureActivePartition();
+    return instance;
+  }
+
+  static Future<void> _ensureHiveInitialized() async {
+    if (_hiveReady) return;
     try {
       await Hive.initFlutter();
     } catch (_) {
-      // Windows / desktop : path_provider peut échouer — dossier local de secours.
       final fallback = Directory('${Directory.systemTemp.path}/erp_mobile_cache');
       if (!await fallback.exists()) {
         await fallback.create(recursive: true);
       }
       Hive.init(fallback.path);
     }
-    final box = await Hive.openBox<String>(boxName);
+    _hiveReady = true;
+  }
+
+  static Future<String> _resolveBoxName() async {
+    final schoolId = await CachePartitionPolicy.activeSchoolId();
+    if (schoolId == null) return boxNameBase;
+    return CachePartitionPolicy.hiveBoxName(boxNameBase, schoolId);
+  }
+
+  static Future<void> ensureActivePartition() async {
+    await _ensureHiveInitialized();
+    final name = await _resolveBoxName();
+    if (_instance != null && _instance!._box.name == name) return;
+
+    if (_instance != null) {
+      await _instance!._box.close();
+      _instance = null;
+    }
+
+    final box = await Hive.openBox<String>(name);
     _instance = ParentOfflineCache._(box);
-    return _instance!;
   }
 
   static ParentOfflineCache get instance {
     final current = _instance;
     if (current == null) {
-      throw StateError('ParentOfflineCache non initialisé. Appeler init() dans main().');
+      throw StateError(
+        'ParentOfflineCache non initialisé. Appeler init() dans main().',
+      );
     }
     return current;
   }
 
-  /// Lit le réseau ; en échec, renvoie le cache s'il existe.
-  /// [onCacheHit] est appelé uniquement quand la valeur vient du cache.
+  static Future<void> purgeForSchool(String schoolId) async {
+    await _ensureHiveInitialized();
+    final name = CachePartitionPolicy.hiveBoxName(boxNameBase, schoolId);
+    if (Hive.isBoxOpen(name)) {
+      await Hive.box<String>(name).close();
+    }
+    if (await Hive.boxExists(name)) {
+      await Hive.deleteBoxFromDisk(name);
+    }
+    if (_instance?._box.name == name) {
+      _instance = null;
+      await ensureActivePartition();
+    }
+  }
+
   Future<T> readThrough<T>({
     required String key,
     required Future<T> Function() fetch,
@@ -101,7 +142,6 @@ class ParentOfflineCache {
 
   static const _metaLastWriteKey = '__meta_last_write_at';
 
-  /// Horodatage de la dernière écriture réseau réussie dans le cache.
   DateTime? get lastWriteAt {
     final raw = _box.get(_metaLastWriteKey);
     if (raw == null || raw.isEmpty) return null;

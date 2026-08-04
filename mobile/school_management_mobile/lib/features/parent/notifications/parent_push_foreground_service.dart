@@ -13,6 +13,8 @@ import '../../../core/auth/auth_storage.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/local_server_discovery/discovery_constants.dart';
 import 'parent_push_audit_log.dart';
+import 'parent_push_preferences.dart';
+import 'parent_push_school_guard.dart';
 
 /// Point d'entrée isolate du service foreground (top-level obligatoire).
 @pragma('vm:entry-point')
@@ -26,12 +28,12 @@ class ParentPushForegroundService {
 
   static const baseUrlKey = 'parent_push_fg_base_url';
   static const tokenKey = 'parent_push_fg_access_token';
-  static const prefsBaseUrlKey = 'parent_push_fg_base_url_prefs';
-  static const prefsTokenKey = 'parent_push_fg_access_token_prefs';
-  static const pollEnabledKey = 'parent_push_fg_poll_enabled';
-  static const cursorKey = 'parent_push_changes_after_id';
-  static const seenKey = 'parent_push_seen_ids';
-  static const seededKey = 'parent_push_seeded';
+  static const prefsBaseUrlKey = ParentPushPreferences.fgBaseUrlBase;
+  static const prefsTokenKey = ParentPushPreferences.fgTokenBase;
+  static const pollEnabledKey = ParentPushPreferences.pollEnabledBase;
+  static const cursorKey = ParentPushPreferences.changesCursorBase;
+  static const seenKey = ParentPushPreferences.seenIdsBase;
+  static const seededKey = ParentPushPreferences.seededBase;
 
   static var _initialized = false;
 
@@ -68,33 +70,52 @@ class ParentPushForegroundService {
     required String? baseUrl,
     required String? accessToken,
   }) async {
+    await ParentPushPreferences.persistActiveSchoolContext();
     final prefs = await SharedPreferences.getInstance();
+    final urlPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgBaseUrlBase);
+    final tokenPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgTokenBase);
 
     if (baseUrl != null && baseUrl.isNotEmpty) {
       final normalized = ApiConfig.normalize(baseUrl);
       await FlutterForegroundTask.saveData(key: baseUrlKey, value: normalized);
-      await prefs.setString(prefsBaseUrlKey, normalized);
+      await prefs.setString(urlPrefsKey, normalized);
     }
 
     if (accessToken != null && accessToken.isNotEmpty) {
       await FlutterForegroundTask.saveData(key: tokenKey, value: accessToken);
-      await prefs.setString(prefsTokenKey, accessToken);
+      await prefs.setString(tokenPrefsKey, accessToken);
+    }
+
+    final schoolId = await ParentPushPreferences.readPersistedSchoolId();
+    if (schoolId != null && schoolId.isNotEmpty) {
+      await FlutterForegroundTask.saveData(
+        key: ParentPushPreferences.activeSchoolIdKey,
+        value: schoolId,
+      );
     }
   }
 
   static Future<void> clearCredentials() async {
     await FlutterForegroundTask.removeData(key: tokenKey);
     await FlutterForegroundTask.removeData(key: baseUrlKey);
+    await FlutterForegroundTask.removeData(
+      key: ParentPushPreferences.activeSchoolIdKey,
+    );
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(prefsTokenKey);
-    await prefs.remove(prefsBaseUrlKey);
+    final tokenPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgTokenBase);
+    final urlPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgBaseUrlBase);
+    await prefs.remove(tokenPrefsKey);
+    await prefs.remove(urlPrefsKey);
   }
 
   /// Active/désactive le poll FG (false quand SignalR UP + app au premier plan).
   static Future<void> setPollingEnabled(bool enabled) async {
     await FlutterForegroundTask.saveData(key: pollEnabledKey, value: enabled);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(pollEnabledKey, enabled);
+    await ParentPushPreferences.setPollEnabled(enabled);
   }
 
   static Future<void> ensureStarted(String? baseUrl) async {
@@ -227,7 +248,9 @@ class ParentPushTaskHandler extends TaskHandler {
     if (fromFg != null) return fromFg;
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
-    return prefs.getBool(ParentPushForegroundService.pollEnabledKey) ?? true;
+    final key =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.pollEnabledBase);
+    return prefs.getBool(key) ?? true;
   }
 
   Future<void> _poll() async {
@@ -271,11 +294,15 @@ class ParentPushTaskHandler extends TaskHandler {
       final baseUrl = await _resolveBaseUrl();
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
-      final afterId = prefs.getString(ParentPushForegroundService.cursorKey);
-      final seeded =
-          prefs.getBool(ParentPushForegroundService.seededKey) == true;
-      final seenList =
-          prefs.getStringList(ParentPushForegroundService.seenKey) ?? const [];
+      final cursorKey =
+          await ParentPushPreferences.fgScopedKey(ParentPushPreferences.changesCursorBase);
+      final seededKey =
+          await ParentPushPreferences.fgScopedKey(ParentPushPreferences.seededBase);
+      final seenKey =
+          await ParentPushPreferences.fgScopedKey(ParentPushPreferences.seenIdsBase);
+      final afterId = prefs.getString(cursorKey);
+      final seeded = prefs.getBool(seededKey) == true;
+      final seenList = prefs.getStringList(seenKey) ?? const [];
 
       ParentPushAudit.prefs(
         jwtPresent: token != null && token.isNotEmpty,
@@ -370,6 +397,9 @@ class ParentPushTaskHandler extends TaskHandler {
         String? newestId;
         DateTime? newestDate;
         for (final item in items) {
+          if (!await ParentPushSchoolGuard.acceptsNotification(item)) {
+            continue;
+          }
           final id = item['id']?.toString().trim().toLowerCase() ?? '';
           if (id.isEmpty) continue;
           seen.add(id);
@@ -379,16 +409,10 @@ class ParentPushTaskHandler extends TaskHandler {
             newestId = id;
           }
         }
-        await prefs.setStringList(
-          ParentPushForegroundService.seenKey,
-          seen.toList(),
-        );
-        await prefs.setBool(ParentPushForegroundService.seededKey, true);
+        await prefs.setStringList(seenKey, seen.toList());
+        await prefs.setBool(seededKey, true);
         if (newestId != null) {
-          await prefs.setString(
-            ParentPushForegroundService.cursorKey,
-            newestId,
-          );
+          await prefs.setString(cursorKey, newestId);
           ParentPushAudit.poll('cursor_set', data: {'afterId': newestId});
         }
         await FlutterForegroundTask.updateService(
@@ -427,6 +451,9 @@ class ParentPushTaskHandler extends TaskHandler {
       var shown = 0;
       String? lastId = afterId;
       for (final item in items) {
+        if (!await ParentPushSchoolGuard.acceptsNotification(item)) {
+          continue;
+        }
         final id = item['id']?.toString().trim().toLowerCase() ?? '';
         if (id.isEmpty) continue;
         lastId = id;
@@ -453,9 +480,9 @@ class ParentPushTaskHandler extends TaskHandler {
       if (items.isNotEmpty || shown > 0) {
         final trimmed =
             seen.toList().reversed.take(400).toList().reversed.toList();
-        await prefs.setStringList(ParentPushForegroundService.seenKey, trimmed);
+        await prefs.setStringList(seenKey, trimmed);
         if (lastId != null) {
-          await prefs.setString(ParentPushForegroundService.cursorKey, lastId);
+          await prefs.setString(cursorKey, lastId);
         }
         if (shown > 0) {
           FlutterForegroundTask.sendDataToMain({'type': 'inbox_changed'});
@@ -495,8 +522,9 @@ class ParentPushTaskHandler extends TaskHandler {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
-    final fromPrefs =
-        prefs.getString(ParentPushForegroundService.prefsTokenKey);
+    final tokenPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgTokenBase);
+    final fromPrefs = prefs.getString(tokenPrefsKey);
     if (fromPrefs != null && fromPrefs.isNotEmpty) return fromPrefs;
 
     try {
@@ -516,8 +544,9 @@ class ParentPushTaskHandler extends TaskHandler {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
-    final fromPrefs =
-        prefs.getString(ParentPushForegroundService.prefsBaseUrlKey);
+    final urlPrefsKey =
+        await ParentPushPreferences.fgScopedKey(ParentPushPreferences.fgBaseUrlBase);
+    final fromPrefs = prefs.getString(urlPrefsKey);
     if (fromPrefs != null && fromPrefs.isNotEmpty) {
       return ApiConfig.normalize(fromPrefs);
     }

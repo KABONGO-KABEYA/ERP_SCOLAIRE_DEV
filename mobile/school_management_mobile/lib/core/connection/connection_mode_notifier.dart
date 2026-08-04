@@ -70,7 +70,8 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   static bool _sameSnapshot(ConnectionSnapshot a, ConnectionSnapshot b) =>
       a.mode == b.mode &&
       a.baseUrl == b.baseUrl &&
-      a.hasInternet == b.hasInternet;
+      a.hasInternet == b.hasInternet &&
+      a.requiresReauthentication == b.requiresReauthentication;
 
   @override
   void dispose() {

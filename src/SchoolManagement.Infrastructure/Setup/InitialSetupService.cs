@@ -7,6 +7,7 @@ using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Setup.DTOs;
 using SchoolManagement.Application.Setup.Interfaces;
+using SchoolManagement.Application.ServerIdentity;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Enums;
@@ -22,6 +23,7 @@ public sealed class InitialSetupService : IInitialSetupService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISchoolService _schoolService;
     private readonly ISchoolFeeService _schoolFeeService;
+    private readonly IServerIdentityProvider _serverIdentity;
     private readonly ILogger<InitialSetupService> _logger;
 
     public InitialSetupService(
@@ -29,12 +31,14 @@ public sealed class InitialSetupService : IInitialSetupService
         IPasswordHasher passwordHasher,
         ISchoolService schoolService,
         ISchoolFeeService schoolFeeService,
+        IServerIdentityProvider serverIdentity,
         ILogger<InitialSetupService> logger)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _schoolService = schoolService;
         _schoolFeeService = schoolFeeService;
+        _serverIdentity = serverIdentity;
         _logger = logger;
     }
 
@@ -145,6 +149,8 @@ public sealed class InitialSetupService : IInitialSetupService
         _logger.LogInformation(
             "Configuration initiale terminée — école {School} ({SchoolId}), admin {Admin}",
             school.Name, school.Id, admin.UserName);
+
+        await _serverIdentity.RefreshAsync(cancellationToken);
 
         return new CompleteInitialSetupResultDto(
             school.Id,

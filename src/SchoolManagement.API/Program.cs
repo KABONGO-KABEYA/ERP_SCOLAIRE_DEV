@@ -79,6 +79,16 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 Console.WriteLine("Boot: reading SQL / JWT environment...");
 Console.WriteLine("Boot: ContentRoot = " + builder.Environment.ContentRootPath);
+
+try
+{
+    ProductionEncryptionKeyGuard.EnsureConfigured(builder.Environment, builder.Configuration);
+}
+catch (Exception ex)
+{
+    await FatalExitAsync("Clé de chiffrement configuration : {Error}", ex.Message);
+}
+
 var encryption = EncryptionServiceFactory.Create();
 var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory, encryption);
 
@@ -224,6 +234,12 @@ else
 
 builder.Services.Configure<DeploymentOptions>(
     builder.Configuration.GetSection(DeploymentOptions.SectionName));
+builder.Services.Configure<SchoolManagement.Application.ParentActivation.BootstrapRelay.BootstrapRelaySchoolOptions>(
+    builder.Configuration.GetSection(
+        SchoolManagement.Application.ParentActivation.BootstrapRelay.BootstrapRelaySchoolOptions.SectionName));
+builder.Services.AddSingleton<
+    SchoolManagement.Application.ParentActivation.BootstrapRelay.IBootstrapRelayRequestValidator,
+    SchoolManagement.API.Services.BootstrapRelay.StaticSharedKeyBootstrapRelayRequestValidator>();
 var deploymentOptions = builder.Configuration
     .GetSection(DeploymentOptions.SectionName)
     .Get<DeploymentOptions>() ?? new DeploymentOptions();

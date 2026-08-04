@@ -6,6 +6,8 @@ import '../../core/api/api_error_message.dart';
 import '../../core/auth/auth_storage.dart';
 import '../../core/connection/connection_mode.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/school_binding/jwt_binding_migration_service.dart';
+import '../../core/school_binding/school_binding_gate.dart';
 import '../../core/theme/erp_theme.dart';
 import 'auth_repository.dart';
 
@@ -22,6 +24,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   String? _error;
+  bool _reauthBannerHandled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_reauthBannerHandled) return;
+    final reason = GoRouterState.of(context).uri.queryParameters['reason'];
+    if (reason == 'server_instance') {
+      _reauthBannerHandled = true;
+      _error =
+          'Le serveur de l\'école a été réinstallé. Données offline effacées — reconnectez-vous.';
+    }
+  }
 
   @override
   void dispose() {
@@ -43,11 +58,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(authRepositoryProvider).login(
+      final session = await ref.read(authRepositoryProvider).login(
             _userController.text.trim(),
             _passwordController.text,
             baseUrl: connection.baseUrl,
           );
+
+      final isParent = session.user.roles
+          .any((r) => r.toUpperCase().contains('PARENT'));
+      if (isParent &&
+          await SchoolBindingGate.shouldBlockParentSessionWithoutBinding()) {
+        await ref.read(authRepositoryProvider).logout(baseUrl: connection.baseUrl);
+        if (!mounted) return;
+        setState(() {
+          _error =
+              'Activation requise — scannez le QR de l\'école avant de vous connecter.';
+        });
+        context.go('/parent/activate?reason=binding_required');
+        return;
+      }
+
+      if (isParent) {
+        await JwtBindingMigrationService.tryMigrateAfterParentLogin(
+          session: session,
+          apiBaseUrl: connection.baseUrl!,
+          connection: connection,
+        );
+      }
+
       await ref.read(authStateProvider.notifier).setLoggedIn(true);
       if (!mounted) return;
       context.go(await AuthStorage.homeRoute);
@@ -216,6 +254,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('Se connecter'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/parent/activate'),
+                  child: const Text('Activer avec QR code (parent)'),
                 ),
               ],
             ),

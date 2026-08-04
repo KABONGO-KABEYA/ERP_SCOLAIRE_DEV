@@ -3,14 +3,16 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 import '../../../core/auth/auth_storage.dart';
+import '../../../core/cache/cache_partition_policy.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/connection/connection_mode.dart';
 import 'notification_service.dart';
 import 'parent_push_audit_log.dart';
+import 'parent_push_preferences.dart';
+import 'parent_push_school_guard.dart';
 
 typedef ParentPushInboxListener = void Function();
 
@@ -24,9 +26,6 @@ class ParentPushRealtimeClient {
   String? _baseUrl;
   var _connecting = false;
   final _seenIds = <String>{};
-  static const _prefsKey = 'parent_push_seen_ids';
-  static const _seededKey = 'parent_push_seeded';
-  static const _cursorKey = 'parent_push_changes_after_id';
 
   final _connectionController = StreamController<bool>.broadcast();
   ParentPushInboxListener? onInboxChanged;
@@ -44,7 +43,10 @@ class ParentPushRealtimeClient {
 
     final base = ApiConfig.normalize(connection.baseUrl!);
     if (_hub != null && _baseUrl == base) {
-      if (_hub!.state == HubConnectionState.Connected) return;
+      if (_hub!.state == HubConnectionState.Connected) {
+        await _refreshHubSchoolBinding();
+        return;
+      }
       if (_hub!.state == HubConnectionState.Connecting ||
           _hub!.state == HubConnectionState.Reconnecting) {
         return;
@@ -60,6 +62,7 @@ class ParentPushRealtimeClient {
     try {
       await stop(notify: false);
       await _loadSeen();
+      await _refreshHubSchoolBinding();
 
       final hubUrl = '$baseUrl/hubs/parent-notifications';
       final httpOptions = HttpConnectionOptions(
@@ -124,35 +127,43 @@ class ParentPushRealtimeClient {
       }
     }
     if (map == null) return;
+    final payload = map;
 
-    final id = (map['id'] ?? map['Id'] ?? map['notificationId'])
+    unawaited(() async {
+      if (!await ParentPushSchoolGuard.acceptsNotification(payload)) {
+        ParentPushAudit.log('SignalR notification rejected (school scope)');
+        return;
+      }
+      final id = (payload['id'] ?? payload['Id'] ?? payload['notificationId'])
             ?.toString()
             .trim()
             .toLowerCase() ??
         '';
-    if (id.isEmpty) {
-      debugPrint('[Push] SignalR sans id — ignoré (évite doublon)');
-      return;
-    }
-    final title =
-        map['title'] as String? ?? map['Title'] as String? ?? 'Notification';
-    final body = map['message'] as String? ??
-        map['Message'] as String? ??
-        map['body'] as String? ??
-        '';
-    unawaited(() async {
+      if (id.isEmpty) {
+        debugPrint('[Push] SignalR sans id — ignoré (évite doublon)');
+        return;
+      }
+      final title = payload['title'] as String? ??
+          payload['Title'] as String? ??
+          'Notification';
+      final body = payload['message'] as String? ??
+          payload['Message'] as String? ??
+          payload['body'] as String? ??
+          '';
       await notifyIfNew(
         ParentLocalPushMessage(
           id: id,
           title: title,
           body: body,
           data: {
-            if (map!['category'] != null) 'category': map['category'].toString(),
-            if (map['deepLink'] != null) 'deepLink': map['deepLink'].toString(),
-            if (map['studentId'] != null)
-              'studentId': map['studentId'].toString(),
+            if (payload['category'] != null)
+              'category': payload['category'].toString(),
+            if (payload['deepLink'] != null)
+              'deepLink': payload['deepLink'].toString(),
+            if (payload['studentId'] != null)
+              'studentId': payload['studentId'].toString(),
           },
-          receivedAt: DateTime.tryParse(map['date']?.toString() ?? '') ??
+          receivedAt: DateTime.tryParse(payload['date']?.toString() ?? '') ??
               DateTime.now(),
         ),
       );
@@ -160,6 +171,12 @@ class ParentPushRealtimeClient {
       await advanceCursor(id);
       onInboxChanged?.call();
     }());
+  }
+
+  Future<void> _refreshHubSchoolBinding() async {
+    final schoolId = await CachePartitionPolicy.activeSchoolId();
+    ParentPushSchoolGuard.bindHubSchool(schoolId);
+    await ParentPushPreferences.persistActiveSchoolContext();
   }
 
   Future<void> notifyIfNew(ParentLocalPushMessage message) async {
@@ -195,8 +212,7 @@ class ParentPushRealtimeClient {
 
   Future<void> seedExistingWithoutAlert(Iterable<String> ids) async {
     await _loadSeen();
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_seededKey) == true) return;
+    if (await ParentPushPreferences.getSeeded() == true) return;
     await markSeen(ids);
     final last = ids
         .map((e) => e.trim().toLowerCase())
@@ -205,26 +221,20 @@ class ParentPushRealtimeClient {
     if (last.isNotEmpty) {
       await advanceCursor(last.first);
     }
-    await prefs.setBool(_seededKey, true);
+    await ParentPushPreferences.setSeeded(true);
   }
 
-  Future<bool> get isSeeded async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_seededKey) == true;
-  }
+  Future<bool> get isSeeded async =>
+      await ParentPushPreferences.getSeeded() == true;
 
   Future<void> reloadSeen() => _loadSeen();
 
-  Future<String?> getChangesCursor() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_cursorKey);
-  }
+  Future<String?> getChangesCursor() => ParentPushPreferences.getChangesCursor();
 
   Future<void> advanceCursor(String notificationId) async {
     final id = notificationId.trim().toLowerCase();
     if (id.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_cursorKey, id);
+    await ParentPushPreferences.setChangesCursor(id);
   }
 
   /// ACK livrée : hub SignalR si possible, sinon HTTP.
@@ -289,6 +299,9 @@ class ParentPushRealtimeClient {
       );
       final items = _parseList(response.data);
       for (final item in items) {
+        if (!await ParentPushSchoolGuard.acceptsNotification(item)) {
+          continue;
+        }
         final id = item['id']?.toString().trim().toLowerCase() ?? '';
         if (id.isEmpty) continue;
         await notifyIfNew(
@@ -331,9 +344,7 @@ class ParentPushRealtimeClient {
   }
 
   Future<void> _loadSeen() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-    final list = prefs.getStringList(_prefsKey) ?? const [];
+    final list = await ParentPushPreferences.getSeenIds();
     _seenIds
       ..clear()
       ..addAll(
@@ -342,16 +353,16 @@ class ParentPushRealtimeClient {
   }
 
   Future<void> _saveSeen() async {
-    final prefs = await SharedPreferences.getInstance();
     final trimmed =
         _seenIds.toList().reversed.take(400).toList().reversed.toList();
-    await prefs.setStringList(_prefsKey, trimmed);
+    await ParentPushPreferences.setSeenIds(trimmed);
   }
 
   Future<void> stop({bool notify = true}) async {
     final hub = _hub;
     _hub = null;
     _baseUrl = null;
+    ParentPushSchoolGuard.clearHubSchool();
     if (notify) _emitConnection(false);
     if (hub == null) return;
     try {

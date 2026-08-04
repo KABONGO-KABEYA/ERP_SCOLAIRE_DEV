@@ -10,6 +10,7 @@ using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Deliberation;
 using SchoolManagement.Domain.Entities.Hr;
 using SchoolManagement.Domain.Entities.Notifications;
+using SchoolManagement.Domain.Entities.ParentActivation;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -157,6 +158,9 @@ public class SchoolDbContext : DbContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<LoginHistory> LoginHistory => Set<LoginHistory>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<ParentActivationToken> ParentActivationTokens => Set<ParentActivationToken>();
+    public DbSet<ParentActivationSession> ParentActivationSessions => Set<ParentActivationSession>();
 
     // Sync cloud (outbox / journal) — tables locales uniquement
     public DbSet<SyncOutboxUnit> SyncOutboxUnits => Set<SyncOutboxUnit>();

@@ -44,6 +44,7 @@ Exemple :
 ```env
 SQL_CONNECTION_STRING=Server=169.58.93.203,1433;Database=SchoolManagementRDC;User Id=sa;Password=VOTRE_MDP;TrustServerCertificate=True;Encrypt=True
 JWT_SECRET_KEY=une-cle-secrete-tres-longue-aleatoire-32+
+ERP_CONFIG_ENCRYPTION_KEY=une-autre-cle-secrete-longue-pour-aes-identite
 API_HOST_PORT=1804
 ```
 
@@ -149,6 +150,7 @@ Deployment__ReadOnly=true
 FILE_STORAGE_ROOT=/app/data/files
 SQL_CONNECTION_STRING=Server=169.58.93.203,1433;Database=SchoolManagementRDC;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=True
 Jwt__SecretKey=une-cle-secrete-tres-longue-32caracteres-min
+ERP_CONFIG_ENCRYPTION_KEY=cle-aes-production-longue-et-unique
 Jwt__Issuer=SchoolManagementRDC
 Jwt__Audience=SchoolManagementClients
 ```
@@ -180,7 +182,7 @@ AprÃ¨s correction des variables de lâ€™**API** : **Redeploy** lâ€™AP
 | `Deployment__Role` | `Cloud` |
 | `Deployment__ReadOnly` | `true` |
 | `Jwt__SecretKey` | Secret JWT |
-| `ERP_CONFIG_ENCRYPTION_KEY` | AES Linux si fichiers config utilisÃ©s |
+| `ERP_CONFIG_ENCRYPTION_KEY` | **Obligatoire** en Production/Cloud (chiffrement identité + config AES) ; jamais la clé de dev |
 
 ## DÃ©pannage
 
@@ -200,3 +202,4 @@ AprÃ¨s correction des variables de lâ€™**API** : **Redeploy** lâ€™AP
 - `.env.example`
 - `.dockerignore`
 - `docs/deploy-docker-cloud.md` (ce guide)
+- [docs/exploitation/server-identity-et-restauration.md](exploitation/server-identity-et-restauration.md) — sauvegarde/restauration de `ServerIdentity.json` avec la base SQL

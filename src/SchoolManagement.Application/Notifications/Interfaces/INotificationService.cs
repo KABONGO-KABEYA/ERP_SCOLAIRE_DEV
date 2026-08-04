@@ -34,6 +34,7 @@ public interface INotificationService
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ParentNotificationDto>> GetInboxAsync(
+        Guid schoolId,
         Guid userAccountId,
         NotificationCategory? category = null,
         string? search = null,
@@ -45,6 +46,7 @@ public interface INotificationService
     /// et/ou <paramref name="since"/> (UTC). Trafic réduit pour le Foreground Service.
     /// </summary>
     Task<IReadOnlyList<ParentNotificationDto>> GetChangesAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid? afterId = null,
         DateTime? since = null,
@@ -52,20 +54,24 @@ public interface INotificationService
         CancellationToken cancellationToken = default);
 
     Task<int> GetUnreadCountAsync(
+        Guid schoolId,
         Guid userAccountId,
         CancellationToken cancellationToken = default);
 
     Task MarkReadAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid notificationId,
         CancellationToken cancellationToken = default);
 
     Task MarkAllReadAsync(
+        Guid schoolId,
         Guid userAccountId,
         CancellationToken cancellationToken = default);
 
     /// <summary>ACK livrée (SignalR / FG / futur FCM).</summary>
     Task MarkDeliveredAsync(
+        Guid schoolId,
         Guid userAccountId,
         Guid notificationId,
         CancellationToken cancellationToken = default);

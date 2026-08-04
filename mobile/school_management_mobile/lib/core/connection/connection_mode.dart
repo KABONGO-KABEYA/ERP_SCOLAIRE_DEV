@@ -45,14 +45,16 @@ class ConnectionSnapshot {
     this.baseUrl,
     this.message,
     this.hasInternet,
+    this.requiresReauthentication = false,
   });
 
   final ConnectionMode mode;
   final String? baseUrl;
   final String? message;
-
-  /// `true` si une connectivité Internet générale est détectée (4G/Wi‑Fi public).
   final bool? hasInternet;
+
+  /// §4.10 — session invalidée (changement `serverInstanceId`).
+  final bool requiresReauthentication;
 
   static const detecting = ConnectionSnapshot(mode: ConnectionMode.detecting);
 
@@ -70,11 +72,14 @@ class ConnectionSnapshot {
     String? baseUrl,
     String? message,
     bool? hasInternet,
+    bool? requiresReauthentication,
   }) =>
       ConnectionSnapshot(
         mode: mode ?? this.mode,
         baseUrl: baseUrl ?? this.baseUrl,
         message: message ?? this.message,
         hasInternet: hasInternet ?? this.hasInternet,
+        requiresReauthentication:
+            requiresReauthentication ?? this.requiresReauthentication,
       );
 }

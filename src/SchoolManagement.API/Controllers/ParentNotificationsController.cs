@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Notifications.DTOs;
 using SchoolManagement.Application.Notifications.Interfaces;
+using SchoolManagement.Application.Parent;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Shared.Constants;
 using SchoolManagement.Shared.Models;
@@ -34,6 +35,7 @@ public class ParentNotificationsController : ControllerBase
         [FromQuery] int take = 100,
         CancellationToken cancellationToken = default)
     {
+        var schoolId = RequireSchoolId();
         var userId = RequireUserId();
         NotificationCategory? cat = null;
         if (!string.IsNullOrWhiteSpace(category) &&
@@ -42,7 +44,13 @@ public class ParentNotificationsController : ControllerBase
             cat = parsed;
         }
 
-        var items = await _notifications.GetInboxAsync(userId, cat, q, take, cancellationToken);
+        var items = await _notifications.GetInboxAsync(
+            schoolId,
+            userId,
+            cat,
+            q,
+            take,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentNotificationDto>>.Ok(items));
     }
 
@@ -56,6 +64,7 @@ public class ParentNotificationsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var items = await _notifications.GetChangesAsync(
+            RequireSchoolId(),
             RequireUserId(),
             afterId,
             since,
@@ -69,7 +78,10 @@ public class ParentNotificationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ParentNotificationUnreadCountDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUnreadCount(CancellationToken cancellationToken)
     {
-        var count = await _notifications.GetUnreadCountAsync(RequireUserId(), cancellationToken);
+        var count = await _notifications.GetUnreadCountAsync(
+            RequireSchoolId(),
+            RequireUserId(),
+            cancellationToken);
         return Ok(ApiResponse<ParentNotificationUnreadCountDto>.Ok(new ParentNotificationUnreadCountDto(count)));
     }
 
@@ -78,7 +90,11 @@ public class ParentNotificationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkDelivered(Guid notificationId, CancellationToken cancellationToken)
     {
-        await _notifications.MarkDeliveredAsync(RequireUserId(), notificationId, cancellationToken);
+        await _notifications.MarkDeliveredAsync(
+            RequireSchoolId(),
+            RequireUserId(),
+            notificationId,
+            cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }));
     }
 
@@ -89,7 +105,11 @@ public class ParentNotificationsController : ControllerBase
         [FromBody] AcknowledgeDeliveryRequest request,
         CancellationToken cancellationToken)
     {
-        await _notifications.MarkDeliveredAsync(RequireUserId(), request.NotificationId, cancellationToken);
+        await _notifications.MarkDeliveredAsync(
+            RequireSchoolId(),
+            RequireUserId(),
+            request.NotificationId,
+            cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }));
     }
 
@@ -98,7 +118,11 @@ public class ParentNotificationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkRead(Guid notificationId, CancellationToken cancellationToken)
     {
-        await _notifications.MarkReadAsync(RequireUserId(), notificationId, cancellationToken);
+        await _notifications.MarkReadAsync(
+            RequireSchoolId(),
+            RequireUserId(),
+            notificationId,
+            cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }));
     }
 
@@ -107,7 +131,10 @@ public class ParentNotificationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkAllRead(CancellationToken cancellationToken)
     {
-        await _notifications.MarkAllReadAsync(RequireUserId(), cancellationToken);
+        await _notifications.MarkAllReadAsync(
+            RequireSchoolId(),
+            RequireUserId(),
+            cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }));
     }
 
@@ -119,7 +146,7 @@ public class ParentNotificationsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var userId = RequireUserId();
-        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var schoolId = RequireSchoolId();
         await _notifications.RegisterDeviceTokenAsync(
             schoolId,
             userId,
@@ -139,6 +166,8 @@ public class ParentNotificationsController : ControllerBase
         await _notifications.UnregisterDeviceTokenAsync(RequireUserId(), token, cancellationToken);
         return Ok(ApiResponse<object>.Ok(new { }));
     }
+
+    private Guid RequireSchoolId() => ParentApiSchoolContext.RequireSchoolId(_currentUser);
 
     private Guid RequireUserId() =>
         _currentUser.UserId ?? throw new UnauthorizedAccessException();

@@ -1,46 +1,51 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using SchoolManagement.API.Options;
+using SchoolManagement.Application.ServerIdentity;
 
 namespace SchoolManagement.API.Controllers;
 
 /// <summary>
 /// Health ultra-léger pour la découverte locale (mDNS / scan / last-IP).
-/// Aucune authentification, aucun accès base de données.
+/// Aucune authentification ; identité servie depuis le snapshot au démarrage (pas de SQL par requête).
 /// </summary>
 [ApiController]
 [Route("api/health")]
 public sealed class LocalDiscoveryHealthController : ControllerBase
 {
-    private readonly DeploymentOptions _deployment;
-    private readonly IConfiguration _configuration;
+    private readonly IServerIdentityProvider _identity;
 
-    public LocalDiscoveryHealthController(
-        IOptions<DeploymentOptions> deployment,
-        IConfiguration configuration)
+    public LocalDiscoveryHealthController(IServerIdentityProvider identity)
     {
-        _deployment = deployment.Value;
-        _configuration = configuration;
+        _identity = identity;
     }
 
     [HttpGet]
     [Produces("application/json")]
     public IActionResult Get()
     {
-        var role = string.IsNullOrWhiteSpace(_deployment.Role) ? "Local" : _deployment.Role;
-        var isCloud = role.Equals("Cloud", StringComparison.OrdinalIgnoreCase);
-        var school = _configuration["School:Name"]
-                     ?? _configuration["School:DisplayName"]
-                     ?? _configuration["Deployment:SchoolName"]
-                     ?? "École";
+        var id = _identity.Current;
+        var schoolDisplay = string.IsNullOrWhiteSpace(id.SchoolName) ? "École" : id.SchoolName;
+
+        object? licenseJson = id.LicenseId.HasValue ? id.LicenseId.Value.ToString("D") : null;
 
         return Ok(new
         {
             status = "ok",
-            server = isCloud ? "cloud" : "local",
-            school,
-            version = _configuration["App:Version"] ?? "1.0.0",
-            time = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+            server = id.ServerRole,
+            school = schoolDisplay,
+            time = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            version = id.SoftwareVersion,
+            apiVersion = id.ApiVersion,
+            protocolVersion = id.ProtocolVersion,
+            identity = new
+            {
+                serverInstanceId = id.ServerInstanceId.ToString("D"),
+                schoolId = id.SchoolId?.ToString("D"),
+                schoolName = schoolDisplay,
+                licenseId = licenseJson,
+                publicKeyFingerprint = id.PublicKeyFingerprint,
+                keyVersion = id.KeyVersion
+            },
+            serverSignature = (string?)null
         });
     }
 }

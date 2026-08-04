@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Notifications.Interfaces;
+using SchoolManagement.Application.Parent;
 
 namespace SchoolManagement.API.Hubs;
 
@@ -61,6 +62,9 @@ public sealed class ParentNotificationsHub : Hub
             return;
         }
 
-        await _notifications.MarkDeliveredAsync(userId, notificationId);
+        await _notifications.MarkDeliveredAsync(
+            ParentApiSchoolContext.RequireSchoolId(_currentUser),
+            userId,
+            notificationId);
     }
 }

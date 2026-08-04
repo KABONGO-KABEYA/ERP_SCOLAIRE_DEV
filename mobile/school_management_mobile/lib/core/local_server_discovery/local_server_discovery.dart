@@ -4,11 +4,26 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:multicast_dns/multicast_dns.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../school_binding/school_binding.dart';
+import '../school_binding/school_binding_gate.dart';
+import '../cache/school_scoped_preferences.dart';
+import '../school_binding/server_instance_binding_sync.dart';
+import '../school_binding/server_instance_recovery_service.dart';
 import 'discovery_constants.dart';
 import 'discovery_models.dart';
+import 'school_discovery_policy.dart';
+
+final class _BindingDiscoveryContext {
+  const _BindingDiscoveryContext({
+    required this.filterByBinding,
+    this.binding,
+  });
+
+  final bool filterByBinding;
+  final SchoolBinding? binding;
+}
 
 /// Porte d'entrée unique Mobile pour découvrir le serveur API.
 ///
@@ -41,6 +56,7 @@ class LocalServerDiscovery {
   /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
   /// Si le Local n'est plus éligible → découverte complète.
   Future<DiscoveryResult> recheck() async {
+    final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
     final candidates = <String>{};
     final current = _current.baseUrl;
@@ -51,7 +67,7 @@ class LocalServerDiscovery {
     if (last != null) candidates.add(last);
 
     for (final base in candidates) {
-      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base)) continue;
+      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base, ctx)) continue;
       debugPrint('[Discovery] Recheck léger $base');
       final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
       final local = _acceptLocal(
@@ -60,8 +76,9 @@ class LocalServerDiscovery {
         source: DiscoverySource.lastKnown,
         devicePrefixes: prefixes,
         messagePrefix: 'Serveur local',
+        ctx: ctx,
       );
-      if (local != null) return _publish(local);
+      if (local != null) return _publish(await _finalizeAccepted(local, ctx));
       debugPrint(
         '[Discovery] Recheck refuse Local base=$base '
         'sameSubnet=${_isSameSubnet(base, prefixes)} '
@@ -75,8 +92,8 @@ class LocalServerDiscovery {
       await _clearLast();
     }
 
-    final remote = await _tryRemote();
-    if (remote != null) return _publish(remote);
+    final remote = await _tryRemote(ctx);
+    if (remote != null) return _publish(await _finalizeAccepted(remote, ctx));
 
     debugPrint('[Discovery] Recheck échoué → découverte complète');
     return rediscover();
@@ -84,13 +101,14 @@ class LocalServerDiscovery {
 
   Future<DiscoveryResult> _run(int gen) async {
     _publish(DiscoveryResult.detecting);
+    final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
     debugPrint('[Discovery] Préfixes device: ${prefixes.join(', ')}');
 
     // 1) Dernière IP connue — uniquement si encore sur le même /24.
     debugPrint('[Discovery] Dernière IP connue');
     final last = await _loadLast();
-    if (last != null && !_isVirtualBaseUrl(last) && !_isCloudBaseUrl(last)) {
+    if (last != null && !_isVirtualBaseUrl(last) && !_isCloudBaseUrl(last, ctx)) {
       if (!_isSameSubnet(last, prefixes)) {
         debugPrint('[Discovery] lastKnown hors sous-réseau → ignoré ($last)');
         await _clearLast();
@@ -104,38 +122,39 @@ class LocalServerDiscovery {
           source: DiscoverySource.lastKnown,
           devicePrefixes: prefixes,
           messagePrefix: 'Serveur local (dernière IP)',
+          ctx: ctx,
         );
-        if (local != null) return _publish(local);
+        if (local != null) return _publish(await _finalizeAccepted(local, ctx));
         await _clearLast();
       }
     }
 
     // 2) mDNS (mêmes sous-réseaux uniquement)
     debugPrint('[Discovery] Recherche mDNS...');
-    final mdns = await _tryMdns(prefixes);
+    final mdns = await _tryMdns(prefixes, ctx);
     if (gen != _generation) return _current;
     if (mdns != null) {
       await _saveLast(mdns.baseUrl!);
       debugPrint('[Discovery] Passage en serveur local (mDNS)');
-      return _publish(mdns);
+      return _publish(await _finalizeAccepted(mdns, ctx));
     }
 
     // 3) Scan sous-réseau courant
     debugPrint('[Discovery] Scan réseau');
-    final scanned = await _scanSubnet(prefixes);
+    final scanned = await _scanSubnet(prefixes, ctx);
     if (gen != _generation) return _current;
     if (scanned != null) {
       await _saveLast(scanned.baseUrl!);
       debugPrint('[Discovery] Passage en serveur local (scan)');
-      return _publish(scanned);
+      return _publish(await _finalizeAccepted(scanned, ctx));
     }
 
     // 4) Cloud → Mode Distant
     if (gen != _generation) return _current;
-    final remote = await _tryRemote();
+    final remote = await _tryRemote(ctx);
     if (remote != null) {
       debugPrint('[Discovery] Passage en serveur distant');
-      return _publish(remote);
+      return _publish(await _finalizeAccepted(remote, ctx));
     }
 
     return _publish(DiscoveryResult.offline(
@@ -149,13 +168,38 @@ class LocalServerDiscovery {
     return result;
   }
 
-  Future<DiscoveryResult?> _tryRemote() async {
-    final remote = ApiConfig.effectiveCloudBaseUrl ??
-        DiscoveryConstants.defaultRemoteBaseUrl;
+  Future<DiscoveryResult?> _tryRemote(_BindingDiscoveryContext ctx) async {
+    final String remote;
+    if (ctx.filterByBinding && ctx.binding != null) {
+      final fromBinding =
+          SchoolDiscoveryPolicy.cloudBaseUrlForBinding(ctx.binding!);
+      if (fromBinding == null) {
+        debugPrint(
+          '[Discovery] cloudBaseUrl binding invalide — distant ignoré',
+        );
+        return null;
+      }
+      remote = fromBinding;
+    } else {
+      remote = ApiConfig.effectiveCloudBaseUrl ??
+          DiscoveryConstants.defaultRemoteBaseUrl;
+    }
     debugPrint('[Discovery] Vérification Health distant $remote');
     final remoteHealth =
         await _probe(remote, DiscoveryConstants.lastKnownTimeout);
     if (remoteHealth == null) return null;
+    if (ctx.filterByBinding && ctx.binding != null) {
+      if (!SchoolDiscoveryPolicy.acceptsHealthForBinding(
+        remoteHealth,
+        ctx.binding!,
+      )) {
+        debugPrint(
+          '[Discovery] Refuse distant (schoolId) attendu=${ctx.binding!.schoolId} '
+          'health=${remoteHealth.identity?.schoolId}',
+        );
+        return null;
+      }
+    }
     return DiscoveryResult(
       mode: DiscoveryMode.remote,
       source: DiscoverySource.remote,
@@ -166,6 +210,10 @@ class LocalServerDiscovery {
         school: remoteHealth.school,
         version: remoteHealth.version,
         time: remoteHealth.time,
+        apiVersion: remoteHealth.apiVersion,
+        protocolVersion: remoteHealth.protocolVersion,
+        identity: remoteHealth.identity,
+        serverSignature: remoteHealth.serverSignature,
       ),
       message: 'Serveur distant — ${remoteHealth.school}',
     );
@@ -178,9 +226,10 @@ class LocalServerDiscovery {
     required DiscoverySource source,
     required List<String> devicePrefixes,
     required String messagePrefix,
+    required _BindingDiscoveryContext ctx,
   }) {
     if (health == null) return null;
-    if (_isCloudBaseUrl(base)) {
+    if (_isCloudBaseUrl(base, ctx)) {
       debugPrint('[Discovery] Refuse Local (URL cloud) $base');
       return null;
     }
@@ -195,6 +244,19 @@ class LocalServerDiscovery {
         'devicePrefixes=${devicePrefixes.join(',')}',
       );
       return null;
+    }
+    if (ctx.filterByBinding && ctx.binding != null) {
+      if (!SchoolDiscoveryPolicy.acceptsHealthForBinding(
+        health,
+        ctx.binding!,
+      )) {
+        debugPrint(
+          '[Discovery] Refuse Local (schoolId) base=$base '
+          'attendu=${ctx.binding!.schoolId} '
+          'health=${health.identity?.schoolId}',
+        );
+        return null;
+      }
     }
     final host = _hostOf(base) ?? '?';
     final prefix = DiscoveryConstants.ipv4Prefix(host);
@@ -211,7 +273,10 @@ class LocalServerDiscovery {
     );
   }
 
-  Future<DiscoveryResult?> _tryMdns(List<String> localPrefixes) async {
+  Future<DiscoveryResult?> _tryMdns(
+    List<String> localPrefixes,
+    _BindingDiscoveryContext ctx,
+  ) async {
     final client = MDnsClient();
     try {
       await client.start();
@@ -233,6 +298,7 @@ class LocalServerDiscovery {
           source: DiscoverySource.mdns,
           devicePrefixes: localPrefixes,
           messagePrefix: 'Serveur local découvert (mDNS)',
+          ctx: ctx,
         );
         if (local != null && !completer.isCompleted) {
           completer.complete(local);
@@ -299,7 +365,10 @@ class LocalServerDiscovery {
     }
   }
 
-  Future<DiscoveryResult?> _scanSubnet(List<String> prefixes) async {
+  Future<DiscoveryResult?> _scanSubnet(
+    List<String> prefixes,
+    _BindingDiscoveryContext ctx,
+  ) async {
     if (prefixes.isEmpty) return null;
 
     final candidates = <String>[];
@@ -325,6 +394,7 @@ class LocalServerDiscovery {
           source: DiscoverySource.subnetScan,
           devicePrefixes: prefixes,
           messagePrefix: 'Serveur local trouvé par scan',
+          ctx: ctx,
         );
         if (local != null && !completer.isCompleted) {
           debugPrint('[Discovery] Serveur trouvé $url');
@@ -367,7 +437,22 @@ class LocalServerDiscovery {
     return devicePrefixes.contains(prefix);
   }
 
-  bool _isCloudBaseUrl(String baseUrl) {
+  bool _isCloudBaseUrl(String baseUrl, _BindingDiscoveryContext ctx) {
+    if (ctx.filterByBinding && ctx.binding != null) {
+      final bindingCloud =
+          SchoolDiscoveryPolicy.cloudBaseUrlForBinding(ctx.binding!);
+      if (bindingCloud != null) {
+        try {
+          final a = Uri.parse(ApiConfig.normalize(baseUrl));
+          final b = Uri.parse(bindingCloud);
+          return a.host.toLowerCase() == b.host.toLowerCase() &&
+              (a.hasPort ? a.port : _defaultPort(a.scheme)) ==
+                  (b.hasPort ? b.port : _defaultPort(b.scheme));
+        } catch (_) {
+          return false;
+        }
+      }
+    }
     final cloud = ApiConfig.effectiveCloudBaseUrl ??
         DiscoveryConstants.defaultRemoteBaseUrl;
     try {
@@ -423,22 +508,81 @@ class LocalServerDiscovery {
   }
 
   Future<String?> _loadLast() async {
-    final prefs = await SharedPreferences.getInstance();
-    final v = prefs.getString(DiscoveryConstants.lastKnownPrefsKey);
+    final v = await SchoolScopedPreferences.getString(
+      DiscoveryConstants.lastKnownPrefsKey,
+    );
     if (v == null || !ApiConfig.isValidBaseUrl(v)) return null;
     return ApiConfig.normalize(v);
   }
 
   Future<void> _saveLast(String baseUrl) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await SchoolScopedPreferences.setString(
       DiscoveryConstants.lastKnownPrefsKey,
       ApiConfig.normalize(baseUrl),
     );
   }
 
   Future<void> _clearLast() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(DiscoveryConstants.lastKnownPrefsKey);
+    await SchoolScopedPreferences.remove(DiscoveryConstants.lastKnownPrefsKey);
+  }
+
+  Future<_BindingDiscoveryContext> _loadBindingContext() async {
+    final filter = await SchoolBindingGate.shouldFilterDiscoveryByBinding();
+    if (!filter) {
+      return const _BindingDiscoveryContext(filterByBinding: false);
+    }
+    final binding = await SchoolBindingGate.bindingRepository.load();
+    if (binding == null || binding.schoolId.isEmpty) {
+      debugPrint(
+        '[Discovery] STRICT_SCHOOL_DISCOVERY sans binding valide → legacy',
+      );
+      return const _BindingDiscoveryContext(filterByBinding: false);
+    }
+    debugPrint(
+      '[Discovery] Mode filtré schoolId=${binding.schoolId} '
+      'cloud=${binding.cloudBaseUrl}',
+    );
+    return _BindingDiscoveryContext(filterByBinding: true, binding: binding);
+  }
+
+  Future<DiscoveryResult> _finalizeAccepted(
+    DiscoveryResult result,
+    _BindingDiscoveryContext ctx,
+  ) async {
+    if (!ctx.filterByBinding || ctx.binding == null || result.health == null) {
+      return result;
+    }
+
+    final change = SchoolDiscoveryPolicy.detectInstanceChange(
+      ctx.binding!,
+      result.health!,
+    );
+
+    if (change.detected) {
+      final recovery = await ServerInstanceRecoveryService.handleInstanceChange(
+        binding: ctx.binding!,
+        change: change,
+        health: result.health!,
+        apiBaseUrl: result.baseUrl,
+      );
+      return DiscoveryResult(
+        mode: result.mode,
+        source: result.source,
+        baseUrl: result.baseUrl,
+        health: result.health,
+        message: recovery.message ?? result.message,
+        serverInstanceIdChanged: recovery.requiresReauthentication,
+        previousServerInstanceId: change.previousInstanceId,
+        observedServerInstanceId: change.observedInstanceId,
+      );
+    }
+
+    await ServerInstanceBindingSync.syncFromHealth(
+      binding: ctx.binding!,
+      health: result.health!,
+      repository: SchoolBindingGate.bindingRepository,
+    );
+
+    return result;
   }
 }

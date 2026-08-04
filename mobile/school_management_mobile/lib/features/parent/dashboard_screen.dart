@@ -12,6 +12,7 @@ import 'offline/parent_offline_cache.dart';
 import 'parent_providers.dart';
 import 'parent_shell_screen.dart';
 import 'premium/dashboard_insights.dart';
+import 'widgets/parent_migration_banner.dart';
 import 'widgets/parent_async_widgets.dart';
 import 'widgets/parent_dashboard_insight_cards.dart';
 import 'widgets/parent_ui_widgets.dart';
@@ -179,6 +180,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
               children: [
+                const ParentMigrationBanner(),
                 ParentOfflineBanner(visible: showOffline),
                 ParentHeaderCard(
                   parentName: _parentName,

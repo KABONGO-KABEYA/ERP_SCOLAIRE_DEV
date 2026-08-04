@@ -40,6 +40,10 @@ Le Setup réalise automatiquement :
 - purge métier (base vierge, permissions conservées) ;
 - service Windows `ErpScolaireApi` + firewall + health check.
 
+### Fichier `ServerIdentity.json`
+
+Créé automatiquement au premier démarrage de l’API dans le dossier d’installation (`payload\api\`). Permissions restrictives (SYSTEM, Administrateurs, compte du service). **À sauvegarder avec la base SQL** — voir [Identité serveur et restauration](exploitation/server-identity-et-restauration.md).
+
 ## Installation Poste Client
 
 1. Type : Installation Poste Client.

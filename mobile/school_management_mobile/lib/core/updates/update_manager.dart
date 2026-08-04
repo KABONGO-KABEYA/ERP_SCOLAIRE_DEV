@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../cache/school_scoped_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
@@ -32,13 +32,13 @@ class UpdateManager {
     String? baseUrl,
     bool ignoreSnooze = false,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!(prefs.getBool(_prefsAutoCheck) ?? true) && !ignoreSnooze) {
+    if (!(await SchoolScopedPreferences.getBool(_prefsAutoCheck) ?? true) &&
+        !ignoreSnooze) {
       return null;
     }
 
     if (!ignoreSnooze) {
-      final snooze = prefs.getString(_prefsSnoozeUntil);
+      final snooze = await SchoolScopedPreferences.getString(_prefsSnoozeUntil);
       if (snooze != null) {
         final until = DateTime.tryParse(snooze);
         if (until != null && until.isAfter(DateTime.now().toUtc())) {
@@ -68,7 +68,10 @@ class UpdateManager {
         ),
       );
 
-      await prefs.setString(_prefsLastCheck, DateTime.now().toUtc().toIso8601String());
+      await SchoolScopedPreferences.setString(
+        _prefsLastCheck,
+        DateTime.now().toUtc().toIso8601String(),
+      );
 
       if (response.statusCode == 204 || response.data == null) {
         return null;
@@ -105,8 +108,7 @@ class UpdateManager {
   }
 
   Future<void> snooze(Duration duration) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    await SchoolScopedPreferences.setString(
       _prefsSnoozeUntil,
       DateTime.now().toUtc().add(duration).toIso8601String(),
     );

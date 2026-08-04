@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Parent;
 using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Application.Parent.Interfaces;
 using SchoolManagement.Shared.Constants;
@@ -32,8 +33,9 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentChildDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildren(CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var children = await _parentService.GetMyChildrenAsync(guardianId, cancellationToken);
+        var children = await _parentService.GetMyChildrenAsync(schoolId, guardianId, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentChildDto>>.Ok(children));
     }
 
@@ -42,8 +44,13 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentPaymentDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildPayments(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var payments = await _parentService.GetChildPaymentsAsync(guardianId, studentId, cancellationToken);
+        var payments = await _parentService.GetChildPaymentsAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentPaymentDto>>.Ok(payments));
     }
 
@@ -52,8 +59,13 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ParentPaymentSummaryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildPaymentSummary(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var summary = await _parentService.GetChildPaymentSummaryAsync(guardianId, studentId, cancellationToken);
+        var summary = await _parentService.GetChildPaymentSummaryAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<ParentPaymentSummaryDto>.Ok(summary));
     }
 
@@ -65,9 +77,14 @@ public class ParentController : ControllerBase
         [FromQuery] Guid? academicYearId,
         CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
         var situations = await _parentService.GetChildFeeSituationsAsync(
-            guardianId, studentId, academicYearId, cancellationToken);
+            schoolId,
+            guardianId,
+            studentId,
+            academicYearId,
+            cancellationToken);
         return Ok(ApiResponse<ParentFeeSituationsResultDto>.Ok(situations));
     }
 
@@ -76,8 +93,13 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ParentGradesOverviewDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildGrades(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var grades = await _parentService.GetChildGradesAsync(guardianId, studentId, cancellationToken);
+        var grades = await _parentService.GetChildGradesAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<ParentGradesOverviewDto>.Ok(grades));
     }
 
@@ -89,9 +111,14 @@ public class ParentController : ControllerBase
         Guid academicPeriodId,
         CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
         var bytes = await _parentService.ExportChildBulletinPdfAsync(
-            guardianId, studentId, academicPeriodId, cancellationToken);
+            schoolId,
+            guardianId,
+            studentId,
+            academicPeriodId,
+            cancellationToken);
         return File(bytes, "application/pdf", $"bulletin-{academicPeriodId:N}.pdf");
     }
 
@@ -99,8 +126,13 @@ public class ParentController : ControllerBase
     [Authorize(Policy = Permissions.ReportsRead)]
     public async Task<IActionResult> GetChildPhoto(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var photo = await _parentService.OpenChildPhotoAsync(guardianId, studentId, cancellationToken);
+        var photo = await _parentService.OpenChildPhotoAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         if (photo is null)
         {
             return NotFound();
@@ -117,9 +149,14 @@ public class ParentController : ControllerBase
         [FromQuery] Guid? feeTypeId,
         CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
         var bytes = await _parentService.ExportChildPaymentReceiptPdfAsync(
-            guardianId, paymentId, feeTypeId, cancellationToken);
+            schoolId,
+            guardianId,
+            paymentId,
+            feeTypeId,
+            cancellationToken);
         return File(bytes, "application/pdf", $"recu-{paymentId:N}.pdf");
     }
 
@@ -128,8 +165,13 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentBulletinSummaryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildBulletins(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var bulletins = await _parentService.GetChildBulletinsAsync(guardianId, studentId, cancellationToken);
+        var bulletins = await _parentService.GetChildBulletinsAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentBulletinSummaryDto>>.Ok(bulletins));
     }
 
@@ -138,8 +180,13 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentAttendanceDayDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildAttendance(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
-        var attendance = await _parentService.GetChildAttendanceAsync(guardianId, studentId, cancellationToken);
+        var attendance = await _parentService.GetChildAttendanceAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentAttendanceDayDto>>.Ok(attendance));
     }
 
@@ -148,11 +195,17 @@ public class ParentController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ParentCommunicationDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetChildCommunications(Guid studentId, CancellationToken cancellationToken)
     {
+        var schoolId = RequireSchoolId();
         var guardianId = await ResolveGuardianIdAsync(cancellationToken);
         var communications = await _parentService.GetChildCommunicationsAsync(
-            guardianId, studentId, cancellationToken);
+            schoolId,
+            guardianId,
+            studentId,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<ParentCommunicationDto>>.Ok(communications));
     }
+
+    private Guid RequireSchoolId() => ParentApiSchoolContext.RequireSchoolId(_currentUser);
 
     private async Task<Guid> ResolveGuardianIdAsync(CancellationToken cancellationToken)
     {
@@ -163,6 +216,11 @@ public class ParentController : ControllerBase
         if (user.GuardianId is null)
         {
             throw new UnauthorizedAccessException("Ce compte n'est pas lié à un tuteur.");
+        }
+
+        if (user.SchoolId != RequireSchoolId())
+        {
+            throw new UnauthorizedAccessException("Compte hors contexte école.");
         }
 
         return user.GuardianId.Value;

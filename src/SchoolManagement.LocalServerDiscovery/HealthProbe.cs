@@ -107,6 +107,18 @@ public sealed class HealthProbe : IHealthProbe
         public string? Server { get; set; }
         public string? School { get; set; }
         public string? Version { get; set; }
+        public int? ProtocolVersion { get; set; }
+        public string? ApiVersion { get; set; }
+        public IdentityDto? Identity { get; set; }
         public DateTimeOffset? Time { get; set; }
+    }
+
+    private sealed class IdentityDto
+    {
+        public string? ServerInstanceId { get; set; }
+        public string? SchoolId { get; set; }
+        public string? SchoolName { get; set; }
+        public string? PublicKeyFingerprint { get; set; }
+        public int? KeyVersion { get; set; }
     }
 }

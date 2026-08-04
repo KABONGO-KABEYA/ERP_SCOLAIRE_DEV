@@ -675,6 +675,7 @@ class ParentNotificationItem {
     this.eventType,
     this.studentId,
     this.deepLink,
+    this.schoolId,
   });
 
   final String id;
@@ -686,6 +687,7 @@ class ParentNotificationItem {
   final String? eventType;
   final String? studentId;
   final String? deepLink;
+  final String? schoolId;
 
   ParentNotificationItem copyWith({bool? isRead}) => ParentNotificationItem(
         id: id,
@@ -737,6 +739,7 @@ class ParentNotificationItem {
         eventType: json['eventType'] as String?,
         studentId: json['studentId']?.toString(),
         deepLink: json['deepLink'] as String?,
+        schoolId: json['schoolId']?.toString() ?? json['SchoolId']?.toString(),
       );
 }
 

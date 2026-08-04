@@ -16,6 +16,7 @@ public sealed record SendNotificationRequest(
 public sealed record ParentNotificationDto(
     Guid Id,
     Guid RecipientId,
+    Guid SchoolId,
     string Title,
     string Message,
     DateTime Date,

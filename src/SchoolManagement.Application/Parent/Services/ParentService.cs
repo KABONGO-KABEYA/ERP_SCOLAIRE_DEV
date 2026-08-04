@@ -86,11 +86,16 @@ public sealed class ParentService : IParentService
         _statementService = statementService;
     }
 
-    public async Task<IReadOnlyList<ParentChildDto>> GetMyChildrenAsync(Guid guardianId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ParentChildDto>> GetMyChildrenAsync(
+        Guid schoolId,
+        Guid guardianId,
+        CancellationToken cancellationToken = default)
     {
         var links = await _studentGuardianRepository.FindAsync(sg => sg.GuardianId == guardianId, cancellationToken);
         var studentIds = links.Select(l => l.StudentId).Distinct().ToList();
-        var students = await _studentRepository.FindAsync(s => studentIds.Contains(s.Id), cancellationToken);
+        var students = await _studentRepository.FindAsync(
+            s => studentIds.Contains(s.Id) && s.SchoolId == schoolId,
+            cancellationToken);
         var enrollments = await _enrollmentRepository.FindAsync(e => studentIds.Contains(e.StudentId) && e.IsActive, cancellationToken);
         var classIds = enrollments.Select(e => e.ClassRoomId).Distinct().ToList();
         var classes = await _classRoomRepository.FindAsync(c => classIds.Contains(c.Id), cancellationToken);
@@ -141,11 +146,12 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<IReadOnlyList<ParentPaymentDto>> GetChildPaymentsAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var payments = await _paymentRepository.FindAsync(p => p.StudentId == studentId, cancellationToken);
         var paymentIds = payments.Select(p => p.Id).ToList();
@@ -187,11 +193,17 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<ParentPaymentSummaryDto> GetChildPaymentSummaryAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        var situations = await GetChildFeeSituationsAsync(guardianId, studentId, null, cancellationToken);
+        var situations = await GetChildFeeSituationsAsync(
+            schoolId,
+            guardianId,
+            studentId,
+            null,
+            cancellationToken);
         return new ParentPaymentSummaryDto(
             situations.TotalExpected,
             situations.TotalPaid,
@@ -201,12 +213,13 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<ParentFeeSituationsResultDto> GetChildFeeSituationsAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         Guid? academicYearId = null,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Élève introuvable.");
@@ -346,11 +359,12 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<IReadOnlyList<ParentBulletinSummaryDto>> GetChildBulletinsAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var results = await _periodResultRepository.FindAsync(r => r.StudentId == studentId, cancellationToken);
         var periodIds = results.Select(r => r.AcademicPeriodId).Distinct().ToList();
@@ -374,11 +388,12 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<ParentGradesOverviewDto> GetChildGradesAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var enrollment = (await _enrollmentRepository.FindAsync(
                 e => e.StudentId == studentId && e.IsActive,
@@ -513,12 +528,13 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<byte[]> ExportChildBulletinPdfAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         Guid academicPeriodId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Élève introuvable.");
@@ -574,11 +590,12 @@ public sealed class ParentService : IParentService
     };
 
     public async Task<IReadOnlyList<ParentAttendanceDayDto>> GetChildAttendanceAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var rows = await _attendanceRepository.FindAsync(a => a.StudentId == studentId, cancellationToken);
 
@@ -601,11 +618,12 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<IReadOnlyList<ParentCommunicationDto>> GetChildCommunicationsAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
 
         var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Élève introuvable.");
@@ -634,11 +652,12 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<(Stream Stream, string FileName, string MimeType)?> OpenChildPhotoAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid studentId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChildAccessAsync(guardianId, studentId, cancellationToken);
+        await EnsureChildAccessAsync(schoolId, guardianId, studentId, cancellationToken);
         var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken)).FirstOrDefault();
         if (student is null || string.IsNullOrWhiteSpace(student.PhotoPath))
         {
@@ -662,6 +681,7 @@ public sealed class ParentService : IParentService
     }
 
     public async Task<byte[]> ExportChildPaymentReceiptPdfAsync(
+        Guid schoolId,
         Guid guardianId,
         Guid paymentId,
         Guid? feeTypeId = null,
@@ -670,11 +690,16 @@ public sealed class ParentService : IParentService
         var payment = (await _paymentRepository.FindAsync(p => p.Id == paymentId, cancellationToken)).FirstOrDefault()
             ?? throw new KeyNotFoundException("Paiement introuvable.");
 
-        await EnsureChildAccessAsync(guardianId, payment.StudentId, cancellationToken);
+        ParentApiSchoolContext.EnsureResourceSchool(payment.SchoolId, schoolId);
+        await EnsureChildAccessAsync(schoolId, guardianId, payment.StudentId, cancellationToken);
         return await _statementService.ExportPdfAsync(payment.SchoolId, paymentId, feeTypeId, cancellationToken);
     }
 
-    private async Task EnsureChildAccessAsync(Guid guardianId, Guid studentId, CancellationToken cancellationToken)
+    private async Task EnsureChildAccessAsync(
+        Guid schoolId,
+        Guid guardianId,
+        Guid studentId,
+        CancellationToken cancellationToken)
     {
         var links = await _studentGuardianRepository.FindAsync(
             sg => sg.GuardianId == guardianId && sg.StudentId == studentId, cancellationToken);
@@ -682,6 +707,13 @@ public sealed class ParentService : IParentService
         if (links.Count == 0)
         {
             throw new UnauthorizedAccessException("Accès non autorisé à cet élève.");
+        }
+
+        var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken))
+            .FirstOrDefault();
+        if (student is null || student.SchoolId != schoolId)
+        {
+            throw new UnauthorizedAccessException("Élève hors contexte école.");
         }
     }
 

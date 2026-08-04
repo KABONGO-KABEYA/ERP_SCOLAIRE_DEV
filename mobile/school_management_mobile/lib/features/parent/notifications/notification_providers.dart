@@ -11,7 +11,10 @@ import 'notification_service.dart';
 import 'parent_notification_inbox_repository.dart';
 import 'parent_push_audit_log.dart';
 import 'parent_push_foreground_service.dart';
+import 'parent_push_lifecycle.dart';
+import 'parent_push_lifecycle.dart';
 import 'parent_push_realtime_client.dart';
+import 'parent_push_school_guard.dart';
 
 final parentNotificationServiceProvider =
     Provider<ParentNotificationService>((ref) {
@@ -24,7 +27,11 @@ final parentPushRealtimeClientProvider =
     Provider<ParentPushRealtimeClient>((ref) {
   final client =
       ParentPushRealtimeClient(ref.watch(parentNotificationServiceProvider));
-  ref.onDispose(client.dispose);
+  ParentPushLifecycle.registerClient(client);
+  ref.onDispose(() {
+    ParentPushLifecycle.unregisterClient(client);
+    client.dispose();
+  });
   return client;
 });
 
@@ -108,6 +115,7 @@ final parentNotificationPollingProvider = Provider<void>((ref) {
       baseUrl: connection.baseUrl,
       accessToken: token,
     );
+    await ParentPushLifecycle.onCredentialsSynced();
     // Indique au FG s'il doit poller (seulement si SignalR down / app minimisée).
     await ParentPushForegroundService.setPollingEnabled(
       !signalrConnected || !appResumed,
@@ -154,6 +162,13 @@ final parentNotificationPollingProvider = Provider<void>((ref) {
               );
       await push.reloadSeen();
       for (final n in changes) {
+        final payload = {
+          'id': n.id,
+          if (n.schoolId != null) 'schoolId': n.schoolId,
+        };
+        if (!await ParentPushSchoolGuard.acceptsNotification(payload)) {
+          continue;
+        }
         await push.notifyIfNew(
           ParentLocalPushMessage(
             id: n.id,
@@ -229,7 +244,11 @@ final parentNotificationPollingProvider = Provider<void>((ref) {
     }
   });
 
-  ref.listen(connectionModeProvider, (_, next) {
+  ref.listen(connectionModeProvider, (prev, next) {
+    if (next.requiresReauthentication &&
+        prev?.requiresReauthentication != true) {
+      unawaited(ParentPushLifecycle.onReauthenticationRequired());
+    }
     unawaited(() async {
       await push.ensureStarted(next);
       signalrConnected = push.isConnected;

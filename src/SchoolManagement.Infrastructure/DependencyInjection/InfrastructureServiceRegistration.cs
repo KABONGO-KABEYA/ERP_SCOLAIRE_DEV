@@ -23,6 +23,10 @@ using SchoolManagement.Application.Enrollment.Interfaces;
 using SchoolManagement.Infrastructure.Seeding;
 using SchoolManagement.Infrastructure.Services;
 using SchoolManagement.Infrastructure.Setup;
+using SchoolManagement.Infrastructure.ServerIdentity;
+using SchoolManagement.Application.ServerIdentity;
+using SchoolManagement.Application.ParentActivation;
+using SchoolManagement.Infrastructure.ParentActivation;
 
 public static class InfrastructureServiceRegistration
 {
@@ -57,8 +61,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IParentActivationService, ParentActivationService>();
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<IInitialSetupService, InitialSetupService>();
+        services.AddSingleton<IServerIdentityProvider, ServerIdentityProvider>();
+        services.AddHostedService<ServerIdentityInitializationHostedService>();
         services.AddScoped<ICurriculumSeedService, CurriculumSeeder>();
         services.AddScoped<CurriculumSeeder>();
         services.AddScoped<ISectionConsolidationService, SectionConsolidationService>();

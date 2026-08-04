@@ -23,6 +23,7 @@ class ConnectionProbe {
           baseUrl: result.baseUrl,
           message: result.message,
           hasInternet: true,
+          requiresReauthentication: result.serverInstanceIdChanged,
         );
       case DiscoveryMode.remote:
         return ConnectionSnapshot(
@@ -30,6 +31,7 @@ class ConnectionProbe {
           baseUrl: result.baseUrl,
           message: result.message,
           hasInternet: true,
+          requiresReauthentication: result.serverInstanceIdChanged,
         );
       case DiscoveryMode.detecting:
         return const ConnectionSnapshot(
