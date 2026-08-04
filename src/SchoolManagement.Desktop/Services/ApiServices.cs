@@ -2927,6 +2927,21 @@ public sealed class CloudSyncApiService : ApiServiceBase, ICloudSyncApiService
             cancellationToken);
 }
 
+public sealed class ParentActivationApiService : ApiServiceBase, IParentActivationApiService
+{
+    public ParentActivationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory)
+    {
+    }
+
+    public Task<SchoolManagement.Application.ParentActivation.IssueParentActivationTokenResponse> IssueTokenAsync(
+        SchoolManagement.Application.ParentActivation.IssueParentActivationTokenRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ParentActivation.IssueParentActivationTokenResponse>(
+            "api/v1/parent/activation/issue",
+            request,
+            cancellationToken);
+}
+
 public sealed class CourseConfigurationApiService : ApiServiceBase, ICourseConfigurationApiService
 {
     public CourseConfigurationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }

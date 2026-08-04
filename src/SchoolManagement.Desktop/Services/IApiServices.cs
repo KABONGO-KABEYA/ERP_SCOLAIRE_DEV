@@ -1264,3 +1264,10 @@ public interface ICloudSyncApiService
         bool criticalOnly = false,
         CancellationToken cancellationToken = default);
 }
+
+public interface IParentActivationApiService
+{
+    Task<SchoolManagement.Application.ParentActivation.IssueParentActivationTokenResponse> IssueTokenAsync(
+        SchoolManagement.Application.ParentActivation.IssueParentActivationTokenRequest request,
+        CancellationToken cancellationToken = default);
+}

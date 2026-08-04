@@ -456,6 +456,14 @@
 
         <Grid Grid.Row="0"
               Margin="20,16"
+              Visibility="{Binding IsParentActivationSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:ParentActivationQrControl HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                DataContext="{Binding ParentActivationQr}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
               Visibility="{Binding IsMisesAJourSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
             <updates:UpdateSettingsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
         </Grid>

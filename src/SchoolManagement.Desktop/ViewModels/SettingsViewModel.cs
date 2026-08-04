@@ -30,6 +30,7 @@ public partial class SettingsViewModel : ViewModelBase
         MentionsConfigViewModel mentionsConfig,
         CurrencyManagementViewModel currencyManagement,
         CloudSyncDashboardViewModel cloudSyncDashboard,
+        ParentActivationQrViewModel parentActivationQr,
         CourseConfigurationViewModel courseConfiguration)
     {
         _schoolApiService = schoolApiService;
@@ -44,6 +45,7 @@ public partial class SettingsViewModel : ViewModelBase
         MentionsConfig = mentionsConfig;
         CurrencyManagement = currencyManagement;
         CloudSyncDashboard = cloudSyncDashboard;
+        ParentActivationQr = parentActivationQr;
         CourseConfiguration = courseConfiguration;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
@@ -85,6 +87,7 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
                     new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
                     new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud),
+                    new SettingsNodeViewModel("Activation mobile parent", "Qrcode", SettingsSection.ParentActivation),
                     new SettingsNodeViewModel("Mises à jour", "Update", SettingsSection.MisesAJour)
                 ])
         ];
@@ -290,6 +293,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public CloudSyncDashboardViewModel CloudSyncDashboard { get; }
 
+    public ParentActivationQrViewModel ParentActivationQr { get; }
+
     public CourseConfigurationViewModel CourseConfiguration { get; }
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
@@ -329,6 +334,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsSyncCloudSelected => SelectedSettingsNode?.Section == SettingsSection.SyncCloud;
 
+    public bool IsParentActivationSelected => SelectedSettingsNode?.Section == SettingsSection.ParentActivation;
+
     public bool IsMisesAJourSelected => SelectedSettingsNode?.Section == SettingsSection.MisesAJour;
 
     public bool IsScrollableSettingsContent =>
@@ -340,6 +347,7 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsMentionsSelected
         && !IsCurrencySectionSelected
         && !IsSyncCloudSelected
+        && !IsParentActivationSelected
         && !IsMisesAJourSelected
         && !IsMatieresSelected;
 
@@ -372,6 +380,7 @@ public partial class SettingsViewModel : ViewModelBase
         "taux-change" => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
         "historique-taux" => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
         "sync-cloud" => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
+        "activation-mobile-parent" => "Émettre un QR / lien pour activer l'application mobile d'un parent sur cette école.",
         _ => SelectedSettingsNode?.Section switch
         {
             SettingsSection.Etablissement => "Informations générales, devises autorisées, logos, en-têtes, signatures et identité documentaire de l'établissement.",
@@ -386,6 +395,7 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.TauxChange => "Taux de change actifs et historiques : un seul taux actif par couple de devises et type. L'inverse est calculé automatiquement.",
             SettingsSection.HistoriqueTaux => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
             SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
+            SettingsSection.ParentActivation => "Émettre un QR / lien pour activer l'application mobile d'un parent sur cette école.",
             SettingsSection.MisesAJour => "Vérification automatique, téléchargement et historique des versions de l'application.",
             SettingsSection.Matieres => "Configurez les cours retenus par année, classe et salle, avec affectation des enseignants.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
@@ -455,6 +465,10 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 CloudSyncDashboard.LoadCommand.Execute(null);
             }
+            else if (item.Key == "activation-mobile-parent")
+            {
+                // Pas de préchargement : génération à la demande.
+            }
             else if (item.Key == "matieres")
             {
                 CourseConfiguration.LoadCommand.Execute(null);
@@ -475,6 +489,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
+        OnPropertyChanged(nameof(IsParentActivationSelected));
         OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
@@ -555,6 +570,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsHistoriqueTauxSelected));
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
+        OnPropertyChanged(nameof(IsParentActivationSelected));
         OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
@@ -1458,7 +1474,8 @@ public enum SettingsSection
     DevisesEtablissement = 15,
     HistoriqueTaux = 16,
     MisesAJour = 17,
-    Mentions = 18
+    Mentions = 18,
+    ParentActivation = 19
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);
