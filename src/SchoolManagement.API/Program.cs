@@ -93,12 +93,13 @@ var encryption = EncryptionServiceFactory.Create();
 var databaseBootstrap = new DatabaseConnectionBootstrap(AppContext.BaseDirectory, encryption);
 
 // Docker / cloud : priorité à la connection string d'environnement (sans DPAPI).
+// Docker / Coolify : SQL_CONNECTION_STRING prime sur appsettings.Production (évite localhost\INSTANCE Windows).
 var envConnectionString =
-    builder.Configuration.GetConnectionString("Default")
-    ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("SQL_CONNECTION_STRING")
+    Environment.GetEnvironmentVariable("SQL_CONNECTION_STRING")
     ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("Default")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 // Alias JWT issus de .env / Coolify (JWT_SECRET_KEY → Jwt__SecretKey)
 if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:SecretKey"])
@@ -127,8 +128,7 @@ if (!string.IsNullOrWhiteSpace(envConnectionString))
     if (!databaseTestResult.IsSuccess)
     {
         await FatalExitAsync(
-            "Connexion SQL Server impossible via SQL_CONNECTION_STRING.{NewLine}{Error}{NewLine}Vérifiez IP/firewall 1433 depuis le VPS Coolify.",
-            Environment.NewLine,
+            "Connexion SQL Server impossible via SQL_CONNECTION_STRING. {Error} Vérifiez réseau Docker Coolify (même réseau que SQL) et port 1433.",
             databaseTestResult.Message);
     }
 
@@ -140,9 +140,8 @@ else
     if (!databaseTestResult.IsSuccess)
     {
         await FatalExitAsync(
-            "Connexion SQL Server impossible. Corrigez {ConfigFile} ou définissez SQL_CONNECTION_STRING.{NewLine}{Error}",
+            "Connexion SQL Server impossible. Corrigez {ConfigFile} ou définissez SQL_CONNECTION_STRING. {Error}",
             DatabaseConfigurationManager.FileName,
-            Environment.NewLine,
             databaseTestResult.Message);
     }
 
