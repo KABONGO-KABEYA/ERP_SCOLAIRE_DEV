@@ -3,6 +3,7 @@ using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SchoolManagement.Desktop.Navigation;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Updates;
@@ -113,6 +114,19 @@ public partial class App : System.Windows.Application
             }
         }
 
+        var shellViewModel = _host.Services.GetRequiredService<ShellViewModel>();
+        if (!await shellViewModel.InitializeNavigationAsync())
+        {
+            MessageBox.Show(
+                shellViewModel.NavigationError
+                ?? "Impossible de charger la navigation de l'application.",
+                "ERP Scolaire",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown();
+            return;
+        }
+
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
@@ -178,6 +192,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<IPromoterDashboardApiService, PromoterDashboardApiService>();
         services.AddTransient<IAccountingApiService, AccountingApiService>();
         services.AddTransient<IAdminApiService, AdminApiService>();
+        services.AddTransient<ISecurityAdminApiService, SecurityAdminApiService>();
+        services.AddTransient<IPlatformCatalogApiService, PlatformCatalogApiService>();
         services.AddTransient<IUpdateAdminApiService, UpdateAdminApiService>();
         services.AddTransient<IPersonnelApiService, PersonnelApiService>();
 
@@ -206,13 +222,16 @@ public partial class App : System.Windows.Application
 
         services.AddSingleton<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton<IDesktopViewRegistry, DesktopViewRegistry>();
+        services.AddSingleton<IDesktopNavigationLocalCache, DesktopNavigationLocalCache>();
+        services.AddTransient<SecurityNavigationApiService>();
         services.AddTransient<LoginWindow>();
         services.AddTransient<LoginViewModel>();
         services.AddTransient<InitialSetupWindow>();
         services.AddTransient<InitialSetupViewModel>();
         services.AddTransient<ChangePasswordWindow>();
         services.AddTransient<ChangePasswordViewModel>();
-        services.AddTransient<ShellViewModel>();
+        services.AddSingleton<ShellViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<DocumentBrandingViewModel>();
@@ -243,6 +262,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<DocumentsViewModel>();
         services.AddTransient<StatisticsViewModel>();
         services.AddTransient<AdministrationViewModel>();
+        services.AddTransient<SecurityUsersViewModel>();
+        services.AddTransient<SecurityRolesViewModel>();
+        services.AddTransient<SecurityExceptionsViewModel>();
+        services.AddTransient<SecurityAuditViewModel>();
+        services.AddTransient<PlatformCatalogViewModel>();
         services.AddTransient<PersonnelListViewModel>();
         services.AddTransient<PersonnelEditViewModel>();
         services.AddTransient<PersonnelDepartmentsViewModel>();

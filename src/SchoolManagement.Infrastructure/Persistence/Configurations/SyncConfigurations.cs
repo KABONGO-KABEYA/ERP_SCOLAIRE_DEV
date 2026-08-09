@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Sync;
 
 namespace SchoolManagement.Infrastructure.Persistence.Configurations;
@@ -14,7 +15,8 @@ public class SyncOutboxUnitConfiguration : AuditableEntityConfiguration<SyncOutb
         builder.Property(u => u.Priority).HasConversion<int>();
         builder.Property(u => u.Status).HasConversion<int>();
         builder.Property(u => u.LastError).HasMaxLength(2000);
-        builder.HasIndex(u => new { u.Status, u.Priority, u.CreatedAt });
+        builder.HasOne<School>().WithMany().HasForeignKey(u => u.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(u => new { u.SchoolId, u.Status, u.Priority, u.CreatedAt });
         builder.HasIndex(u => new { u.AggregateType, u.AggregateId });
         builder.HasMany(u => u.Items).WithOne(i => i.Unit).HasForeignKey(i => i.UnitId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -44,7 +46,8 @@ public class SyncJournalEntryConfiguration : AuditableEntityConfiguration<SyncJo
         builder.ToTable("SyncJournal");
         builder.Property(j => j.TablesTouched).HasMaxLength(2000);
         builder.Property(j => j.ErrorSummary).HasMaxLength(4000);
-        builder.HasIndex(j => j.StartedAt);
+        builder.HasOne<School>().WithMany().HasForeignKey(j => j.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(j => new { j.SchoolId, j.StartedAt });
     }
 }
 
@@ -55,6 +58,7 @@ public class SyncWatermarkConfiguration : AuditableEntityConfiguration<SyncWater
         base.Configure(builder);
         builder.ToTable("SyncWatermark");
         builder.Property(w => w.TableName).HasMaxLength(128).IsRequired();
-        builder.HasIndex(w => w.TableName).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasOne<School>().WithMany().HasForeignKey(w => w.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(w => new { w.SchoolId, w.TableName }).IsUnique().HasFilter("[IsDeleted] = 0");
     }
 }

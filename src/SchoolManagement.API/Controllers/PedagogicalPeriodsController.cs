@@ -30,7 +30,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpGet("structure")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     [ProducesResponseType(typeof(ApiResponse<PedagogicalPeriodStructureDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStructure(
         [FromQuery] Guid academicYearId,
@@ -42,7 +42,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("structure")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     [ProducesResponseType(typeof(ApiResponse<PedagogicalPeriodStructureDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateStructure(
         [FromBody] CreatePedagogicalStructureRequest request,
@@ -54,7 +54,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("structure/propose-dates")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     [ProducesResponseType(typeof(ApiResponse<PedagogicalPeriodStructureDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ProposeDates(
         [FromQuery] Guid academicYearId,
@@ -66,7 +66,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("sub-periods/{id:guid}/open")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     public async Task<IActionResult> Open(
         Guid id,
         [FromBody] OpenSubPeriodRequest? request,
@@ -78,7 +78,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("sub-periods/{id:guid}/close")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     public async Task<IActionResult> Close(Guid id, CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -92,7 +92,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("sub-periods/{id:guid}/lock")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     public async Task<IActionResult> Lock(Guid id, CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -101,7 +101,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPost("sub-periods/{id:guid}/unlock")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     public async Task<IActionResult> Unlock(Guid id, CancellationToken cancellationToken)
     {
         var schoolId = RequireSchoolId();
@@ -110,7 +110,7 @@ public sealed class PedagogicalPeriodsController : ControllerBase
     }
 
     [HttpPut("sub-periods/{id:guid}/settings")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PedagogicalPeriodsManage)]
     public async Task<IActionResult> UpdateSettings(
         Guid id,
         [FromBody] UpdateSubPeriodSettingsRequest request,

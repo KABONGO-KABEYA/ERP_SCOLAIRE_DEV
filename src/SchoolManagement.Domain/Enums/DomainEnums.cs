@@ -101,6 +101,22 @@ public enum PermissionAction
     Renew = 8
 }
 
+/// <summary>Effet d'une exception de permission utilisateur.</summary>
+public enum PermissionExceptionEffect
+{
+    Grant = 1,
+    Deny = 2
+}
+
+/// <summary>Type d'acteur pour le journal d'audit sécurité.</summary>
+public enum SecurityAuditActorKind
+{
+    User = 1,
+    SchoolAdmin = 2,
+    PlatformSuperAdmin = 3,
+    System = 4
+}
+
 public enum PaymentStatus
 {
     EnAttente = 1,

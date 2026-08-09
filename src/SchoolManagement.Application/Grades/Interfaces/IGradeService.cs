@@ -106,6 +106,22 @@ public interface IGradeService
         CalculatePeriodResultsRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Recalcul workflow (saisie, délibération, clôture) sans permission <c>grades.recalculate</c>.</summary>
+    Task<IReadOnlyList<PeriodResultDto>> RecalculatePeriodResultsAfterDataChangeAsync(
+        Guid schoolId,
+        CalculatePeriodResultsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task PublishPeriodCotationAsync(
+        Guid schoolId,
+        PublishPeriodCotationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task UnpublishPeriodCotationAsync(
+        Guid schoolId,
+        PublishPeriodCotationRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<PeriodResultDto>> GetPeriodResultsAsync(
         Guid schoolId,
         Guid classRoomId,

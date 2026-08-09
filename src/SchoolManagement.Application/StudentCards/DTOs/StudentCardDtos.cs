@@ -166,6 +166,10 @@ public sealed record DeclareCardIncidentRequest(string? Reason);
 
 public sealed record DeactivateStudentCardRequest(string Reason);
 
+public sealed record ActivateStudentCardRequest(string? Notes = null);
+
+public sealed record SuspendStudentCardRequest(string Reason);
+
 public sealed record ResolveCardByQrRequest(string QrPayloadOrToken);
 
 public sealed record ResolvedStudentCardDto(

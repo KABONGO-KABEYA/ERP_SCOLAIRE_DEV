@@ -20,6 +20,7 @@ public sealed class DatabaseSeeder
     private readonly IPasswordHasher _passwordHasher;
     private readonly CurriculumSeeder _curriculumSeeder;
     private readonly ISectionConsolidationService _sectionConsolidationService;
+    private readonly SecurityCatalogSeeder _securityCatalogSeeder;
     private readonly ILogger<DatabaseSeeder> _logger;
 
     public DatabaseSeeder(
@@ -27,37 +28,64 @@ public sealed class DatabaseSeeder
         IPasswordHasher passwordHasher,
         CurriculumSeeder curriculumSeeder,
         ISectionConsolidationService sectionConsolidationService,
+        SecurityCatalogSeeder securityCatalogSeeder,
         ILogger<DatabaseSeeder> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _curriculumSeeder = curriculumSeeder;
         _sectionConsolidationService = sectionConsolidationService;
+        _securityCatalogSeeder = securityCatalogSeeder;
         _logger = logger;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await SeedSystemAsync(cancellationToken);
-        await SeedDemoAsync(cancellationToken);
+        _context.IgnoreSchoolScope = true;
+        try
+        {
+            await SeedSystemAsync(cancellationToken);
+            await SeedDemoAsync(cancellationToken);
+        }
+        finally
+        {
+            _context.IgnoreSchoolScope = false;
+        }
     }
 
     /// <summary>Permissions, rôles admin, compte Super Admin — sûr pour Production.</summary>
     public async Task SeedSystemAsync(CancellationToken cancellationToken = default)
     {
-        await SeedPermissionsAsync(cancellationToken);
-        await SeedAdminUserAsync(cancellationToken);
-        await SeedResultValidationRolePermissionsAsync(cancellationToken);
+        _context.IgnoreSchoolScope = true;
+        try
+        {
+            await SeedPermissionsAsync(cancellationToken);
+            await SeedAdminUserAsync(cancellationToken);
+            await SeedResultValidationRolePermissionsAsync(cancellationToken);
+            await _securityCatalogSeeder.SeedAsync(cancellationToken);
+        }
+        finally
+        {
+            _context.IgnoreSchoolScope = false;
+        }
     }
 
     /// <summary>Données de démonstration — Development uniquement.</summary>
     public async Task SeedDemoAsync(CancellationToken cancellationToken = default)
     {
-        await SeedParentDemoAsync(cancellationToken);
-        await SeedKabeyaParentAsync(cancellationToken);
-        await SeedDemoAcademicStructureAsync(cancellationToken);
-        await SeedTeacherDemoAsync(cancellationToken);
-        await SeedDirectionDemoAsync(cancellationToken);
+        _context.IgnoreSchoolScope = true;
+        try
+        {
+            await SeedParentDemoAsync(cancellationToken);
+            await SeedKabeyaParentAsync(cancellationToken);
+            await SeedDemoAcademicStructureAsync(cancellationToken);
+            await SeedTeacherDemoAsync(cancellationToken);
+            await SeedDirectionDemoAsync(cancellationToken);
+        }
+        finally
+        {
+            _context.IgnoreSchoolScope = false;
+        }
     }
 
     private async Task SeedPermissionsAsync(CancellationToken cancellationToken)
@@ -78,7 +106,11 @@ public sealed class DatabaseSeeder
                 Code = code,
                 Module = module,
                 Action = ParsePermissionAction(actionToken),
-                Description = code
+                Description = code,
+                DisplayName = code,
+                BusinessDescription = code,
+                HelpText = code,
+                IsActive = true
             });
         }
 
@@ -101,6 +133,9 @@ public sealed class DatabaseSeeder
             "validate" => PermissionAction.Approve,
             "lock" => PermissionAction.Approve,
             "unlock" => PermissionAction.Approve,
+            "manage" => PermissionAction.Update,
+            "full" => PermissionAction.Approve,
+            "superadmin" => PermissionAction.Approve,
             _ => throw new ArgumentException($"Action de permission inconnue : '{actionToken}'.")
         };
 
@@ -140,6 +175,10 @@ public sealed class DatabaseSeeder
             }
         }
 
+        await AssignAsync("ENSEIGNANT", Permissions.ResultsValidationRead);
+        await AssignAsync("ENSEIGNANT", Permissions.DeliberationPvRead);
+        await AssignAsync("ENSEIGNANT", Permissions.DeliberationDecisionRead);
+        // Compat legacy seed anglais (ne pas renommer ENSEIGNANT)
         await AssignAsync("TEACHER", Permissions.ResultsValidationRead);
         await AssignAsync("TEACHER", Permissions.DeliberationPvRead);
         await AssignAsync("TEACHER", Permissions.DeliberationDecisionRead);
@@ -192,7 +231,10 @@ public sealed class DatabaseSeeder
                 SchoolId = school.Id,
                 Name = "Administrateur",
                 Code = "ADMIN",
-                SystemRole = UserRole.Administrateur
+                SystemRole = UserRole.Administrateur,
+                IsSystem = true,
+                IsAssignable = true,
+                SortOrder = 10
             };
             _context.Roles.Add(adminRole);
             await _context.SaveChangesAsync(cancellationToken);
@@ -470,6 +512,12 @@ public sealed class DatabaseSeeder
             return;
         }
 
+        // Ne pas injecter la structure démo sur un établissement créé par l'assistant d'installation.
+        if (!string.Equals(school.Name, "COLLEGE SAINT BENOIT", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         await EnsurePedagogicalStructureAsync(school.Id, cancellationToken);
 
         var year = await _context.AcademicYears
@@ -611,7 +659,8 @@ public sealed class DatabaseSeeder
     {
         foreach (var (code, name, cycle) in PedagogicalSectionCatalog.RequiredSections)
         {
-            if (!await _context.Sections.AnyAsync(s => s.SchoolId == schoolId && s.Code == code, cancellationToken))
+            if (!await _context.Sections.IgnoreQueryFilters()
+                    .AnyAsync(s => s.SchoolId == schoolId && s.Code == code, cancellationToken))
             {
                 _context.Sections.Add(new Section
                 {

@@ -1,0 +1,229 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.PlatformCatalogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels">
+    <UserControl.Resources>
+        <ui:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <HierarchicalDataTemplate DataType="{x:Type vm:CatalogTreeNodeViewModel}" ItemsSource="{Binding Children}">
+            <TextBlock Text="{Binding Display}" />
+        </HierarchicalDataTemplate>
+    </UserControl.Resources>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DockPanel>
+            <TextBlock Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       Text="Catalogue plateforme (Super Admin)" />
+            <Button DockPanel.Dock="Right"
+                    Command="{Binding LoadCommand}"
+                    Content="Actualiser"
+                    Style="{StaticResource MaterialDesignOutlinedButton}" />
+        </DockPanel>
+        <TabControl Grid.Row="1" Margin="0,12,0,0">
+            <TabItem Header="Navigation">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel Grid.Column="0" Margin="0,0,8,0">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Margin="0,0,8,0"
+                                    Command="{Binding BeginNewModuleCommand}"
+                                    Content="Nouveau module"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" />
+                            <Button Command="{Binding BeginNewChildCommand}"
+                                    Content="Nouvel enfant"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" />
+                        </StackPanel>
+                        <TreeView ItemsSource="{Binding TreeRoots}"
+                                  SelectedItemChanged="TreeView_OnSelectedItemChanged" />
+                    </DockPanel>
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Visibility="{Binding IsTreeEditorVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                                       Text="Édition sécurisée (codes immuables après création)" />
+                            <TextBox Margin="0,8,0,4"
+                                     materialDesign:HintAssist.Hint="Code"
+                                     IsEnabled="{Binding IsCodeEditable}"
+                                     Text="{Binding EditCode}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="Nom affiché"
+                                     Text="{Binding EditName}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="Description"
+                                     Text="{Binding EditDescription}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="Icône (module / fonction)"
+                                     Text="{Binding EditIcon}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     Visibility="{Binding ShowModuleFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="Ordre d'affichage"
+                                     Text="{Binding EditSortOrder}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="DesktopViewKey"
+                                     Text="{Binding EditDesktopViewKey}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     Visibility="{Binding ShowPageFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <TextBox Margin="0,4"
+                                     materialDesign:HintAssist.Hint="Permission requise (code)"
+                                     Text="{Binding EditRequiredPermissionCode}"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     Visibility="{Binding ShowPageFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <CheckBox Margin="0,8,0,0"
+                                      Content="Actif"
+                                      IsChecked="{Binding EditIsActive}" />
+                            <CheckBox Margin="0,4,0,0"
+                                      Content="Disponible sur Desktop"
+                                      IsChecked="{Binding EditAvailableOnDesktop}"
+                                      Visibility="{Binding ShowPageFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <Button Margin="0,12,0,0"
+                                    HorizontalAlignment="Left"
+                                    Command="{Binding SaveTreeNodeCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource MaterialDesignRaisedButton}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Permissions">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="340" />
+                    </Grid.ColumnDefinitions>
+                    <DataGrid Style="{StaticResource ErpDataGrid}"
+                              ItemsSource="{Binding Permissions}"
+                              SelectedItem="{Binding SelectedPermission}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Code}" Header="Code" Width="160" />
+                            <DataGridTextColumn Binding="{Binding DisplayName}" Header="DisplayName" Width="*" />
+                            <DataGridTextColumn Binding="{Binding Module}" Header="Module" Width="100" />
+                            <DataGridTextColumn Binding="{Binding Description}" Header="Description métier" Width="*" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="60" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <TextBlock Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Text="Fiche permission" />
+                        <TextBox Margin="0,8,0,4"
+                                 materialDesign:HintAssist.Hint="Code"
+                                 IsEnabled="{Binding IsPermissionCodeEditable}"
+                                 Text="{Binding PermCode}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                        <TextBox Margin="0,4"
+                                 materialDesign:HintAssist.Hint="DisplayName"
+                                 Text="{Binding PermDisplayName}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                        <TextBox Margin="0,4"
+                                 materialDesign:HintAssist.Hint="Module"
+                                 Text="{Binding PermModule}"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                        <TextBox Margin="0,4"
+                                 materialDesign:HintAssist.Hint="Description métier (BusinessDescription)"
+                                 AcceptsReturn="True"
+                                 MinHeight="64"
+                                 Text="{Binding PermBusinessDescription}"
+                                 TextWrapping="Wrap"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                        <TextBox Margin="0,4"
+                                 materialDesign:HintAssist.Hint="HelpText"
+                                 AcceptsReturn="True"
+                                 MinHeight="48"
+                                 Text="{Binding PermHelpText}"
+                                 TextWrapping="Wrap"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+                        <CheckBox Margin="0,8,0,0" Content="Active" IsChecked="{Binding PermIsActive}" />
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Margin="0,0,8,0"
+                                    Command="{Binding BeginNewPermissionCommand}"
+                                    Content="Nouvelle"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" />
+                            <Button Command="{Binding SavePermissionCommand}"
+                                    Content="Enregistrer"
+                                    Style="{StaticResource MaterialDesignRaisedButton}" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                   Text="Les permissions plateforme critiques (admin.full, platform.*) ne peuvent pas être désactivées."
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Dépendances">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="Ajout validé côté serveur (cycles interdits, doublons refusés)." TextWrapping="Wrap" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <ComboBox Width="280"
+                                      Margin="0,0,8,0"
+                                      materialDesign:HintAssist.Hint="Permission dépendante"
+                                      DisplayMemberPath="Code"
+                                      ItemsSource="{Binding Permissions}"
+                                      SelectedValue="{Binding DepPermissionId}"
+                                      SelectedValuePath="Id"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                            <ComboBox Width="280"
+                                      Margin="0,0,8,0"
+                                      materialDesign:HintAssist.Hint="Prérequis"
+                                      DisplayMemberPath="Code"
+                                      ItemsSource="{Binding Permissions}"
+                                      SelectedValue="{Binding DepRequiresPermissionId}"
+                                      SelectedValuePath="Id"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                            <Button Command="{Binding AddDependencyCommand}"
+                                    Content="Ajouter"
+                                    Style="{StaticResource MaterialDesignRaisedButton}" />
+                            <Button Margin="8,0,0,0"
+                                    Command="{Binding RemoveDependencyCommand}"
+                                    Content="Supprimer la sélection"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              Style="{StaticResource ErpDataGrid}"
+                              ItemsSource="{Binding Dependencies}"
+                              SelectedItem="{Binding SelectedDependency}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding PermissionCode}" Header="Permission" Width="*" />
+                            <DataGridTextColumn Binding="{Binding RequiresPermissionCode}" Header="Requiert" Width="*" />
+                            <DataGridCheckBoxColumn Binding="{Binding IsActive}" Header="Actif" Width="60" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Audit plateforme">
+                <DockPanel>
+                    <Button DockPanel.Dock="Top"
+                            Margin="0,0,0,8"
+                            HorizontalAlignment="Left"
+                            Command="{Binding LoadPlatformAuditCommand}"
+                            Content="Charger l'audit catalogue"
+                            Style="{StaticResource MaterialDesignOutlinedButton}" />
+                    <DataGrid Style="{StaticResource ErpDataGrid}" ItemsSource="{Binding PlatformAudit}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding OccurredAtUtc}" Header="UTC" Width="140" />
+                            <DataGridTextColumn Binding="{Binding ActionType}" Header="Action" Width="160" />
+                            <DataGridTextColumn Binding="{Binding Summary}" Header="Résumé" Width="*" />
+                            <DataGridTextColumn Binding="{Binding ActorUserName}" Header="Acteur" Width="120" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+        <TextBlock Grid.Row="2" Margin="4,8,0,0" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+    </Grid>
+</UserControl>

@@ -115,12 +115,19 @@ public sealed class FinanceOperationService : IFinanceOperationService
             cancellationToken);
         var balances = balancesQuery.ToList();
 
+        // La devise est portée par le type de frais, jamais par le tarif ni par le solde :
+        // on la résout en direct pour ne pas afficher la copie figée dans le solde élève,
+        // qui reste sur l'ancienne devise après un changement en paramétrage.
+        var feeTypesById = (await _feeTypeRepository.FindAsync(
+            f => f.SchoolId == schoolId,
+            cancellationToken)).ToDictionary(f => f.Id);
+
+        var feeTypeIdByTariffId = yearTariffs.ToDictionary(a => a.Id, a => a.FeeTypeId);
+
         FeeType? feeType = null;
         if (request.FeeTypeId.HasValue)
         {
-            feeType = (await _feeTypeRepository.FindAsync(
-                f => f.Id == request.FeeTypeId.Value && f.SchoolId == schoolId,
-                cancellationToken)).FirstOrDefault();
+            feeTypesById.TryGetValue(request.FeeTypeId.Value, out feeType);
         }
 
         var balancesByStudent = balances
@@ -178,8 +185,8 @@ public sealed class FinanceOperationService : IFinanceOperationService
             }
 
             categories.TryGetValue(enrollment.FeePricingCategoryId, out var category);
-            var currency = studentBalances.FirstOrDefault()?.Currency
-                ?? feeType?.Currency
+            var currency = feeType?.Currency
+                ?? ResolveLiveCurrency(studentBalances, feeTypeIdByTariffId, feeTypesById)
                 ?? Currency.CDF;
 
             var dto = new StudentPaymentSituationDto(
@@ -733,9 +740,9 @@ public sealed class FinanceOperationService : IFinanceOperationService
         UpdateEnrollmentPricingCategoryRequest request,
         CancellationToken cancellationToken = default)
     {
-        PaymentMutationPolicy.EnsureAdministrator(
+        PaymentMutationPolicy.EnsureCanAssignPricingCategory(
             _currentUser,
-            "Seul l'administrateur peut attribuer ou modifier la catégorie tarifaire d'un élève.");
+            "Seul un utilisateur autorisé peut attribuer ou modifier la catégorie tarifaire d'un élève.");
 
         await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
 
@@ -1107,6 +1114,27 @@ public sealed class FinanceOperationService : IFinanceOperationService
         var ids = categoryIds.Distinct().ToList();
         var categories = await _categoryRepository.FindAsync(c => ids.Contains(c.Id), cancellationToken);
         return categories.ToDictionary(c => c.Id, c => (c.Code, c.Name));
+    }
+
+    /// <summary>
+    /// Remonte la devise courante du type de frais auquel se rattache le solde, plutôt que la
+    /// copie stockée sur le solde qui date de sa génération.
+    /// </summary>
+    private static Currency? ResolveLiveCurrency(
+        IReadOnlyList<StudentFeeBalance> balances,
+        IReadOnlyDictionary<Guid, Guid> feeTypeIdByTariffId,
+        IReadOnlyDictionary<Guid, FeeType> feeTypesById)
+    {
+        foreach (var balance in balances)
+        {
+            if (feeTypeIdByTariffId.TryGetValue(balance.ClassFeeAmountId, out var feeTypeId)
+                && feeTypesById.TryGetValue(feeTypeId, out var feeType))
+            {
+                return feeType.Currency;
+            }
+        }
+
+        return balances.FirstOrDefault()?.Currency;
     }
 
     private static PaymentSituationStatus ResolvePaymentStatus(decimal expected, decimal paid, decimal balance)

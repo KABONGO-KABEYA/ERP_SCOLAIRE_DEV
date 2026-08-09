@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Http;
 using SchoolManagement.Application.Auth.DTOs;
+using SchoolManagement.Shared.Constants;
 using SchoolManagement.Shared.Models;
 
 public sealed class AuthDelegatingHandler : DelegatingHandler
@@ -124,25 +125,23 @@ public sealed class AuthSessionService : IAuthSessionService
 
     public bool IsAuthenticated => !string.IsNullOrEmpty(AccessToken);
 
-    public bool IsAdministrator
+    public bool IsAdministrator =>
+        HasPermission(Permissions.AdminFull);
+
+    public bool HasPermission(string permissionCode)
     {
-        get
+        if (string.IsNullOrWhiteSpace(permissionCode))
         {
-            var user = CurrentUser;
-            if (user is null)
-            {
-                return false;
-            }
-
-            if (user.Permissions.Any(p => string.Equals(p, "admin.full", StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-
-            return user.Roles.Any(r =>
-                string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase)
-                || r.Contains("ADMIN", StringComparison.OrdinalIgnoreCase));
+            return false;
         }
+
+        var user = CurrentUser;
+        if (user?.Permissions is null || user.Permissions.Count == 0)
+        {
+            return false;
+        }
+
+        return user.Permissions.Any(p => string.Equals(p, permissionCode, StringComparison.OrdinalIgnoreCase));
     }
 
     public void SetSession(AuthResponse response)
@@ -1210,6 +1209,20 @@ public sealed class StudentCardApiService : ApiServiceBase, IStudentCardApiServi
         PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
             $"api/v1/cards/{cardId}/deactivate", request, cancellationToken);
 
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> ActivateAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.ActivateStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/activate", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> SuspendAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.SuspendStudentCardRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto>(
+            $"api/v1/cards/{cardId}/suspend", request, cancellationToken);
+
     public Task SoftDeleteAsync(Guid cardId, CancellationToken cancellationToken = default) =>
         DeleteAsync($"api/v1/cards/{cardId}", cancellationToken);
 
@@ -2114,6 +2127,230 @@ public sealed class ReportApiService : ApiServiceBase, IReportApiService
         }
 
         return string.Join("&", parts);
+    }
+}
+
+public sealed class SecurityAdminApiService : ApiServiceBase, ISecurityAdminApiService
+{
+    public SecurityAdminApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    private const string Base = "api/v1/security";
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityUserDto>> GetUsersAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityUserDto>>($"{Base}/users", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPersonnelCandidateDto>> SearchPersonnelCandidatesAsync(
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var query = string.IsNullOrWhiteSpace(search)
+            ? $"{Base}/users/personnel-candidates"
+            : $"{Base}/users/personnel-candidates?search={Uri.EscapeDataString(search.Trim())}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPersonnelCandidateDto>>(
+            query, cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> CreateUserAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityUserRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityUserDto>($"{Base}/users", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> UpdateUserAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityUserRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityUserDto>($"{Base}/users/{userId}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> SetUserRolesAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.SetSecurityUserRolesRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityUserDto>($"{Base}/users/{userId}/roles", request, cancellationToken);
+
+    public Task ResetPasswordAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.ResetPasswordRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"{Base}/users/{userId}/reset-password", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.EffectivePermissionExplanationDto> GetEffectivePermissionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Security.DTOs.EffectivePermissionExplanationDto>(
+            $"{Base}/users/{userId}/effective-permissions", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityRoleDto>> GetRolesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityRoleDto>>($"{Base}/roles", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityRoleDto> CreateRoleAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityRoleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityRoleDto>($"{Base}/roles", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityRoleDto> UpdateRoleAsync(
+        Guid roleId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityRoleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityRoleDto>($"{Base}/roles/{roleId}", request, cancellationToken);
+
+    public Task DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"{Base}/roles/{roleId}", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.RolePermissionsDto> GetRolePermissionsAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Security.DTOs.RolePermissionsDto>($"{Base}/roles/{roleId}/permissions", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.RolePermissionsDto> SetRolePermissionsAsync(
+        Guid roleId,
+        SchoolManagement.Application.Security.DTOs.SetRolePermissionsRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.RolePermissionsDto>($"{Base}/roles/{roleId}/permissions", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionCatalogItemDto>> GetPermissionCatalogAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionCatalogItemDto>>($"{Base}/permissions/catalog", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto>> GetExceptionsAsync(
+        Guid? userId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = userId is null ? $"{Base}/exceptions" : $"{Base}/exceptions?userId={userId}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto>>(url, cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto> CreateExceptionAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityExceptionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto>($"{Base}/exceptions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto> UpdateExceptionAsync(
+        Guid exceptionId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityExceptionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto>($"{Base}/exceptions/{exceptionId}", request, cancellationToken);
+
+    public Task CloseExceptionAsync(Guid exceptionId, CancellationToken cancellationToken = default) =>
+        PostAsync<object>($"{Base}/exceptions/{exceptionId}/close", new { }, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>> QueryAuditAsync(
+        SchoolManagement.Application.Security.DTOs.SecurityAuditQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (query.FromUtc is not null) parts.Add($"fromUtc={Uri.EscapeDataString(query.FromUtc.Value.ToString("O"))}");
+        if (query.ToUtc is not null) parts.Add($"toUtc={Uri.EscapeDataString(query.ToUtc.Value.ToString("O"))}");
+        if (!string.IsNullOrWhiteSpace(query.ActionType)) parts.Add($"actionType={Uri.EscapeDataString(query.ActionType)}");
+        if (query.ActorUserId is not null) parts.Add($"actorUserId={query.ActorUserId}");
+        if (!string.IsNullOrWhiteSpace(query.TargetUserName)) parts.Add($"targetUserName={Uri.EscapeDataString(query.TargetUserName)}");
+        parts.Add($"skip={query.Skip}");
+        parts.Add($"take={query.Take}");
+        var qs = parts.Count > 0 ? "?" + string.Join("&", parts) : string.Empty;
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>>($"{Base}/audit{qs}", cancellationToken);
+    }
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto> GetAuditAsync(
+        Guid auditId,
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>($"{Base}/audit/{auditId}", cancellationToken);
+}
+
+public sealed class PlatformCatalogApiService : ApiServiceBase, IPlatformCatalogApiService
+{
+    public PlatformCatalogApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    private const string Base = "api/v1/platform";
+
+    public Task<SchoolManagement.Application.Security.DTOs.CatalogTreeDto> GetTreeAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Security.DTOs.CatalogTreeDto>($"{Base}/catalog/tree", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityModuleDto> CreateModuleAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityModuleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityModuleDto>($"{Base}/catalog/modules", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityModuleDto> UpdateModuleAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityModuleRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityModuleDto>($"{Base}/catalog/modules/{id}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto> CreateFunctionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityFunctionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto>($"{Base}/catalog/functions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto> UpdateFunctionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityFunctionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto>($"{Base}/catalog/functions/{id}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityPageDto> CreatePageAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPageRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityPageDto>($"{Base}/catalog/pages", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityPageDto> UpdatePageAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPageRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityPageDto>($"{Base}/catalog/pages/{id}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityActionDto> CreateActionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityActionDto>($"{Base}/catalog/actions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityActionDto> UpdateActionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityActionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityActionDto>($"{Base}/catalog/actions/{id}", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto>> GetPermissionsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto>>($"{Base}/catalog/permissions", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto> CreatePermissionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPermissionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto>($"{Base}/catalog/permissions", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto> UpdatePermissionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPermissionRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto>($"{Base}/catalog/permissions/{id}", request, cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto>> GetDependenciesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto>>($"{Base}/catalog/dependencies", cancellationToken);
+
+    public Task<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto> AddDependencyAsync(
+        SchoolManagement.Application.Security.DTOs.CreatePermissionDependencyRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto>($"{Base}/catalog/dependencies", request, cancellationToken);
+
+    public Task RemoveDependencyAsync(Guid dependencyId, CancellationToken cancellationToken = default) =>
+        DeleteAsync($"{Base}/catalog/dependencies/{dependencyId}", cancellationToken);
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>> QueryPlatformAuditAsync(
+        SchoolManagement.Application.Security.DTOs.SecurityAuditQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>();
+        if (query.SchoolId is not null) parts.Add($"schoolId={query.SchoolId}");
+        if (query.FromUtc is not null) parts.Add($"fromUtc={Uri.EscapeDataString(query.FromUtc.Value.ToString("O"))}");
+        if (query.ToUtc is not null) parts.Add($"toUtc={Uri.EscapeDataString(query.ToUtc.Value.ToString("O"))}");
+        if (!string.IsNullOrWhiteSpace(query.ActionType)) parts.Add($"actionType={Uri.EscapeDataString(query.ActionType)}");
+        parts.Add($"skip={query.Skip}");
+        parts.Add($"take={query.Take}");
+        var qs = parts.Count > 0 ? "?" + string.Join("&", parts) : string.Empty;
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>>($"{Base}/audit{qs}", cancellationToken);
     }
 }
 

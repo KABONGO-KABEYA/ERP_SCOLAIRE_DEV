@@ -98,8 +98,14 @@ public sealed class CloudSyncOutboxWriter : ICloudSyncOutboxWriter
                 continue;
             }
 
+            var schoolId = db.EffectiveTenantSchoolId
+                ?? await LocalSchoolResolver.TryResolvePrimarySchoolIdAsync(db, cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Impossible d'enfiler la sync cloud : établissement local introuvable.");
+
             var unit = new SyncOutboxUnit
             {
+                SchoolId = schoolId,
                 AggregateType = group.Key.aggType,
                 AggregateId = group.Key.aggId,
                 Priority = priority,

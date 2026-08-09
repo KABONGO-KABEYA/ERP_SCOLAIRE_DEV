@@ -38,7 +38,7 @@ public sealed class UpdateController : ControllerBase
     }
 
     [HttpGet("versions")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.UpdatesManage)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ApplicationVersionAdminDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListVersions(CancellationToken cancellationToken)
     {
@@ -47,7 +47,7 @@ public sealed class UpdateController : ControllerBase
     }
 
     [HttpPost("versions")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.UpdatesManage)]
     [ProducesResponseType(typeof(ApiResponse<ApplicationVersionAdminDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Publish(
         [FromBody] PublishApplicationVersionRequest request,
@@ -58,7 +58,7 @@ public sealed class UpdateController : ControllerBase
     }
 
     [HttpPut("versions/{id:guid}/active")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.UpdatesManage)]
     [ProducesResponseType(typeof(ApiResponse<ApplicationVersionAdminDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SetActive(
         Guid id,

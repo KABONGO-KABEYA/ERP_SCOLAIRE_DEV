@@ -244,7 +244,10 @@ public sealed class AcademicService : IAcademicService
         Guid? academicYearId = null,
         CancellationToken cancellationToken = default)
     {
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
+        var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
+        var studentIds = students.Select(s => s.Id).ToHashSet();
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
 
         if (classRoomId.HasValue)
         {
@@ -256,8 +259,6 @@ public sealed class AcademicService : IAcademicService
             enrollments = enrollments.Where(e => e.AcademicYearId == academicYearId.Value).ToList();
         }
 
-        var studentIds = enrollments.Select(e => e.StudentId).Distinct().ToList();
-        var students = await _studentRepository.FindAsync(s => studentIds.Contains(s.Id) && s.SchoolId == schoolId, cancellationToken);
         var studentMap = students.ToDictionary(s => s.Id);
 
         var classIds = enrollments.Select(e => e.ClassRoomId).Distinct().ToList();

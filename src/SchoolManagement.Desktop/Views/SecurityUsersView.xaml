@@ -1,0 +1,983 @@
+<UserControl x:Class="SchoolManagement.Desktop.Views.SecurityUsersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:erp="clr-namespace:SchoolManagement.Desktop.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+    <UserControl.Resources>
+        <ui:StringJoinConverter x:Key="StringJoin" />
+        <ui:HexToBrushConverter x:Key="HexToBrush" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- Style tableau inspiré de Cotation / Notes -->
+        <Style x:Key="UsersConsultColumnHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style x:Key="UsersConsultCell" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style liste utilisateurs = Résultats par classe / Vue globale -->
+        <Style x:Key="UsersListColumnHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#0B1F47" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderBrush" Value="#1E3A5F" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="UsersListCell" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="Foreground" Value="#0F172A" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="UsersListRow" TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="12,8,12,8" Style="{StaticResource ErpFadeIn}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="320" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Recherche + Actualiser -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Margin="8,0,0,0"
+                    Padding="14,6"
+                    VerticalAlignment="Center"
+                    Command="{Binding LoadCommand}"
+                    Style="{StaticResource ErpSecondaryButton}">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Refresh" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock VerticalAlignment="Center" Text="Actualiser" />
+                </StackPanel>
+            </Button>
+            <erp:ErpSearchField HorizontalAlignment="Stretch"
+                                Placeholder="Rechercher un utilisateur (identifiant, nom, email)…"
+                                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+        </DockPanel>
+
+        <!-- Gauche : liste | Droite : onglets -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.95*" MinWidth="280" />
+                <ColumnDefinition Width="1.25*" MinWidth="360" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Panneau gauche : liste utilisateurs (style Résultats par classe) -->
+            <Border Grid.Column="0"
+                    Margin="0,0,8,0"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    ClipToBounds="True"
+                    CornerRadius="12">
+                <DataGrid AutoGenerateColumns="False"
+                          AlternatingRowBackground="#F8FAFC"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserReorderColumns="False"
+                          CanUserResizeColumns="True"
+                          CellStyle="{StaticResource UsersListCell}"
+                          ColumnHeaderStyle="{StaticResource UsersListColumnHeader}"
+                          EnableColumnVirtualization="True"
+                          EnableRowVirtualization="True"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          HorizontalGridLinesBrush="#F1F5F9"
+                          IsReadOnly="True"
+                          ItemsSource="{Binding Users}"
+                          RowBackground="Transparent"
+                          RowHeight="34"
+                          RowStyle="{StaticResource UsersListRow}"
+                          SelectedItem="{Binding SelectedUser}"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          VerticalGridLinesBrush="#F1F5F9">
+                    <DataGrid.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                    </DataGrid.Resources>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding UserName}"
+                                            Header="IDENTIFIANT"
+                                            Width="110" />
+                        <DataGridTextColumn Binding="{Binding FullName}"
+                                            Header="NOM"
+                                            Width="*" />
+                        <DataGridTemplateColumn Header="STATUT" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Padding="8,3"
+                                            HorizontalAlignment="Left"
+                                            Background="#DCFCE7"
+                                            CornerRadius="999">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                        <Setter Property="Background" Value="#FEF3C7" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock FontSize="11" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="Actif" />
+                                                    <Setter Property="Foreground" Value="#166534" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter Property="Text" Value="Inactif" />
+                                                            <Setter Property="Foreground" Value="#B45309" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="RÔLES" Width="180">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ItemsControl Margin="0,2" ItemsSource="{Binding RoleLabels}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,4,2"
+                                                        Padding="8,2"
+                                                        Background="#E8EFFF"
+                                                        CornerRadius="999">
+                                                    <TextBlock FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#1E5EFF"
+                                                               Text="{Binding}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <!-- Panneau droit : onglets -->
+            <Border Grid.Column="1"
+                    Margin="8,0,0,0"
+                    Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    CornerRadius="14">
+                <TabControl Margin="8,4,8,8" Style="{StaticResource ErpTabControl}">
+
+                    <!-- 1. Informations -->
+                    <TabItem Header="Informations">
+                        <ScrollViewer Padding="4,8,4,4" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Left"
+                                               FontWeight="SemiBold"
+                                               Foreground="#0F1F4A"
+                                               Text="Utilisateur sélectionné" />
+                                    <Border DockPanel.Dock="Right"
+                                            Padding="8,3"
+                                            HorizontalAlignment="Right"
+                                            Background="#DCFCE7"
+                                            CornerRadius="999">
+                                        <TextBlock FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#166534"
+                                                   Text="{Binding SelectedUserStatusLabel}" />
+                                    </Border>
+                                </DockPanel>
+                                <TextBlock Margin="0,10,0,0"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="#111827"
+                                           Text="{Binding SelectedUser.FullName, TargetNullValue=Aucun utilisateur}" />
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0"
+                                                Grid.Column="0"
+                                                Margin="0,0,8,10">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Nom" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUser.FullName, TargetNullValue=—}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0"
+                                                Grid.Column="1"
+                                                Margin="0,0,0,10">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Identifiant" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUser.UserName, TargetNullValue=—}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1"
+                                                Grid.Column="0"
+                                                Margin="0,0,8,10">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Email" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUser.Email, TargetNullValue=—}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1"
+                                                Grid.Column="1"
+                                                Margin="0,0,0,10">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Statut" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUserStatusLabel}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2"
+                                                Grid.Column="0"
+                                                Margin="0,0,8,0">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Dernière connexion" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUserLastLoginLabel}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="1">
+                                        <TextBlock FontSize="11" Foreground="#9CA3AF" Text="Changer MDP au login" />
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Text="{Binding SelectedUserMustChangePasswordLabel}" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Margin="0,12,0,0"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Text="{Binding SelectedUserPlatformLabel}" />
+                                <TextBlock Margin="0,12,0,4"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#9CA3AF"
+                                           Text="Rôles" />
+                                <ItemsControl ItemsSource="{Binding SelectedUserRoleBadges}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,6,4"
+                                                    Padding="8,3"
+                                                    Background="#E8EFFF"
+                                                    CornerRadius="999">
+                                                <TextBlock FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#1E5EFF"
+                                                           Text="{Binding}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Margin="0,14,0,6"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#9CA3AF"
+                                           Text="Administration" />
+                                <WrapPanel>
+                                    <Button Margin="0,0,8,0"
+                                            Padding="12,6"
+                                            Command="{Binding ToggleUserActiveCommand}"
+                                            Content="Activer / Désactiver"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <Button Margin="0,0,8,0"
+                                            Padding="12,6"
+                                            Command="{Binding BeginResetPasswordCommand}"
+                                            Content="Réinitialiser MDP"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                </WrapPanel>
+                                <Border Margin="0,12,0,0"
+                                        Padding="10"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Visibility="{Binding IsResetPasswordVisible, Converter={StaticResource BoolToVis}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <erp:ErpTextField Grid.Column="0"
+                                                          Margin="0,0,8,0"
+                                                          HorizontalAlignment="Stretch"
+                                                          IconKind="LockReset"
+                                                          IsCompact="True"
+                                                          Label="Nouveau mot de passe"
+                                                          Text="{Binding ResetPassword, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Button Grid.Column="1"
+                                                Margin="0,0,8,0"
+                                                Padding="12,6"
+                                                VerticalAlignment="Bottom"
+                                                Command="{Binding ResetPasswordCommand}"
+                                                Content="Confirmer"
+                                                Style="{StaticResource ErpPrimaryButton}" />
+                                        <Button Grid.Column="2"
+                                                Padding="12,6"
+                                                VerticalAlignment="Bottom"
+                                                Command="{Binding CancelResetPasswordCommand}"
+                                                Content="Annuler"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- 2. Permissions -->
+                    <TabItem Header="Permissions">
+                        <DockPanel Margin="4,8,4,0">
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock FontWeight="SemiBold"
+                                               Foreground="#0F1F4A"
+                                               Text="Permissions effectives" />
+                                    <TextBlock DockPanel.Dock="Right"
+                                               FontSize="11"
+                                               Foreground="#9CA3AF"
+                                               Text="Consultation seule" />
+                                </DockPanel>
+                                <TextBlock Margin="0,4,0,0"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Text="{Binding EffectiveRolesSummary}"
+                                           TextWrapping="Wrap" />
+                                <erp:ErpSearchField Margin="0,10,0,0"
+                                                    Placeholder="Rechercher une permission…"
+                                                    Text="{Binding PermissionSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <!-- Origine en bas -->
+                            <Border DockPanel.Dock="Bottom"
+                                    Margin="0,8,0,0"
+                                    Padding="12,10"
+                                    Background="White"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <StackPanel>
+                                    <TextBlock Margin="0,0,0,8"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="#0F1F4A"
+                                               Text="Origine de la permission sélectionnée" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="ORIGINE" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold" Foreground="#111827"
+                                                       Text="{Binding SelectedPermission.DetailOriginLabel, TargetNullValue=—}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,8">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="RÔLE" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="13" Foreground="#111827"
+                                                       Text="{Binding SelectedPermission.DetailRoleLabel, TargetNullValue=—}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="EXCEPTION" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="12" Foreground="#111827" TextWrapping="Wrap"
+                                                       Text="{Binding SelectedPermission.DetailExceptionLabel, TargetNullValue=—}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="DÉPENDANCE" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="13" Foreground="#111827"
+                                                       Text="{Binding SelectedPermission.DetailDependencyLabel, TargetNullValue=—}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,12,0">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="STATUT EFFECTIF" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{Binding SelectedPermission.DetailEffectiveStatusBrush, Converter={StaticResource HexToBrush}}"
+                                                       Text="{Binding SelectedPermission.DetailEffectiveStatus, TargetNullValue=—}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="2">
+                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="DÉTAIL" />
+                                            <TextBlock Margin="0,2,0,0" FontSize="13" Foreground="#111827" TextWrapping="Wrap"
+                                                       Text="{Binding SelectedPermission.DetailSummary, TargetNullValue=—}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Pagination juste au-dessus de l'origine -->
+                            <Border DockPanel.Dock="Bottom"
+                                    Margin="0,8,0,0"
+                                    Padding="10,8"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Padding="12,5"
+                                                Command="{Binding PreviousPermissionPageCommand}"
+                                                Content="Précédent"
+                                                IsEnabled="{Binding CanGoPreviousPermissionPage}"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                        <Button Margin="8,0,0,0"
+                                                Padding="12,5"
+                                                Command="{Binding NextPermissionPageCommand}"
+                                                Content="Suivant"
+                                                IsEnabled="{Binding CanGoNextPermissionPage}"
+                                                Style="{StaticResource ErpSecondaryButton}" />
+                                    </StackPanel>
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="#374151"
+                                               Text="{Binding PermissionPaginationLabel}" />
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Tableau : colonnes 1-2-3 uniquement -->
+                            <Border Background="Transparent"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="4">
+                                <DataGrid AutoGenerateColumns="False"
+                                          AlternatingRowBackground="#FAFBFC"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          CanUserAddRows="False"
+                                          CanUserResizeRows="False"
+                                          CellStyle="{StaticResource UsersConsultCell}"
+                                          ColumnHeaderStyle="{StaticResource UsersConsultColumnHeader}"
+                                          GridLinesVisibility="Horizontal"
+                                          HeadersVisibility="Column"
+                                          HorizontalGridLinesBrush="#F1F5F9"
+                                          IsReadOnly="True"
+                                          ItemsSource="{Binding UserPermissions}"
+                                          RowBackground="Transparent"
+                                          RowHeight="46"
+                                          SelectedItem="{Binding SelectedPermission}"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow">
+                                    <DataGrid.Resources>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                                    </DataGrid.Resources>
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="EFFECTIVE" Width="100">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox HorizontalAlignment="Center"
+                                                              IsChecked="{Binding IsEffective, Mode=OneWay}"
+                                                              IsEnabled="False"
+                                                              IsHitTestVisible="False" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Binding="{Binding Code}"
+                                                            Header="CODE"
+                                                            Width="200" />
+                                        <DataGridTextColumn Binding="{Binding DisplayName}"
+                                                            Header="LIBELLÉ"
+                                                            Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- 3. Exceptions de permission -->
+                    <TabItem Header="Exceptions de permission">
+                        <DockPanel Margin="4,8,4,4">
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock FontWeight="SemiBold"
+                                           Foreground="#0F1F4A"
+                                           Text="Exceptions de permission" />
+                                <TextBlock Margin="0,4,0,0"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Text="Grant / Deny pour l'utilisateur sélectionné. Impacte les permissions effectives."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Border DockPanel.Dock="Bottom"
+                                    Margin="0,10,0,0"
+                                    Padding="12,10"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10">
+                                <StackPanel>
+                                    <TextBlock FontWeight="SemiBold"
+                                               Foreground="#0F1F4A"
+                                               Text="Nouvelle exception" />
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.4*" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="130" />
+                                        </Grid.ColumnDefinitions>
+                                        <erp:ErpComboField Grid.Column="0"
+                                                           Margin="0,0,8,0"
+                                                           DisplayMemberPath="DisplayName"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="ShieldKeyOutline"
+                                                           IsCompact="True"
+                                                           ItemsSource="{Binding ExceptionPermissionChoices}"
+                                                           Label="Permission"
+                                                           SelectedValue="{Binding NewExceptionPermissionId}"
+                                                           SelectedValuePath="Id" />
+                                        <erp:ErpComboField Grid.Column="1"
+                                                           Margin="0,0,8,0"
+                                                           HorizontalAlignment="Stretch"
+                                                           IconKind="SwapHorizontal"
+                                                           IsCompact="True"
+                                                           ItemsSource="{Binding ExceptionEffectChoices}"
+                                                           Label="Effet"
+                                                           SelectedItem="{Binding NewExceptionEffect}" />
+                                        <erp:ErpDateField Grid.Column="2"
+                                                          Margin="0,0,8,0"
+                                                          HorizontalAlignment="Stretch"
+                                                          IsCompact="True"
+                                                          Label="Début"
+                                                          SelectedDate="{Binding NewExceptionValidFrom}"
+                                                          ShowBadges="False" />
+                                        <erp:ErpDateField Grid.Column="3"
+                                                          HorizontalAlignment="Stretch"
+                                                          IsCompact="True"
+                                                          Label="Fin (opt.)"
+                                                          SelectedDate="{Binding NewExceptionValidTo}"
+                                                          ShowBadges="False" />
+                                    </Grid>
+                                    <erp:ErpTextField Margin="0,8,0,0"
+                                                      HorizontalAlignment="Stretch"
+                                                      IconKind="TextBoxOutline"
+                                                      IsCompact="True"
+                                                      Label="Motif"
+                                                      Text="{Binding NewExceptionReason, UpdateSourceTrigger=PropertyChanged}" />
+                                    <WrapPanel Margin="0,10,0,0">
+                                        <Button Margin="0,0,8,0"
+                                                Padding="14,6"
+                                                Command="{Binding CreateUserExceptionCommand}"
+                                                Style="{StaticResource ErpPrimaryButton}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Plus" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock VerticalAlignment="Center" Text="Créer" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Padding="14,6"
+                                                Command="{Binding CloseUserExceptionCommand}"
+                                                Style="{StaticResource ErpSecondaryButton}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="CloseCircleOutline" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock VerticalAlignment="Center" Text="Clôturer la sélection" />
+                                            </StackPanel>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="Transparent"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="4">
+                                <DataGrid AutoGenerateColumns="False"
+                                          AlternatingRowBackground="#FAFBFC"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          CanUserAddRows="False"
+                                          CanUserResizeRows="False"
+                                          CellStyle="{StaticResource UsersConsultCell}"
+                                          ColumnHeaderStyle="{StaticResource UsersConsultColumnHeader}"
+                                          GridLinesVisibility="Horizontal"
+                                          HeadersVisibility="Column"
+                                          HorizontalGridLinesBrush="#F1F5F9"
+                                          IsReadOnly="True"
+                                          ItemsSource="{Binding UserExceptions}"
+                                          RowBackground="Transparent"
+                                          RowHeight="46"
+                                          SelectedItem="{Binding SelectedUserException}"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow">
+                                    <DataGrid.Resources>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                                    </DataGrid.Resources>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Binding="{Binding PermissionDisplayName}"
+                                                            Header="PERMISSION"
+                                                            Width="*" />
+                                        <DataGridTemplateColumn Header="EFFET" Width="100">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border HorizontalAlignment="Left"
+                                                            Padding="8,3"
+                                                            CornerRadius="999">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#DCFCE7" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Effect}" Value="Deny">
+                                                                        <Setter Property="Background" Value="#FEE2E2" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock FontSize="11" FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Text" Value="Grant" />
+                                                                    <Setter Property="Foreground" Value="#166534" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Effect}" Value="Deny">
+                                                                            <Setter Property="Text" Value="Deny" />
+                                                                            <Setter Property="Foreground" Value="#B91C1C" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Binding="{Binding ValidFrom, StringFormat=d}"
+                                                            Header="DÉBUT"
+                                                            Width="100" />
+                                        <DataGridTextColumn Binding="{Binding ValidTo, StringFormat=d}"
+                                                            Header="FIN"
+                                                            Width="100" />
+                                        <DataGridTemplateColumn Header="ACTIVE" Width="80">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox HorizontalAlignment="Center"
+                                                              IsChecked="{Binding IsCurrentlyActive, Mode=OneWay}"
+                                                              IsEnabled="False"
+                                                              IsHitTestVisible="False" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Binding="{Binding Reason}"
+                                                            Header="MOTIF"
+                                                            Width="1.2*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- 4. Rôles / Enregistrer -->
+                    <TabItem Header="Rôles">
+                        <DockPanel Margin="4,8,4,4">
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock FontWeight="SemiBold"
+                                           Foreground="#0F1F4A"
+                                           Text="Attribuer les rôles" />
+                                <TextBlock Margin="0,4,0,0"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Text="Cochez les rôles pour l'utilisateur sélectionné, puis enregistrez."
+                                           TextWrapping="Wrap" />
+                                <erp:ErpSearchField Margin="0,10,0,0"
+                                                    Placeholder="Filtrer les rôles…"
+                                                    Text="{Binding RoleSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <Button DockPanel.Dock="Bottom"
+                                    Margin="0,10,0,0"
+                                    Padding="14,8"
+                                    HorizontalAlignment="Left"
+                                    Command="{Binding AssignRolesCommand}"
+                                    Style="{StaticResource ErpPrimaryButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSave"
+                                                             Margin="0,0,6,0"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock VerticalAlignment="Center" Text="Enregistrer les rôles" />
+                                </StackPanel>
+                            </Button>
+
+                            <Border Background="#F8FAFC"
+                                    BorderBrush="#E5E7EB"
+                                    BorderThickness="1"
+                                    CornerRadius="10">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl Margin="8" ItemsSource="{Binding RolePicks}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="2" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="4"
+                                                        Padding="10,8"
+                                                        Background="White"
+                                                        BorderBrush="#E5E7EB"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10">
+                                                    <CheckBox IsChecked="{Binding IsSelected}">
+                                                        <StackPanel>
+                                                            <TextBlock FontWeight="SemiBold"
+                                                                       Foreground="#111827"
+                                                                       Text="{Binding DisplayPrimary}" />
+                                                            <TextBlock FontSize="11"
+                                                                       Foreground="#9CA3AF"
+                                                                       Text="{Binding DisplaySecondary}" />
+                                                        </StackPanel>
+                                                    </CheckBox>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- 5. Créer un utilisateur (personnel → compte) -->
+                    <TabItem Header="Créer un utilisateur">
+                        <ScrollViewer Padding="4,8,4,4" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold"
+                                           Foreground="#0F1F4A"
+                                           Text="Créer un compte pour un personnel" />
+                                <TextBlock Margin="0,4,0,12"
+                                           FontSize="12"
+                                           Foreground="#6B7280"
+                                           Text="Recherchez un agent actif sans compte, sélectionnez-le, puis définissez l'identifiant et le mot de passe. Les rôles s'attribuent ensuite dans l'onglet Rôles."
+                                           TextWrapping="Wrap" />
+
+                                <erp:ErpSearchField Margin="0,0,0,8"
+                                                    Placeholder="Rechercher un personnel (matricule, nom, prénom)…"
+                                                    Text="{Binding PersonnelSearchText, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <Border Margin="0,0,0,12"
+                                        MaxHeight="180"
+                                        Background="Transparent"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="2">
+                                    <DataGrid AutoGenerateColumns="False"
+                                              AlternatingRowBackground="#F8FAFC"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              CanUserAddRows="False"
+                                              CanUserResizeRows="False"
+                                              CellStyle="{StaticResource UsersListCell}"
+                                              ColumnHeaderStyle="{StaticResource UsersListColumnHeader}"
+                                              GridLinesVisibility="Horizontal"
+                                              HeadersVisibility="Column"
+                                              HorizontalGridLinesBrush="#F1F5F9"
+                                              IsReadOnly="True"
+                                              ItemsSource="{Binding PersonnelCandidates}"
+                                              RowBackground="Transparent"
+                                              RowHeight="34"
+                                              RowStyle="{StaticResource UsersListRow}"
+                                              SelectedItem="{Binding SelectedPersonnelCandidate}"
+                                              SelectionMode="Single"
+                                              SelectionUnit="FullRow">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Binding="{Binding FullName}" Header="NOM ET PRÉNOM" Width="*" />
+                                            <DataGridTextColumn Binding="{Binding EmployeeNumber}" Header="MATRICULE" Width="110" />
+                                            <DataGridTextColumn Binding="{Binding FunctionName}" Header="FONCTION" Width="120" />
+                                            <DataGridTextColumn Binding="{Binding StatusLabel}" Header="STATUT" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+
+                                <Border Margin="0,0,0,12"
+                                        Padding="12,10"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Visibility="{Binding HasSelectedPersonnelCandidate, Converter={StaticResource BoolToVis}}">
+                                    <StackPanel>
+                                        <TextBlock Margin="0,0,0,8"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#0F1F4A"
+                                                   Text="Personnel sélectionné" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="NOM" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.LastName}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="PRÉNOM" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.FirstName}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="MATRICULE" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.EmployeeNumber}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="FONCTION" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.FunctionName, TargetNullValue=—}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="EMAIL" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.Email, TargetNullValue=—}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="2" Grid.Column="1">
+                                                <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#9CA3AF" Text="STATUT" />
+                                                <TextBlock FontSize="13" Text="{Binding SelectedPersonnelCandidate.StatusLabel}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Margin="0,0,0,8"
+                                           FontWeight="SemiBold"
+                                           Foreground="#0F1F4A"
+                                           Text="Informations du compte" />
+                                <erp:ErpTextField Margin="0,0,0,10"
+                                                  HorizontalAlignment="Stretch"
+                                                  IconKind="Account"
+                                                  IsCompact="True"
+                                                  IsEnabled="{Binding HasSelectedPersonnelCandidate}"
+                                                  Label="Identifiant"
+                                                  Text="{Binding NewUserName, UpdateSourceTrigger=PropertyChanged}" />
+                                <erp:ErpTextField Margin="0,0,0,10"
+                                                  HorizontalAlignment="Stretch"
+                                                  IconKind="LockOutline"
+                                                  IsCompact="True"
+                                                  IsEnabled="{Binding HasSelectedPersonnelCandidate}"
+                                                  Label="Mot de passe"
+                                                  Text="{Binding NewPassword, UpdateSourceTrigger=PropertyChanged}" />
+                                <erp:ErpTextField Margin="0,0,0,14"
+                                                  HorizontalAlignment="Stretch"
+                                                  IconKind="LockCheckOutline"
+                                                  IsCompact="True"
+                                                  IsEnabled="{Binding HasSelectedPersonnelCandidate}"
+                                                  Label="Confirmation du mot de passe"
+                                                  Text="{Binding NewPasswordConfirm, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Padding="14,8"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding CreateUserCommand}"
+                                        IsEnabled="{Binding CanCreateUser}"
+                                        Style="{StaticResource ErpPrimaryButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus"
+                                                                 Margin="0,0,6,0"
+                                                                 VerticalAlignment="Center" />
+                                        <TextBlock VerticalAlignment="Center" Text="Créer l'utilisateur" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Margin="0,8,0,0"
+                   Style="{StaticResource ErpBodySecondary}"
+                   Text="{Binding StatusMessage}"
+                   TextWrapping="Wrap" />
+    </Grid>
+</UserControl>

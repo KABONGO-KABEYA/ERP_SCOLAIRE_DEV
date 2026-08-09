@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Desktop.Navigation;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Shared.Constants;
@@ -52,31 +53,26 @@ public partial class ShellViewModel : ViewModelBase
 {
     private readonly INavigationService _navigationService;
     private readonly ISchoolApiService _schoolApiService;
+    private readonly SecurityNavigationApiService _navigationApi;
+    private readonly IDesktopNavigationLocalCache _navigationCache;
+    private readonly IDesktopViewRegistry _viewRegistry;
     private bool _syncingSelection;
     private bool _suppressYearChange;
 
-    public ShellViewModel(INavigationService navigationService, ISchoolApiService schoolApiService)
+    public ShellViewModel(
+        INavigationService navigationService,
+        ISchoolApiService schoolApiService,
+        SecurityNavigationApiService navigationApi,
+        IDesktopNavigationLocalCache navigationCache,
+        IDesktopViewRegistry viewRegistry)
     {
         _navigationService = navigationService;
         _schoolApiService = schoolApiService;
+        _navigationApi = navigationApi;
+        _navigationCache = navigationCache;
+        _viewRegistry = viewRegistry;
         _navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
-        Modules =
-        [
-            new ModuleNavItem("Tableau de bord", "ViewDashboard", typeof(DashboardViewModel)),
-            new ModuleNavItem("Paramètres", "Cog", typeof(SettingsViewModel)),
-            new ModuleNavItem("Personnel", "AccountTie", typeof(PersonnelHubViewModel)),
-            new ModuleNavItem("Élèves", "AccountGroup", typeof(StudentsViewModel)),
-            new ModuleNavItem("Cartes élèves", "CardAccountDetails", typeof(StudentCardsViewModel)),
-            new ModuleNavItem("Académique", "School", typeof(AcademicViewModel)),
-            new ModuleNavItem("Calendrier pédagogique", "CalendarClock", typeof(PedagogicalPeriodsViewModel)),
-            new ModuleNavItem("Cotation", "ClipboardEdit", typeof(GradesViewModel)),
-            new ModuleNavItem("Résultats scolaires", "SchoolOutline", typeof(ResultsHubViewModel)),
-            new ModuleNavItem("Financier", "Cash", typeof(FinanceHubViewModel)),
-            new ModuleNavItem("Documents", "FileDocument", typeof(DocumentsViewModel)),
-            new ModuleNavItem("Statistiques", "ChartBar", typeof(StatisticsViewModel))
-        ];
-        _navigationService.NavigateTo<DashboardViewModel>();
-        SyncSelectedModuleFromNavigation();
+        Modules = new ObservableCollection<ModuleNavItem>();
         AcademicYearRefreshBridge.CurrentYearChanged += OnAcademicYearBridgeChanged;
         _ = LoadCurrentAcademicYearAsync();
         _ = LoadSchoolNameAsync();
@@ -92,6 +88,66 @@ public partial class ShellViewModel : ViewModelBase
         CurrentDateLabel = DateTime.Now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
         CurrentTimeLabel = DateTime.Now.ToString("HH:mm");
     }
+
+    /// <summary>
+    /// Charge la navigation depuis l'API (et met en cache) ou depuis le cache local.
+    /// Retourne false si aucune navigation n'est disponible.
+    /// </summary>
+    public async Task<bool> InitializeNavigationAsync(CancellationToken cancellationToken = default)
+    {
+        NavigationError = null;
+        try
+        {
+            var tree = await _navigationApi.GetDesktopNavigationAsync(cancellationToken);
+            await _navigationCache.SaveAsync(tree, cancellationToken);
+            ApplyNavigationTree(tree);
+            return Modules.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            var cached = await _navigationCache.TryLoadAsync(cancellationToken);
+            if (cached is not null)
+            {
+                ApplyNavigationTree(cached);
+                if (Modules.Count > 0)
+                {
+                    NavigationError = null;
+                    return true;
+                }
+            }
+
+            NavigationError =
+                "Impossible de charger la navigation. "
+                + "L'API de navigation est indisponible et aucun menu n'a encore été mis en cache localement. "
+                + $"Détail : {ex.Message}";
+            Modules.Clear();
+            return false;
+        }
+    }
+
+    private void ApplyNavigationTree(Application.Security.DTOs.NavigationTreeDto tree)
+    {
+        var built = DesktopNavigationMenuBuilder.Build(
+            tree,
+            _viewRegistry,
+            key => System.Diagnostics.Debug.WriteLine($"DesktopViewKey non résolue: {key}"));
+
+        Modules.Clear();
+        foreach (var module in built)
+        {
+            Modules.Add(module);
+        }
+
+        var first = Modules.FirstOrDefault();
+        if (first?.ViewModelType is not null)
+        {
+            _navigationService.NavigateTo(first.ViewModelType);
+            SyncSelectedModuleFromNavigation();
+        }
+    }
+
+    [ObservableProperty]
+    private string? _navigationError;
 
     private readonly DispatcherTimer _clockTimer;
 
@@ -194,7 +250,7 @@ public partial class ShellViewModel : ViewModelBase
         }
     }
 
-    public IReadOnlyList<ModuleNavItem> Modules { get; }
+    public ObservableCollection<ModuleNavItem> Modules { get; }
 
     [ObservableProperty]
     private ModuleNavItem? _selectedModule;
@@ -208,10 +264,13 @@ public partial class ShellViewModel : ViewModelBase
             return;
         }
 
-        if (_navigationService.CurrentViewModel?.GetType() != value.ViewModelType)
+        var currentType = _navigationService.CurrentViewModel?.GetType();
+        if (currentType == value.ViewModelType)
         {
-            _navigationService.NavigateTo(value.ViewModelType);
+            return;
         }
+
+        _navigationService.NavigateTo(value.ViewModelType);
     }
 
     private void OnCurrentViewModelChanged()
@@ -223,7 +282,12 @@ public partial class ShellViewModel : ViewModelBase
     private void SyncSelectedModuleFromNavigation()
     {
         var currentType = _navigationService.CurrentViewModel?.GetType();
-        var match = Modules.FirstOrDefault(m => m.ViewModelType == currentType);
+        var match = Modules.FirstOrDefault(m => m.ViewModelType == currentType)
+            ?? Modules.FirstOrDefault(m =>
+                m.Pages.Any(p =>
+                    _viewRegistry.TryResolve(p.DesktopViewKey, out var target)
+                    && target is DirectDesktopViewTarget direct
+                    && direct.ViewModelType == currentType));
         if (match is null || SelectedModule == match)
         {
             return;
@@ -233,7 +297,49 @@ public partial class ShellViewModel : ViewModelBase
         SelectedModule = match;
         _syncingSelection = false;
     }
+
+    /// <summary>
+    /// Ouvre une page catalogue mappée en ViewModel direct (ex. écrans Sécurité sous le hub Paramètres).
+    /// </summary>
+    public void NavigateToDirectCatalogPage(Type viewModelType, ModuleNavItem? owningModule)
+    {
+        _syncingSelection = true;
+        try
+        {
+            if (owningModule is not null)
+            {
+                SelectedModule = owningModule;
+            }
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        _navigationService.NavigateTo(viewModelType);
+    }
+
+    public void NavigateToViewModelType(Type viewModelType)
+    {
+        if (_navigationService.CurrentViewModel?.GetType() == viewModelType)
+        {
+            return;
+        }
+
+        _navigationService.NavigateTo(viewModelType);
+    }
+
+    public bool IsDirectCatalogViewModel(Type? viewModelType)
+    {
+        if (viewModelType is null)
+        {
+            return false;
+        }
+
+        return Modules.Any(m =>
+            m.Pages.Any(p =>
+                _viewRegistry.TryResolve(p.DesktopViewKey, out var target)
+                && target is DirectDesktopViewTarget direct
+                && direct.ViewModelType == viewModelType));
+    }
 }
-
-public sealed record ModuleNavItem(string Title, string IconKind, Type? ViewModelType);
-

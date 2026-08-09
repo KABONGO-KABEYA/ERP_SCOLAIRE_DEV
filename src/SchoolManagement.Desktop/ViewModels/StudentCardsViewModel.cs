@@ -108,6 +108,23 @@ public partial class StudentCardsViewModel : ViewModelBase
     public bool CanGoNextPage => CurrentPage < TotalPages;
     public bool HasDetail => SelectedDetail is not null;
     public string QrDisplay => SelectedDetail?.QrPayload ?? "—";
+    public string StatusDisplay => SelectedDetail is null
+        ? "—"
+        : StudentCardStatusLabels.From(SelectedDetail.Status);
+
+    public bool CanActivate => SelectedDetail?.Status
+        is StudentCardStatus.Brouillon or StudentCardStatus.Suspendue;
+
+    public bool CanSuspend => SelectedDetail?.Status == StudentCardStatus.Active;
+
+    public bool CanPrint => SelectedDetail?.Status
+        is StudentCardStatus.Active or StudentCardStatus.Brouillon;
+
+    public bool CanRenew => SelectedDetail is not null
+        && SelectedDetail.Status is not (StudentCardStatus.Remplacee or StudentCardStatus.Desactivee);
+
+    public bool CanDeactivate => SelectedDetail is not null
+        && SelectedDetail.Status is not (StudentCardStatus.Remplacee or StudentCardStatus.Desactivee);
 
     public bool IsCreateStudentScope => SelectedCreateScope?.Key == "student";
     public bool IsCreateClassScope => SelectedCreateScope?.Key == "class";
@@ -131,6 +148,12 @@ public partial class StudentCardsViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(HasDetail));
         OnPropertyChanged(nameof(QrDisplay));
+        OnPropertyChanged(nameof(StatusDisplay));
+        OnPropertyChanged(nameof(CanActivate));
+        OnPropertyChanged(nameof(CanSuspend));
+        OnPropertyChanged(nameof(CanPrint));
+        OnPropertyChanged(nameof(CanRenew));
+        OnPropertyChanged(nameof(CanDeactivate));
         Histories.Clear();
         PrintLogs.Clear();
         if (value is null) return;
@@ -377,25 +400,43 @@ public partial class StudentCardsViewModel : ViewModelBase
     [RelayCommand]
     private async Task PrintFilteredAsync()
     {
-        if (Cards.Count == 0)
+        var printable = Cards
+            .Where(c => c.Status is StudentCardStatus.Active or StudentCardStatus.Brouillon)
+            .ToList();
+
+        if (printable.Count == 0)
         {
-            StatusMessage = "Aucune carte dans la liste à imprimer.";
+            StatusMessage = Cards.Count == 0
+                ? "Aucune carte dans la liste à imprimer."
+                : "Aucune carte imprimable sur cette page (statuts expirés, perdus, volés ou désactivés).";
             return;
         }
 
-        var options = AskPrintOptions(Cards.Count);
+        if (printable.Count < Cards.Count)
+        {
+            var skipped = Cards.Count - printable.Count;
+            var confirmSkip = MessageBox.Show(
+                $"{skipped} carte(s) de cette page ne sont pas imprimables et seront ignorées.\n\n"
+                + $"Continuer avec {printable.Count} carte(s) ?",
+                "Impression",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirmSkip != MessageBoxResult.Yes) return;
+        }
+
+        var options = AskPrintOptions(printable.Count);
         if (options is null) return;
 
         IsBusy = true;
         try
         {
             await _printService.PrintCardsAsync(
-                Cards.Select(c => c.Id).ToList(),
+                printable.Select(c => c.Id).ToList(),
                 options.Value.Layout,
                 options.Value.Rows);
             StatusMessage = options.Value.Layout == CardPrintLayoutKind.A4Sheet
-                ? $"Impression A4 terminée ({Cards.Count} carte(s), 2×{options.Value.Rows})."
-                : $"Impression unitaire terminée ({Cards.Count} carte(s), 1 job).";
+                ? $"Impression A4 terminée — page {CurrentPage}/{TotalPages} ({printable.Count} carte(s), 2×{options.Value.Rows})."
+                : $"Impression unitaire terminée — page {CurrentPage}/{TotalPages} ({printable.Count} carte(s)).";
             await RefreshAllAsync();
         }
         catch (Exception ex)
@@ -524,11 +565,68 @@ public partial class StudentCardsViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task ActivateSelectedAsync()
+    {
+        if (SelectedDetail is null) return;
+
+        IsBusy = true;
+        try
+        {
+            var detail = await _cardApi.ActivateAsync(
+                SelectedDetail.Id,
+                new ActivateStudentCardRequest("Activation depuis le module Cartes"));
+            StatusMessage = $"Carte {detail.CardNumber} activée.";
+            await RefreshAllAsync();
+            SelectedCard = Cards.FirstOrDefault(c => c.Id == detail.Id);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SuspendSelectedAsync()
+    {
+        if (SelectedDetail is null) return;
+        var confirm = MessageBox.Show(
+            $"Suspendre la carte {SelectedDetail.CardNumber} ?\n\n"
+            + "La carte ne sera plus valide ni imprimable, mais pourra être réactivée.",
+            "Suspension",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        IsBusy = true;
+        try
+        {
+            await _cardApi.SuspendAsync(
+                SelectedDetail.Id,
+                new SuspendStudentCardRequest("Suspension manuelle depuis le module Cartes"));
+            StatusMessage = "Carte suspendue.";
+            await RefreshAllAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
     private async Task DeactivateSelectedAsync()
     {
         if (SelectedDetail is null) return;
         var confirm = MessageBox.Show(
-            $"Désactiver la carte {SelectedDetail.CardNumber} ?",
+            $"Désactiver définitivement la carte {SelectedDetail.CardNumber} ?\n\n"
+            + "Cette opération est irréversible : seule une nouvelle carte pourra la remplacer.",
             "Désactivation",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);

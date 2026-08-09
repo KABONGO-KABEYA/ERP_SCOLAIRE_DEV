@@ -15,6 +15,7 @@ public sealed class AdminService : IAdminService
     private readonly IRepository<UserRoleAssignment> _userRoleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IAddressService _addressService;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public AdminService(
@@ -23,6 +24,7 @@ public sealed class AdminService : IAdminService
         IRepository<UserRoleAssignment> userRoleRepository,
         IPasswordHasher passwordHasher,
         IAddressService addressService,
+        IRefreshTokenRepository refreshTokenRepository,
         IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
@@ -30,13 +32,17 @@ public sealed class AdminService : IAdminService
         _userRoleRepository = userRoleRepository;
         _passwordHasher = passwordHasher;
         _addressService = addressService;
+        _refreshTokenRepository = refreshTokenRepository;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<IReadOnlyList<UserAccountDto>> GetUsersAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var users = await _userRepository.FindAsync(u => u.SchoolId == schoolId, cancellationToken);
-        var assignments = await _userRoleRepository.FindAsync(_ => true, cancellationToken);
+        var userIds = users.Select(u => u.Id).ToHashSet();
+        var assignments = userIds.Count == 0
+            ? []
+            : await _userRoleRepository.FindAsync(a => userIds.Contains(a.UserId), cancellationToken);
         var roles = await _roleRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
         var roleMap = roles.ToDictionary(r => r.Id);
 
@@ -103,6 +109,7 @@ public sealed class AdminService : IAdminService
         CancellationToken cancellationToken = default)
     {
         var user = await GetUserOrThrowAsync(schoolId, userId, cancellationToken);
+        var wasActive = user.IsActive;
         user.Email = request.Email;
         user.FirstName = request.FirstName;
         user.LastName = request.LastName;
@@ -117,6 +124,12 @@ public sealed class AdminService : IAdminService
         }
 
         await _userRepository.UpdateAsync(user, cancellationToken);
+
+        if (wasActive && !request.IsActive)
+        {
+            await _refreshTokenRepository.RevokeAllForUserAsync(userId, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetUserDtoAsync(schoolId, userId, cancellationToken);

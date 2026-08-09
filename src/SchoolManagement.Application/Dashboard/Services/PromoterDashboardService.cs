@@ -430,10 +430,11 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var dayRevenue = SumPayments(payments, todayStart, todayEnd);
         var yesterdayRevenue = SumPayments(payments, todayStart.AddDays(-1), todayStart);
 
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
         var studentIds = students.Select(s => s.Id).ToHashSet();
-        var schoolEnrollments = enrollments.Where(e => studentIds.Contains(e.StudentId)).ToList();
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
+        var schoolEnrollments = enrollments.ToList();
         var activeStudents = schoolEnrollments.Select(e => e.StudentId).Distinct().Count();
 
         var newEnrollments = schoolEnrollments.Count(e =>
@@ -577,9 +578,9 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var studentMap = students.ToDictionary(s => s.Id);
         var studentIds = studentMap.Keys.ToHashSet();
 
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
         var schoolEnrollments = enrollments
-            .Where(e => studentIds.Contains(e.StudentId))
             .OrderByDescending(e => e.EnrollmentDate)
             .Take(take)
             .ToList();
@@ -1358,8 +1359,9 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         HashSet<Guid> schoolStudentIds,
         CancellationToken cancellationToken)
     {
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
-        IEnumerable<Enrollment> query = enrollments.Where(e => schoolStudentIds.Contains(e.StudentId));
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, schoolStudentIds, cancellationToken);
+        IEnumerable<Enrollment> query = enrollments;
         if (academicYearId is Guid yearId)
         {
             query = query.Where(e => e.AcademicYearId == yearId);
@@ -1870,7 +1872,10 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var (rangeStart, rangeEnd) = ResolveRange(period);
         var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
         var inRange = payments.Where(p => p.PaymentDate >= rangeStart && p.PaymentDate < rangeEnd).ToList();
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
+        var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
+        var studentIds = students.Select(s => s.Id).ToHashSet();
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
         var classes = await _classRoomRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
         var classMap = classes.ToDictionary(c => c.Id);
 

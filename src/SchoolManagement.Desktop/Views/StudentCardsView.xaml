@@ -373,7 +373,9 @@
                             <DataGridTextColumn Width="*" Binding="{Binding StudentFullName}" Header="Élève" />
                             <DataGridTextColumn Width="120" Binding="{Binding ClassName}" Header="Classe" />
                             <DataGridTextColumn Width="140" Binding="{Binding CardNumber}" Header="N° carte" />
-                            <DataGridTextColumn Width="100" Binding="{Binding Status}" Header="Statut" />
+                            <DataGridTextColumn Width="100"
+                                                Binding="{Binding Status, Converter={StaticResource StudentCardStatusConverter}}"
+                                                Header="Statut" />
                             <DataGridTextColumn Width="110"
                                                 Binding="{Binding PrintedAt, StringFormat=\{0:dd/MM/yyyy\}}"
                                                 Header="Impression" />
@@ -425,7 +427,7 @@
                             <TextBlock Margin="0,6,0,0" Text="{Binding SelectedDetail.RegistrationNumber, StringFormat=Matricule : {0}}" />
                             <TextBlock Text="{Binding SelectedDetail.ClassName, StringFormat=Classe : {0}}" />
                             <TextBlock Text="{Binding SelectedDetail.StudyOption, StringFormat=Option : {0}}" />
-                            <TextBlock Text="{Binding SelectedDetail.Status, StringFormat=Statut : {0}}" />
+                            <TextBlock Text="{Binding StatusDisplay, StringFormat=Statut : {0}}" />
                             <TextBlock Text="{Binding SelectedDetail.AcademicYearLabel, StringFormat=Année : {0}}" />
                             <TextBlock Text="{Binding SelectedDetail.TemplateName, StringFormat=Modèle : {0}}" />
                             <TextBlock Text="{Binding SelectedDetail.Version, StringFormat=Version : {0}}" />
@@ -446,16 +448,31 @@
                                         Padding="10,5"
                                         Command="{Binding PrintSelectedCommand}"
                                         Content="Imprimer"
+                                        IsEnabled="{Binding CanPrint}"
                                         Style="{StaticResource ErpPrimaryButton}" />
                                 <Button Margin="0,0,8,8"
                                         Padding="10,5"
                                         Command="{Binding ReprintSelectedCommand}"
                                         Content="Réimprimer"
+                                        IsEnabled="{Binding CanPrint}"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding ActivateSelectedCommand}"
+                                        Content="Activer"
+                                        IsEnabled="{Binding CanActivate}"
+                                        Style="{StaticResource ErpSecondaryButton}" />
+                                <Button Margin="0,0,8,8"
+                                        Padding="10,5"
+                                        Command="{Binding SuspendSelectedCommand}"
+                                        Content="Suspendre"
+                                        IsEnabled="{Binding CanSuspend}"
                                         Style="{StaticResource ErpSecondaryButton}" />
                                 <Button Margin="0,0,8,8"
                                         Padding="10,5"
                                         Command="{Binding RenewSelectedCommand}"
                                         Content="Renouveler"
+                                        IsEnabled="{Binding CanRenew}"
                                         Style="{StaticResource ErpSecondaryButton}" />
                                 <Button Margin="0,0,8,8"
                                         Padding="10,5"
@@ -471,6 +488,7 @@
                                         Padding="10,5"
                                         Command="{Binding DeactivateSelectedCommand}"
                                         Content="Désactiver"
+                                        IsEnabled="{Binding CanDeactivate}"
                                         Style="{StaticResource ErpSecondaryButton}" />
                             </WrapPanel>
                             <CheckBox Margin="0,0,0,12"
@@ -486,7 +504,8 @@
                                                 Background="#F8FAFC"
                                                 CornerRadius="6">
                                             <StackPanel>
-                                                <TextBlock FontWeight="SemiBold" Text="{Binding Action}" />
+                                                <TextBlock FontWeight="SemiBold"
+                                                           Text="{Binding Action, Converter={StaticResource StudentCardActionConverter}}" />
                                                 <TextBlock FontSize="11"
                                                            Foreground="#6B7280"
                                                            Text="{Binding OccurredAt, StringFormat=\{0:dd/MM/yyyy HH:mm\}}" />

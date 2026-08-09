@@ -501,6 +501,17 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<ParentActivationSchemaInitializer>>());
     await parentActivationSchema.EnsureCreatedAsync();
 
+    // En dernier : dépend des tables créées par les initialiseurs précédents (sync, caisse…).
+    var schoolTenancySchema = new SchoolTenancySchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<SchoolTenancySchemaInitializer>>());
+    await schoolTenancySchema.EnsureCreatedAsync();
+
+    var securityPhase0Schema = new SecurityEnginePhase0SchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<SecurityEnginePhase0SchemaInitializer>>());
+    await securityPhase0Schema.EnsureCreatedAsync();
+
     // Seed système (permissions + admin) : Development toujours ; Production seulement si SEED_DATABASE=true|1
     // Seed démo : Development uniquement (jamais Production, sauf ALLOW_DEMO_SEED=true explicite).
     var seedFlag = Environment.GetEnvironmentVariable("SEED_DATABASE");

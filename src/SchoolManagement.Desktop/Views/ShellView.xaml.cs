@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using MaterialDesignThemes.Wpf;
+using SchoolManagement.Desktop.Navigation;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.ViewModels;
 
@@ -24,6 +25,7 @@ public partial class ShellView : UserControl
     private string? _selectedPersonnelKey;
     private string? _selectedResultsKey;
     private bool _isBuildingNavigation;
+    private IDesktopViewRegistry? _viewRegistry;
 
     public ShellView()
     {
@@ -38,7 +40,11 @@ public partial class ShellView : UserControl
             return;
         }
 
+        _viewRegistry = App.Services?.GetService(typeof(IDesktopViewRegistry)) as IDesktopViewRegistry
+            ?? new DesktopViewRegistry();
+
         BuildNavigation(shellViewModel);
+        shellViewModel.Modules.CollectionChanged += (_, _) => BuildNavigation(shellViewModel);
         shellViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ShellViewModel.SelectedModule))
@@ -95,44 +101,74 @@ public partial class ShellView : UserControl
 
         foreach (var module in shellViewModel.Modules)
         {
-            if (module.ViewModelType == typeof(SettingsViewModel))
+            if (module.IsHub && module.ViewModelType == typeof(SettingsViewModel))
             {
-                _settingsExpander = CreateSettingsExpander(shellViewModel, module);
+                _settingsExpander = CreateDynamicHubExpander(
+                    shellViewModel,
+                    module,
+                    PackIconKind.Cog,
+                    _settingsSubNavButtons,
+                    (svm, page) => NavigateByDesktopViewKey(svm, page));
                 NavigationPanel.Children.Add(_settingsExpander);
                 continue;
             }
 
-            if (module.ViewModelType == typeof(FinanceHubViewModel))
+            if (module.IsHub && module.ViewModelType == typeof(FinanceHubViewModel))
             {
-                _financeExpander = CreateFinanceExpander(shellViewModel, module);
+                _financeExpander = CreateDynamicHubExpander(
+                    shellViewModel,
+                    module,
+                    PackIconKind.Cash,
+                    _financeSubNavButtons,
+                    (svm, page) => NavigateByDesktopViewKey(svm, page));
                 NavigationPanel.Children.Add(_financeExpander);
                 continue;
             }
 
-            if (module.ViewModelType == typeof(PersonnelHubViewModel))
+            if (module.IsHub && module.ViewModelType == typeof(PersonnelHubViewModel))
             {
-                _personnelExpander = CreatePersonnelExpander(shellViewModel, module);
+                _personnelExpander = CreateDynamicHubExpander(
+                    shellViewModel,
+                    module,
+                    PackIconKind.AccountTie,
+                    _personnelSubNavButtons,
+                    (svm, page) => NavigateByDesktopViewKey(svm, page));
                 NavigationPanel.Children.Add(_personnelExpander);
                 continue;
             }
 
-            if (module.ViewModelType == typeof(ResultsHubViewModel))
+            if (module.IsHub && module.ViewModelType == typeof(ResultsHubViewModel))
             {
-                _resultsExpander = CreateResultsExpander(shellViewModel, module);
+                _resultsExpander = CreateDynamicHubExpander(
+                    shellViewModel,
+                    module,
+                    PackIconKind.SchoolOutline,
+                    _resultsSubNavButtons,
+                    (svm, page) => NavigateByDesktopViewKey(svm, page));
                 NavigationPanel.Children.Add(_resultsExpander);
                 continue;
             }
 
+            if (module.ViewModelType is null)
+            {
+                continue;
+            }
+
             var button = CreateMainNavButton(module.Title, module.IconKind);
-            button.Click += (_, _) => NavigateToModule(shellViewModel, module.ViewModelType!, null);
+            button.Click += (_, _) => NavigateToModule(shellViewModel, module.ViewModelType, null);
             NavigationPanel.Children.Add(button);
-            _mainNavButtons[module.ViewModelType!] = button;
+            _mainNavButtons[module.ViewModelType] = button;
         }
 
         _isBuildingNavigation = false;
     }
 
-    private Expander CreateSettingsExpander(ShellViewModel shellViewModel, ModuleNavItem module)
+    private Expander CreateDynamicHubExpander(
+        ShellViewModel shellViewModel,
+        ModuleNavItem module,
+        PackIconKind icon,
+        Dictionary<string, Button> buttonMap,
+        Action<ShellViewModel, ModuleNavPageItem> onClick)
     {
         var expander = new Expander
         {
@@ -140,22 +176,45 @@ public partial class ShellView : UserControl
             IsExpanded = false
         };
 
-        expander.Header = CreateExpanderHeader(module.Title, PackIconKind.Cog);
+        expander.Header = CreateExpanderHeader(module.Title, icon);
         var content = new StackPanel();
-        foreach (var group in SettingsNavCatalog.Groups)
+        foreach (var group in module.Pages.GroupBy(p => p.FunctionName))
         {
             content.Children.Add(new TextBlock
             {
-                Text = group.Title,
+                Text = group.Key,
                 Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
             });
 
-            foreach (var item in group.Items)
+            foreach (var page in group.OrderBy(p => p.SortOrder))
             {
-                var subButton = CreateSubNavButton(item.Key, item.Title, item.IconKind);
-                subButton.Click += (_, _) => NavigateToSettingsSection(shellViewModel, item);
+                var iconKind = "CircleSmall";
+                var buttonKey = page.DesktopViewKey;
+                if (_viewRegistry?.TryResolve(page.DesktopViewKey, out var target) == true)
+                {
+                    iconKind = target switch
+                    {
+                        SettingsDesktopViewTarget s => s.Item.IconKind,
+                        FinanceDesktopViewTarget f => f.Item.IconKind,
+                        PersonnelDesktopViewTarget p => p.Item.IconKind,
+                        ResultsDesktopViewTarget r => r.Item.IconKind,
+                        DirectDesktopViewTarget => ResolveDirectPageIcon(page.DesktopViewKey),
+                        _ => iconKind
+                    };
+                    buttonKey = target switch
+                    {
+                        SettingsDesktopViewTarget s => s.Item.Key,
+                        FinanceDesktopViewTarget f => f.Item.Key,
+                        PersonnelDesktopViewTarget p => p.Item.Key,
+                        ResultsDesktopViewTarget r => r.Item.Key,
+                        _ => page.DesktopViewKey
+                    };
+                }
+
+                var subButton = CreateSubNavButton(buttonKey, page.Title, iconKind);
+                subButton.Click += (_, _) => onClick(shellViewModel, page);
                 content.Children.Add(subButton);
-                _settingsSubNavButtons[item.Key] = subButton;
+                buttonMap[buttonKey] = subButton;
             }
         }
 
@@ -163,98 +222,123 @@ public partial class ShellView : UserControl
         return expander;
     }
 
-    private Expander CreateFinanceExpander(ShellViewModel shellViewModel, ModuleNavItem module)
-    {
-        var expander = new Expander
+    private static string ResolveDirectPageIcon(string desktopViewKey) =>
+        desktopViewKey switch
         {
-            Style = (Style)FindResource("ErpSidebarSettingsExpander"),
-            IsExpanded = false
+            "Security.Users" => "AccountCog",
+            "Security.Roles" => "ShieldAccount",
+            "Security.Audit" => "ClipboardTextClock",
+            "Security.Exceptions" => "ShieldKeyOutline",
+            "Platform.Catalog" => "CloudCog",
+            _ => "CircleSmall"
         };
 
-        expander.Header = CreateExpanderHeader(module.Title, PackIconKind.Cash);
-        var content = new StackPanel();
-        foreach (var group in FinanceNavCatalog.Groups)
-        {
-            content.Children.Add(new TextBlock
-            {
-                Text = group.Title,
-                Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
-            });
-
-            foreach (var item in group.Items)
-            {
-                var subButton = CreateSubNavButton(item.Key, item.Title, item.IconKind);
-                subButton.Click += (_, _) => NavigateToFinanceSection(shellViewModel, item);
-                content.Children.Add(subButton);
-                _financeSubNavButtons[item.Key] = subButton;
-            }
-        }
-
-        expander.Content = content;
-        return expander;
-    }
-
-    private Expander CreatePersonnelExpander(ShellViewModel shellViewModel, ModuleNavItem module)
+    private void NavigateByDesktopViewKey(ShellViewModel shellViewModel, ModuleNavPageItem page)
     {
-        var expander = new Expander
+        var desktopViewKey = page.DesktopViewKey;
+        if (_viewRegistry is null || !_viewRegistry.TryResolve(desktopViewKey, out var target))
         {
-            Style = (Style)FindResource("ErpSidebarSettingsExpander"),
-            IsExpanded = false
-        };
-
-        expander.Header = CreateExpanderHeader(module.Title, PackIconKind.AccountTie);
-        var content = new StackPanel();
-        foreach (var group in PersonnelNavCatalog.Groups)
-        {
-            content.Children.Add(new TextBlock
-            {
-                Text = group.Title,
-                Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
-            });
-
-            foreach (var item in group.Items)
-            {
-                var subButton = CreateSubNavButton(item.Key, item.Title, item.IconKind);
-                subButton.Click += (_, _) => NavigateToPersonnelSection(shellViewModel, item);
-                content.Children.Add(subButton);
-                _personnelSubNavButtons[item.Key] = subButton;
-            }
+            return;
         }
 
-        expander.Content = content;
-        return expander;
+        switch (target)
+        {
+            case DirectDesktopViewTarget direct:
+                NavigateToDirectCatalogPage(shellViewModel, direct.ViewModelType, page);
+                break;
+            case SettingsDesktopViewTarget settings:
+                NavigateToSettingsSection(shellViewModel, settings.Item);
+                break;
+            case FinanceDesktopViewTarget finance:
+                NavigateToFinanceSection(shellViewModel, finance.Item);
+                break;
+            case PersonnelDesktopViewTarget personnel:
+                NavigateToPersonnelSection(shellViewModel, personnel.Item);
+                break;
+            case ResultsDesktopViewTarget results:
+                NavigateToResultsSection(shellViewModel, results.Item);
+                break;
+        }
     }
 
-    private Expander CreateResultsExpander(ShellViewModel shellViewModel, ModuleNavItem module)
+    private void NavigateToDirectCatalogPage(
+        ShellViewModel shellViewModel,
+        Type viewModelType,
+        ModuleNavPageItem page)
     {
-        var expander = new Expander
-        {
-            Style = (Style)FindResource("ErpSidebarSettingsExpander"),
-            IsExpanded = false
-        };
+        var owner = shellViewModel.Modules.FirstOrDefault(m =>
+            m.Pages.Any(p => string.Equals(p.DesktopViewKey, page.DesktopViewKey, StringComparison.OrdinalIgnoreCase)));
 
-        expander.Header = CreateExpanderHeader(module.Title, PackIconKind.SchoolOutline);
-        var content = new StackPanel();
-        foreach (var group in ResultsNavCatalog.Groups)
+        if (owner is not null && owner.ViewModelType == viewModelType && !owner.IsHub)
         {
-            content.Children.Add(new TextBlock
-            {
-                Text = group.Title,
-                Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
-            });
-
-            foreach (var item in group.Items)
-            {
-                var subButton = CreateSubNavButton(item.Key, item.Title, item.IconKind);
-                subButton.Click += (_, _) => NavigateToResultsSection(shellViewModel, item);
-                content.Children.Add(subButton);
-                _resultsSubNavButtons[item.Key] = subButton;
-            }
+            NavigateToModule(shellViewModel, viewModelType, null);
+            PageTitleText.Text = page.Title;
+            PageSubtitleText.Text = owner.Title;
+            return;
         }
 
-        expander.Content = content;
-        return expander;
+        shellViewModel.NavigateToDirectCatalogPage(viewModelType, owner);
+
+        if (owner?.ViewModelType == typeof(SettingsViewModel))
+        {
+            if (_settingsExpander is not null)
+            {
+                _settingsExpander.IsExpanded = true;
+            }
+
+            _selectedSettingsKey = page.DesktopViewKey;
+            _selectedFinanceKey = null;
+            _selectedPersonnelKey = null;
+            _selectedResultsKey = null;
+            UpdateSettingsSubNavSelection(page.DesktopViewKey);
+            ClearFinanceSubNavSelection();
+            ClearPersonnelSubNavSelection();
+            ClearResultsSubNavSelection();
+            HighlightFinanceHeader(false);
+            HighlightPersonnelHeader(false);
+            HighlightResultsHeader(false);
+            PageTitleText.Text = page.Title;
+            PageSubtitleText.Text = GetDirectPageSubtitle(page.DesktopViewKey);
+            return;
+        }
+
+        if (owner?.ViewModelType == typeof(ResultsHubViewModel))
+        {
+            if (_resultsExpander is not null)
+            {
+                _resultsExpander.IsExpanded = true;
+            }
+
+            _selectedResultsKey = page.DesktopViewKey;
+            _selectedSettingsKey = null;
+            _selectedFinanceKey = null;
+            _selectedPersonnelKey = null;
+            UpdateResultsSubNavSelection(page.DesktopViewKey);
+            ClearSettingsSubNavSelection();
+            ClearFinanceSubNavSelection();
+            ClearPersonnelSubNavSelection();
+            HighlightSettingsHeader(false);
+            HighlightFinanceHeader(false);
+            HighlightPersonnelHeader(false);
+            PageTitleText.Text = page.Title;
+            PageSubtitleText.Text = "Résultats scolaires";
+            return;
+        }
+
+        PageTitleText.Text = page.Title;
+        PageSubtitleText.Text = owner?.Title ?? "Gestion scolaire — République Démocratique du Congo";
     }
+
+    private static string GetDirectPageSubtitle(string desktopViewKey) =>
+        desktopViewKey switch
+        {
+            "Security.Users" => "Comptes, rôles assignés et permissions effectives.",
+            "Security.Roles" => "Rôles applicatifs, matrice des permissions et dépendances.",
+            "Security.Exceptions" => "Octrois et refus exceptionnels par utilisateur.",
+            "Security.Audit" => "Journal des événements de sécurité et de gouvernance.",
+            "Platform.Catalog" => "Catalogue plateforme — modules, fonctions et permissions.",
+            _ => "Administration et configuration."
+        };
 
     private static StackPanel CreateExpanderHeader(string title, PackIconKind iconKind)
     {
@@ -349,7 +433,15 @@ public partial class ShellView : UserControl
             return;
         }
 
+        if (viewModelType != typeof(SettingsViewModel))
+        {
+            _selectedSettingsKey = null;
+            ClearSettingsSubNavSelection();
+            HighlightSettingsHeader(false);
+        }
+
         shellViewModel.SelectedModule = module;
+        shellViewModel.NavigateToViewModelType(viewModelType);
 
         if (viewModelType == typeof(SettingsViewModel) && !string.IsNullOrWhiteSpace(settingsKey))
         {
@@ -363,9 +455,15 @@ public partial class ShellView : UserControl
 
     private void NavigateToSettingsSection(ShellViewModel shellViewModel, SettingsNavItem item)
     {
-        var settingsModule = shellViewModel.Modules.First(module => module.ViewModelType == typeof(SettingsViewModel));
+        var settingsModule = shellViewModel.Modules.FirstOrDefault(module => module.ViewModelType == typeof(SettingsViewModel));
+        if (settingsModule is null || _settingsExpander is null)
+        {
+            return;
+        }
+
+        shellViewModel.NavigateToViewModelType(typeof(SettingsViewModel));
         shellViewModel.SelectedModule = settingsModule;
-        _settingsExpander!.IsExpanded = true;
+        _settingsExpander.IsExpanded = true;
         _selectedSettingsKey = item.Key;
         _selectedFinanceKey = null;
         _selectedPersonnelKey = null;
@@ -390,9 +488,15 @@ public partial class ShellView : UserControl
 
     private void NavigateToFinanceSection(ShellViewModel shellViewModel, FinanceNavItem item)
     {
-        var financeModule = shellViewModel.Modules.First(module => module.ViewModelType == typeof(FinanceHubViewModel));
+        var financeModule = shellViewModel.Modules.FirstOrDefault(module => module.ViewModelType == typeof(FinanceHubViewModel));
+        if (financeModule is null || _financeExpander is null)
+        {
+            return;
+        }
+
+        shellViewModel.NavigateToViewModelType(typeof(FinanceHubViewModel));
         shellViewModel.SelectedModule = financeModule;
-        _financeExpander!.IsExpanded = true;
+        _financeExpander.IsExpanded = true;
         _selectedFinanceKey = item.Key;
         _selectedSettingsKey = null;
         _selectedPersonnelKey = null;
@@ -417,9 +521,15 @@ public partial class ShellView : UserControl
 
     private void NavigateToPersonnelSection(ShellViewModel shellViewModel, PersonnelNavItem item)
     {
-        var personnelModule = shellViewModel.Modules.First(module => module.ViewModelType == typeof(PersonnelHubViewModel));
+        var personnelModule = shellViewModel.Modules.FirstOrDefault(module => module.ViewModelType == typeof(PersonnelHubViewModel));
+        if (personnelModule is null || _personnelExpander is null)
+        {
+            return;
+        }
+
+        shellViewModel.NavigateToViewModelType(typeof(PersonnelHubViewModel));
         shellViewModel.SelectedModule = personnelModule;
-        _personnelExpander!.IsExpanded = true;
+        _personnelExpander.IsExpanded = true;
         _selectedPersonnelKey = item.Key;
         _selectedSettingsKey = null;
         _selectedFinanceKey = null;
@@ -445,9 +555,15 @@ public partial class ShellView : UserControl
 
     private void NavigateToResultsSection(ShellViewModel shellViewModel, ResultsNavItem item)
     {
-        var resultsModule = shellViewModel.Modules.First(module => module.ViewModelType == typeof(ResultsHubViewModel));
+        var resultsModule = shellViewModel.Modules.FirstOrDefault(module => module.ViewModelType == typeof(ResultsHubViewModel));
+        if (resultsModule is null || _resultsExpander is null)
+        {
+            return;
+        }
+
+        shellViewModel.NavigateToViewModelType(typeof(ResultsHubViewModel));
         shellViewModel.SelectedModule = resultsModule;
-        _resultsExpander!.IsExpanded = true;
+        _resultsExpander.IsExpanded = true;
         _selectedResultsKey = item.Key;
         _selectedSettingsKey = null;
         _selectedFinanceKey = null;
@@ -743,6 +859,41 @@ public partial class ShellView : UserControl
         {
             PageTitleText.Text = "Cotation des élèves";
             PageSubtitleText.Text = "Saisie des notes par évaluation";
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is SecurityUsersViewModel)
+        {
+            PageTitleText.Text = "Utilisateurs";
+            PageSubtitleText.Text = GetDirectPageSubtitle("Security.Users");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is SecurityRolesViewModel)
+        {
+            PageTitleText.Text = "Rôles";
+            PageSubtitleText.Text = GetDirectPageSubtitle("Security.Roles");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is SecurityExceptionsViewModel)
+        {
+            PageTitleText.Text = "Exceptions";
+            PageSubtitleText.Text = GetDirectPageSubtitle("Security.Exceptions");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is SecurityAuditViewModel)
+        {
+            PageTitleText.Text = "Audit sécurité";
+            PageSubtitleText.Text = GetDirectPageSubtitle("Security.Audit");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is PlatformCatalogViewModel)
+        {
+            PageTitleText.Text = "Catalogue de sécurité";
+            PageSubtitleText.Text = GetDirectPageSubtitle("Platform.Catalog");
             return;
         }
 

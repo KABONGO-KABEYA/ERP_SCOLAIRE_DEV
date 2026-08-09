@@ -12,8 +12,11 @@ public interface IAuthSessionService
 
     bool IsAuthenticated { get; }
 
-    /// <summary>Administrateur (rôle ADMIN ou permission admin.full).</summary>
+    /// <summary>Alias compatibilité UI : true si le JWT contient <c>admin.full</c> (ne teste plus le rôle ADMIN).</summary>
     bool IsAdministrator { get; }
+
+    /// <summary>Permission effective portée par le profil login (codes JWT). Ne teste pas le rôle ADMIN.</summary>
+    bool HasPermission(string permissionCode);
 
     void SetSession(AuthResponse response);
 
@@ -375,6 +378,16 @@ public interface IStudentCardApiService
     Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> DeactivateAsync(
         Guid cardId,
         SchoolManagement.Application.StudentCards.DTOs.DeactivateStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> ActivateAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.ActivateStudentCardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.StudentCards.DTOs.StudentCardDetailDto> SuspendAsync(
+        Guid cardId,
+        SchoolManagement.Application.StudentCards.DTOs.SuspendStudentCardRequest request,
         CancellationToken cancellationToken = default);
 
     Task SoftDeleteAsync(Guid cardId, CancellationToken cancellationToken = default);
@@ -1022,6 +1035,155 @@ public interface IReportApiService
 
     Task<byte[]> ExportPaymentSituationReportExcelAsync(
         SchoolManagement.Application.Reports.DTOs.PaymentSituationReportRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public interface ISecurityAdminApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityUserDto>> GetUsersAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPersonnelCandidateDto>> SearchPersonnelCandidatesAsync(
+        string? search,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> CreateUserAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityUserRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> UpdateUserAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityUserRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityUserDto> SetUserRolesAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.SetSecurityUserRolesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ResetPasswordAsync(
+        Guid userId,
+        SchoolManagement.Application.Security.DTOs.ResetPasswordRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.EffectivePermissionExplanationDto> GetEffectivePermissionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityRoleDto>> GetRolesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityRoleDto> CreateRoleAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityRoleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityRoleDto> UpdateRoleAsync(
+        Guid roleId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityRoleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.RolePermissionsDto> GetRolePermissionsAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.RolePermissionsDto> SetRolePermissionsAsync(
+        Guid roleId,
+        SchoolManagement.Application.Security.DTOs.SetRolePermissionsRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionCatalogItemDto>> GetPermissionCatalogAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto>> GetExceptionsAsync(
+        Guid? userId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto> CreateExceptionAsync(
+        SchoolManagement.Application.Security.DTOs.CreateSecurityExceptionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityExceptionDto> UpdateExceptionAsync(
+        Guid exceptionId,
+        SchoolManagement.Application.Security.DTOs.UpdateSecurityExceptionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task CloseExceptionAsync(Guid exceptionId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>> QueryAuditAsync(
+        SchoolManagement.Application.Security.DTOs.SecurityAuditQuery query,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto> GetAuditAsync(
+        Guid auditId,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IPlatformCatalogApiService
+{
+    Task<SchoolManagement.Application.Security.DTOs.CatalogTreeDto> GetTreeAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityModuleDto> CreateModuleAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityModuleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityModuleDto> UpdateModuleAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityModuleRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto> CreateFunctionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityFunctionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityFunctionDto> UpdateFunctionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityFunctionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityPageDto> CreatePageAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPageRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityPageDto> UpdatePageAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPageRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityActionDto> CreateActionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityActionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityActionDto> UpdateActionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityActionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto>> GetPermissionsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto> CreatePermissionAsync(
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPermissionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.SecurityPermissionAdminDto> UpdatePermissionAsync(
+        Guid id,
+        SchoolManagement.Application.Security.DTOs.UpsertSecurityPermissionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto>> GetDependenciesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Security.DTOs.PermissionDependencyDto> AddDependencyAsync(
+        SchoolManagement.Application.Security.DTOs.CreatePermissionDependencyRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task RemoveDependencyAsync(Guid dependencyId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Security.DTOs.SecurityAuditLogDto>> QueryPlatformAuditAsync(
+        SchoolManagement.Application.Security.DTOs.SecurityAuditQuery query,
         CancellationToken cancellationToken = default);
 }
 

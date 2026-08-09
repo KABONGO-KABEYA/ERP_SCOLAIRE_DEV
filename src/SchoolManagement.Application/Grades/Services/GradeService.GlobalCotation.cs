@@ -306,7 +306,7 @@ public sealed partial class GradeService
             }
         }, cancellationToken);
 
-        await CalculatePeriodResultsAsync(
+        await RecalculatePeriodResultsAfterDataChangeAsync(
             schoolId,
             new CalculatePeriodResultsRequest(
                 request.ClassRoomId,

@@ -10,6 +10,13 @@
     <ProjectReference Include="..\SchoolManagement.LocalServerDiscovery\SchoolManagement.LocalServerDiscovery.csproj" />
   </ItemGroup>
 
+  <!-- Requis au runtime (AppContext.BaseDirectory) — mot de passe DPAPI local, ne pas committer le fichier. -->
+  <ItemGroup>
+    <None Update="ServeurDonneesCloud.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />

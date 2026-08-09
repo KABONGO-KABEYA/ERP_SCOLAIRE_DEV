@@ -174,8 +174,9 @@ public class AcademicPeriodConfiguration : AuditableEntityConfiguration<Academic
         builder.Property(p => p.Status).HasConversion<int>();
         builder.Property(p => p.MaxScore).HasDefaultValue(20);
         builder.HasOne(p => p.AcademicYear).WithMany(y => y.Periods).HasForeignKey(p => p.AcademicYearId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(p => p.School).WithMany().HasForeignKey(p => p.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(p => p.MainPeriod).WithMany(m => m.SubPeriods).HasForeignKey(p => p.MainPeriodId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(p => new { p.AcademicYearId, p.MainPeriodId, p.OrderIndex });
+        builder.HasIndex(p => new { p.SchoolId, p.AcademicYearId, p.MainPeriodId, p.OrderIndex });
         builder.HasIndex(p => new { p.AcademicYearId, p.Status });
     }
 }

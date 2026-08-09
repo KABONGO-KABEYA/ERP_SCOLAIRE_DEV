@@ -5,6 +5,12 @@ namespace SchoolManagement.Application.Common.Interfaces;
 
 public interface IRepository<T> where T : class
 {
+    /// <summary>
+    /// Charge une entité par Id en respectant les filtres globaux (tenant + soft-delete).
+    /// Pour les entités sans SchoolId direct, le filtre indirect EF s'applique automatiquement.
+    /// Préférez <see cref="SchoolScopedRepositoryExtensions.GetByIdForSchoolAsync{T}"/> ou
+    /// <see cref="ISchoolTenancyService.RequireForSchoolAsync{T}"/> lorsque l'établissement est connu.
+    /// </summary>
     Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default);
@@ -56,7 +62,7 @@ public interface ICurrentUserService
 
     bool HasPermission(string permission);
 
-    /// <summary>True si rôle ADMIN ou permission admin.full.</summary>
+    /// <summary>Alias compatibilité : équivalent à <see cref="HasPermission"/> avec <c>admin.full</c> uniquement (plus de fallback rôle JWT).</summary>
     bool IsAdministrator { get; }
 }
 

@@ -15,8 +15,13 @@ public class Repository<T> : IRepository<T> where T : class
         DbSet = context.Set<T>();
     }
 
+    /// <summary>
+    /// Ne pas utiliser FindAsync : il ignore les filtres globaux (tenant, soft-delete).
+    /// </summary>
     public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await DbSet.FindAsync([id], cancellationToken);
+        await DbSet.AsNoTracking()
+            .Where(e => EF.Property<Guid>(e, "Id") == id)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public virtual async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await DbSet.AsNoTracking().ToListAsync(cancellationToken);
@@ -37,10 +42,35 @@ public class Repository<T> : IRepository<T> where T : class
         return entity;
     }
 
-    public virtual Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
+    public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
+        var entry = Context.Entry(entity);
+        if (entry.State == EntityState.Added)
+        {
+            // L'INSERT en attente emporte déjà les valeurs courantes ; passer en Modified
+            // générerait un UPDATE sur une ligne inexistante.
+            return;
+        }
+
+        if (entry.State == EntityState.Detached)
+        {
+            var idProperty = entity.GetType().GetProperty("Id");
+            if (idProperty?.PropertyType == typeof(Guid)
+                && idProperty.GetValue(entity) is Guid id
+                && id != Guid.Empty)
+            {
+                var tracked = await DbSet.FirstOrDefaultAsync(
+                    e => EF.Property<Guid>(e, "Id") == id,
+                    cancellationToken);
+                if (tracked is not null)
+                {
+                    Context.Entry(tracked).CurrentValues.SetValues(entity);
+                    return;
+                }
+            }
+        }
+
         DbSet.Update(entity);
-        return Task.CompletedTask;
     }
 
     public virtual Task DeleteAsync(T entity, CancellationToken cancellationToken = default)

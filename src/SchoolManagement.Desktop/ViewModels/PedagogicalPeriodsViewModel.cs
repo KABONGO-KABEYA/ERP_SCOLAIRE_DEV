@@ -5,19 +5,27 @@ using SchoolManagement.Application.PedagogicalPeriods.DTOs;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
 public partial class PedagogicalPeriodsViewModel : ViewModelBase
 {
     private readonly IPedagogicalPeriodApiService _api;
+    private readonly IAuthSessionService _authSession;
 
-    public PedagogicalPeriodsViewModel(IPedagogicalPeriodApiService api)
+    public PedagogicalPeriodsViewModel(IPedagogicalPeriodApiService api, IAuthSessionService authSession)
     {
         _api = api;
+        _authSession = authSession;
         AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = LoadStructureAsync();
     }
+
+    public bool CanManagePedagogicalPeriods =>
+        SessionPermissions.Can(_authSession, Permissions.PedagogicalPeriodsManage);
+
+    public bool CanShowCreateStructure => !HasStructure && CanManagePedagogicalPeriods;
 
     public ObservableCollection<CycleGroupItem> CycleGroups { get; } = [];
 
@@ -29,6 +37,8 @@ public partial class PedagogicalPeriodsViewModel : ViewModelBase
     [ObservableProperty] private DateTime _openStartDate = DateTime.Today;
     [ObservableProperty] private DateTime _openEndDate = DateTime.Today;
     [ObservableProperty] private string? _openError;
+
+    partial void OnHasStructureChanged(bool value) => OnPropertyChanged(nameof(CanShowCreateStructure));
 
     private void OnGlobalAcademicYearChanged() => _ = LoadStructureAsync();
 
@@ -68,6 +78,12 @@ public partial class PedagogicalPeriodsViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateStructureAsync()
     {
+        if (!CanManagePedagogicalPeriods)
+        {
+            StatusMessage = "Vous n'êtes pas autorisé à gérer le calendrier pédagogique.";
+            return;
+        }
+
         var yearId = AcademicYearRefreshBridge.SelectedYearId;
         if (yearId is null)
         {
@@ -212,7 +228,7 @@ public partial class PedagogicalPeriodsViewModel : ViewModelBase
                         suggested = pe.AddDays(1);
                     }
 
-                    subs.Add(new SubPeriodItem(sub, suggested));
+                    subs.Add(new SubPeriodItem(sub, suggested, CanManagePedagogicalPeriods));
                     if (sub.EndDate is DateOnly end)
                     {
                         previousEnd = end;
@@ -268,7 +284,7 @@ public sealed class MainPeriodItem
 
 public sealed partial class SubPeriodItem : ObservableObject
 {
-    public SubPeriodItem(PedagogicalSubPeriodDto dto, DateOnly? suggestedStartDate = null)
+    public SubPeriodItem(PedagogicalSubPeriodDto dto, DateOnly? suggestedStartDate, bool canManage)
     {
         Id = dto.Id;
         Name = dto.Name;
@@ -296,10 +312,10 @@ public sealed partial class SubPeriodItem : ObservableObject
             AcademicSubPeriodStatus.Verrouillee => "#DC2626",
             _ => "#94A3B8"
         };
-        CanOpen = dto.Status == AcademicSubPeriodStatus.AVenir;
-        CanClose = dto.Status == AcademicSubPeriodStatus.Ouverte;
-        CanLock = dto.Status == AcademicSubPeriodStatus.Cloturee;
-        CanUnlock = dto.Status is AcademicSubPeriodStatus.Cloturee or AcademicSubPeriodStatus.Verrouillee;
+        CanOpen = canManage && dto.Status == AcademicSubPeriodStatus.AVenir;
+        CanClose = canManage && dto.Status == AcademicSubPeriodStatus.Ouverte;
+        CanLock = canManage && dto.Status == AcademicSubPeriodStatus.Cloturee;
+        CanUnlock = canManage && dto.Status is AcademicSubPeriodStatus.Cloturee or AcademicSubPeriodStatus.Verrouillee;
     }
 
     public Guid Id { get; }

@@ -77,3 +77,8 @@ public sealed record CalculatePeriodResultsRequest(
     Guid ClassRoomId,
     Guid AcademicYearId,
     Guid AcademicPeriodId);
+
+public sealed record PublishPeriodCotationRequest(
+    Guid ClassRoomId,
+    Guid AcademicYearId,
+    Guid AcademicPeriodId);

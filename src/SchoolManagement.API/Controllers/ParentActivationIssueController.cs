@@ -24,7 +24,7 @@ public sealed class ParentActivationIssueController : ControllerBase
     }
 
     [HttpPost("issue")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.ParentActivationManage)]
     [ProducesResponseType(typeof(ApiResponse<IssueParentActivationTokenResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Issue(
         [FromBody] IssueParentActivationTokenRequest request,

@@ -80,84 +80,112 @@ public sealed class InitialSetupService : IInitialSetupService
                 "Les permissions système sont absentes. Redémarrez le service API (SEED_DATABASE=true) puis réessayez.");
         }
 
-        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
-
-        var school = new School
-        {
-            Name = request.SchoolName.Trim(),
-            LegalName = NullIfWhiteSpace(request.LegalName),
-            Address = NullIfWhiteSpace(request.Address),
-            City = NullIfWhiteSpace(request.City),
-            Province = NullIfWhiteSpace(request.Province),
-            Phone = NullIfWhiteSpace(request.Phone),
-            Email = NullIfWhiteSpace(request.Email),
-            Country = "RDC",
-            DefaultCurrency = request.DefaultCurrency,
-            IsActive = true,
-        };
-
-        if (!string.IsNullOrWhiteSpace(request.LogoBase64) && !string.IsNullOrWhiteSpace(request.LogoFileName))
-        {
-            school.LogoPath = await SaveLogoAsync(request.LogoFileName!, request.LogoBase64!, cancellationToken);
-        }
-
-        _db.Schools.Add(school);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        var adminRole = await EnsureRolesAsync(school.Id, cancellationToken);
-
         var adminUserName = request.AdminUserName.Trim();
         if (await _db.UserAccounts.AnyAsync(u => u.UserName == adminUserName, cancellationToken))
         {
             throw new DomainException($"Le nom d'utilisateur « {adminUserName} » existe déjà.");
         }
 
-        var admin = new UserAccount
+        string? logoPath = null;
+        if (!string.IsNullOrWhiteSpace(request.LogoBase64) && !string.IsNullOrWhiteSpace(request.LogoFileName))
         {
-            SchoolId = school.Id,
-            UserName = adminUserName,
-            Email = request.AdminEmail.Trim(),
-            PasswordHash = _passwordHasher.Hash(request.AdminPassword),
-            FirstName = request.AdminFirstName.Trim(),
-            LastName = request.AdminLastName.Trim(),
-            IsActive = true,
-            MustChangePassword = false,
-        };
-        _db.UserAccounts.Add(admin);
-        await _db.SaveChangesAsync(cancellationToken);
+            logoPath = await SaveLogoAsync(request.LogoFileName!, request.LogoBase64!, cancellationToken);
+        }
 
-        _db.UserRoleAssignments.Add(new UserRoleAssignment
+        School school = null!;
+        UserAccount admin = null!;
+        AcademicYearDto year = null!;
+
+        // La stratégie de reprise SQL Server refuse les transactions manuelles : l'installation
+        // doit être rejouable d'un bloc en cas de réessai. Tout est également commité d'un seul
+        // coup, sinon un échec tardif laisserait une école incomplète que l'assistant refuserait
+        // de reprendre (« la configuration initiale est déjà terminée »).
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        try
         {
-            UserId = admin.Id,
-            RoleId = adminRole.Id,
-        });
-        await _db.SaveChangesAsync(cancellationToken);
+            await strategy.ExecuteAsync(async () =>
+            {
+                _db.ChangeTracker.Clear();
+                _db.OverrideTenantSchoolId = null;
+                await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
 
-        await tx.CommitAsync(cancellationToken);
+                school = new School
+                {
+                    Name = request.SchoolName.Trim(),
+                    LegalName = NullIfWhiteSpace(request.LegalName),
+                    Address = NullIfWhiteSpace(request.Address),
+                    City = NullIfWhiteSpace(request.City),
+                    Province = NullIfWhiteSpace(request.Province),
+                    Phone = NullIfWhiteSpace(request.Phone),
+                    Email = NullIfWhiteSpace(request.Email),
+                    Country = "RDC",
+                    DefaultCurrency = request.DefaultCurrency,
+                    IsActive = true,
+                    LogoPath = logoPath,
+                };
 
-        var year = await _schoolService.CreateAcademicYearAsync(
-            school.Id,
-            new CreateAcademicYearRequest(
-                request.AcademicYearLabel.Trim(),
-                request.AcademicYearStart,
-                request.AcademicYearEnd,
-                SetAsCurrent: true),
-            cancellationToken);
+                _db.Schools.Add(school);
+                await _db.SaveChangesAsync(cancellationToken);
 
-        await SeedFinanceBasicsAsync(school.Id, request, cancellationToken);
+                // Personne n'est authentifié pendant l'installation : sans établissement courant,
+                // les filtres multi-tenant masquent tout ce qui vient d'être créé.
+                _db.OverrideTenantSchoolId = school.Id;
 
-        _logger.LogInformation(
-            "Configuration initiale terminée — école {School} ({SchoolId}), admin {Admin}",
-            school.Name, school.Id, admin.UserName);
+                var adminRole = await EnsureRolesAsync(school.Id, cancellationToken);
 
-        await _serverIdentity.RefreshAsync(cancellationToken);
+                admin = new UserAccount
+                {
+                    SchoolId = school.Id,
+                    UserName = adminUserName,
+                    Email = request.AdminEmail.Trim(),
+                    PasswordHash = _passwordHasher.Hash(request.AdminPassword),
+                    FirstName = request.AdminFirstName.Trim(),
+                    LastName = request.AdminLastName.Trim(),
+                    IsActive = true,
+                    MustChangePassword = false,
+                };
+                _db.UserAccounts.Add(admin);
+                await _db.SaveChangesAsync(cancellationToken);
 
-        return new CompleteInitialSetupResultDto(
-            school.Id,
-            year.Id,
-            admin.Id,
-            school.Name,
-            admin.UserName);
+                _db.UserRoleAssignments.Add(new UserRoleAssignment
+                {
+                    UserId = admin.Id,
+                    RoleId = adminRole.Id,
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+
+                year = await _schoolService.CreateAcademicYearAsync(
+                    school.Id,
+                    new CreateAcademicYearRequest(
+                        request.AcademicYearLabel.Trim(),
+                        request.AcademicYearStart,
+                        request.AcademicYearEnd,
+                        SetAsCurrent: true),
+                    cancellationToken);
+
+                await SeedFinanceBasicsAsync(school.Id, request, cancellationToken);
+
+                await tx.CommitAsync(cancellationToken);
+            });
+
+            _logger.LogInformation(
+                "Configuration initiale terminée — école {School} ({SchoolId}), admin {Admin}",
+                school.Name, school.Id, admin.UserName);
+
+            await _serverIdentity.RefreshAsync(cancellationToken);
+
+            return new CompleteInitialSetupResultDto(
+                school.Id,
+                year.Id,
+                admin.Id,
+                school.Name,
+                admin.UserName);
+        }
+        finally
+        {
+            _db.OverrideTenantSchoolId = null;
+        }
     }
 
     private async Task SeedFinanceBasicsAsync(
@@ -165,12 +193,19 @@ public sealed class InitialSetupService : IInitialSetupService
         CompleteInitialSetupRequest request,
         CancellationToken cancellationToken)
     {
+        await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
+
         var categories = request.PricingCategoryNames is { Count: > 0 }
             ? request.PricingCategoryNames
-            : ["Général"];
+            : [];
 
         foreach (var name in categories.Where(n => !string.IsNullOrWhiteSpace(n)))
         {
+            if (FeePricingCategoryCodes.IsGeneralDisplayName(name))
+            {
+                continue;
+            }
+
             await _schoolFeeService.CreatePricingCategoryAsync(
                 schoolId,
                 new CreateFeePricingCategoryRequest(name.Trim(), null, true),
@@ -221,7 +256,7 @@ public sealed class InitialSetupService : IInitialSetupService
     {
         var allPermissions = await _db.Permissions.ToListAsync(cancellationToken);
 
-        Role CreateRole(string code, string name, UserRole systemRole)
+        Role CreateRole(string code, string name, UserRole systemRole, int sortOrder = 0)
         {
             var role = new Role
             {
@@ -229,16 +264,22 @@ public sealed class InitialSetupService : IInitialSetupService
                 Code = code,
                 Name = name,
                 SystemRole = systemRole,
+                IsSystem = true,
+                IsAssignable = true,
+                SortOrder = sortOrder,
             };
             _db.Roles.Add(role);
             return role;
         }
 
-        var admin = CreateRole("ADMIN", "Administrateur", UserRole.Administrateur);
-        CreateRole("DIRECTION", "Direction", UserRole.Direction);
-        CreateRole("TEACHER", "Enseignant", UserRole.Enseignant);
-        CreateRole("PARENT", "Parent", UserRole.Parent);
-        CreateRole("COMPTABLE", "Comptable", UserRole.Comptable);
+        var admin = CreateRole("ADMIN", "Administrateur", UserRole.Administrateur, 10);
+        CreateRole("DIRECTION", "Direction", UserRole.Direction, 20);
+        CreateRole("ENSEIGNANT", "Enseignant", UserRole.Enseignant, 30);
+        CreateRole("PARENT", "Parent", UserRole.Parent, 40);
+        CreateRole("COMPTABLE", "Comptable", UserRole.Comptable, 50);
+        CreateRole("CAISSIER", "Caissier", UserRole.Comptable, 60);
+        CreateRole("PREFET", "Préfet des études", UserRole.Direction, 70);
+        CreateRole("PROMOTEUR", "Promoteur", UserRole.Direction, 80);
         await _db.SaveChangesAsync(cancellationToken);
 
         foreach (var permission in allPermissions)
@@ -259,7 +300,7 @@ public sealed class InitialSetupService : IInitialSetupService
             Permissions.DeliberationDecisionRead, Permissions.DeliberationDecisionWrite,
         ], cancellationToken);
 
-        await AssignPermissionsAsync("TEACHER",
+        await AssignPermissionsAsync("ENSEIGNANT",
         [
             Permissions.StudentsRead,
             Permissions.ResultsValidationRead,

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Domain.Exceptions;
 using SchoolManagement.Shared.Models;
 
@@ -33,6 +34,8 @@ public sealed class ExceptionHandlingMiddleware
     {
         var statusCode = exception switch
         {
+            // Ressource d'un autre établissement : répondre comme si elle n'existait pas.
+            SchoolTenancyAccessDeniedException => HttpStatusCode.NotFound,
             UnauthorizedAccessException => HttpStatusCode.Unauthorized,
             KeyNotFoundException => HttpStatusCode.NotFound,
             ArgumentException => HttpStatusCode.BadRequest,

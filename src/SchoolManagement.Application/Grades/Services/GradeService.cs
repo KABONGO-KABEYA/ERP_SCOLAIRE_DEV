@@ -624,7 +624,9 @@ public sealed partial class GradeService : IGradeService
             schoolId, evaluation.ClassRoomId, evaluation.AcademicPeriodId, cancellationToken);
 
         var grades = await _gradeRepository.FindAsync(g => g.EvaluationId == evaluationId, cancellationToken);
-        if (grades.Count > 0 && !_currentUser.IsAdministrator)
+        if (grades.Count > 0
+            && !_currentUser.HasPermission(Permissions.GradesEvaluationDeleteWithGrades)
+            && !_currentUser.HasPermission(Permissions.AdminFull))
         {
             throw new DomainException(
                 "Suppression impossible : des notes ont déjà été saisies pour cette évaluation.");
@@ -936,7 +938,7 @@ public sealed partial class GradeService : IGradeService
 
         if (recalculatePeriodResults)
         {
-            await CalculatePeriodResultsAsync(
+            await RecalculatePeriodResultsAfterDataChangeAsync(
                 schoolId,
                 new CalculatePeriodResultsRequest(
                     evaluation.ClassRoomId,
@@ -956,6 +958,18 @@ public sealed partial class GradeService : IGradeService
 
         CancellationToken cancellationToken = default)
 
+    {
+        EnsureCanRecalculatePeriodResultsManually();
+        return await RecalculatePeriodResultsAfterDataChangeAsync(schoolId, request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Recalcul après saisie, cotation globale, délibération ou clôture d'examen — sans <see cref="Permissions.GradesRecalculate"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<PeriodResultDto>> RecalculatePeriodResultsAfterDataChangeAsync(
+        Guid schoolId,
+        CalculatePeriodResultsRequest request,
+        CancellationToken cancellationToken = default)
     {
 
         await SchoolConfigurationGuards.EnsureActiveAcademicYearAsync(
@@ -1376,7 +1390,7 @@ public sealed partial class GradeService : IGradeService
         var classRoomIds = evaluations.Select(e => e.ClassRoomId).Distinct().ToList();
         foreach (var classRoomId in classRoomIds)
         {
-            await CalculatePeriodResultsAsync(
+            await RecalculatePeriodResultsAfterDataChangeAsync(
                 schoolId,
                 new CalculatePeriodResultsRequest(classRoomId, period.AcademicYearId, examSubPeriodId),
                 cancellationToken);

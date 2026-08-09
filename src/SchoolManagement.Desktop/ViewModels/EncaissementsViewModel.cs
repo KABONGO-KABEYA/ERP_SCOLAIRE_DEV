@@ -8,6 +8,7 @@ using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Services;
+using SchoolManagement.Shared.Constants;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views;
 using SchoolManagement.Desktop.Views.Encaissements;
@@ -104,7 +105,8 @@ public partial class EncaissementsViewModel : ViewModelBase
     public string PaginationLabel => $"Page {CurrentPage} / {TotalPages}";
     public bool CanGoPreviousPage => CurrentPage > 1;
     public bool CanGoNextPage => CurrentPage < TotalPages;
-    public bool CanMutatePaidPayments => _authSession.IsAdministrator;
+    public bool CanMutatePaidPayments => SessionPermissions.Can(_authSession, Permissions.PaymentsPaidMutation);
+    public bool CanCancelPaidPayments => SessionPermissions.Can(_authSession, Permissions.PaymentsCancel);
 
     partial void OnIsFiltersExpandedChanged(bool value) => OnPropertyChanged(nameof(FiltersToggleLabel));
     partial void OnStudentsFoundCountChanged(int value) => OnPropertyChanged(nameof(FiltersHeaderText));
@@ -317,9 +319,9 @@ public partial class EncaissementsViewModel : ViewModelBase
     [RelayCommand]
     private async Task EditPaymentAsync(StudentPaymentSituationDto? item)
     {
-        if (!_authSession.IsAdministrator)
+        if (!SessionPermissions.Can(_authSession, Permissions.PaymentsPaidMutation))
         {
-            StatusMessage = "Seul l'administrateur peut modifier un frais déjà payé.";
+            StatusMessage = "Vous n'êtes pas autorisé à modifier un frais déjà payé.";
             MessageBox.Show(StatusMessage, "Modification", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -330,9 +332,9 @@ public partial class EncaissementsViewModel : ViewModelBase
     [RelayCommand]
     private async Task CancelPaymentAsync(StudentPaymentSituationDto? item)
     {
-        if (!_authSession.IsAdministrator)
+        if (!SessionPermissions.Can(_authSession, Permissions.PaymentsCancel))
         {
-            StatusMessage = "Seul l'administrateur peut supprimer un frais déjà payé.";
+            StatusMessage = "Vous n'êtes pas autorisé à annuler un frais déjà payé.";
             MessageBox.Show(StatusMessage, "Annulation", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }

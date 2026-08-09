@@ -17,6 +17,6 @@ public abstract class AuditableEntityConfiguration<T> : IEntityTypeConfiguration
 
         builder.HasIndex(e => e.IsDeleted);
 
-        builder.HasQueryFilter(e => !e.IsDeleted);
+        // Filtres soft-delete + tenant : SchoolDbContext.ApplyTenantAndSoftDeleteQueryFilters.
     }
 }

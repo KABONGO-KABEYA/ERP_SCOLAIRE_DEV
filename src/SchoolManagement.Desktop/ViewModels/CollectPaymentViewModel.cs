@@ -60,8 +60,7 @@ public partial class CollectPaymentViewModel : ObservableObject
         var user = authSession.CurrentUser;
         RecordedByName = user?.FullName ?? "—";
         RecordedByRole = user?.Roles.FirstOrDefault() ?? string.Empty;
-        CanOverrideExchangeRate = authSession.IsAdministrator
-            || (user?.Permissions.Any(p => string.Equals(p, Permissions.PaymentFxOverride, StringComparison.OrdinalIgnoreCase)) == true);
+        CanOverrideExchangeRate = SessionPermissions.Can(authSession, Permissions.PaymentFxOverride);
 
         PhotoSource = ResolvePhoto(situation.PhotoPath);
         HasPhoto = PhotoSource is not null;

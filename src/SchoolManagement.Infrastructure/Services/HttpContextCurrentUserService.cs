@@ -55,7 +55,5 @@ public sealed class HttpContextCurrentUserService : ICurrentUserService
         || Permissions.Contains(Shared.Constants.Permissions.AdminFull, StringComparer.OrdinalIgnoreCase);
 
     public bool IsAdministrator =>
-        HasPermission(Shared.Constants.Permissions.AdminFull)
-        || Roles.Any(r => string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase)
-            || r.Contains("ADMIN", StringComparison.OrdinalIgnoreCase));
+        HasPermission(Shared.Constants.Permissions.AdminFull);
 }

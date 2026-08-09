@@ -61,7 +61,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpPut("pricing-assignments/{enrollmentId:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PricingCategoriesAssign)]
     [ProducesResponseType(typeof(ApiResponse<StudentPricingAssignmentDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdatePricingAssignment(
         Guid enrollmentId,

@@ -7,6 +7,7 @@ using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -16,12 +17,14 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IAcademicApiService _academicApiService;
     private readonly IAdminApiService _adminApiService;
     private readonly IGeographyApiService _geographyApiService;
+    private readonly IAuthSessionService _authSession;
 
     public SettingsViewModel(
         ISchoolApiService schoolApiService,
         IAcademicApiService academicApiService,
         IAdminApiService adminApiService,
         IGeographyApiService geographyApiService,
+        IAuthSessionService authSession,
         DocumentBrandingViewModel documentBranding,
         GeographyAdminViewModel geographyAdmin,
         SchoolFeeConfigurationViewModel schoolFeeConfiguration,
@@ -37,6 +40,7 @@ public partial class SettingsViewModel : ViewModelBase
         _academicApiService = academicApiService;
         _adminApiService = adminApiService;
         _geographyApiService = geographyApiService;
+        _authSession = authSession;
         DocumentBranding = documentBranding;
         GeographyAdmin = geographyAdmin;
         SchoolFeeConfiguration = schoolFeeConfiguration;
@@ -84,7 +88,6 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Historique des taux", "History", SettingsSection.HistoriqueTaux),
                     new SettingsNodeViewModel("Configuration des cours", "BookEducation", SettingsSection.Matieres),
                     new SettingsNodeViewModel("Géographie", "Earth", SettingsSection.Geographie),
-                    new SettingsNodeViewModel("Utilisateurs", "AccountCog", SettingsSection.Utilisateurs),
                     new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
                     new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud),
                     new SettingsNodeViewModel("Activation mobile parent", "Qrcode", SettingsSection.ParentActivation),
@@ -96,7 +99,38 @@ public partial class SettingsViewModel : ViewModelBase
             .FirstOrDefault(node => node.Section == SettingsSection.Etablissement)
             ?? SettingsNodes[0].Children.FirstOrDefault();
 
+        if (!CanManageTeachers)
+        {
+            var enseignantsNode = SettingsNodes[0].Children
+                .FirstOrDefault(node => node.Section == SettingsSection.Enseignants);
+            if (enseignantsNode is not null)
+            {
+                SettingsNodes[0].Children.Remove(enseignantsNode);
+            }
+        }
+
+        RemoveSettingsNavNodeIfUnauthorized(SettingsSection.Geographie, Permissions.GeographyManage);
+        RemoveSettingsNavNodeIfUnauthorized(SettingsSection.SyncCloud, Permissions.CloudSyncManage);
+        RemoveSettingsNavNodeIfUnauthorized(SettingsSection.ParentActivation, Permissions.ParentActivationManage);
+        RemoveSettingsNavNodeIfUnauthorized(SettingsSection.MisesAJour, Permissions.UpdatesManage);
+
         _ = LoadAsync();
+    }
+
+    public bool CanManageTeachers => SessionPermissions.Can(_authSession, Permissions.TeachersManage);
+
+    private void RemoveSettingsNavNodeIfUnauthorized(SettingsSection section, string permissionCode)
+    {
+        if (SessionPermissions.Can(_authSession, permissionCode))
+        {
+            return;
+        }
+
+        var node = SettingsNodes[0].Children.FirstOrDefault(n => n.Section == section);
+        if (node is not null)
+        {
+            SettingsNodes[0].Children.Remove(node);
+        }
     }
 
     [ObservableProperty]
@@ -847,6 +881,19 @@ public partial class SettingsViewModel : ViewModelBase
         StatusMessage = null;
         try
         {
+            if (SelectedPedagogicalClass.IsEnabled)
+            {
+                await _schoolApiService.BulkUpdatePedagogicalClassesAsync(
+                    new BulkUpdatePedagogicalClassesRequest(
+                    [
+                        new BulkPedagogicalClassItem(
+                            SelectedPedagogicalClass.Id,
+                            SelectedPedagogicalClass.IsEnabled,
+                            SelectedPedagogicalClass.MinAge,
+                            SelectedPedagogicalClass.MaxAge)
+                    ]));
+            }
+
             int? capacity = int.TryParse(LocalCapacityText, out var cap) ? cap : null;
             await _schoolApiService.CreateClassLocalAsync(new CreateClassLocalRequest(
                 SelectedPedagogicalClass.Id,
@@ -1146,6 +1193,12 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateAdminTeacherAsync()
     {
+        if (!CanManageTeachers)
+        {
+            StatusMessage = "Vous n'êtes pas autorisé à gérer les enseignants.";
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(NewTeacherEmployeeNumber)
             || string.IsNullOrWhiteSpace(NewTeacherFirstName)
             || string.IsNullOrWhiteSpace(NewTeacherLastName))
@@ -1191,6 +1244,12 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveSelectedAdminTeacherAsync()
     {
+        if (!CanManageTeachers)
+        {
+            StatusMessage = "Vous n'êtes pas autorisé à gérer les enseignants.";
+            return;
+        }
+
         if (SelectedAdminTeacher is null)
         {
             return;
@@ -1235,6 +1294,12 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task ToggleAdminTeacherActiveAsync()
     {
+        if (!CanManageTeachers)
+        {
+            StatusMessage = "Vous n'êtes pas autorisé à gérer les enseignants.";
+            return;
+        }
+
         if (SelectedAdminTeacher is null)
         {
             return;

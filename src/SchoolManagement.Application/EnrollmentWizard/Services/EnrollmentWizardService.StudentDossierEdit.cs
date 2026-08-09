@@ -199,6 +199,7 @@ public sealed partial class EnrollmentWizardService
 
         await _auditRepository.AddAsync(new AuditEntry
         {
+            SchoolId = schoolId,
             Action = "EnrollmentWizard.UpdateDossier",
             EntityName = nameof(Student),
             EntityId = student.Id,

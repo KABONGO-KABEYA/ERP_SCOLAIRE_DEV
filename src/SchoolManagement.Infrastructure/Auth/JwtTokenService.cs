@@ -24,7 +24,8 @@ public sealed class JwtTokenService : ITokenService
         string userName,
         string fullName,
         IEnumerable<string> roles,
-        IEnumerable<string> permissions)
+        IEnumerable<string> permissions,
+        bool isPlatformSuperAdmin = false)
     {
         var claims = new List<Claim>
         {
@@ -38,7 +39,13 @@ public sealed class JwtTokenService : ITokenService
         };
 
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        // Uniquement des codes permission — jamais DisplayName / BusinessDescription / HelpText.
         claims.AddRange(permissions.Select(p => new Claim(ClaimTypesCustom.Permissions, p)));
+
+        if (isPlatformSuperAdmin)
+        {
+            claims.Add(new Claim(ClaimTypesCustom.PlatformSuperAdmin, "true"));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

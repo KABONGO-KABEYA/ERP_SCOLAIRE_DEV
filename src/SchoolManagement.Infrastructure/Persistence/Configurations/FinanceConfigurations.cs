@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Settings;
 
 namespace SchoolManagement.Infrastructure.Persistence.Configurations;
 
@@ -69,7 +70,8 @@ public class CashMovementConfiguration : AuditableEntityConfiguration<CashMoveme
         builder.Property(m => m.Currency).HasConversion<int>();
         builder.HasOne(m => m.CashRegister).WithMany().HasForeignKey(m => m.CashRegisterId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(m => m.Payment).WithMany().HasForeignKey(m => m.PaymentId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasIndex(m => new { m.CashRegisterId, m.MovementDate });
+        builder.HasOne<School>().WithMany().HasForeignKey(m => m.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(m => new { m.SchoolId, m.CashRegisterId, m.MovementDate });
     }
 }
 

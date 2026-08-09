@@ -20,6 +20,8 @@ using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Application.Notifications.Interfaces;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Application.Enrollment.Interfaces;
+using SchoolManagement.Application.Security;
+using SchoolManagement.Infrastructure.Security;
 using SchoolManagement.Infrastructure.Seeding;
 using SchoolManagement.Infrastructure.Services;
 using SchoolManagement.Infrastructure.Setup;
@@ -27,6 +29,7 @@ using SchoolManagement.Infrastructure.ServerIdentity;
 using SchoolManagement.Application.ServerIdentity;
 using SchoolManagement.Application.ParentActivation;
 using SchoolManagement.Infrastructure.ParentActivation;
+using SchoolManagement.Infrastructure.Tenancy;
 
 public static class InfrastructureServiceRegistration
 {
@@ -41,13 +44,21 @@ public static class InfrastructureServiceRegistration
                 "La chaîne de connexion SQL Server est manquante. Configurez ServeurDonnees.txt.");
         }
 
-        services.AddDbContext<SchoolDbContext>(options =>
+        services.AddSingleton<SecurityCatalogCache>();
+        services.AddSingleton<ISecurityCatalogCache>(sp => sp.GetRequiredService<SecurityCatalogCache>());
+        services.AddSingleton<SecurityCatalogCacheInvalidationInterceptor>();
+
+        services.AddDbContext<SchoolDbContext>((sp, options) =>
+        {
             options.UseSqlServer(connectionString, sql =>
             {
                 sql.MigrationsAssembly(typeof(SchoolDbContext).Assembly.FullName);
                 sql.EnableRetryOnFailure(3);
-            }));
+            });
+            options.AddInterceptors(sp.GetRequiredService<SecurityCatalogCacheInvalidationInterceptor>());
+        });
 
+        services.AddScoped<ISchoolTenancyService, SchoolTenancyService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserAccountRepository, UserAccountRepository>();
@@ -62,7 +73,17 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IParentActivationService, ParentActivationService>();
+        services.AddScoped<PermissionDependencyService>();
+        services.AddScoped<IPermissionDependencyService>(sp => sp.GetRequiredService<PermissionDependencyService>());
+        services.AddScoped<IEffectivePermissionService, EffectivePermissionService>();
+        services.AddScoped<ISecurityNavigationService, SecurityNavigationService>();
+        services.AddScoped<ISecurityAuditService, SecurityAuditService>();
+        services.AddScoped<ISecurityUserAdminService, SecurityUserAdminService>();
+        services.AddScoped<ISecurityRoleAdminService, SecurityRoleAdminService>();
+        services.AddScoped<ISecurityExceptionAdminService, SecurityExceptionAdminService>();
+        services.AddScoped<ISecurityCatalogAdminService, SecurityCatalogAdminService>();
         services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<SecurityCatalogSeeder>();
         services.AddScoped<IInitialSetupService, InitialSetupService>();
         services.AddSingleton<IServerIdentityProvider, ServerIdentityProvider>();
         services.AddHostedService<ServerIdentityInitializationHostedService>();

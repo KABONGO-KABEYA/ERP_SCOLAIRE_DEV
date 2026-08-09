@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Application.Auth.DTOs;
 using SchoolManagement.Application.Auth.Interfaces;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Security;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Exceptions;
 using SchoolManagement.Infrastructure.Persistence;
@@ -15,6 +16,7 @@ public sealed class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IEffectivePermissionService _effectivePermissions;
     private readonly SchoolDbContext _context;
 
     public AuthService(
@@ -23,6 +25,7 @@ public sealed class AuthService : IAuthService
         ITokenService tokenService,
         IPasswordHasher passwordHasher,
         IUnitOfWork unitOfWork,
+        IEffectivePermissionService effectivePermissions,
         SchoolDbContext context)
     {
         _userRepository = userRepository;
@@ -30,25 +33,25 @@ public sealed class AuthService : IAuthService
         _tokenService = tokenService;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
+        _effectivePermissions = effectivePermissions;
         _context = context;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await _context.UserAccounts
-            .Include(u => u.Roles).ThenInclude(ur => ur.Role)
-            .ThenInclude(r => r.Permissions).ThenInclude(rp => rp.Permission)
-            .FirstOrDefaultAsync(u => u.UserName == request.UserName && u.IsActive, cancellationToken);
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.UserName == request.UserName && u.IsActive && !u.IsDeleted, cancellationToken);
 
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            await LogLoginAsync(user?.Id, request.UserName, false, "Identifiants invalides", ipAddress, cancellationToken);
+            await LogLoginAsync(user, request.UserName, false, "Identifiants invalides", ipAddress, cancellationToken);
             throw new UnauthorizedAccessException("Nom d'utilisateur ou mot de passe incorrect.");
         }
 
         user.LastLoginAt = DateTime.UtcNow;
         await _userRepository.UpdateAsync(user, cancellationToken);
-        await LogLoginAsync(user.Id, user.UserName, true, null, ipAddress, cancellationToken);
+        await LogLoginAsync(user, user.UserName, true, null, ipAddress, cancellationToken);
 
         return await BuildAuthResponseAsync(user, cancellationToken);
     }
@@ -63,8 +66,19 @@ public sealed class AuthService : IAuthService
             throw new UnauthorizedAccessException("Refresh token expiré ou révoqué.");
         }
 
-        var user = await _userRepository.GetWithRolesAndPermissionsAsync(storedToken.UserId, cancellationToken)
+        var user = await _context.UserAccounts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == storedToken.UserId && !u.IsDeleted, cancellationToken)
             ?? throw new UnauthorizedAccessException("Utilisateur introuvable.");
+
+        if (!user.IsActive)
+        {
+            storedToken.IsRevoked = true;
+            storedToken.RevokedAt = DateTime.UtcNow;
+            await _refreshTokenRepository.UpdateAsync(storedToken, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw new UnauthorizedAccessException("Compte désactivé.");
+        }
 
         storedToken.IsRevoked = true;
         storedToken.RevokedAt = DateTime.UtcNow;
@@ -90,8 +104,16 @@ public sealed class AuthService : IAuthService
 
     public async Task<UserProfileDto?> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetWithRolesAndPermissionsAsync(userId, cancellationToken);
-        return user is null ? null : MapProfile(user);
+        var user = await _context.UserAccounts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var effective = await _effectivePermissions.ResolveAsync(userId, cancellationToken);
+        return MapProfile(user, effective.Roles, effective.PermissionCodes);
     }
 
     public async Task<AuthResponse> ChangePasswordAsync(
@@ -99,7 +121,9 @@ public sealed class AuthService : IAuthService
         ChangePasswordRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetWithRolesAndPermissionsAsync(userId, cancellationToken)
+        var user = await _context.UserAccounts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken)
             ?? throw new KeyNotFoundException("Utilisateur introuvable.");
 
         if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
@@ -109,7 +133,7 @@ public sealed class AuthService : IAuthService
 
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
         user.MustChangePassword = false;
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        // Entité déjà trackée : ne pas appeler Update() (marquerait SchoolId comme modifié).
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await BuildAuthResponseAsync(user, cancellationToken);
@@ -117,20 +141,16 @@ public sealed class AuthService : IAuthService
 
     private async Task<AuthResponse> BuildAuthResponseAsync(UserAccount user, CancellationToken cancellationToken)
     {
-        var roles = user.Roles.Select(r => r.Role.Code).Distinct().ToList();
-        var permissions = user.Roles
-            .SelectMany(r => r.Role.Permissions)
-            .Select(rp => rp.Permission.Code)
-            .Distinct()
-            .ToList();
-
-        if (roles.Contains("ADMIN", StringComparer.OrdinalIgnoreCase))
-        {
-            permissions = permissions.Union(Shared.Constants.Permissions.All).Distinct().ToList();
-        }
+        var effective = await _effectivePermissions.ResolveAsync(user.Id, cancellationToken);
 
         var accessToken = _tokenService.GenerateAccessToken(
-            user.Id, user.SchoolId, user.UserName, $"{user.FirstName} {user.LastName}", roles, permissions);
+            user.Id,
+            user.SchoolId,
+            user.UserName,
+            $"{user.FirstName} {user.LastName}",
+            effective.Roles,
+            effective.PermissionCodes,
+            effective.IsPlatformSuperAdmin);
 
         var refreshTokenValue = _tokenService.GenerateRefreshToken();
         var refreshToken = new RefreshToken
@@ -147,22 +167,14 @@ public sealed class AuthService : IAuthService
             accessToken,
             refreshTokenValue,
             _tokenService.GetAccessTokenExpiration(),
-            MapProfile(user, roles, permissions));
+            MapProfile(user, effective.Roles, effective.PermissionCodes));
     }
 
     private static UserProfileDto MapProfile(
         UserAccount user,
-        IReadOnlyList<string>? roles = null,
-        IReadOnlyList<string>? permissions = null)
-    {
-        roles ??= user.Roles.Select(r => r.Role.Code).ToList();
-        permissions ??= user.Roles
-            .SelectMany(r => r.Role.Permissions)
-            .Select(rp => rp.Permission.Code)
-            .Distinct()
-            .ToList();
-
-        return new UserProfileDto(
+        IReadOnlyList<string> roles,
+        IReadOnlyList<string> permissions) =>
+        new(
             user.Id,
             user.SchoolId,
             user.UserName,
@@ -172,25 +184,41 @@ public sealed class AuthService : IAuthService
             user.TeacherId,
             roles,
             permissions);
-    }
 
     private async Task LogLoginAsync(
-        Guid? userId,
+        UserAccount? user,
         string userName,
         bool success,
         string? failureReason,
         string? ipAddress,
         CancellationToken cancellationToken)
     {
-        _context.LoginHistory.Add(new LoginHistory
+        var schoolId = user?.SchoolId
+            ?? await LocalSchoolResolver.TryResolvePrimarySchoolIdAsync(_context, cancellationToken);
+        if (schoolId is null || schoolId == Guid.Empty)
         {
-            UserId = userId,
-            UserName = userName,
-            IsSuccessful = success,
-            FailureReason = failureReason,
-            IpAddress = ipAddress,
-            LoginAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var previousIgnore = _context.IgnoreSchoolScope;
+        _context.IgnoreSchoolScope = true;
+        try
+        {
+            _context.LoginHistory.Add(new LoginHistory
+            {
+                SchoolId = schoolId.Value,
+                UserId = user?.Id,
+                UserName = userName,
+                IsSuccessful = success,
+                FailureReason = failureReason,
+                IpAddress = ipAddress,
+                LoginAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            _context.IgnoreSchoolScope = previousIgnore;
+        }
     }
 }

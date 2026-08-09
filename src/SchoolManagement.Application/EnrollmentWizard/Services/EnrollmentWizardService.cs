@@ -213,8 +213,11 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         var term = search.Trim().ToLowerInvariant();
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
         var guardians = await _guardianRepository.FindAsync(g => g.SchoolId == schoolId, cancellationToken);
-        var links = await _studentGuardianRepository.FindAsync(_ => true, cancellationToken);
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
+        var studentIds = students.Select(s => s.Id).ToHashSet();
+        var links = await SchoolScopedEnrollmentQueries.GetLinksForStudentsAsync(
+            _studentGuardianRepository, studentIds, cancellationToken);
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
         var years = await _yearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken);
         var classRooms = await _classRoomRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
         var pedagogicalMap = ClassRoomAvailability.BuildMap(
@@ -779,6 +782,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
 
         await _auditRepository.AddAsync(new AuditEntry
         {
+            SchoolId = schoolId,
             Action = "EnrollmentWizard.Complete",
             EntityName = nameof(Student),
             EntityId = student.Id,

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.StudentCards.DTOs;
 using SchoolManagement.Application.StudentCards.Interfaces;
@@ -67,11 +68,12 @@ public sealed class StudentCardService : IStudentCardService
         Guid? academicYearId,
         CancellationToken cancellationToken = default)
     {
-        var cards = await _cards.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
-        if (academicYearId.HasValue)
-        {
-            cards = cards.Where(c => c.AcademicYearId == academicYearId.Value).ToList();
-        }
+        await ExpireOverdueCardsAsync(schoolId, cancellationToken);
+
+        var yearId = academicYearId;
+        var cards = await _cards.FindAsync(
+            c => c.SchoolId == schoolId && (yearId == null || c.AcademicYearId == yearId),
+            cancellationToken);
 
         var now = DateTime.UtcNow;
         var toRenew = cards.Count(c =>
@@ -79,22 +81,60 @@ public sealed class StudentCardService : IStudentCardService
             && c.ExpiresAt.HasValue
             && c.ExpiresAt.Value <= now.AddDays(30));
 
-        var recentPrintIds = cards
+        var recentPrints = cards
             .Where(c => c.PrintedAt.HasValue)
             .OrderByDescending(c => c.PrintedAt)
             .Take(10)
             .ToList();
 
-        var recent = await MapListItemsAsync(schoolId, recentPrintIds, cancellationToken);
+        var recent = await MapListItemsAsync(schoolId, recentPrints, cancellationToken);
 
         return new StudentCardDashboardDto(
             cards.Count(c => c.Status == StudentCardStatus.Active),
-            cards.Count(c => c.Status == StudentCardStatus.Expiree
-                             || (c.Status == StudentCardStatus.Active && c.ExpiresAt.HasValue && c.ExpiresAt <= now)),
+            cards.Count(c => c.Status == StudentCardStatus.Expiree),
             cards.Count(c => c.Status == StudentCardStatus.Perdue),
             cards.Count(c => c.Status == StudentCardStatus.Volee),
             toRenew,
             recent);
+    }
+
+    /// <summary>
+    /// Bascule en <see cref="StudentCardStatus.Expiree"/> les cartes actives dont l'échéance
+    /// est dépassée. Sans cette normalisation le statut stocké reste « Active » indéfiniment :
+    /// le filtre « Expirée » ne remonte rien et l'index d'unicité « une carte active par élève
+    /// et par année » bloque l'émission d'une carte de remplacement.
+    /// </summary>
+    private async Task<int> ExpireOverdueCardsAsync(Guid schoolId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var overdue = await _cards.FindAsync(
+            c => c.SchoolId == schoolId
+                 && c.Status == StudentCardStatus.Active
+                 && c.ExpiresAt != null
+                 && c.ExpiresAt < now,
+            cancellationToken);
+
+        if (overdue.Count == 0)
+            return 0;
+
+        foreach (var card in overdue)
+        {
+            card.Status = StudentCardStatus.Expiree;
+            card.UpdatedAt = now;
+            await _cards.UpdateAsync(card, cancellationToken);
+            await AddHistoryAsync(
+                schoolId,
+                card.Id,
+                StudentCardHistoryAction.Modification,
+                Guid.Empty,
+                StudentCardStatus.Active.ToString(),
+                StudentCardStatus.Expiree.ToString(),
+                "Expiration automatique (échéance dépassée)",
+                cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return overdue.Count;
     }
 
     public async Task<StudentCardPagedResult> SearchAsync(
@@ -105,17 +145,21 @@ public sealed class StudentCardService : IStudentCardService
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 200);
 
-        var cards = (await _cards.FindAsync(c => c.SchoolId == schoolId, cancellationToken)).AsEnumerable();
+        await ExpireOverdueCardsAsync(schoolId, cancellationToken);
 
-        if (request.AcademicYearId.HasValue)
-            cards = cards.Where(c => c.AcademicYearId == request.AcademicYearId.Value);
-
-        if (request.Status.HasValue)
-            cards = cards.Where(c => c.Status == request.Status.Value);
+        // Année et statut sont poussés en SQL (index SchoolId/Status/ExpiresAt) ; seuls les
+        // filtres nécessitant une jointure inscription restent évalués en mémoire.
+        var yearId = request.AcademicYearId;
+        var status = request.Status;
+        var cards = (await _cards.FindAsync(
+                c => c.SchoolId == schoolId
+                     && (yearId == null || c.AcademicYearId == yearId)
+                     && (status == null || c.Status == status),
+                cancellationToken))
+            .AsEnumerable();
 
         if (request.ClassRoomId.HasValue)
         {
-            var yearId = request.AcademicYearId;
             var enrollments = await _enrollments.FindAsync(
                 e => e.ClassRoomId == request.ClassRoomId.Value
                      && e.IsActive
@@ -126,33 +170,42 @@ public sealed class StudentCardService : IStudentCardService
         }
         else if (request.SectionId.HasValue)
         {
-            var yearId = request.AcademicYearId;
             var rooms = await _classRooms.FindAsync(
                 r => r.SchoolId == schoolId
                      && r.SectionId == request.SectionId.Value
                      && (!yearId.HasValue || r.AcademicYearId == yearId.Value),
                 cancellationToken);
             var roomIds = rooms.Select(r => r.Id).ToHashSet();
-            var enrollments = await _enrollments.FindAsync(e => e.IsActive, cancellationToken);
-            var studentIds = enrollments
-                .Where(e => roomIds.Contains(e.ClassRoomId)
-                            && (!yearId.HasValue || e.AcademicYearId == yearId.Value))
-                .Select(e => e.StudentId)
-                .ToHashSet();
+            var enrollments = roomIds.Count == 0
+                ? []
+                : await _enrollments.FindAsync(
+                    e => e.IsActive
+                         && roomIds.Contains(e.ClassRoomId)
+                         && (!yearId.HasValue || e.AcademicYearId == yearId.Value),
+                    cancellationToken);
+            var studentIds = enrollments.Select(e => e.StudentId).ToHashSet();
             cards = cards.Where(c => studentIds.Contains(c.StudentId));
         }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var term = request.Search.Trim();
-            var students = await _students.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
-            var matchingStudentIds = students
-                .Where(s =>
-                    s.RegistrationNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || s.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || s.LastName.Contains(term, StringComparison.OrdinalIgnoreCase)
-                    || (s.MiddleName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || FormatFullName(s).Contains(term, StringComparison.OrdinalIgnoreCase))
+            var tokens = term.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var lead = tokens[0];
+
+            // Présélection en SQL sur le premier mot, puis affinage en mémoire sur les mots
+            // suivants : « KABONGO Christian » retrouve ainsi l'élève, ce que ne permettait pas
+            // la comparaison mot à mot précédente.
+            var candidates = await _students.FindAsync(
+                s => s.SchoolId == schoolId
+                     && (s.RegistrationNumber.Contains(lead)
+                         || s.FirstName.Contains(lead)
+                         || s.LastName.Contains(lead)
+                         || (s.MiddleName != null && s.MiddleName.Contains(lead))),
+                cancellationToken);
+
+            var matchingStudentIds = candidates
+                .Where(s => tokens.All(t => MatchesStudent(s, t)))
                 .Select(s => s.Id)
                 .ToHashSet();
 
@@ -234,10 +287,14 @@ public sealed class StudentCardService : IStudentCardService
         if (status == StudentCardStatus.Active)
             await EnsureNoOtherActiveAsync(schoolId, student.Id, year.Id, excludeCardId: null, cancellationToken);
 
-        var cardNumber = await AllocateCardNumberAsync(settings, year, cancellationToken);
+        var allocator = await CreateAllocatorAsync(schoolId, settings, year, cancellationToken);
+        var cardNumber = allocator.Next();
         var qrToken = GenerateQrToken();
         var expiresAt = request.ExpiresAt
             ?? DateTime.UtcNow.AddMonths(Math.Max(1, settings.DefaultValidityMonths));
+
+        if (expiresAt <= DateTime.UtcNow)
+            throw new DomainException("La date d'expiration doit être postérieure à aujourd'hui.");
 
         var card = new StudentCard
         {
@@ -277,6 +334,7 @@ public sealed class StudentCardService : IStudentCardService
                 cancellationToken);
         }
 
+        await PersistSettingsAsync(settings, userId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return await MapDetailAsync(card, cancellationToken);
     }
@@ -304,6 +362,11 @@ public sealed class StudentCardService : IStudentCardService
         var status = request.ActivateImmediately ? StudentCardStatus.Active : StudentCardStatus.Brouillon;
         var expiresAt = request.ExpiresAt
             ?? DateTime.UtcNow.AddMonths(Math.Max(1, settings.DefaultValidityMonths));
+
+        if (expiresAt <= DateTime.UtcNow)
+            throw new DomainException("La date d'expiration doit être postérieure à aujourd'hui.");
+
+        var allocator = await CreateAllocatorAsync(schoolId, settings, year, cancellationToken);
 
         var existingActive = status == StudentCardStatus.Active || request.SkipExistingActive
             ? (await _cards.FindAsync(
@@ -342,7 +405,7 @@ public sealed class StudentCardService : IStudentCardService
                 continue;
             }
 
-            var cardNumber = await AllocateCardNumberAsync(settings, year, cancellationToken);
+            var cardNumber = allocator.Next();
             var card = new StudentCard
             {
                 SchoolId = schoolId,
@@ -386,7 +449,10 @@ public sealed class StudentCardService : IStudentCardService
         }
 
         if (createdIds.Count > 0)
+        {
+            await PersistSettingsAsync(settings, userId, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         var summary =
             $"{createdIds.Count} carte(s) créée(s) sur {studentIds.Count} élève(s) ciblé(s)"
@@ -588,10 +654,14 @@ public sealed class StudentCardService : IStudentCardService
 
         var year = (await _years.FindAsync(y => y.Id == oldCard.AcademicYearId, cancellationToken)).FirstOrDefault()
             ?? throw new DomainException("Année scolaire introuvable.");
-        var cardNumber = await AllocateCardNumberAsync(settings, year, cancellationToken);
+        var allocator = await CreateAllocatorAsync(schoolId, settings, year, cancellationToken);
+        var cardNumber = allocator.Next();
         var qrToken = keepQr ? oldCard.QrToken : GenerateQrToken();
         var expiresAt = request.ExpiresAt
             ?? DateTime.UtcNow.AddMonths(Math.Max(1, settings.DefaultValidityMonths));
+
+        if (expiresAt <= DateTime.UtcNow)
+            throw new DomainException("La date d'expiration doit être postérieure à aujourd'hui.");
 
         await EnsureNoOtherActiveAsync(schoolId, oldCard.StudentId, oldCard.AcademicYearId, excludeCardId: oldCard.Id, cancellationToken);
 
@@ -621,6 +691,7 @@ public sealed class StudentCardService : IStudentCardService
             null,
             cancellationToken);
 
+        await PersistSettingsAsync(settings, userId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return await MapDetailAsync(newCard, cancellationToken);
     }
@@ -673,6 +744,85 @@ public sealed class StudentCardService : IStudentCardService
             request.Reason.Trim(),
             userId,
             cancellationToken);
+    }
+
+    public async Task<StudentCardDetailDto> ActivateAsync(
+        Guid schoolId,
+        Guid cardId,
+        ActivateStudentCardRequest request,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var card = await RequireCardAsync(schoolId, cardId, cancellationToken);
+
+        if (card.Status == StudentCardStatus.Active)
+            throw new DomainException("Cette carte est déjà active.");
+
+        if (card.Status is not (StudentCardStatus.Brouillon or StudentCardStatus.Suspendue))
+            throw new DomainException(
+                "Seule une carte en brouillon ou suspendue peut être activée. Utilisez le renouvellement pour une carte expirée, perdue, volée ou désactivée.");
+
+        if (card.ExpiresAt.HasValue && card.ExpiresAt.Value <= DateTime.UtcNow)
+            throw new DomainException("Cette carte est arrivée à échéance : renouvelez-la au lieu de l'activer.");
+
+        await EnsureNoOtherActiveAsync(
+            schoolId, card.StudentId, card.AcademicYearId, excludeCardId: card.Id, cancellationToken);
+
+        var previous = card.Status;
+        card.Status = StudentCardStatus.Active;
+        card.DeactivationReason = null;
+        card.UpdatedAt = DateTime.UtcNow;
+        card.UpdatedBy = userId;
+
+        await _cards.UpdateAsync(card, cancellationToken);
+        await AddHistoryAsync(
+            schoolId,
+            card.Id,
+            StudentCardHistoryAction.Activation,
+            userId,
+            previous.ToString(),
+            StudentCardStatus.Active.ToString(),
+            request.Notes,
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await MapDetailAsync(card, cancellationToken);
+    }
+
+    public async Task<StudentCardDetailDto> SuspendAsync(
+        Guid schoolId,
+        Guid cardId,
+        SuspendStudentCardRequest request,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new DomainException("Le motif de suspension est obligatoire.");
+
+        var card = await RequireCardAsync(schoolId, cardId, cancellationToken);
+
+        if (card.Status == StudentCardStatus.Suspendue)
+            throw new DomainException("Cette carte est déjà suspendue.");
+
+        if (card.Status != StudentCardStatus.Active)
+            throw new DomainException("Seule une carte active peut être suspendue.");
+
+        card.Status = StudentCardStatus.Suspendue;
+        card.DeactivationReason = request.Reason.Trim();
+        card.UpdatedAt = DateTime.UtcNow;
+        card.UpdatedBy = userId;
+
+        await _cards.UpdateAsync(card, cancellationToken);
+        await AddHistoryAsync(
+            schoolId,
+            card.Id,
+            StudentCardHistoryAction.Suspension,
+            userId,
+            StudentCardStatus.Active.ToString(),
+            StudentCardStatus.Suspendue.ToString(),
+            card.DeactivationReason,
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await MapDetailAsync(card, cancellationToken);
     }
 
     public async Task<IReadOnlyList<CardTemplateDto>> ListTemplatesAsync(
@@ -764,7 +914,9 @@ public sealed class StudentCardService : IStudentCardService
         CancellationToken cancellationToken = default)
     {
         var template = await RequireTemplateAsync(schoolId, templateId, cancellationToken);
-        var linked = await _cards.FindAsync(c => c.TemplateId == templateId, cancellationToken);
+        var linked = await _cards.FindAsync(
+            c => c.SchoolId == schoolId && c.TemplateId == templateId,
+            cancellationToken);
         if (linked.Count > 0)
             throw new DomainException("Impossible de supprimer un modèle utilisé par des cartes. Désactivez-le plutôt.");
 
@@ -816,8 +968,7 @@ public sealed class StudentCardService : IStudentCardService
         settings.CardNumberPrefix = request.CardNumberPrefix.Trim().ToUpperInvariant();
         settings.DefaultValidityMonths = request.DefaultValidityMonths;
         settings.KeepQrOnRenewal = request.KeepQrOnRenewal;
-        settings.UpdatedAt = DateTime.UtcNow;
-        settings.UpdatedBy = userId;
+        await PersistSettingsAsync(settings, userId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return MapSettings(settings);
     }
@@ -888,15 +1039,33 @@ public sealed class StudentCardService : IStudentCardService
         if (request.CardIds is { Count: > 0 })
         {
             var ids = request.CardIds.ToHashSet();
-            var cards = await _cards.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
-            return cards.Where(c => ids.Contains(c.Id)).ToList();
+            var cards = await _cards.FindAsync(
+                c => c.SchoolId == schoolId && ids.Contains(c.Id),
+                cancellationToken);
+
+            var missing = ids.Count - cards.Count;
+            if (missing > 0)
+                throw new DomainException($"{missing} carte(s) demandée(s) sont introuvables dans cet établissement.");
+
+            return cards;
         }
 
-        var all = await _cards.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
-        var query = all.Where(c => c.Status is StudentCardStatus.Active or StudentCardStatus.Brouillon);
+        // Une liste de cartes vide mais non nulle signifie « rien de sélectionné » : sans ce
+        // garde-fou la demande basculait sur le périmètre global et marquait imprimées toutes
+        // les cartes de l'établissement.
+        if (request.CardIds is not null)
+            throw new DomainException("Aucune carte sélectionnée pour l'impression.");
 
-        if (request.AcademicYearId.HasValue)
-            query = query.Where(c => c.AcademicYearId == request.AcademicYearId.Value);
+        if (!request.ClassRoomId.HasValue && !request.EntireSchool)
+            throw new DomainException("Précisez des cartes, une classe, ou EntireSchool=true.");
+
+        var yearId = request.AcademicYearId;
+        var query = (await _cards.FindAsync(
+                c => c.SchoolId == schoolId
+                     && (c.Status == StudentCardStatus.Active || c.Status == StudentCardStatus.Brouillon)
+                     && (yearId == null || c.AcademicYearId == yearId),
+                cancellationToken))
+            .AsEnumerable();
 
         if (request.ClassRoomId.HasValue)
         {
@@ -905,10 +1074,6 @@ public sealed class StudentCardService : IStudentCardService
                 cancellationToken);
             var studentIds = enrollments.Select(e => e.StudentId).ToHashSet();
             query = query.Where(c => studentIds.Contains(c.StudentId));
-        }
-        else if (!request.EntireSchool && request.CardIds is null)
-        {
-            throw new DomainException("Précisez des cartes, une classe, ou EntireSchool=true.");
         }
 
         return query.ToList();
@@ -935,31 +1100,75 @@ public sealed class StudentCardService : IStudentCardService
             throw new DomainException("Une carte active existe déjà pour cet élève sur cette année scolaire.");
     }
 
-    private async Task<string> AllocateCardNumberAsync(
+    /// <summary>
+    /// Alloue des numéros de carte uniques en sautant ceux déjà consommés en base.
+    /// Le compteur <see cref="CardSchoolSettings.NextSequence"/> s'auto-répare ainsi
+    /// même après un incident ayant laissé la séquence en retard.
+    /// </summary>
+    private sealed class CardNumberAllocator
+    {
+        private readonly CardSchoolSettings _settings;
+        private readonly string _yearPart;
+        private readonly HashSet<string> _used;
+
+        public CardNumberAllocator(CardSchoolSettings settings, string yearPart, HashSet<string> used)
+        {
+            _settings = settings;
+            _yearPart = yearPart;
+            _used = used;
+        }
+
+        public string Next()
+        {
+            for (var guard = 0; guard < 1_000_000; guard++)
+            {
+                var seq = _settings.NextSequence;
+                _settings.NextSequence = seq + 1;
+                var candidate = $"{_settings.CardNumberPrefix}-{_yearPart}-{seq:D6}";
+                if (_used.Add(candidate))
+                    return candidate;
+            }
+
+            throw new DomainException("Impossible d'allouer un numéro de carte unique.");
+        }
+    }
+
+    private async Task<CardNumberAllocator> CreateAllocatorAsync(
+        Guid schoolId,
         CardSchoolSettings settings,
         AcademicYear year,
         CancellationToken cancellationToken)
     {
         var yearPart = year.StartDate.Year.ToString();
-        var seq = settings.NextSequence;
-        settings.NextSequence = seq + 1;
+        var prefix = $"{settings.CardNumberPrefix}-{yearPart}-";
+        var used = (await _cards.FindAsync(
+                c => c.SchoolId == schoolId && c.CardNumber.StartsWith(prefix),
+                cancellationToken))
+            .Select(c => c.CardNumber)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return new CardNumberAllocator(settings, yearPart, used);
+    }
+
+    /// <summary>
+    /// <see cref="IRepository{T}"/> expose uniquement des lectures AsNoTracking : les mutations
+    /// de l'entité paramètres doivent être réattachées explicitement avant l'enregistrement,
+    /// sans quoi le compteur de séquence et les réglages sont silencieusement perdus.
+    /// </summary>
+    private async Task PersistSettingsAsync(CardSchoolSettings settings, Guid userId, CancellationToken cancellationToken)
+    {
         settings.UpdatedAt = DateTime.UtcNow;
-        // Ne pas appeler UpdateAsync ici : l'entité est déjà suivie (Added via GetOrCreate
-        // ou Unchanged via GetById). Update() forcerait Modified et casserait un INSERT.
-        return $"{settings.CardNumberPrefix}-{yearPart}-{seq:D6}";
+        if (userId != Guid.Empty)
+            settings.UpdatedBy = userId;
+        await _settings.UpdateAsync(settings, cancellationToken);
     }
 
     private async Task<CardSchoolSettings> GetOrCreateSettingsAsync(Guid schoolId, CancellationToken cancellationToken)
     {
         var existing = await _settings.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
-        var detached = existing.FirstOrDefault();
-        if (detached is not null)
-        {
-            // FindAsync est AsNoTracking : recharger en mode suivi pour les mutations.
-            var tracked = await _settings.GetByIdAsync(detached.Id, cancellationToken);
-            if (tracked is not null)
-                return tracked;
-        }
+        var current = existing.FirstOrDefault();
+        if (current is not null)
+            return current;
 
         var settings = new CardSchoolSettings
         {
@@ -977,7 +1186,7 @@ public sealed class StudentCardService : IStudentCardService
     {
         var card = await _cards.GetByIdAsync(cardId, cancellationToken);
         if (card is null || card.SchoolId != schoolId)
-            throw new DomainException("Carte introuvable.");
+            throw new KeyNotFoundException("Carte introuvable.");
         return card;
     }
 
@@ -985,7 +1194,7 @@ public sealed class StudentCardService : IStudentCardService
     {
         var template = await _templates.GetByIdAsync(templateId, cancellationToken);
         if (template is null || template.SchoolId != schoolId)
-            throw new DomainException("Modèle de carte introuvable.");
+            throw new KeyNotFoundException("Modèle de carte introuvable.");
         return template;
     }
 
@@ -1021,19 +1230,22 @@ public sealed class StudentCardService : IStudentCardService
             return [];
 
         var studentIds = cards.Select(c => c.StudentId).Distinct().ToList();
-        var students = (await _students.FindAsync(s => s.SchoolId == schoolId, cancellationToken))
-            .Where(s => studentIds.Contains(s.Id))
+        var students = (await _students.FindAsync(
+                s => s.SchoolId == schoolId && studentIds.Contains(s.Id),
+                cancellationToken))
             .ToDictionary(s => s.Id);
 
         var yearIds = cards.Select(c => c.AcademicYearId).Distinct().ToHashSet();
-        var enrollments = (await _enrollments.FindAsync(e => e.IsActive, cancellationToken))
+        var enrollments = (await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+                _enrollments, studentIds, cancellationToken))
             .Where(e => studentIds.Contains(e.StudentId) && yearIds.Contains(e.AcademicYearId))
             .ToList();
 
         var classIds = enrollments.Select(e => e.ClassRoomId).Distinct().ToList();
-        var classRooms = (await _classRooms.FindAsync(_ => true, cancellationToken))
-            .Where(c => classIds.Contains(c.Id))
-            .ToDictionary(c => c.Id);
+        var classRoomList = classIds.Count == 0
+            ? []
+            : await _classRooms.FindAsync(c => c.SchoolId == schoolId && classIds.Contains(c.Id), cancellationToken);
+        var classRooms = classRoomList.ToDictionary(c => c.Id);
 
         var enrollmentByStudentYear = enrollments
             .GroupBy(e => (e.StudentId, e.AcademicYearId))
@@ -1186,10 +1398,11 @@ public sealed class StudentCardService : IStudentCardService
 
     private static void EnsurePrintable(StudentCard card)
     {
-        if (TerminalStatuses.Contains(card.Status))
-            throw new DomainException("Impossible d'imprimer une carte désactivée, perdue, volée ou expirée.");
+        if (card.Status is not (StudentCardStatus.Active or StudentCardStatus.Brouillon))
+            throw new DomainException(
+                $"Carte {card.CardNumber} : impossible d'imprimer une carte au statut « {card.Status} ».");
         if (card.ExpiresAt.HasValue && card.ExpiresAt.Value < DateTime.UtcNow)
-            throw new DomainException("Impossible d'imprimer une carte expirée.");
+            throw new DomainException($"Carte {card.CardNumber} : échéance dépassée, renouvelez-la avant impression.");
     }
 
     private static bool IsCardUsable(StudentCard card)
@@ -1219,6 +1432,12 @@ public sealed class StudentCardService : IStudentCardService
             return value[prefix.Length..].Trim();
         return value;
     }
+
+    private static bool MatchesStudent(Student s, string token) =>
+        s.RegistrationNumber.Contains(token, StringComparison.OrdinalIgnoreCase)
+        || s.FirstName.Contains(token, StringComparison.OrdinalIgnoreCase)
+        || s.LastName.Contains(token, StringComparison.OrdinalIgnoreCase)
+        || (s.MiddleName?.Contains(token, StringComparison.OrdinalIgnoreCase) ?? false);
 
     private static string FormatFullName(Student s)
     {

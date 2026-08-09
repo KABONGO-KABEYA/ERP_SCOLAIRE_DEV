@@ -38,6 +38,18 @@ public class SchoolDbContext : DbContext
     /// <summary>Évite la réentrance outbox lors de l'écriture SyncOutbox*.</summary>
     public bool SuppressCloudSyncEnqueue { get; set; }
 
+    /// <summary>Désactive le filtre tenant (seed, jobs système, auth login).</summary>
+    public bool IgnoreSchoolScope { get; set; }
+
+    /// <summary>École courante pour les filtres EF (JWT ou contexte job).</summary>
+    public Guid? CurrentTenantSchoolId => IgnoreSchoolScope ? null : _currentUser?.SchoolId;
+
+    /// <summary>Contexte job / sync sans utilisateur HTTP.</summary>
+    public Guid? OverrideTenantSchoolId { get; set; }
+
+    internal Guid? EffectiveTenantSchoolId =>
+        IgnoreSchoolScope ? null : OverrideTenantSchoolId ?? _currentUser?.SchoolId;
+
     // Paramétrage
     public DbSet<School> Schools => Set<School>();
     public DbSet<AcademicYear> AcademicYears => Set<AcademicYear>();
@@ -158,6 +170,13 @@ public class SchoolDbContext : DbContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<LoginHistory> LoginHistory => Set<LoginHistory>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<SecurityModule> SecurityModules => Set<SecurityModule>();
+    public DbSet<SecurityFunction> SecurityFunctions => Set<SecurityFunction>();
+    public DbSet<SecurityPage> SecurityPages => Set<SecurityPage>();
+    public DbSet<SecurityAction> SecurityActions => Set<SecurityAction>();
+    public DbSet<PermissionDependency> PermissionDependencies => Set<PermissionDependency>();
+    public DbSet<UserPermissionException> UserPermissionExceptions => Set<UserPermissionException>();
+    public DbSet<SecurityAuditLog> SecurityAuditLogs => Set<SecurityAuditLog>();
 
     public DbSet<ParentActivationToken> ParentActivationTokens => Set<ParentActivationToken>();
     public DbSet<ParentActivationSession> ParentActivationSessions => Set<ParentActivationSession>();
@@ -179,11 +198,90 @@ public class SchoolDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SchoolDbContext).Assembly);
+        modelBuilder.ApplyTenantAndSoftDeleteQueryFilters(this);
+        IndirectSchoolTenantQueryFilters.Apply(this, modelBuilder);
         base.OnModelCreating(modelBuilder);
+    }
+
+    private void ApplySchoolTenancyRules()
+    {
+        if (IgnoreSchoolScope)
+        {
+            return;
+        }
+
+        var tenantId = EffectiveTenantSchoolId;
+
+        foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
+        {
+            var schoolProp = entry.Properties.FirstOrDefault(p =>
+                p.Metadata.Name == "SchoolId" && p.Metadata.ClrType == typeof(Guid));
+            if (schoolProp is null)
+            {
+                continue;
+            }
+
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                {
+                    var current = (Guid)schoolProp.CurrentValue!;
+                    if (current == Guid.Empty)
+                    {
+                        if (tenantId is null)
+                        {
+                            throw new UnauthorizedAccessException(
+                                "Impossible de créer une donnée métier sans établissement.");
+                        }
+
+                        schoolProp.CurrentValue = tenantId.Value;
+                    }
+                    else if (tenantId is Guid tid && current != tid)
+                    {
+                        throw new UnauthorizedAccessException(
+                            "Le SchoolId fourni ne correspond pas à l'établissement connecté.");
+                    }
+
+                    break;
+                }
+                case EntityState.Modified:
+                {
+                    if (tenantId is Guid tid)
+                    {
+                        var value = (Guid)schoolProp.CurrentValue!;
+                        if (value != tid)
+                        {
+                            throw new UnauthorizedAccessException(
+                                "Modification refusée : donnée d'un autre établissement.");
+                        }
+
+                        if (schoolProp.IsModified)
+                        {
+                            var original = schoolProp.OriginalValue is Guid o ? o : Guid.Empty;
+                            var current = (Guid)schoolProp.CurrentValue!;
+                            if (original == current)
+                            {
+                                // Update()/SetValues peut marquer SchoolId sans le changer.
+                                schoolProp.IsModified = false;
+                            }
+                            else
+                            {
+                                throw new UnauthorizedAccessException(
+                                    "Le SchoolId d'une entité ne peut pas être modifié.");
+                            }
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        ApplySchoolTenancyRules();
+
         foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
         {
             switch (entry.State)

@@ -33,6 +33,10 @@ public interface IStudentCardService
 
     Task<StudentCardDetailDto> DeactivateAsync(Guid schoolId, Guid cardId, DeactivateStudentCardRequest request, Guid userId, CancellationToken cancellationToken = default);
 
+    Task<StudentCardDetailDto> ActivateAsync(Guid schoolId, Guid cardId, ActivateStudentCardRequest request, Guid userId, CancellationToken cancellationToken = default);
+
+    Task<StudentCardDetailDto> SuspendAsync(Guid schoolId, Guid cardId, SuspendStudentCardRequest request, Guid userId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CardTemplateDto>> ListTemplatesAsync(Guid schoolId, bool activeOnly = false, CancellationToken cancellationToken = default);
 
     Task<CardTemplateDto> GetTemplateAsync(Guid schoolId, Guid templateId, CancellationToken cancellationToken = default);

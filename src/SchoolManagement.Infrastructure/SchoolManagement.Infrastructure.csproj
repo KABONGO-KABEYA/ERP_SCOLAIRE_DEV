@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SchoolManagement.UnitTests" />
+    <InternalsVisibleTo Include="Phase1SecurityValidation" />
   </ItemGroup>
 
   <ItemGroup>

@@ -31,7 +31,7 @@ public class AdminController : ControllerBase
         _currentUser = currentUser;
     }
     [HttpGet("users")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.SecurityUsersManage)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<UserAccountDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUsers(CancellationToken cancellationToken)
     {
@@ -41,7 +41,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("roles")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.SecurityRolesManage)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RoleDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRoles(CancellationToken cancellationToken)
     {
@@ -51,7 +51,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.SecurityUsersManage)]
     [ProducesResponseType(typeof(ApiResponse<UserAccountDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
@@ -61,7 +61,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("users/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.SecurityUsersManage)]
     [ProducesResponseType(typeof(ApiResponse<UserAccountDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
@@ -71,7 +71,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("users/{id:guid}/roles")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.SecurityUsersManage)]
     [ProducesResponseType(typeof(ApiResponse<UserAccountDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SetUserRoles(Guid id, [FromBody] SetUserRolesRequest request, CancellationToken cancellationToken)
     {
@@ -81,7 +81,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("teachers")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.TeachersManage)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<TeacherAdminDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTeachers(CancellationToken cancellationToken)
     {
@@ -91,7 +91,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("teachers")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.TeachersManage)]
     [ProducesResponseType(typeof(ApiResponse<TeacherAdminDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateTeacher([FromBody] CreateTeacherAdminRequest request, CancellationToken cancellationToken)
     {
@@ -101,7 +101,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("teachers/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.TeachersManage)]
     [ProducesResponseType(typeof(ApiResponse<TeacherAdminDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTeacher(Guid id, [FromBody] UpdateTeacherAdminRequest request, CancellationToken cancellationToken)
     {

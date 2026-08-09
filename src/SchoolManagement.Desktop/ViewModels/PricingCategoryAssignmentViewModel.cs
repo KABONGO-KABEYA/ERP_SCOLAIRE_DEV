@@ -8,6 +8,7 @@ using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -41,7 +42,7 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
         QueueSearch();
     }
 
-    public bool CanAssignPricingCategory => _authSession.IsAdministrator;
+    public bool CanAssignPricingCategory => SessionPermissions.Can(_authSession, Permissions.PricingCategoriesAssign);
 
     public ObservableCollection<StudentPricingAssignmentDto> Students { get; } = [];
     public ObservableCollection<SectionDto> Sections { get; } = [];
@@ -142,9 +143,9 @@ public partial class PricingCategoryAssignmentViewModel : ViewModelBase
             return;
         }
 
-        if (!_authSession.IsAdministrator)
+        if (!SessionPermissions.Can(_authSession, Permissions.PricingCategoriesAssign))
         {
-            StatusMessage = "Seul l'administrateur peut attribuer ou modifier la catégorie tarifaire d'un élève.";
+            StatusMessage = "Vous n'êtes pas autorisé à attribuer ou modifier la catégorie tarifaire d'un élève.";
             return;
         }
 

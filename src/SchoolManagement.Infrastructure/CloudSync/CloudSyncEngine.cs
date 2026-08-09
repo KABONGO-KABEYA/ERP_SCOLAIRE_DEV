@@ -10,7 +10,10 @@ using SchoolManagement.Application.CloudSync.DTOs;
 using SchoolManagement.Application.Configuration;
 using SchoolManagement.Application.Configuration.Database;
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Geography;
+using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Entities.Sync;
@@ -85,7 +88,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             await using var scope = _scopeFactory.CreateAsyncScope();
             var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-            local.SuppressCloudSyncEnqueue = true;
+            var localSchoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken);
 
             await RecoverStaleInProgressAsync(local, cancellationToken);
 
@@ -93,6 +96,11 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 .Include(u => u.Items)
                 .Where(u => !u.IsDeleted
                             && (u.Status == SyncOutboxStatus.Pending || u.Status == SyncOutboxStatus.Failed));
+
+            if (localSchoolId is Guid sid)
+            {
+                query = query.Where(u => u.SchoolId == sid);
+            }
 
             if (criticalOnly)
             {
@@ -200,10 +208,11 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-        local.SuppressCloudSyncEnqueue = true;
+        var localSchoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken)
+            ?? throw new InvalidOperationException("Sync catch-up : établissement local introuvable.");
 
         var watermarks = await local.SyncWatermarks
-            .Where(w => !w.IsDeleted)
+            .Where(w => !w.IsDeleted && w.SchoolId == localSchoolId)
             .ToDictionaryAsync(w => w.TableName, StringComparer.OrdinalIgnoreCase, cancellationToken);
 
         var writer = new CloudSyncOutboxWriter();
@@ -222,7 +231,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                     .GetMethod(nameof(CollectCatchUpChangesAsync), BindingFlags.NonPublic | BindingFlags.Static)!
                     .MakeGenericMethod(clrType);
 
-                var task = (Task<List<CloudSyncChange>>)method.Invoke(null, [local, tableName, since, cancellationToken])!;
+                var task = (Task<List<CloudSyncChange>>)method.Invoke(null, [local, tableName, since, localSchoolId, cancellationToken])!;
                 var batch = await task;
                 changes.AddRange(batch);
             }
@@ -239,6 +248,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             {
                 local.SyncWatermarks.Add(new SyncWatermark
                 {
+                    SchoolId = localSchoolId,
                     TableName = tableName,
                     LastSyncedAt = since,
                     CreatedAt = now
@@ -384,6 +394,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+        await ConfigureLocalSyncContextAsync(local, cancellationToken);
         var hasWatermark = await local.SyncWatermarks.AnyAsync(w => !w.IsDeleted, cancellationToken);
         var hasOutbox = await local.SyncOutboxUnits.AnyAsync(u => !u.IsDeleted, cancellationToken);
         if (hasWatermark || hasOutbox)
@@ -398,12 +409,16 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return false;
         }
 
+        var schoolId = await LocalSchoolResolver.TryResolvePrimarySchoolIdAsync(local, cancellationToken)
+            ?? throw new InvalidOperationException("Bootstrap sync : établissement local introuvable.");
+
         local.SuppressCloudSyncEnqueue = true;
         var now = DateTime.UtcNow;
         foreach (var (tableName, _) in CloudSyncCatalog.SyncOrder)
         {
             local.SyncWatermarks.Add(new SyncWatermark
             {
+                SchoolId = schoolId,
                 TableName = tableName,
                 LastSyncedAt = now,
                 CreatedAt = now
@@ -524,11 +539,26 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         await using var ctx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
 
         await UpsertAllAsync<School>(local, ctx, cancellationToken);
+        await UpsertAllAsync<SecurityModule>(local, ctx, cancellationToken);
+        await UpsertAllAsync<SecurityFunction>(local, ctx, cancellationToken);
+        await UpsertAllAsync<SecurityPage>(local, ctx, cancellationToken);
+        await UpsertAllAsync<SecurityAction>(local, ctx, cancellationToken);
+        await UpsertAllAsync<Permission>(local, ctx, cancellationToken);
+        await UpsertAllAsync<PermissionDependency>(local, ctx, cancellationToken);
+        await UpsertAllAsync<Role>(local, ctx, cancellationToken);
         await UpsertAllAsync<AcademicYear>(local, ctx, cancellationToken);
+        await UpsertAllAsync<AcademicMainPeriod>(local, ctx, cancellationToken);
+        await UpsertAllAsync<Section>(local, ctx, cancellationToken);
+        await UpsertAllAsync<StudyOption>(local, ctx, cancellationToken);
+        await UpsertAllAsync<PedagogicalClass>(local, ctx, cancellationToken);
+        await UpsertAllAsync<ClassRoom>(local, ctx, cancellationToken);
         await UpsertAllAsync<FeeType>(local, ctx, cancellationToken);
         await UpsertAllAsync<FeeInstallment>(local, ctx, cancellationToken);
         await UpsertAllAsync<FeePricingCategory>(local, ctx, cancellationToken);
+        await UpsertAllAsync<ClassFeeAmount>(local, ctx, cancellationToken);
         await UpsertAllAsync<Bank>(local, ctx, cancellationToken);
+        await UpsertAllAsync<CardTemplate>(local, ctx, cancellationToken);
+        // Students / Teachers : AddressId optionnel — poussés à la demande via EnsureParent.
         await UpsertAllAsync<WithholdingType>(local, ctx, cancellationToken);
         await UpsertAllAsync<RevenueAllocationDestination>(local, ctx, cancellationToken);
         await UpsertAllAsync<RevenueAllocationKey>(local, ctx, cancellationToken);
@@ -628,6 +658,13 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
         try
         {
+            // Précharge des parents hors transaction (élèves, tarifs…) : un seul aller-retour
+            // cloud par parent, avant d'enchaîner les SaveChanges de l'unité critique.
+            foreach (var item in items.Where(i => i.Operation != SyncOperationType.Delete))
+            {
+                await PrefetchParentsForItemAsync(local, remote, item, cancellationToken);
+            }
+
             await using var tx = await remote.Database.BeginTransactionAsync(cancellationToken);
 
             foreach (var item in items)
@@ -661,7 +698,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 item.Status = SyncOutboxStatus.Completed;
             }
 
-            await AdvanceWatermarksAsync(local, items, cancellationToken);
+            await AdvanceWatermarksAsync(local, unit.SchoolId, items, cancellationToken);
             await local.SaveChangesAsync(cancellationToken);
 
             return new UnitOutcome(true, applied, 0, null, tables);
@@ -694,6 +731,45 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             _logger.LogWarning(ex, "Échec unité sync {UnitId} ({Aggregate}).", unit.Id, unit.AggregateType);
             return new UnitOutcome(false, 0, items.Count, errorText, tables);
         }
+    }
+
+    private static async Task PrefetchParentsForItemAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        SyncOutboxItem item,
+        CancellationToken cancellationToken)
+    {
+        if (!CloudSyncCatalog.TryGetClrType(item.TableName, out var clrType))
+        {
+            return;
+        }
+
+        var method = typeof(CloudSyncEngine)
+            .GetMethod(nameof(PrefetchParentsTypedAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(clrType);
+
+        var task = (Task)method.Invoke(null, [local, remote, item.EntityId, cancellationToken])!;
+        await task;
+    }
+
+    private static async Task PrefetchParentsTypedAsync<TEntity>(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid entityId,
+        CancellationToken cancellationToken)
+        where TEntity : AuditableEntity
+    {
+        var localEntity = await local.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == entityId, cancellationToken);
+        if (localEntity is null)
+        {
+            return;
+        }
+
+        await EnsureFinanceParentsAsync(local, remote, localEntity, cancellationToken);
+        await EnsureStructuralParentsAsync(local, remote, localEntity, cancellationToken);
     }
 
     private static async Task ApplyItemAsync(
@@ -763,8 +839,89 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return;
         }
 
-        // Les parents finance sont poussés une fois via EnsureFinanceReferenceDataAsync.
+        // Parents FK (élève, tarif, année…) avant l'écriture : sans ça Payments /
+        // StudentFeeBalances échouent dès que l'unité critique part avant l'entité Entity.
+        await EnsureFinanceParentsAsync(local, remote, localEntity, cancellationToken);
+        await EnsureStructuralParentsAsync(local, remote, localEntity, cancellationToken);
         UpsertScalars(remote, localEntity, remoteExists);
+    }
+
+    /// <summary>
+    /// Parents structurels (classes, inscriptions, sécurité, périodes…) hors finance.
+    /// </summary>
+    private static async Task EnsureStructuralParentsAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        AuditableEntity localEntity,
+        CancellationToken cancellationToken)
+    {
+        switch (localEntity)
+        {
+            case ClassRoom room:
+                await EnsureParentAsync<AcademicYear>(local, remote, room.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<PedagogicalClass>(local, remote, room.PedagogicalClassId, cancellationToken);
+                await EnsureParentAsync<Section>(local, remote, room.SectionId, cancellationToken);
+                await EnsureParentAsync<StudyOption>(local, remote, room.StudyOptionId, cancellationToken);
+                break;
+            case Enrollment enrollment:
+                await EnsureParentAsync<Student>(local, remote, enrollment.StudentId, cancellationToken);
+                await EnsureParentAsync<AcademicYear>(local, remote, enrollment.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<ClassRoom>(local, remote, enrollment.ClassRoomId, cancellationToken);
+                await EnsureParentAsync<FeePricingCategory>(local, remote, enrollment.FeePricingCategoryId, cancellationToken);
+                break;
+            case RolePermission rolePermission:
+                await EnsureParentAsync<Role>(local, remote, rolePermission.RoleId, cancellationToken);
+                await EnsureParentAsync<Permission>(local, remote, rolePermission.PermissionId, cancellationToken);
+                break;
+            case PermissionDependency dependency:
+                await EnsureParentAsync<Permission>(local, remote, dependency.PermissionId, cancellationToken);
+                await EnsureParentAsync<Permission>(local, remote, dependency.RequiresPermissionId, cancellationToken);
+                break;
+            case SecurityFunction function:
+                await EnsureParentAsync<SecurityModule>(local, remote, function.ModuleId, cancellationToken);
+                break;
+            case SecurityPage page:
+                await EnsureParentAsync<SecurityFunction>(local, remote, page.FunctionId, cancellationToken);
+                break;
+            case SecurityAction action:
+                await EnsureParentAsync<SecurityPage>(local, remote, action.PageId, cancellationToken);
+                break;
+            case Permission permission:
+                await EnsureParentAsync<SecurityAction>(local, remote, permission.SecurityActionId, cancellationToken);
+                break;
+            case UserPermissionException exception:
+                await EnsureParentAsync<UserAccount>(local, remote, exception.UserId, cancellationToken);
+                await EnsureParentAsync<Permission>(local, remote, exception.PermissionId, cancellationToken);
+                await EnsureParentAsync<UserAccount>(local, remote, exception.GrantedByUserId, cancellationToken);
+                break;
+            case UserRoleAssignment assignment:
+                await EnsureParentAsync<UserAccount>(local, remote, assignment.UserId, cancellationToken);
+                await EnsureParentAsync<Role>(local, remote, assignment.RoleId, cancellationToken);
+                break;
+            case UserAccount account:
+                await EnsureParentAsync<Teacher>(local, remote, account.TeacherId, cancellationToken);
+                await EnsureParentAsync<Guardian>(local, remote, account.GuardianId, cancellationToken);
+                break;
+            case AcademicPeriod period:
+                await EnsureParentAsync<AcademicYear>(local, remote, period.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<AcademicMainPeriod>(local, remote, period.MainPeriodId, cancellationToken);
+                break;
+            case AcademicMainPeriod mainPeriod:
+                await EnsureParentAsync<AcademicYear>(local, remote, mainPeriod.AcademicYearId, cancellationToken);
+                break;
+            case StudentCard card:
+                await EnsureParentAsync<Student>(local, remote, card.StudentId, cancellationToken);
+                await EnsureParentAsync<AcademicYear>(local, remote, card.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<CardTemplate>(local, remote, card.TemplateId, cancellationToken);
+                break;
+            case Teacher:
+            case Role:
+            case Section:
+            case StudyOption:
+            case SecurityModule:
+                // SchoolId / racines gérés dans EnsureParentAsync.
+                break;
+        }
     }
 
     /// <summary>
@@ -779,12 +936,17 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     {
         switch (localEntity)
         {
+            case StudentFeeBalance balance:
+                await EnsureParentAsync<Student>(local, remote, balance.StudentId, cancellationToken);
+                await EnsureParentAsync<ClassFeeAmount>(local, remote, balance.ClassFeeAmountId, cancellationToken);
+                break;
             case RevenueAllocationEntry entry:
                 await EnsureParentAsync<RevenueAllocationDestination>(local, remote, entry.DestinationId, cancellationToken);
                 await EnsureParentAsync<RevenueAllocationKey>(local, remote, entry.AllocationKeyId, cancellationToken);
                 await EnsureParentAsync<FeeType>(local, remote, entry.FeeTypeId, cancellationToken);
                 await EnsureParentAsync<WithholdingType>(local, remote, entry.WithholdingTypeId, cancellationToken);
                 await EnsureParentAsync<AcademicYear>(local, remote, entry.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<Payment>(local, remote, entry.PaymentId, cancellationToken);
                 break;
             case WithholdingApplication withholding:
                 await EnsureParentAsync<WithholdingConfiguration>(local, remote, withholding.WithholdingConfigurationId, cancellationToken);
@@ -800,6 +962,17 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 await EnsureParentAsync<Student>(local, remote, payment.StudentId, cancellationToken);
                 await EnsureParentAsync<AcademicYear>(local, remote, payment.AcademicYearId, cancellationToken);
                 await EnsureParentAsync<Bank>(local, remote, payment.BankId, cancellationToken);
+                break;
+            case CashMovement cash:
+                await EnsureParentAsync<Payment>(local, remote, cash.PaymentId, cancellationToken);
+                await EnsureParentAsync<CashRegister>(local, remote, cash.CashRegisterId, cancellationToken);
+                break;
+            case ClassFeeAmount tariff:
+                await EnsureParentAsync<AcademicYear>(local, remote, tariff.AcademicYearId, cancellationToken);
+                await EnsureParentAsync<PedagogicalClass>(local, remote, tariff.PedagogicalClassId, cancellationToken);
+                await EnsureParentAsync<FeePricingCategory>(local, remote, tariff.FeePricingCategoryId, cancellationToken);
+                await EnsureParentAsync<FeeType>(local, remote, tariff.FeeTypeId, cancellationToken);
+                await EnsureParentAsync<FeeInstallment>(local, remote, tariff.FeeInstallmentId, cancellationToken);
                 break;
         }
     }
@@ -821,7 +994,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var cs = remote.Database.GetConnectionString()
             ?? throw new InvalidOperationException("ConnectionString cloud introuvable pour EnsureParent.");
         var options = new DbContextOptionsBuilder<SchoolDbContext>()
-            .UseSqlServer(cs)
+            .UseSqlServer(cs, sql => sql.CommandTimeout(120))
             .Options;
         await using var parentCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
 
@@ -859,10 +1032,141 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             // School déjà géré ci-dessus.
         }
 
-        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory)
+        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency)
         {
             UpsertScalars(parentCtx, localParent, remoteExists: false);
             await parentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Teacher teacher)
+        {
+            if (teacher.AddressId is Guid addressId && addressId != Guid.Empty)
+            {
+                try
+                {
+                    await EnsureParentAsync<PostalAddress>(local, remote, addressId, cancellationToken);
+                    await using var checkCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+                    var addressExists = await checkCtx.Set<PostalAddress>()
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(a => a.Id == addressId, cancellationToken);
+                    if (!addressExists)
+                    {
+                        teacher.AddressId = null;
+                    }
+                }
+                catch
+                {
+                    teacher.AddressId = null;
+                }
+            }
+
+            UpsertScalars(parentCtx, teacher, remoteExists: false);
+            await parentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is ClassRoom room)
+        {
+            await EnsureParentAsync<AcademicYear>(local, remote, room.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<PedagogicalClass>(local, remote, room.PedagogicalClassId, cancellationToken);
+            await EnsureParentAsync<Section>(local, remote, room.SectionId, cancellationToken);
+            await EnsureParentAsync<StudyOption>(local, remote, room.StudyOptionId, cancellationToken);
+
+            await using var roomCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(roomCtx, localParent, remoteExists: false);
+            await roomCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is AcademicMainPeriod mainPeriod)
+        {
+            await EnsureParentAsync<AcademicYear>(local, remote, mainPeriod.AcademicYearId, cancellationToken);
+            await using var mainCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(mainCtx, localParent, remoteExists: false);
+            await mainCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Enrollment enrollment)
+        {
+            await EnsureParentAsync<Student>(local, remote, enrollment.StudentId, cancellationToken);
+            await EnsureParentAsync<AcademicYear>(local, remote, enrollment.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<ClassRoom>(local, remote, enrollment.ClassRoomId, cancellationToken);
+            await EnsureParentAsync<FeePricingCategory>(local, remote, enrollment.FeePricingCategoryId, cancellationToken);
+
+            await using var enrCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(enrCtx, localParent, remoteExists: false);
+            await enrCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Student student)
+        {
+            // L'adresse est optionnelle et dépend du référentiel géo : on la détache
+            // pour ne pas bloquer le push élève (requis avant paiement / solde).
+            if (student.AddressId is Guid addressId && addressId != Guid.Empty)
+            {
+                try
+                {
+                    await EnsureParentAsync<PostalAddress>(local, remote, addressId, cancellationToken);
+                    await using var checkCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+                    var addressExists = await checkCtx.Set<PostalAddress>()
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .AnyAsync(a => a.Id == addressId, cancellationToken);
+                    if (!addressExists)
+                    {
+                        student.AddressId = null;
+                    }
+                }
+                catch
+                {
+                    student.AddressId = null;
+                }
+            }
+
+            UpsertScalars(parentCtx, student, remoteExists: false);
+            await parentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is ClassFeeAmount tariff)
+        {
+            await EnsureParentAsync<AcademicYear>(local, remote, tariff.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<PedagogicalClass>(local, remote, tariff.PedagogicalClassId, cancellationToken);
+            await EnsureParentAsync<FeePricingCategory>(local, remote, tariff.FeePricingCategoryId, cancellationToken);
+            await EnsureParentAsync<FeeType>(local, remote, tariff.FeeTypeId, cancellationToken);
+            await EnsureParentAsync<FeeInstallment>(local, remote, tariff.FeeInstallmentId, cancellationToken);
+
+            await using var tariffCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(tariffCtx, localParent, remoteExists: false);
+            await tariffCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Payment payment)
+        {
+            await EnsureParentAsync<Student>(local, remote, payment.StudentId, cancellationToken);
+            await EnsureParentAsync<AcademicYear>(local, remote, payment.AcademicYearId, cancellationToken);
+            await EnsureParentAsync<Bank>(local, remote, payment.BankId, cancellationToken);
+
+            await using var paymentCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(paymentCtx, localParent, remoteExists: false);
+            await paymentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is PaymentLine paymentLine)
+        {
+            await EnsureParentAsync<Payment>(local, remote, paymentLine.PaymentId, cancellationToken);
+            await EnsureParentAsync<FeeType>(local, remote, paymentLine.FeeTypeId, cancellationToken);
+            await EnsureParentAsync<FeeInstallment>(local, remote, paymentLine.FeeInstallmentId, cancellationToken);
+
+            await using var lineCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(lineCtx, localParent, remoteExists: false);
+            await lineCtx.SaveChangesAsync(cancellationToken);
             return;
         }
 
@@ -956,6 +1260,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
     private static async Task AdvanceWatermarksAsync(
         SchoolDbContext local,
+        Guid schoolId,
         List<SyncOutboxItem> items,
         CancellationToken cancellationToken)
     {
@@ -964,11 +1269,14 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         foreach (var group in byTable)
         {
             var watermark = await local.SyncWatermarks
-                .FirstOrDefaultAsync(w => !w.IsDeleted && w.TableName == group.Key, cancellationToken);
+                .FirstOrDefaultAsync(
+                    w => !w.IsDeleted && w.SchoolId == schoolId && w.TableName == group.Key,
+                    cancellationToken);
             if (watermark is null)
             {
                 local.SyncWatermarks.Add(new SyncWatermark
                 {
+                    SchoolId = schoolId,
                     TableName = group.Key,
                     LastSyncedAt = now,
                     LastSyncedEntityId = group.Last().EntityId,
@@ -984,20 +1292,39 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         }
     }
 
+    private static async Task<Guid?> ConfigureLocalSyncContextAsync(
+        SchoolDbContext local,
+        CancellationToken cancellationToken)
+    {
+        local.SuppressCloudSyncEnqueue = true;
+        local.IgnoreSchoolScope = true;
+        var schoolId = await LocalSchoolResolver.TryResolvePrimarySchoolIdAsync(local, cancellationToken);
+        local.OverrideTenantSchoolId = schoolId;
+        return schoolId;
+    }
+
     private static async Task<List<CloudSyncChange>> CollectCatchUpChangesAsync<TEntity>(
         SchoolDbContext local,
         string tableName,
         DateTime since,
+        Guid localSchoolId,
         CancellationToken cancellationToken)
         where TEntity : AuditableEntity
     {
-        var rows = await local.Set<TEntity>()
+        var query = local.Set<TEntity>()
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(e =>
                 e.CreatedAt > since
                 || (e.UpdatedAt != null && e.UpdatedAt > since)
-                || (e.DeletedAt != null && e.DeletedAt > since))
+                || (e.DeletedAt != null && e.DeletedAt > since));
+
+        if (typeof(TEntity) != typeof(School) && typeof(TEntity).GetProperty("SchoolId")?.PropertyType == typeof(Guid))
+        {
+            query = query.Where(e => EF.Property<Guid>(e, "SchoolId") == localSchoolId);
+        }
+
+        var rows = await query
             .OrderBy(e => e.UpdatedAt ?? e.CreatedAt)
             .Take(500)
             .ToListAsync(cancellationToken);
@@ -1042,9 +1369,15 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
             var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-            local.SuppressCloudSyncEnqueue = true;
+            var schoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken);
+            if (schoolId is null || schoolId == Guid.Empty)
+            {
+                return;
+            }
+
             local.SyncJournalEntries.Add(new SyncJournalEntry
             {
+                SchoolId = schoolId.Value,
                 StartedAt = startedAt,
                 EndedAt = DateTime.UtcNow,
                 DurationMs = (int)sw.ElapsedMilliseconds,

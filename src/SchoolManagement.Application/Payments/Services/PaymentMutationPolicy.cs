@@ -4,22 +4,41 @@ using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
+using SchoolManagement.Shared.Constants;
 
 /// <summary>
 /// Politique de modification / annulation des versements déjà encaissés :
-/// administrateur uniquement, ordre rétrograde (dernier versement d'abord),
+/// permissions granulaires, ordre rétrograde (dernier versement d'abord),
 /// et interdiction de toucher une tranche si des tranches suivantes sont déjà payées.
 /// </summary>
 public static class PaymentMutationPolicy
 {
-    public static void EnsureAdministrator(ICurrentUserService currentUser) =>
-        EnsureAdministrator(
+    public static void EnsureCanCancelPayment(ICurrentUserService currentUser) =>
+        EnsureHasPermission(
             currentUser,
-            "Seul l'administrateur peut modifier ou supprimer un frais déjà payé.");
+            Permissions.PaymentsCancel,
+            "Seul un utilisateur autorisé peut annuler un frais déjà payé.");
 
-    public static void EnsureAdministrator(ICurrentUserService currentUser, string deniedMessage)
+    public static void EnsureCanUpdatePaymentNotes(ICurrentUserService currentUser) =>
+        EnsureHasPermission(
+            currentUser,
+            Permissions.PaymentsNotesUpdate,
+            "Seul un utilisateur autorisé peut modifier les notes d'un paiement.");
+
+    public static void EnsureCanMutatePaidPayment(ICurrentUserService currentUser) =>
+        EnsureCanMutatePaidPayment(
+            currentUser,
+            "Seul un utilisateur autorisé peut modifier ou supprimer un frais déjà payé.");
+
+    public static void EnsureCanMutatePaidPayment(ICurrentUserService currentUser, string deniedMessage) =>
+        EnsureHasPermission(currentUser, Permissions.PaymentsPaidMutation, deniedMessage);
+
+    public static void EnsureCanAssignPricingCategory(ICurrentUserService currentUser, string deniedMessage) =>
+        EnsureHasPermission(currentUser, Permissions.PricingCategoriesAssign, deniedMessage);
+
+    private static void EnsureHasPermission(ICurrentUserService currentUser, string permissionCode, string deniedMessage)
     {
-        if (!currentUser.IsAdministrator)
+        if (!currentUser.HasPermission(permissionCode))
         {
             throw new DomainException(deniedMessage);
         }

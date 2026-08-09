@@ -24,7 +24,5 @@ public sealed class CurrentUserService : ICurrentUserService
         || Permissions.Contains("admin.full", StringComparer.OrdinalIgnoreCase);
 
     public bool IsAdministrator =>
-        HasPermission("admin.full")
-        || Roles.Any(r => string.Equals(r, "ADMIN", StringComparison.OrdinalIgnoreCase)
-            || r.Contains("ADMIN", StringComparison.OrdinalIgnoreCase));
+        HasPermission("admin.full");
 }

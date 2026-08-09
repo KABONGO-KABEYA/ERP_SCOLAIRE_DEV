@@ -27,6 +27,7 @@
                 <ResourceDictionary Source="Themes/InscriptionEleveV2.xaml" />
                 <ResourceDictionary Source="Themes/LoginScreen.xaml" />
                 <ResourceDictionary Source="Themes/SchoolFeeConfiguration.xaml" />
+                <ResourceDictionary Source="Themes/ScrollBars.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -34,6 +35,8 @@
             <ui:CurrentUserRoleConverter x:Key="CurrentUserRoleConverter" />
             <ui:ErpIconVisibilityConverter x:Key="ErpIconVisibilityConverter" />
             <ui:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+            <ui:StudentCardStatusConverter x:Key="StudentCardStatusConverter" />
+            <ui:StudentCardActionConverter x:Key="StudentCardActionConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -37,12 +37,21 @@ internal static class CloudSyncCatalog
     public static readonly IReadOnlyList<(string Table, Type ClrType)> SyncOrder =
     [
         ("Schools", typeof(School)),
+        // Catalogue sécurité global : Actions avant Permissions (FK Permission.SecurityActionId).
+        ("SecurityModules", typeof(SecurityModule)),
+        ("SecurityFunctions", typeof(SecurityFunction)),
+        ("SecurityPages", typeof(SecurityPage)),
+        ("SecurityActions", typeof(SecurityAction)),
         ("Permissions", typeof(Permission)),
+        ("PermissionDependencies", typeof(PermissionDependency)),
         ("Roles", typeof(Role)),
         ("RolePermissions", typeof(RolePermission)),
         ("UserAccounts", typeof(UserAccount)),
         ("UserRoleAssignments", typeof(UserRoleAssignment)),
+        ("UserPermissionExceptions", typeof(UserPermissionException)),
+        // SecurityAuditLogs : journal local — volontairement exclu du sync cloud.
         ("AcademicYears", typeof(AcademicYear)),
+        ("AcademicMainPeriods", typeof(AcademicMainPeriod)),
         ("Sections", typeof(Section)),
         ("StudyOptions", typeof(StudyOption)),
         ("PedagogicalClasses", typeof(PedagogicalClass)),

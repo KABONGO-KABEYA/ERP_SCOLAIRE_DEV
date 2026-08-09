@@ -24,6 +24,72 @@
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="Padding" Value="14,6" />
         </Style>
+
+        <!-- Style tableau = Résultats par classe / Vue globale -->
+        <Style x:Key="PersonnelListColumnHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#0B1F47" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderBrush" Value="#1E3A5F" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PersonnelListCell" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="Foreground" Value="#0F172A" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PersonnelListRow" TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PersonnelListCellText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
     </UserControl.Resources>
 
     <ScrollViewer Style="{StaticResource ErpPageHost}"
@@ -306,18 +372,36 @@
 
                     <Grid Grid.Row="1">
                         <DataGrid x:Name="PersonnelGrid"
+                                  AlternatingRowBackground="#F8FAFC"
                                   AutoGenerateColumns="False"
+                                  Background="Transparent"
                                   BorderThickness="0"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"
+                                  CanUserReorderColumns="False"
+                                  CanUserResizeColumns="True"
+                                  CellStyle="{StaticResource PersonnelListCell}"
+                                  ColumnHeaderHeight="34"
+                                  ColumnHeaderStyle="{StaticResource PersonnelListColumnHeader}"
+                                  EnableColumnVirtualization="True"
                                   EnableRowVirtualization="True"
+                                  GridLinesVisibility="Horizontal"
                                   HeadersVisibility="Column"
+                                  HorizontalGridLinesBrush="#F1F5F9"
                                   IsReadOnly="True"
                                   ItemsSource="{Binding ItemsView}"
-                                  RowHeight="46"
-                                  ColumnHeaderHeight="42"
+                                  RowBackground="Transparent"
+                                  RowHeight="34"
+                                  RowStyle="{StaticResource PersonnelListRow}"
                                   SelectionMode="Single"
-                                  Style="{StaticResource ErpStudentsDataGrid}">
+                                  SelectionUnit="FullRow"
+                                  VerticalGridLinesBrush="#F1F5F9">
+                            <DataGrid.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                            </DataGrid.Resources>
                             <DataGrid.GroupStyle>
                                 <GroupStyle>
                                     <GroupStyle.ContainerStyle>
@@ -358,16 +442,16 @@
                                 </GroupStyle>
                             </DataGrid.GroupStyle>
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="PHOTO" Width="56">
+                                <DataGridTemplateColumn Header="PHOTO" Width="48">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border Width="32"
-                                                    Height="32"
+                                            <Border Width="24"
+                                                    Height="24"
                                                     HorizontalAlignment="Center"
                                                     Background="#EEF2FF"
-                                                    CornerRadius="16">
-                                                <materialDesign:PackIcon Width="18"
-                                                                         Height="18"
+                                                    CornerRadius="12">
+                                                <materialDesign:PackIcon Width="14"
+                                                                         Height="14"
                                                                          HorizontalAlignment="Center"
                                                                          VerticalAlignment="Center"
                                                                          Foreground="{StaticResource ErpPrimaryBrush}"
@@ -377,11 +461,16 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
 
-                                <DataGridTemplateColumn Header="MATRICULE" Width="120">
+                                <DataGridTemplateColumn Header="MATRICULE" Width="110">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Border Style="{StaticResource ErpTableCodeBadge}">
-                                                <TextBlock Style="{StaticResource ErpTableCodeBadgeText}"
+                                            <Border Padding="6,2"
+                                                    Background="#F1F5F9"
+                                                    CornerRadius="4"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#334155"
                                                            Text="{Binding EmployeeNumber}" />
                                             </Border>
                                         </DataTemplate>
@@ -391,34 +480,34 @@
                                 <DataGridTextColumn Width="*"
                                                     MinWidth="150"
                                                     Binding="{Binding FullName}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="NOM COMPLET" />
                                 <DataGridTextColumn Width="*"
                                                     MinWidth="110"
                                                     Binding="{Binding FunctionName}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="FONCTION" />
                                 <DataGridTextColumn Width="*"
                                                     MinWidth="110"
                                                     Binding="{Binding DepartmentName}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="DÉPARTEMENT" />
                                 <DataGridTextColumn Width="110"
                                                     Binding="{Binding Phone}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="TÉLÉPHONE" />
                                 <DataGridTextColumn Width="*"
                                                     MinWidth="120"
                                                     Binding="{Binding Email}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="E-MAIL" />
                                 <DataGridTextColumn Width="100"
                                                     Binding="{Binding SeniorityLabel}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="ANCIENNETÉ" />
                                 <DataGridTextColumn Width="90"
                                                     Binding="{Binding ContractLabel}"
-                                                    ElementStyle="{StaticResource ErpStudentsGridCellText}"
+                                                    ElementStyle="{StaticResource PersonnelListCellText}"
                                                     Header="CONTRAT" />
 
                                 <DataGridTemplateColumn Header="STATUT" Width="130">

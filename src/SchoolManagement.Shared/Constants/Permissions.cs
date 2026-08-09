@@ -13,6 +13,10 @@ public static class Permissions
     public const string PaymentsRead = "payments.read";
     public const string PaymentsCreate = "payments.create";
     public const string PaymentsValidate = "payments.validate";
+    public const string PaymentsCancel = "payments.cancel";
+    public const string PaymentsNotesUpdate = "payments.notes.update";
+    public const string PaymentsPaidMutation = "payments.paid-mutation";
+    public const string PricingCategoriesAssign = "pricing-categories.assign";
 
     public const string RevenueAllocationRead = "revenue-allocation.read";
     public const string RevenueAllocationManage = "revenue-allocation.update";
@@ -49,6 +53,13 @@ public static class Permissions
     public const string GradesRead = "grades.read";
     public const string GradesCreate = "grades.create";
     public const string GradesUpdate = "grades.update";
+    public const string GradesDelete = "grades.delete";
+    public const string GradesEvaluationDeleteWithGrades = "grades.evaluation.delete-with-grades";
+    public const string GradesRecalculate = "grades.recalculate";
+    public const string GradesPublish = "grades.publish";
+    public const string GradesUnpublish = "grades.unpublish";
+    public const string GradesCotationDelegate = "grades.cotation.delegate";
+    public const string GradesCotationScopeClass = "grades.cotation.scope.class";
 
     public const string ResultsValidationRead = "results-validation.read";
     public const string ResultsValidationValidate = "results-validation.validate";
@@ -65,13 +76,32 @@ public static class Permissions
     public const string AccountingRead = "accounting.read";
     public const string AccountingManage = "accounting.update";
 
+    public const string PersonnelRead = "personnel.read";
+    public const string PersonnelManage = "personnel.manage";
+    public const string TeachersManage = "teachers.manage";
+
+    public const string GeographyManage = "geography.manage";
+    public const string CloudSyncManage = "cloud-sync.manage";
+    public const string UpdatesManage = "updates.manage";
+    public const string ParentActivationManage = "parent-activation.manage";
+    public const string PedagogicalPeriodsManage = "pedagogical-periods.manage";
+
     public const string AdminFull = "admin.full";
+
+    public const string SecurityUsersManage = "security.users.manage";
+    public const string SecurityRolesManage = "security.roles.manage";
+    public const string SecurityExceptionsManage = "security.exceptions.manage";
+    public const string SecurityAuditRead = "security.audit.read";
+    public const string PlatformCatalogManage = "platform.catalog.manage";
+    public const string PlatformSuperAdmin = "platform.superadmin";
 
     public static IReadOnlyList<string> All { get; } =
     [
         StudentsRead, StudentsCreate, StudentsUpdate, StudentsDelete,
         SchoolsRead, SchoolsUpdate,
         PaymentsRead, PaymentsCreate, PaymentsValidate,
+        PaymentsCancel, PaymentsNotesUpdate, PaymentsPaidMutation,
+        PricingCategoriesAssign,
         RevenueAllocationRead, RevenueAllocationManage,
         WithholdingsRead, WithholdingsManage,
         CurrenciesRead, CurrenciesCreate, CurrenciesUpdate, CurrenciesDelete,
@@ -80,11 +110,18 @@ public static class Permissions
         StudentCardsRead, StudentCardsCreate, StudentCardsUpdate, StudentCardsDelete,
         StudentCardsPrint, StudentCardsRenew, StudentCardsDeclareLost,
         CardTemplatesRead, CardTemplatesManage,
-        GradesRead, GradesCreate, GradesUpdate,
+        GradesRead, GradesCreate, GradesUpdate, GradesDelete, GradesEvaluationDeleteWithGrades,
+        GradesRecalculate, GradesPublish, GradesUnpublish,
+        GradesCotationDelegate, GradesCotationScopeClass,
         ResultsValidationRead, ResultsValidationValidate, ResultsValidationLock, ResultsValidationUnlock,
         DeliberationPvRead, DeliberationPvWrite,
         DeliberationDecisionRead, DeliberationDecisionWrite,
         ReportsRead, AccountingRead, AccountingManage,
-        AdminFull
+        PersonnelRead, PersonnelManage, TeachersManage,
+        GeographyManage, CloudSyncManage, UpdatesManage, ParentActivationManage,
+        PedagogicalPeriodsManage,
+        AdminFull,
+        SecurityUsersManage, SecurityRolesManage, SecurityExceptionsManage, SecurityAuditRead,
+        PlatformCatalogManage, PlatformSuperAdmin
     ];
 }

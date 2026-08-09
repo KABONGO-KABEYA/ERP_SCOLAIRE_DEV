@@ -91,9 +91,10 @@ public sealed class ReportService : IReportService
     public async Task<DashboardStatsDto> GetDashboardAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
         var studentIds = students.Select(s => s.Id).ToHashSet();
-        var activeEnrollments = enrollments.Count(e => studentIds.Contains(e.StudentId));
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
+        var activeEnrollments = enrollments.Count;
 
         var classes = await _classRoomRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
         var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(_pedagogicalClassRepository, schoolId, cancellationToken);
@@ -127,9 +128,11 @@ public sealed class ReportService : IReportService
         var sections = await _sectionRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
         var sectionMap = sections.ToDictionary(s => s.Id);
 
-        var enrollments = await _enrollmentRepository.FindAsync(e => e.IsActive, cancellationToken);
         var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId && !s.IsArchived, cancellationToken);
         var studentMap = students.ToDictionary(s => s.Id);
+        var studentIds = studentMap.Keys.ToHashSet();
+        var enrollments = await SchoolScopedEnrollmentQueries.GetActiveForStudentsAsync(
+            _enrollmentRepository, studentIds, cancellationToken);
 
         return classes
             .OrderBy(c => c.Level)
@@ -166,7 +169,7 @@ public sealed class ReportService : IReportService
         classes = classes.Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap)).ToList();
         var classMap = classes.ToDictionary(c => c.Id);
 
-        var results = await _periodResultRepository.FindAsync(_ => true, cancellationToken);
+        var results = await _periodResultRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
         if (academicPeriodId.HasValue)
         {
             results = results.Where(r => r.AcademicPeriodId == academicPeriodId.Value).ToList();
@@ -213,17 +216,19 @@ public sealed class ReportService : IReportService
 
         var validated = payments.Where(p => p.Status == PaymentStatus.Complet).ToList();
 
-        var balances = await _balanceRepository.FindAsync(_ => true, cancellationToken);
+        var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
+        var studentIds = students.Select(s => s.Id).ToHashSet();
+        var balances = studentIds.Count == 0
+            ? []
+            : await _balanceRepository.FindAsync(b => studentIds.Contains(b.StudentId), cancellationToken);
         if (academicYearId.HasValue)
         {
             var yearTariffIds = (await _classFeeAmountRepository.FindAsync(
-                a => a.AcademicYearId == academicYearId.Value,
+                a => a.SchoolId == schoolId && a.AcademicYearId == academicYearId.Value,
                 cancellationToken)).Select(a => a.Id).ToHashSet();
             balances = balances.Where(b => yearTariffIds.Contains(b.ClassFeeAmountId)).ToList();
         }
 
-        var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
-        var studentIds = students.Select(s => s.Id).ToHashSet();
         balances = balances.Where(b => studentIds.Contains(b.StudentId)).ToList();
 
         // Agrège par élève pour les compteurs (un élève = un statut global sur l'année).

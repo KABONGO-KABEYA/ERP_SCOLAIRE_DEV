@@ -20,7 +20,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpGet("countries")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> GetCountries([FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var result = await _geographyAdminService.GetAllCountriesAsync(includeInactive, cancellationToken);
@@ -28,7 +28,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpGet("provinces")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> GetProvinces([FromQuery] Guid countryId, [FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var result = await _geographyAdminService.GetAllProvincesAsync(countryId, includeInactive, cancellationToken);
@@ -36,7 +36,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpGet("cities")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> GetCities([FromQuery] Guid provinceId, [FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var result = await _geographyAdminService.GetAllCitiesAsync(provinceId, includeInactive, cancellationToken);
@@ -44,7 +44,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpGet("communes")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> GetCommunes([FromQuery] Guid cityId, [FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var result = await _geographyAdminService.GetAllCommunesAsync(cityId, includeInactive, cancellationToken);
@@ -52,7 +52,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPost("countries")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> CreateCountry([FromBody] UpsertGeographyItemRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCountryAsync(request, cancellationToken: cancellationToken);
@@ -60,7 +60,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPut("countries/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> UpdateCountry(Guid id, [FromBody] UpsertGeographyItemRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCountryAsync(request, id, cancellationToken);
@@ -68,7 +68,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpDelete("countries/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> DeactivateCountry(Guid id, CancellationToken cancellationToken)
     {
         await _geographyAdminService.DeactivateCountryAsync(id, cancellationToken);
@@ -76,7 +76,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPost("provinces")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> CreateProvince([FromBody] CreateProvinceRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveProvinceAsync(request, cancellationToken: cancellationToken);
@@ -84,7 +84,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPut("provinces/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> UpdateProvince(Guid id, [FromBody] CreateProvinceRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveProvinceAsync(request, id, cancellationToken);
@@ -92,7 +92,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpDelete("provinces/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> DeactivateProvince(Guid id, CancellationToken cancellationToken)
     {
         await _geographyAdminService.DeactivateProvinceAsync(id, cancellationToken);
@@ -100,7 +100,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPost("cities")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> CreateCity([FromBody] CreateCityRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCityAsync(request, cancellationToken: cancellationToken);
@@ -108,7 +108,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPut("cities/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> UpdateCity(Guid id, [FromBody] CreateCityRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCityAsync(request, id, cancellationToken);
@@ -116,7 +116,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpDelete("cities/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> DeactivateCity(Guid id, CancellationToken cancellationToken)
     {
         await _geographyAdminService.DeactivateCityAsync(id, cancellationToken);
@@ -124,7 +124,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPost("communes")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> CreateCommune([FromBody] CreateCommuneRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCommuneAsync(request, cancellationToken: cancellationToken);
@@ -132,7 +132,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPut("communes/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> UpdateCommune(Guid id, [FromBody] CreateCommuneRequest request, CancellationToken cancellationToken)
     {
         var result = await _geographyAdminService.SaveCommuneAsync(request, id, cancellationToken);
@@ -140,7 +140,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpDelete("communes/{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public async Task<IActionResult> DeactivateCommune(Guid id, CancellationToken cancellationToken)
     {
         await _geographyAdminService.DeactivateCommuneAsync(id, cancellationToken);
@@ -148,7 +148,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpGet("import/template")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     public IActionResult DownloadImportTemplate()
     {
         var bytes = _geographyAdminService.BuildImportTemplate();
@@ -156,7 +156,7 @@ public class GeographyAdminController : ControllerBase
     }
 
     [HttpPost("import")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.GeographyManage)]
     [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<IActionResult> ImportExcel(IFormFile file, CancellationToken cancellationToken)
     {

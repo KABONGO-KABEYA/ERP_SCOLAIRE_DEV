@@ -30,6 +30,7 @@ public static class ApiRoutes
     public const string Documents = $"{Base}/documents";
     public const string DocumentBranding = $"{Base}/document-branding";
     public const string Admin = $"{Base}/admin";
+    public const string Security = $"{Base}/security";
     public const string Personnel = $"{Base}/personnel";
     public const string CloudSync = $"{Base}/cloud-sync";
     public const string Update = $"{Base}/update";
@@ -48,4 +49,5 @@ public static class ClaimTypesCustom
     public const string SchoolId = "school_id";
     public const string Permissions = "permissions";
     public const string FullName = "full_name";
+    public const string PlatformSuperAdmin = "platform_superadmin";
 }

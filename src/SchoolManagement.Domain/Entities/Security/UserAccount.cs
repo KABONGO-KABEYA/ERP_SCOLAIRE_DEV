@@ -34,9 +34,14 @@ public class UserAccount : AuditableEntity, IAggregateRoot
 
     public DateTime? LastLoginAt { get; set; }
 
+    /// <summary>Super administrateur plateforme (hors admin d'établissement).</summary>
+    public bool IsPlatformSuperAdmin { get; set; }
+
     public ICollection<UserRoleAssignment> Roles { get; set; } = [];
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+
+    public ICollection<UserPermissionException> PermissionExceptions { get; set; } = [];
 }
 
 public class Role : AuditableEntity, IAggregateRoot
@@ -50,6 +55,12 @@ public class Role : AuditableEntity, IAggregateRoot
     public string? Description { get; set; }
 
     public UserRole SystemRole { get; set; }
+
+    public bool IsSystem { get; set; }
+
+    public bool IsAssignable { get; set; } = true;
+
+    public int SortOrder { get; set; }
 
     public ICollection<RolePermission> Permissions { get; set; } = [];
 
@@ -66,7 +77,25 @@ public class Permission : AuditableEntity, IAggregateRoot
 
     public string Description { get; set; } = string.Empty;
 
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string BusinessDescription { get; set; } = string.Empty;
+
+    /// <summary>Aide contextuelle pour l'UI d'administration.</summary>
+    public string? HelpText { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>Action catalogue propriétaire (Permission → SecurityAction uniquement).</summary>
+    public Guid? SecurityActionId { get; set; }
+
+    public SecurityAction? SecurityAction { get; set; }
+
     public ICollection<RolePermission> Roles { get; set; } = [];
+
+    public ICollection<PermissionDependency> Dependencies { get; set; } = [];
+
+    public ICollection<PermissionDependency> RequiredBy { get; set; } = [];
 }
 
 public class RolePermission : AuditableEntity
@@ -91,8 +120,10 @@ public class UserRoleAssignment : AuditableEntity
     public Role Role { get; set; } = null!;
 }
 
-public class AuditEntry : AuditableEntity, IAggregateRoot
+public class AuditEntry : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     public Guid? UserId { get; set; }
 
     public string UserName { get; set; } = string.Empty;
@@ -112,8 +143,10 @@ public class AuditEntry : AuditableEntity, IAggregateRoot
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
-public class LoginHistory : AuditableEntity, IAggregateRoot
+public class LoginHistory : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     public Guid? UserId { get; set; }
 
     public string UserName { get; set; } = string.Empty;

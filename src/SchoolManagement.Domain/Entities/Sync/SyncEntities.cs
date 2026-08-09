@@ -1,5 +1,6 @@
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Domain.Entities.Settings;
 
 namespace SchoolManagement.Domain.Entities.Sync;
 
@@ -7,9 +8,9 @@ namespace SchoolManagement.Domain.Entities.Sync;
 /// Unité transactionnelle de sync local → cloud.
 /// Tous les items d'une unité sont poussés dans une seule transaction distante.
 /// </summary>
-public class SyncOutboxUnit : AuditableEntity, IAggregateRoot
+public class SyncOutboxUnit : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
-    public Guid? SchoolId { get; set; }
+    public Guid SchoolId { get; set; }
 
     /// <summary>Ex. Payment, Student, Enrollment, GenericBatch.</summary>
     public string AggregateType { get; set; } = "GenericBatch";
@@ -57,8 +58,10 @@ public class SyncOutboxItem : AuditableEntity
 }
 
 /// <summary>Journal d'une exécution de synchronisation (diagnostic).</summary>
-public class SyncJournalEntry : AuditableEntity, IAggregateRoot
+public class SyncJournalEntry : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     public DateTime StartedAt { get; set; }
 
     public DateTime? EndedAt { get; set; }
@@ -89,8 +92,10 @@ public class SyncJournalEntry : AuditableEntity, IAggregateRoot
 }
 
 /// <summary>Filigrane catch-up par table (sécurité si outbox a manqué un changement).</summary>
-public class SyncWatermark : AuditableEntity, IAggregateRoot
+public class SyncWatermark : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     public string TableName { get; set; } = string.Empty;
 
     public DateTime LastSyncedAt { get; set; } = DateTime.UnixEpoch;

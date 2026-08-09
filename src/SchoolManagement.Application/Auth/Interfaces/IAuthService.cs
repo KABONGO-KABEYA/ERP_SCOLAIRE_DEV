@@ -17,7 +17,14 @@ public interface IAuthService
 
 public interface ITokenService
 {
-    string GenerateAccessToken(Guid userId, Guid schoolId, string userName, string fullName, IEnumerable<string> roles, IEnumerable<string> permissions);
+    string GenerateAccessToken(
+        Guid userId,
+        Guid schoolId,
+        string userName,
+        string fullName,
+        IEnumerable<string> roles,
+        IEnumerable<string> permissions,
+        bool isPlatformSuperAdmin = false);
 
     DateTime GetAccessTokenExpiration();
 

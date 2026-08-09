@@ -24,7 +24,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpGet("kpis")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelRead)]
     public async Task<IActionResult> GetKpis(CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
@@ -33,7 +33,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelRead)]
     public async Task<IActionResult> GetPersonnel(
         [FromQuery] Guid? departmentId,
         [FromQuery] Guid? jobFunctionId,
@@ -55,7 +55,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelRead)]
     public async Task<IActionResult> GetPersonnelById(Guid id, CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
@@ -64,7 +64,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelManage)]
     public async Task<IActionResult> CreatePersonnel(
         [FromBody] SavePersonnelRequest request,
         CancellationToken cancellationToken)
@@ -75,7 +75,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelManage)]
     public async Task<IActionResult> UpdatePersonnel(
         Guid id,
         [FromBody] SavePersonnelRequest request,
@@ -87,7 +87,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpGet("departments")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelRead)]
     public async Task<IActionResult> GetDepartments(CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
@@ -96,7 +96,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpPost("departments")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelManage)]
     public async Task<IActionResult> CreateDepartment(
         [FromBody] CreateHrDepartmentRequest request,
         CancellationToken cancellationToken)
@@ -107,7 +107,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpGet("functions")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelRead)]
     public async Task<IActionResult> GetJobFunctions(
         [FromQuery] Guid? departmentId,
         CancellationToken cancellationToken)
@@ -118,7 +118,7 @@ public class PersonnelController : ControllerBase
     }
 
     [HttpPost("functions")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PersonnelManage)]
     public async Task<IActionResult> CreateJobFunction(
         [FromBody] CreateHrJobFunctionRequest request,
         CancellationToken cancellationToken)

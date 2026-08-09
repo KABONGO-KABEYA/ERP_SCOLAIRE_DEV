@@ -106,8 +106,10 @@ public class PaymentReversal : AuditableEntity, IAggregateRoot
     public Payment Payment { get; set; } = null!;
 }
 
-public class CashMovement : AuditableEntity, IAggregateRoot
+public class CashMovement : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     /// <summary>Deprecated — mouvements caisse non créés sans registre ; nullable pour l'historique.</summary>
     public Guid? CashRegisterId { get; set; }
 

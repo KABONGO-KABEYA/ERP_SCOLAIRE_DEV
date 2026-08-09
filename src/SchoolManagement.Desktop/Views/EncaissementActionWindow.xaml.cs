@@ -10,6 +10,7 @@ using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Models;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.Views;
 
@@ -37,6 +38,7 @@ public partial class EncaissementActionWindow : Window
     private readonly IFeeTypeStatementPrintService _statementPrint;
     private readonly IAuthSessionService? _authSession;
     private readonly bool _canMutatePaidPayments;
+    private readonly bool _canCancelPaidPayments;
 
     private readonly List<PaymentListItem> _allPayments = [];
     private readonly List<PaymentLineListItem> _feePaymentLines = [];
@@ -74,7 +76,10 @@ public partial class EncaissementActionWindow : Window
         _schoolApi = schoolApi;
         _statementPrint = statementPrint;
         _authSession = authSession;
-        _canMutatePaidPayments = authSession?.IsAdministrator == true;
+        _canMutatePaidPayments = authSession is not null
+            && SessionPermissions.Can(authSession, Permissions.PaymentsPaidMutation);
+        _canCancelPaidPayments = authSession is not null
+            && SessionPermissions.Can(authSession, Permissions.PaymentsCancel);
         _ = _schoolApi;
 
         SubtitleText.Text = $"{situation.FullName} — {situation.FeeTypeName} ({situation.AcademicYearLabel})";
@@ -108,7 +113,7 @@ public partial class EncaissementActionWindow : Window
                 HistoryPanel.Visibility = Visibility.Visible;
                 HistoryActionsPanel.Visibility = Visibility.Visible;
                 HistoryEditBtn.Visibility = _canMutatePaidPayments ? Visibility.Visible : Visibility.Collapsed;
-                HistoryCancelBtn.Visibility = _canMutatePaidPayments ? Visibility.Visible : Visibility.Collapsed;
+                HistoryCancelBtn.Visibility = _canCancelPaidPayments ? Visibility.Visible : Visibility.Collapsed;
                 PrimaryButton.Visibility = Visibility.Collapsed;
                 SecondaryButton.Content = "Fermer";
                 break;
@@ -976,9 +981,9 @@ public partial class EncaissementActionWindow : Window
 
     private void ShowCancelPanel(PaymentDto payment, decimal? displayAmount = null)
     {
-        if (!_canMutatePaidPayments)
+        if (!_canCancelPaidPayments)
         {
-            ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
+            ErrorText.Text = "Vous n'êtes pas autorisé à annuler un frais déjà payé.";
             PrimaryButton.IsEnabled = false;
         }
 
@@ -1023,9 +1028,9 @@ public partial class EncaissementActionWindow : Window
         _selectedPayment = preferredPayment ?? GetOrderedFeePaymentLines().FirstOrDefault()?.Dto;
         PrimaryButton.IsEnabled = false;
 
-        if (!_canMutatePaidPayments)
+        if (!_canCancelPaidPayments)
         {
-            ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
+            ErrorText.Text = "Vous n'êtes pas autorisé à annuler un frais déjà payé.";
         }
         else if (_paymentEditRows.Count > 0)
         {
@@ -1333,9 +1338,9 @@ public partial class EncaissementActionWindow : Window
             return;
         }
 
-        if (!_canMutatePaidPayments)
+        if (!_canCancelPaidPayments)
         {
-            ErrorText.Text = "Seul l'administrateur peut supprimer un frais déjà payé.";
+            ErrorText.Text = "Vous n'êtes pas autorisé à annuler un frais déjà payé.";
             return;
         }
 

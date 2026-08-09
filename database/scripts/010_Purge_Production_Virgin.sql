@@ -4,6 +4,11 @@
 -- Conserve : permissions globales, nomenclatures géo, paramètres techniques
 -- Supprime : école, utilisateurs, rôles école, frais, élèves, finance, logs…
 -- L'assistant premier démarrage recrée école + admin + année + frais de base.
+--
+-- Ordre de suppression = enfants avant parents. En particulier :
+--   * les retenues et répartitions référencent FeeTypes / FeeInstallments / FeePricingCategories,
+--   * les inscriptions référencent FeePricingCategories,
+-- donc tout le paramétrage financier se supprime APRÈS la finance opérationnelle et les élèves.
 -- =============================================================================
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -16,6 +21,8 @@ BEGIN TRANSACTION;
 IF OBJECT_ID(N'dbo.NotificationRecipients', N'U') IS NOT NULL DELETE FROM dbo.NotificationRecipients;
 IF OBJECT_ID(N'dbo.ParentDeviceTokens', N'U') IS NOT NULL DELETE FROM dbo.ParentDeviceTokens;
 IF OBJECT_ID(N'dbo.SchoolNotifications', N'U') IS NOT NULL DELETE FROM dbo.SchoolNotifications;
+IF OBJECT_ID(N'dbo.ParentActivationSessions', N'U') IS NOT NULL DELETE FROM dbo.ParentActivationSessions;
+IF OBJECT_ID(N'dbo.ParentActivationTokens', N'U') IS NOT NULL DELETE FROM dbo.ParentActivationTokens;
 IF OBJECT_ID(N'dbo.SyncOutboxItem', N'U') IS NOT NULL DELETE FROM dbo.SyncOutboxItem;
 IF OBJECT_ID(N'dbo.SyncOutboxUnit', N'U') IS NOT NULL DELETE FROM dbo.SyncOutboxUnit;
 IF OBJECT_ID(N'dbo.SyncJournal', N'U') IS NOT NULL DELETE FROM dbo.SyncJournal;
@@ -32,7 +39,7 @@ IF OBJECT_ID(N'dbo.Carte', N'U') IS NOT NULL DELETE FROM dbo.Carte;
 IF OBJECT_ID(N'dbo.CarteParametres', N'U') IS NOT NULL DELETE FROM dbo.CarteParametres;
 IF OBJECT_ID(N'dbo.CarteModele', N'U') IS NOT NULL DELETE FROM dbo.CarteModele;
 
--- Notes / résultats
+-- Notes / résultats / délibérations
 IF OBJECT_ID(N'dbo.ReportCardDetails', N'U') IS NOT NULL DELETE FROM dbo.ReportCardDetails;
 IF OBJECT_ID(N'dbo.ReportCards', N'U') IS NOT NULL DELETE FROM dbo.ReportCards;
 IF OBJECT_ID(N'dbo.GradeEntries', N'U') IS NOT NULL DELETE FROM dbo.GradeEntries;
@@ -49,7 +56,7 @@ IF OBJECT_ID(N'dbo.ClassPeriodDeliberationMinutes', N'U') IS NOT NULL DELETE FRO
 IF OBJECT_ID(N'dbo.ClassPeriodResultValidationEvents', N'U') IS NOT NULL DELETE FROM dbo.ClassPeriodResultValidationEvents;
 IF OBJECT_ID(N'dbo.ClassPeriodResultValidations', N'U') IS NOT NULL DELETE FROM dbo.ClassPeriodResultValidations;
 
--- Présences
+-- Présences / discipline / planning
 IF OBJECT_ID(N'dbo.StudentAttendances', N'U') IS NOT NULL DELETE FROM dbo.StudentAttendances;
 IF OBJECT_ID(N'dbo.TeacherAttendances', N'U') IS NOT NULL DELETE FROM dbo.TeacherAttendances;
 IF OBJECT_ID(N'dbo.DisciplineRecords', N'U') IS NOT NULL DELETE FROM dbo.DisciplineRecords;
@@ -58,37 +65,25 @@ IF OBJECT_ID(N'dbo.Announcements', N'U') IS NOT NULL DELETE FROM dbo.Announcemen
 IF OBJECT_ID(N'dbo.CalendarEvents', N'U') IS NOT NULL DELETE FROM dbo.CalendarEvents;
 IF OBJECT_ID(N'dbo.ScheduleSlots', N'U') IS NOT NULL DELETE FROM dbo.ScheduleSlots;
 
--- Finance opérationnelle + paramétrage financier école
+-- Finance opérationnelle (retenues et répartitions d'abord : elles pointent vers les frais)
 IF OBJECT_ID(N'dbo.FinRetenueApplication', N'U') IS NOT NULL DELETE FROM dbo.FinRetenueApplication;
+IF OBJECT_ID(N'dbo.FinRetenueConfiguration', N'U') IS NOT NULL DELETE FROM dbo.FinRetenueConfiguration;
 IF OBJECT_ID(N'dbo.FinRepartitionRecette', N'U') IS NOT NULL DELETE FROM dbo.FinRepartitionRecette;
+IF OBJECT_ID(N'dbo.FinCleRepartitionDetail', N'U') IS NOT NULL DELETE FROM dbo.FinCleRepartitionDetail;
+IF OBJECT_ID(N'dbo.FinCleRepartition', N'U') IS NOT NULL DELETE FROM dbo.FinCleRepartition;
+IF OBJECT_ID(N'dbo.FinRetenue', N'U') IS NOT NULL DELETE FROM dbo.FinRetenue;
 IF OBJECT_ID(N'dbo.FinDepenseRepartitionDevise', N'U') IS NOT NULL DELETE FROM dbo.FinDepenseRepartitionDevise;
 IF OBJECT_ID(N'dbo.FinDepense', N'U') IS NOT NULL DELETE FROM dbo.FinDepense;
 IF OBJECT_ID(N'dbo.FinDemandePaiement', N'U') IS NOT NULL DELETE FROM dbo.FinDemandePaiement;
+IF OBJECT_ID(N'dbo.FinDestinationRepartition', N'U') IS NOT NULL DELETE FROM dbo.FinDestinationRepartition;
 IF OBJECT_ID(N'dbo.CashMovements', N'U') IS NOT NULL DELETE FROM dbo.CashMovements;
 IF OBJECT_ID(N'dbo.PaymentReversals', N'U') IS NOT NULL DELETE FROM dbo.PaymentReversals;
 IF OBJECT_ID(N'dbo.PaymentLines', N'U') IS NOT NULL DELETE FROM dbo.PaymentLines;
 IF OBJECT_ID(N'dbo.Payments', N'U') IS NOT NULL DELETE FROM dbo.Payments;
 IF OBJECT_ID(N'dbo.PaymentModalities', N'U') IS NOT NULL DELETE FROM dbo.PaymentModalities;
 IF OBJECT_ID(N'dbo.StudentFeeBalances', N'U') IS NOT NULL DELETE FROM dbo.StudentFeeBalances;
-IF OBJECT_ID(N'dbo.ClassFeeAmounts', N'U') IS NOT NULL DELETE FROM dbo.ClassFeeAmounts;
-IF OBJECT_ID(N'dbo.FeeTypeInstallments', N'U') IS NOT NULL DELETE FROM dbo.FeeTypeInstallments;
-IF OBJECT_ID(N'dbo.FeeInstallments', N'U') IS NOT NULL DELETE FROM dbo.FeeInstallments;
-IF OBJECT_ID(N'dbo.FeePricingCategories', N'U') IS NOT NULL DELETE FROM dbo.FeePricingCategories;
-IF OBJECT_ID(N'dbo.FeeTypes', N'U') IS NOT NULL DELETE FROM dbo.FeeTypes;
-IF OBJECT_ID(N'dbo.FinCleRepartitionDetail', N'U') IS NOT NULL DELETE FROM dbo.FinCleRepartitionDetail;
-IF OBJECT_ID(N'dbo.FinCleRepartition', N'U') IS NOT NULL DELETE FROM dbo.FinCleRepartition;
-IF OBJECT_ID(N'dbo.FinDestinationRepartition', N'U') IS NOT NULL DELETE FROM dbo.FinDestinationRepartition;
-IF OBJECT_ID(N'dbo.FinRetenueConfiguration', N'U') IS NOT NULL DELETE FROM dbo.FinRetenueConfiguration;
-IF OBJECT_ID(N'dbo.FinRetenue', N'U') IS NOT NULL DELETE FROM dbo.FinRetenue;
-IF OBJECT_ID(N'dbo.FinHistoriqueTaux', N'U') IS NOT NULL DELETE FROM dbo.FinHistoriqueTaux;
-IF OBJECT_ID(N'dbo.FinTauxChange', N'U') IS NOT NULL DELETE FROM dbo.FinTauxChange;
-IF OBJECT_ID(N'dbo.FinTypeTaux', N'U') IS NOT NULL DELETE FROM dbo.FinTypeTaux;
-IF OBJECT_ID(N'dbo.FinEtablissementDevise', N'U') IS NOT NULL DELETE FROM dbo.FinEtablissementDevise;
-IF OBJECT_ID(N'dbo.CashRegisters', N'U') IS NOT NULL DELETE FROM dbo.CashRegisters;
-IF OBJECT_ID(N'dbo.Banks', N'U') IS NOT NULL DELETE FROM dbo.Banks;
-IF OBJECT_ID(N'dbo.AppConfigurations', N'U') IS NOT NULL DELETE FROM dbo.AppConfigurations;
 
--- Élèves / inscriptions
+-- Élèves / inscriptions (avant le paramétrage tarifaire qu'elles référencent)
 IF OBJECT_ID(N'dbo.EnrollmentPricingCategoryHistory', N'U') IS NOT NULL DELETE FROM dbo.EnrollmentPricingCategoryHistory;
 IF OBJECT_ID(N'dbo.StudentDocuments', N'U') IS NOT NULL DELETE FROM dbo.StudentDocuments;
 IF OBJECT_ID(N'dbo.StudentStatusHistory', N'U') IS NOT NULL DELETE FROM dbo.StudentStatusHistory;
@@ -97,12 +92,37 @@ IF OBJECT_ID(N'dbo.StudentGuardians', N'U') IS NOT NULL DELETE FROM dbo.StudentG
 IF OBJECT_ID(N'dbo.Guardians', N'U') IS NOT NULL DELETE FROM dbo.Guardians;
 IF OBJECT_ID(N'dbo.Students', N'U') IS NOT NULL DELETE FROM dbo.Students;
 
--- Enseignants / cours / classes
+-- Paramétrage financier de l'établissement
+IF OBJECT_ID(N'dbo.ClassFeeAmounts', N'U') IS NOT NULL DELETE FROM dbo.ClassFeeAmounts;
+IF OBJECT_ID(N'dbo.AcademicYearFeeTrancheConfigs', N'U') IS NOT NULL DELETE FROM dbo.AcademicYearFeeTrancheConfigs;
+IF OBJECT_ID(N'dbo.AcademicYearFeeConfigs', N'U') IS NOT NULL DELETE FROM dbo.AcademicYearFeeConfigs;
+IF OBJECT_ID(N'dbo.FeeTypeTranches', N'U') IS NOT NULL DELETE FROM dbo.FeeTypeTranches;
+IF OBJECT_ID(N'dbo.FeeTypeInstallments', N'U') IS NOT NULL DELETE FROM dbo.FeeTypeInstallments;
+IF OBJECT_ID(N'dbo.FeeInstallments', N'U') IS NOT NULL DELETE FROM dbo.FeeInstallments;
+IF OBJECT_ID(N'dbo.FeePricingCategories', N'U') IS NOT NULL DELETE FROM dbo.FeePricingCategories;
+
+-- Le frais principal de l'école pointe vers FeeTypes : rompre le lien avant de vider la table.
+IF OBJECT_ID(N'dbo.Schools', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.Schools', N'DefaultFeeTypeId') IS NOT NULL
+    UPDATE dbo.Schools SET DefaultFeeTypeId = NULL WHERE DefaultFeeTypeId IS NOT NULL;
+
+IF OBJECT_ID(N'dbo.FeeTypes', N'U') IS NOT NULL DELETE FROM dbo.FeeTypes;
+IF OBJECT_ID(N'dbo.FinHistoriqueTaux', N'U') IS NOT NULL DELETE FROM dbo.FinHistoriqueTaux;
+IF OBJECT_ID(N'dbo.FinTauxChange', N'U') IS NOT NULL DELETE FROM dbo.FinTauxChange;
+IF OBJECT_ID(N'dbo.FinTypeTaux', N'U') IS NOT NULL DELETE FROM dbo.FinTypeTaux;
+IF OBJECT_ID(N'dbo.FinEtablissementDevise', N'U') IS NOT NULL DELETE FROM dbo.FinEtablissementDevise;
+IF OBJECT_ID(N'dbo.CashRegisters', N'U') IS NOT NULL DELETE FROM dbo.CashRegisters;
+IF OBJECT_ID(N'dbo.Banks', N'U') IS NOT NULL DELETE FROM dbo.Banks;
+IF OBJECT_ID(N'dbo.AppConfigurations', N'U') IS NOT NULL DELETE FROM dbo.AppConfigurations;
+
+-- Enseignants / cours / classes / calendrier
 IF OBJECT_ID(N'dbo.CourseAssignments', N'U') IS NOT NULL DELETE FROM dbo.CourseAssignments;
 IF OBJECT_ID(N'dbo.PedagogicalClassCourses', N'U') IS NOT NULL DELETE FROM dbo.PedagogicalClassCourses;
 IF OBJECT_ID(N'dbo.MaximaParPeriode', N'U') IS NOT NULL DELETE FROM dbo.MaximaParPeriode;
 IF OBJECT_ID(N'dbo.EvaluationTypes', N'U') IS NOT NULL DELETE FROM dbo.EvaluationTypes;
 IF OBJECT_ID(N'dbo.PersonnelHrProfiles', N'U') IS NOT NULL DELETE FROM dbo.PersonnelHrProfiles;
+IF OBJECT_ID(N'dbo.HrJobFunctions', N'U') IS NOT NULL DELETE FROM dbo.HrJobFunctions;
+IF OBJECT_ID(N'dbo.HrDepartments', N'U') IS NOT NULL DELETE FROM dbo.HrDepartments;
 IF OBJECT_ID(N'dbo.Teachers', N'U') IS NOT NULL DELETE FROM dbo.Teachers;
 IF OBJECT_ID(N'dbo.ClassRooms', N'U') IS NOT NULL DELETE FROM dbo.ClassRooms;
 IF OBJECT_ID(N'dbo.PedagogicalClasses', N'U') IS NOT NULL DELETE FROM dbo.PedagogicalClasses;
@@ -117,13 +137,16 @@ IF OBJECT_ID(N'dbo.PedagogicalPeriods', N'U') IS NOT NULL DELETE FROM dbo.Pedago
 IF OBJECT_ID(N'dbo.Courses', N'U') IS NOT NULL DELETE FROM dbo.Courses;
 IF OBJECT_ID(N'dbo.Branches', N'U') IS NOT NULL DELETE FROM dbo.Branches;
 
--- Branding
-IF OBJECT_ID(N'dbo.SchoolLogos', N'U') IS NOT NULL DELETE FROM dbo.SchoolLogos;
-IF OBJECT_ID(N'dbo.SchoolDocumentHeaders', N'U') IS NOT NULL DELETE FROM dbo.SchoolDocumentHeaders;
-IF OBJECT_ID(N'dbo.SchoolSignatures', N'U') IS NOT NULL DELETE FROM dbo.SchoolSignatures;
-IF OBJECT_ID(N'dbo.SchoolStamps', N'U') IS NOT NULL DELETE FROM dbo.SchoolStamps;
-IF OBJECT_ID(N'dbo.SchoolDocumentFooters', N'U') IS NOT NULL DELETE FROM dbo.SchoolDocumentFooters;
-IF OBJECT_ID(N'dbo.DocumentBranding', N'U') IS NOT NULL DELETE FROM dbo.DocumentBranding;
+-- Catalogues de délibération paramétrés par école
+IF OBJECT_ID(N'dbo.ResultMentionDefinitions', N'U') IS NOT NULL DELETE FROM dbo.ResultMentionDefinitions;
+IF OBJECT_ID(N'dbo.ConductDefinitions', N'U') IS NOT NULL DELETE FROM dbo.ConductDefinitions;
+
+-- Branding documentaire
+IF OBJECT_ID(N'dbo.EcoleLogo', N'U') IS NOT NULL DELETE FROM dbo.EcoleLogo;
+IF OBJECT_ID(N'dbo.EcoleEntete', N'U') IS NOT NULL DELETE FROM dbo.EcoleEntete;
+IF OBJECT_ID(N'dbo.EcoleSignature', N'U') IS NOT NULL DELETE FROM dbo.EcoleSignature;
+IF OBJECT_ID(N'dbo.EcoleCachet', N'U') IS NOT NULL DELETE FROM dbo.EcoleCachet;
+IF OBJECT_ID(N'dbo.EcolePiedPage', N'U') IS NOT NULL DELETE FROM dbo.EcolePiedPage;
 
 -- Sécurité : vider utilisateurs / rôles école (permissions globales conservées)
 IF OBJECT_ID(N'dbo.UserRoleAssignments', N'U') IS NOT NULL DELETE FROM dbo.UserRoleAssignments;

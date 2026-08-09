@@ -4,8 +4,10 @@ using CommunityToolkit.Mvvm.Input;
 using SchoolManagement.Application.CourseConfiguration.DTOs;
 using SchoolManagement.Application.Grades.DTOs;
 using SchoolManagement.Application.Schools.DTOs;
+using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -241,16 +243,10 @@ public partial class GradesViewModel
         }
 
         ConnectedUserLabel = $"Connecté : {user.FullName} ({user.UserName})";
-        var isElevated = _authSession.IsAdministrator
-            || user.Roles.Any(r =>
-                r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
-                || r.Equals("DIRECTION", StringComparison.OrdinalIgnoreCase)
-                || r.Equals("PROMOTEUR", StringComparison.OrdinalIgnoreCase)
-                || r.Equals("PREFET", StringComparison.OrdinalIgnoreCase)
-                || r.Equals("PREFET_ETUDES", StringComparison.OrdinalIgnoreCase));
+        var canDelegate = SessionPermissions.Can(_authSession, Permissions.GradesCotationDelegate);
 
-        IsTeacherIdentityLocked = !isElevated && user.TeacherId.HasValue;
-        RequiresTeacherPassword = !IsTeacherIdentityLocked;
+        IsTeacherIdentityLocked = !canDelegate && user.TeacherId.HasValue;
+        RequiresTeacherPassword = !canDelegate && !user.TeacherId.HasValue;
 
         if (string.IsNullOrWhiteSpace(TeacherEmployeeNumber))
         {

@@ -405,8 +405,8 @@
                             <Border Margin="0,0,0,14"
                                     Background="White"
                                     BorderBrush="#E5E7EB"
-                                    BorderThickness="1"
-                                    CornerRadius="12"
+                    BorderThickness="1"
+                    CornerRadius="12"
                                     Effect="{StaticResource ErpCardShadow}">
                                 <StackPanel>
                                     <!-- En-tête classe (accordéon) -->
@@ -416,19 +416,19 @@
                                                           Command="{Binding DataContext.ToggleAssignmentClassGroupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                           CommandParameter="{Binding}" />
                                         </Border.InputBindings>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+                    </Grid.ColumnDefinitions>
                                             <Border Width="40" Height="40" Margin="0,0,12,0"
                                                     Background="#EEF2FF" CornerRadius="10"
                                                     VerticalAlignment="Center">
                                                 <materialDesign:PackIcon Kind="School" Width="22" Height="22"
                                                                          Foreground="#1D4ED8"
-                                                                         HorizontalAlignment="Center"
-                                                                         VerticalAlignment="Center" />
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#0B1F47"
@@ -461,34 +461,34 @@
                                                 </materialDesign:PackIcon>
                                             </StackPanel>
                                         </Grid>
-                                    </Border>
+                    </Border>
 
                                     <!-- Tableau des cours -->
                                     <Border Padding="12,0,12,14"
                                             Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <Border Background="#F8FAFC" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="10">
                                             <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="*" />
-                                                </Grid.RowDefinitions>
+                        </Grid.RowDefinitions>
 
                                                 <!-- En-tête colonnes -->
                                                 <Border Grid.Row="0" Background="#F1F5F9" Padding="12,10"
                                                         CornerRadius="10,10,0,0" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                                                     <Grid>
-                                                        <Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="2*" MinWidth="140" />
                                                             <ColumnDefinition Width="Auto" MinWidth="100" />
                                                             <ColumnDefinition Width="2*" MinWidth="160" />
                                                             <ColumnDefinition Width="Auto" MinWidth="130" />
-                                                        </Grid.ColumnDefinitions>
+                            </Grid.ColumnDefinitions>
                                                         <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#64748B" Text="Cours" />
                                                         <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" Text="Évaluations" />
                                                         <TextBlock Grid.Column="2" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" Text="Dernière activité" />
                                                         <TextBlock Grid.Column="3" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
                                                                    HorizontalAlignment="Right" Text="Action" />
-                                                    </Grid>
+                            </Grid>
                                                 </Border>
 
                                                 <ItemsControl Grid.Row="1" ItemsSource="{Binding Courses}">
@@ -506,12 +506,12 @@
                                                                     </Style>
                                                                 </Border.Style>
                                                                 <Grid>
-                                                                    <Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
                                                                         <ColumnDefinition Width="2*" MinWidth="140" />
                                                                         <ColumnDefinition Width="Auto" MinWidth="100" />
                                                                         <ColumnDefinition Width="2*" MinWidth="160" />
                                                                         <ColumnDefinition Width="Auto" MinWidth="130" />
-                                                                    </Grid.ColumnDefinitions>
+                                </Grid.ColumnDefinitions>
                                                                     <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                                                VerticalAlignment="Center" Text="{Binding CourseName}"
                                                                                TextWrapping="Wrap" />
@@ -535,12 +535,12 @@
                                                                             Command="{Binding DataContext.CoterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                             CommandParameter="{Binding}"
                                                                             Style="{StaticResource ErpPrimaryButton}" />
-                                                                </Grid>
+                            </Grid>
                                                             </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                            </Grid>
+                            </Grid>
                                         </Border>
                                     </Border>
                                 </StackPanel>
@@ -555,7 +555,7 @@
                        Foreground="#DC2626"
                        Text="{Binding StatusMessage}"
                        TextWrapping="Wrap" />
-        </Grid>
+                        </Grid>
 
         <!-- Cotation globale de la classe -->
         <Grid Visibility="{Binding ShowGlobalCotation, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -864,7 +864,7 @@
                                        TextTrimming="CharacterEllipsis" />
                         </DockPanel>
                     </Border>
-                </Grid>
+                            </Grid>
 
                 <!-- Vue globale (feuille pédagogique lecture seule) -->
                 <Grid Visibility="{Binding ShowGlobalVueTab, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1034,10 +1034,10 @@
 
                                 <Border Grid.Row="0" Background="#0B1F47" Padding="0">
                                     <Grid x:Name="PedagogicalSheetHeaderRoot">
-                                        <Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                         <Grid x:Name="PedagogicalSheetFrozenHeader" />
                                         <ScrollViewer x:Name="PedagogicalSheetHeaderScroll"
                                                       Grid.Column="1"
@@ -1073,7 +1073,7 @@
                                           Loaded="PedagogicalSheetGrid_OnLoaded" />
                             </Grid>
                         </Border>
-                    </Grid>
+                            </Grid>
 
                     <!-- Synthèse KPI -->
                     <Border Grid.Row="2" Margin="0,8,0,0" Padding="10,8"
@@ -1121,7 +1121,7 @@
                     </Border>
                 </Grid>
             </Grid>
-        </Grid>
+                        </Grid>
 
         <!-- Gestion des évaluations (après COTER) -->
         <Grid Visibility="{Binding ShowEvaluationManager, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1372,9 +1372,9 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                                </Grid.ColumnDefinitions>
 
                                         <Border Width="44" Height="44" CornerRadius="10" Background="#EEF2FF"
                                                 VerticalAlignment="Top" Margin="0,0,12,0">
@@ -1471,7 +1471,7 @@
                                                 </StackPanel>
                                             </materialDesign:PopupBox>
                                         </StackPanel>
-                                    </Grid>
+                            </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -1603,7 +1603,7 @@
                         </Border>
                     </Grid>
                 </Grid>
-            </Grid>
+                            </Grid>
 
             <TextBlock Grid.Row="5" Margin="0,8,0,0" Foreground="#DC2626"
                        Text="{Binding StatusMessage}" TextWrapping="Wrap" />
@@ -1735,7 +1735,7 @@
                         </DockPanel>
                     </StackPanel>
                 </Border>
-            </Grid>
+                            </Grid>
 
             <!-- Dialogue modification -->
             <Grid Grid.RowSpan="6" Background="#88000000"
@@ -1762,8 +1762,8 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-            </Grid>
-        </Grid>
+                        </Grid>
+                    </Grid>
 
         <!-- Zone principale -->
 
@@ -1805,7 +1805,7 @@
 
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock FontSize="16"
-                                   FontWeight="SemiBold"
+                               FontWeight="SemiBold"
                                    Foreground="#1F2937"
                                    Text="Cotation des notes" />
                         <WrapPanel Margin="0,6,0,0">
@@ -1840,70 +1840,70 @@
 
             <!-- Grille de saisie (élément principal) -->
             <Border Grid.Row="1" Style="{StaticResource ErpCard}" Padding="8,8,8,8">
-                <DataGrid x:Name="GradingGrid"
-                          AutoGenerateColumns="False"
-                          HeadersVisibility="Column"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          CanUserResizeRows="False"
-                          IsReadOnly="True"
-                          ItemsSource="{Binding GradeEntries}"
-                          PreviewKeyDown="GradingGrid_OnPreviewKeyDown"
-                          SelectionMode="Single"
-                          SelectionUnit="Cell"
-                          GridLinesVisibility="Horizontal"
-                          HorizontalGridLinesBrush="#F1F5F9"
-                          BorderThickness="0"
-                          Background="Transparent"
-                          RowBackground="Transparent"
-                          AlternatingRowBackground="#FAFBFC"
-                          RowHeight="46"
-                          ColumnHeaderStyle="{StaticResource GradesCollectColumnHeader}"
-                          CellStyle="{StaticResource GradesCollectCell}">
-                    <DataGrid.Resources>
-                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
-                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
-                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
-                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
-                    </DataGrid.Resources>
-                    <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="N°" Width="50" IsReadOnly="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
-                                               Foreground="#64748B"
-                                               Text="{Binding RowNumber}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Matricule" Width="110" IsReadOnly="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
-                                               Foreground="#64748B"
-                                               Text="{Binding RegistrationNumber}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Nom de l'élève" Width="*" MinWidth="160" IsReadOnly="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
-                                               FontWeight="SemiBold"
-                                               Text="{Binding StudentName}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                    <DataGrid x:Name="GradingGrid"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding GradeEntries}"
+                              PreviewKeyDown="GradingGrid_OnPreviewKeyDown"
+                              SelectionMode="Single"
+                              SelectionUnit="Cell"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#F1F5F9"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowBackground="Transparent"
+                              AlternatingRowBackground="#FAFBFC"
+                              RowHeight="46"
+                              ColumnHeaderStyle="{StaticResource GradesCollectColumnHeader}"
+                              CellStyle="{StaticResource GradesCollectCell}">
+                        <DataGrid.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#EEF2FF" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                        </DataGrid.Resources>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="N°" Width="50" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
+                                                   Foreground="#64748B"
+                                                   Text="{Binding RowNumber}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Matricule" Width="110" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
+                                                   Foreground="#64748B"
+                                                   Text="{Binding RegistrationNumber}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Nom de l'élève" Width="*" MinWidth="160" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Style="{StaticResource GradesCollectReadOnlyText}"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding StudentName}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         <DataGridTemplateColumn Header="Abs" Width="70" IsReadOnly="False">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
                                     <CheckBox HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
                                               IsChecked="{Binding IsAbsent, UpdateSourceTrigger=PropertyChanged}"
                                               IsEnabled="{Binding DataContext.CanEditGrades, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         <DataGridTemplateColumn Header="Note" Width="140" IsReadOnly="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -1925,17 +1925,17 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Observation" Width="*" MinWidth="180" IsReadOnly="False">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBox Style="{StaticResource GradesCollectEditTextBox}"
-                                             IsEnabled="{Binding DataContext.CanEditGrades, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                             Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
+                            <DataGridTemplateColumn Header="Observation" Width="*" MinWidth="180" IsReadOnly="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Style="{StaticResource GradesCollectEditTextBox}"
+                                                 IsEnabled="{Binding DataContext.CanEditGrades, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                 Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
             </Border>
 
             <!-- Actions saisie uniquement -->
@@ -1946,40 +1946,40 @@
                     BorderThickness="1"
                     CornerRadius="16"
                     Padding="16,12">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Margin="0,0,8,0"
-                            Command="{Binding SaveGradesCommand}"
-                            Height="42"
-                            Padding="18,0"
-                            Background="#22C55E"
-                            BorderBrush="#22C55E"
-                            Foreground="White"
-                            Style="{StaticResource ErpPrimaryButton}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Enregistrer" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button Margin="0,0,8,0"
-                            Command="{Binding SaveAndCloseGradesCommand}"
-                            Height="42"
-                            Padding="18,0"
-                            Style="{StaticResource ErpPrimaryButton}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ContentSaveCheck" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Enregistrer et fermer" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding CancelGradesCommand}"
-                            Height="42"
-                            Padding="18,0"
-                            Style="{StaticResource ErpSecondaryButton}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Undo" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#EF4444" />
-                            <TextBlock Text="Annuler" Foreground="#EF4444" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button Margin="0,0,8,0"
+                                Command="{Binding SaveGradesCommand}"
+                                Height="42"
+                                Padding="18,0"
+                                Background="#22C55E"
+                                BorderBrush="#22C55E"
+                                Foreground="White"
+                                Style="{StaticResource ErpPrimaryButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Enregistrer" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Margin="0,0,8,0"
+                                Command="{Binding SaveAndCloseGradesCommand}"
+                                Height="42"
+                                Padding="18,0"
+                                Style="{StaticResource ErpPrimaryButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentSaveCheck" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Enregistrer et fermer" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding CancelGradesCommand}"
+                                Height="42"
+                                Padding="18,0"
+                                Style="{StaticResource ErpSecondaryButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Undo" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#EF4444" />
+                                <TextBlock Text="Annuler" Foreground="#EF4444" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
             </Border>
 
             <TextBlock Grid.Row="3"

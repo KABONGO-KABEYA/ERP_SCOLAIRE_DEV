@@ -476,6 +476,14 @@ public sealed class StudentService : IStudentService
 
     {
 
+        _ = (await _studentRepository.FindAsync(
+
+            s => s.Id == studentId && s.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
+
+            ?? throw new KeyNotFoundException("Élève introuvable.");
+
+
+
         var currentYear = (await _yearRepository.FindAsync(
 
             y => y.SchoolId == schoolId && y.IsCurrent && !y.IsClosed,

@@ -154,6 +154,22 @@ public sealed class StudentCardsController : ControllerBase
         return Ok(ApiResponse<StudentCardDetailDto>.Ok(item, "Carte désactivée."));
     }
 
+    [HttpPost("{id:guid}/activate")]
+    [Authorize(Policy = Permissions.StudentCardsUpdate)]
+    public async Task<IActionResult> Activate(Guid id, [FromBody] ActivateStudentCardRequest request, CancellationToken cancellationToken)
+    {
+        var item = await _service.ActivateAsync(RequireSchoolId(), id, request, UserId(), cancellationToken);
+        return Ok(ApiResponse<StudentCardDetailDto>.Ok(item, "Carte activée."));
+    }
+
+    [HttpPost("{id:guid}/suspend")]
+    [Authorize(Policy = Permissions.StudentCardsUpdate)]
+    public async Task<IActionResult> Suspend(Guid id, [FromBody] SuspendStudentCardRequest request, CancellationToken cancellationToken)
+    {
+        var item = await _service.SuspendAsync(RequireSchoolId(), id, request, UserId(), cancellationToken);
+        return Ok(ApiResponse<StudentCardDetailDto>.Ok(item, "Carte suspendue."));
+    }
+
     private Guid RequireSchoolId() =>
         _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
 

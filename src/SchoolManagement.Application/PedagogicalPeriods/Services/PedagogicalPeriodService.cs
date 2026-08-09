@@ -46,6 +46,8 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
     {
         var year = await GetYearOrThrowAsync(schoolId, request.AcademicYearId, cancellationToken);
 
+        EnsureCanManagePedagogicalPeriods();
+
         var existingMains = await _mainPeriodRepository.FindAsync(
             m => m.SchoolId == schoolId && m.AcademicYearId == year.Id,
             cancellationToken);
@@ -104,7 +106,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         OpenSubPeriodRequest? request = null,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdministrator();
+        EnsureCanManagePedagogicalPeriods();
         var sub = await GetSubPeriodOrThrowAsync(schoolId, subPeriodId, cancellationToken);
 
         if (sub.Status is AcademicSubPeriodStatus.Cloturee or AcademicSubPeriodStatus.Verrouillee)
@@ -153,7 +155,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         Guid subPeriodId,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdministrator();
+        EnsureCanManagePedagogicalPeriods();
         var sub = await GetSubPeriodOrThrowAsync(schoolId, subPeriodId, cancellationToken);
 
         if (sub.Status != AcademicSubPeriodStatus.Ouverte)
@@ -186,7 +188,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         Guid subPeriodId,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdministrator();
+        EnsureCanManagePedagogicalPeriods();
         var sub = await GetSubPeriodOrThrowAsync(schoolId, subPeriodId, cancellationToken);
 
         if (sub.Status is not (AcademicSubPeriodStatus.Cloturee or AcademicSubPeriodStatus.Verrouillee))
@@ -206,7 +208,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         Guid subPeriodId,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdministrator();
+        EnsureCanManagePedagogicalPeriods();
         var sub = await GetSubPeriodOrThrowAsync(schoolId, subPeriodId, cancellationToken);
 
         if (sub.Status != AcademicSubPeriodStatus.Verrouillee
@@ -242,7 +244,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         UpdateSubPeriodSettingsRequest request,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdministrator();
+        EnsureCanManagePedagogicalPeriods();
         var sub = await GetSubPeriodOrThrowAsync(schoolId, subPeriodId, cancellationToken);
 
         if (sub.Status != AcademicSubPeriodStatus.AVenir)
@@ -273,6 +275,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         Guid academicYearId,
         CancellationToken cancellationToken = default)
     {
+        EnsureCanManagePedagogicalPeriods();
         var year = await GetYearOrThrowAsync(schoolId, academicYearId, cancellationToken);
 
         foreach (var cycle in Enum.GetValues<PedagogicalCycleGroup>())
@@ -520,18 +523,12 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         return result;
     }
 
-    private void EnsureAdministrator()
+    private void EnsureCanManagePedagogicalPeriods()
     {
-        if (_currentUser.IsAdministrator
-            || _currentUser.HasPermission(Permissions.AdminFull)
-            || _currentUser.Roles.Any(r =>
-                r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
-                || r.Equals("DIRECTION", StringComparison.OrdinalIgnoreCase)))
+        if (!_currentUser.HasPermission(Permissions.PedagogicalPeriodsManage))
         {
-            return;
+            throw new DomainException("Réservé à l'administration pédagogique.");
         }
-
-        throw new DomainException("Réservé à l'administration pédagogique.");
     }
 
     private async Task<AcademicYear> GetYearOrThrowAsync(
@@ -713,6 +710,7 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
                 // Étape 1 : structure seule — dates null jusqu'à saisie admin (étape 2).
                 subs.Add(new AcademicPeriod
                 {
+                    SchoolId = year.SchoolId,
                     AcademicYearId = year.Id,
                     MainPeriodId = main.Id,
                     Name = subName,

@@ -310,7 +310,7 @@ public sealed class PaymentService : IPaymentService
             throw new DomainException("Le motif d'annulation est obligatoire.");
         }
 
-        PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+        PaymentMutationPolicy.EnsureCanCancelPayment(_currentUser);
 
         var payment = (await _paymentRepository.FindAsync(
             p => p.Id == paymentId && p.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
@@ -361,6 +361,7 @@ public sealed class PaymentService : IPaymentService
 
             await _cashMovementRepository.AddAsync(new CashMovement
             {
+                SchoolId = payment.SchoolId,
                 CashRegisterId = cashRegisterId,
                 PaymentId = payment.Id,
                 MovementDate = DateTime.UtcNow,
@@ -419,7 +420,7 @@ public sealed class PaymentService : IPaymentService
         string? notes,
         CancellationToken cancellationToken = default)
     {
-        PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+        PaymentMutationPolicy.EnsureCanUpdatePaymentNotes(_currentUser);
 
         var payment = (await _paymentRepository.FindAsync(
             p => p.Id == paymentId && p.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
@@ -446,7 +447,7 @@ public sealed class PaymentService : IPaymentService
         UpdatePaymentAmountRequest request,
         CancellationToken cancellationToken = default)
     {
-        PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+        PaymentMutationPolicy.EnsureCanMutatePaidPayment(_currentUser);
 
         var payment = (await _paymentRepository.FindAsync(
             p => p.Id == paymentId && p.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
@@ -1062,7 +1063,7 @@ public sealed class PaymentService : IPaymentService
         decimal? overrideRate = null;
         if (request.OverrideExchangeRate.HasValue)
         {
-            if (!_currentUser.HasPermission(Permissions.PaymentFxOverride) && !_currentUser.IsAdministrator)
+            if (!_currentUser.HasPermission(Permissions.PaymentFxOverride))
                 throw new DomainException("Vous n'êtes pas autorisé à modifier le taux pendant un paiement.");
             overrideRate = request.OverrideExchangeRate;
         }

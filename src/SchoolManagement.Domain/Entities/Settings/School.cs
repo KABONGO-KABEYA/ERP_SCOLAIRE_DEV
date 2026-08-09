@@ -286,8 +286,10 @@ public class AcademicMainPeriod : AuditableEntity, IAggregateRoot
 /// Sous-période opérationnelle (1ère période, examen…). Réutilise la table AcademicPeriods
 /// pour conserver les FK Evaluation / PeriodResult / Maxima sans rupture d'API.
 /// </summary>
-public class AcademicPeriod : AuditableEntity, IAggregateRoot
+public class AcademicPeriod : AuditableEntity, IAggregateRoot, ISchoolScoped
 {
+    public Guid SchoolId { get; set; }
+
     public Guid AcademicYearId { get; set; }
 
     public Guid? MainPeriodId { get; set; }
@@ -327,6 +329,8 @@ public class AcademicPeriod : AuditableEntity, IAggregateRoot
     /// Période de repêchage (hors calendrier normal) — créée uniquement si au moins un élève est envoyé au repêchage.
     /// </summary>
     public bool IsRemedial { get; set; }
+
+    public School School { get; set; } = null!;
 
     public AcademicYear AcademicYear { get; set; } = null!;
 

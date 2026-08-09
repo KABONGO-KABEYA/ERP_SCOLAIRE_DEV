@@ -95,9 +95,7 @@ public sealed partial class ExpenseMultiCurrencyAllocationViewModel : ViewModelB
         _asOfDate = asOfDate;
         _currencyApi = currencyApi;
 
-        CanOverrideRate = authSession.IsAdministrator
-            || (authSession.CurrentUser?.Permissions.Any(p =>
-                    string.Equals(p, Permissions.PaymentFxOverride, StringComparison.OrdinalIgnoreCase)) == true);
+        CanOverrideRate = SessionPermissions.Can(authSession, Permissions.PaymentFxOverride);
 
         foreach (var balance in balances
                      .Where(b => b.CurrencyId.HasValue)

@@ -9,6 +9,7 @@ using SchoolManagement.Application.SchoolFees.Interfaces;
 using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Enums;
 using SchoolManagement.Domain.Exceptions;
 using SchoolManagement.Shared.Constants;
 
@@ -95,13 +96,66 @@ public sealed class SchoolFeeService : ISchoolFeeService
         }
 
         var entity = await GetFeeTypeEntityAsync(schoolId, feeTypeId, cancellationToken);
+        var previousCurrency = entity.Currency;
+
         entity.Name = request.Name.Trim();
         entity.Currency = request.Currency;
         entity.IsMandatory = request.IsMandatory;
         entity.IsActive = request.IsActive;
         await _feeTypeRepository.UpdateAsync(entity, cancellationToken);
+
+        if (previousCurrency != request.Currency)
+        {
+            await RealignBalanceCurrencyAsync(
+                schoolId, feeTypeId, previousCurrency, request.Currency, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return entity.Adapt<FeeTypeDto>();
+    }
+
+    /// <summary>
+    /// Les montants des tarifs n'ont pas de devise propre : ils s'interprètent dans celle du
+    /// type de frais. La copie figée sur les soldes élève doit donc suivre le changement,
+    /// sinon un montant saisi en USD reste présenté en CDF à l'encaissement.
+    /// </summary>
+    private async Task RealignBalanceCurrencyAsync(
+        Guid schoolId,
+        Guid feeTypeId,
+        Currency previousCurrency,
+        Currency newCurrency,
+        CancellationToken cancellationToken)
+    {
+        var tariffIds = (await _amountRepository.FindAsync(
+                a => a.SchoolId == schoolId && a.FeeTypeId == feeTypeId,
+                cancellationToken))
+            .Select(a => a.Id)
+            .ToHashSet();
+
+        if (tariffIds.Count == 0)
+        {
+            return;
+        }
+
+        var balances = (await _balanceRepository.FindAsync(
+                b => tariffIds.Contains(b.ClassFeeAmountId),
+                cancellationToken))
+            .ToList();
+
+        var settled = balances.Count(b => b.AmountPaid > 0);
+        if (settled > 0)
+        {
+            throw new DomainException(
+                $"Impossible de passer ce type de frais en {newCurrency} : {settled} élève(s) ont déjà "
+                + $"des paiements enregistrés en {previousCurrency}. Annulez ces paiements avant de changer la devise.");
+        }
+
+        foreach (var balance in balances.Where(b => b.Currency != newCurrency))
+        {
+            balance.Currency = newCurrency;
+            balance.UpdatedAt = DateTime.UtcNow;
+            await _balanceRepository.UpdateAsync(balance, cancellationToken);
+        }
     }
 
     public async Task DeleteFeeTypeAsync(Guid schoolId, Guid feeTypeId, CancellationToken cancellationToken = default)
@@ -117,7 +171,9 @@ public sealed class SchoolFeeService : ISchoolFeeService
         CancellationToken cancellationToken = default)
     {
         await EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
-        var items = await _pricingCategoryRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
+        var items = await _pricingCategoryRepository.FindAsync(
+            c => c.SchoolId == schoolId && c.IsActive,
+            cancellationToken);
         return items.OrderBy(c => c.Name).Adapt<List<FeePricingCategoryDto>>();
     }
 
@@ -129,6 +185,11 @@ public sealed class SchoolFeeService : ISchoolFeeService
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new DomainException("Le libellé de la catégorie tarifaire est obligatoire.");
+        }
+
+        if (FeePricingCategoryCodes.IsGeneralDisplayName(request.Name))
+        {
+            return await EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
         }
 
         var existing = await _pricingCategoryRepository.FindAsync(c => c.SchoolId == schoolId, cancellationToken);
@@ -198,15 +259,44 @@ public sealed class SchoolFeeService : ISchoolFeeService
             c => c.SchoolId == schoolId, cancellationToken)).ToList();
         var general = existing.FirstOrDefault(c =>
             string.Equals(c.Code, FeePricingCategoryCodes.General, StringComparison.OrdinalIgnoreCase));
+
+        if (general is null)
+        {
+            var byName = existing.FirstOrDefault(c => FeePricingCategoryCodes.IsGeneralDisplayName(c.Name));
+            if (byName is not null)
+            {
+                byName.Code = FeePricingCategoryCodes.General;
+                if (string.IsNullOrWhiteSpace(byName.Description))
+                {
+                    byName.Description = "Catégorie tarifaire par défaut (inscription)";
+                }
+
+                byName.Name = "Générale";
+                byName.IsActive = true;
+                await _pricingCategoryRepository.UpdateAsync(byName, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                general = byName;
+            }
+        }
+
         if (general is not null)
         {
+            foreach (var duplicate in existing.Where(c =>
+                         c.Id != general.Id
+                         && (FeePricingCategoryCodes.IsGeneralDisplayName(c.Name)
+                             || string.Equals(c.Code, FeePricingCategoryCodes.General, StringComparison.OrdinalIgnoreCase))))
+            {
+                duplicate.IsActive = false;
+                await _pricingCategoryRepository.UpdateAsync(duplicate, cancellationToken);
+            }
+
             if (!general.IsActive)
             {
                 general.IsActive = true;
                 await _pricingCategoryRepository.UpdateAsync(general, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             return general.Adapt<FeePricingCategoryDto>();
         }
 
@@ -861,7 +951,7 @@ public sealed class SchoolFeeService : ISchoolFeeService
 
             if (paid > 0)
             {
-                PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+                PaymentMutationPolicy.EnsureCanMutatePaidPayment(_currentUser);
             }
 
             PaymentMutationPolicy.EnsureScheduleInstallmentEditable(
@@ -879,7 +969,7 @@ public sealed class SchoolFeeService : ISchoolFeeService
             var paid = paidByAmountId.GetValueOrDefault(row.Id);
             if (paid > 0)
             {
-                PaymentMutationPolicy.EnsureAdministrator(_currentUser);
+                PaymentMutationPolicy.EnsureCanMutatePaidPayment(_currentUser);
             }
 
             PaymentMutationPolicy.EnsureScheduleInstallmentEditable(

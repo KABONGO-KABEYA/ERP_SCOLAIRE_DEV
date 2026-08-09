@@ -142,7 +142,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PaymentsCancel)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Cancel(
         Guid id,
@@ -156,7 +156,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}/notes")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PaymentsNotesUpdate)]
     [ProducesResponseType(typeof(ApiResponse<PaymentDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateNotes(
         Guid id,
@@ -169,7 +169,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}/amount")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.PaymentsPaidMutation)]
     [ProducesResponseType(typeof(ApiResponse<PaymentDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateAmount(
         Guid id,

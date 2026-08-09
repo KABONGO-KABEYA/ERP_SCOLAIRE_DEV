@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Mentions.DTOs;
 using SchoolManagement.Application.Mentions.Interfaces;
@@ -70,7 +70,7 @@ public sealed class ResultMentionService : IResultMentionService
 
         var entity = (await _repository.FindAsync(
             m => m.Id == id && m.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
-            ?? throw new DomainException("Mention introuvable.");
+            ?? throw new KeyNotFoundException("Mention introuvable.");
 
         await EnsureNoOverlapAsync(schoolId, id, min, max, cancellationToken);
         await EnsureUniqueLabelAsync(schoolId, id, label, cancellationToken);
@@ -92,7 +92,7 @@ public sealed class ResultMentionService : IResultMentionService
     {
         var entity = (await _repository.FindAsync(
             m => m.Id == id && m.SchoolId == schoolId, cancellationToken)).FirstOrDefault()
-            ?? throw new DomainException("Mention introuvable.");
+            ?? throw new KeyNotFoundException("Mention introuvable.");
 
         await _repository.DeleteAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

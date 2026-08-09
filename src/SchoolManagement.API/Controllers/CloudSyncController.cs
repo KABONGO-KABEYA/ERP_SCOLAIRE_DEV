@@ -20,7 +20,7 @@ public sealed class CloudSyncController : ControllerBase
     }
 
     [HttpGet("status")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.CloudSyncManage)]
     [ProducesResponseType(typeof(ApiResponse<CloudSyncStatusDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
     {
@@ -29,7 +29,7 @@ public sealed class CloudSyncController : ControllerBase
     }
 
     [HttpPost("synchronize")]
-    [Authorize(Policy = Permissions.AdminFull)]
+    [Authorize(Policy = Permissions.CloudSyncManage)]
     [ProducesResponseType(typeof(ApiResponse<CloudSyncRunResultDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SynchronizeNow(
         [FromQuery] bool criticalOnly = false,

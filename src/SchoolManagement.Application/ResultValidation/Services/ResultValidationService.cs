@@ -859,25 +859,13 @@ public sealed class ResultValidationService : IResultValidationService
     }
 
     private bool CanValidatePermission() =>
-        _currentUser.IsAdministrator
-        || _currentUser.HasPermission(Permissions.ResultsValidationValidate)
-        || _currentUser.HasPermission(Permissions.AdminFull)
-        || HasElevatedRole("DIRECTION", "PREFET", "PROMOTEUR", "ADMIN");
+        _currentUser.HasPermission(Permissions.ResultsValidationValidate);
 
     private bool CanLockPermission() =>
-        _currentUser.IsAdministrator
-        || _currentUser.HasPermission(Permissions.ResultsValidationLock)
-        || _currentUser.HasPermission(Permissions.AdminFull)
-        || HasElevatedRole("ADMIN", "PROMOTEUR");
+        _currentUser.HasPermission(Permissions.ResultsValidationLock);
 
     private bool CanUnlockPermission() =>
-        _currentUser.IsAdministrator
-        || _currentUser.HasPermission(Permissions.ResultsValidationUnlock)
-        || _currentUser.HasPermission(Permissions.AdminFull)
-        || HasElevatedRole("ADMIN", "PROMOTEUR");
-
-    private bool HasElevatedRole(params string[] codes) =>
-        _currentUser.Roles.Any(r => codes.Contains(r, StringComparer.OrdinalIgnoreCase));
+        _currentUser.HasPermission(Permissions.ResultsValidationUnlock);
 
     private static ResultCalculationRules CreatePeriodResultRules()
     {

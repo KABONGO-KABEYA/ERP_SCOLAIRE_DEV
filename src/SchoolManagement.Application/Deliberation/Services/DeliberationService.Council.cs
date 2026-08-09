@@ -216,7 +216,7 @@ public sealed partial class DeliberationService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Recalcul officiel — l'UI ne calcule jamais.
-        await _gradeService.CalculatePeriodResultsAsync(
+        await _gradeService.RecalculatePeriodResultsAfterDataChangeAsync(
             schoolId,
             new CalculatePeriodResultsRequest(
                 request.ClassRoomId,
@@ -630,6 +630,7 @@ public sealed partial class DeliberationService
 
             remedial = new AcademicPeriod
             {
+                SchoolId = schoolId,
                 AcademicYearId = academicYearId,
                 MainPeriodId = null,
                 Name = "Repêchage",

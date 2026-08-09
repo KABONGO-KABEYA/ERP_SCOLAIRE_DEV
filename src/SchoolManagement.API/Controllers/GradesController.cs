@@ -284,7 +284,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpDelete("evaluations/{evaluationId:guid}")]
-    [Authorize(Policy = Permissions.GradesUpdate)]
+    [Authorize(Policy = Permissions.GradesDelete)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteEvaluation(Guid evaluationId, CancellationToken cancellationToken)
     {
@@ -340,12 +340,36 @@ public class GradesController : ControllerBase
     }
 
     [HttpPost("period-results/calculate")]
-    [Authorize(Policy = Permissions.GradesUpdate)]
+    [Authorize(Policy = Permissions.GradesRecalculate)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PeriodResultDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CalculatePeriodResults([FromBody] CalculatePeriodResultsRequest request, CancellationToken cancellationToken)
     {
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         var results = await _gradeService.CalculatePeriodResultsAsync(schoolId, request, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<PeriodResultDto>>.Ok(results, "Moyennes et rangs calculés."));
+    }
+
+    [HttpPost("period-results/publish")]
+    [Authorize(Policy = Permissions.GradesPublish)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> PublishPeriodCotation(
+        [FromBody] PublishPeriodCotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _gradeService.PublishPeriodCotationAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { }, "Cotation publiée (visibilité parent)."));
+    }
+
+    [HttpPost("period-results/unpublish")]
+    [Authorize(Policy = Permissions.GradesUnpublish)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UnpublishPeriodCotation(
+        [FromBody] PublishPeriodCotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        await _gradeService.UnpublishPeriodCotationAsync(schoolId, request, cancellationToken);
+        return Ok(ApiResponse<object>.Ok(new { }, "Publication de la cotation annulée."));
     }
 }

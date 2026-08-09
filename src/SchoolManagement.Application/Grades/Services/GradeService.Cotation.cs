@@ -519,6 +519,36 @@ public sealed partial class GradeService
         UserAccount? currentUser,
         CancellationToken cancellationToken)
     {
+        // Délégation : session d'un enseignant identifié (matricule libre).
+        if (CanSkipTeacherPasswordForCotation())
+        {
+            var teacher = (await _teacherRepository.FindAsync(
+                t => t.SchoolId == schoolId && t.EmployeeNumber == employeeNumber,
+                cancellationToken)).FirstOrDefault();
+
+            if (teacher is null)
+            {
+                var linked = (await _userRepository.FindAsync(
+                    u => u.SchoolId == schoolId
+                         && u.UserName == employeeNumber
+                         && u.TeacherId != null,
+                    cancellationToken)).FirstOrDefault();
+                if (linked?.TeacherId is Guid teacherId)
+                {
+                    teacher = (await _teacherRepository.FindAsync(
+                        t => t.Id == teacherId && t.SchoolId == schoolId,
+                        cancellationToken)).FirstOrDefault();
+                }
+            }
+
+            if (teacher is null)
+            {
+                throw new DomainException($"Enseignant introuvable pour l'identifiant « {employeeNumber} ».");
+            }
+
+            return teacher;
+        }
+
         // Enseignant / titulaire : session verrouillée sur le personnel lié au compte connecté.
         if (accessScope is CotationAccessScope.Teacher or CotationAccessScope.ClassHolder)
         {
@@ -543,32 +573,7 @@ public sealed partial class GradeService
             return linkedTeacher;
         }
 
-        // Direction / Préfet : peut ouvrir la session d'un enseignant précis.
-        var teacher = (await _teacherRepository.FindAsync(
-            t => t.SchoolId == schoolId && t.EmployeeNumber == employeeNumber,
-            cancellationToken)).FirstOrDefault();
-
-        if (teacher is null)
-        {
-            var linked = (await _userRepository.FindAsync(
-                u => u.SchoolId == schoolId
-                     && u.UserName == employeeNumber
-                     && u.TeacherId != null,
-                cancellationToken)).FirstOrDefault();
-            if (linked?.TeacherId is Guid teacherId)
-            {
-                teacher = (await _teacherRepository.FindAsync(
-                    t => t.Id == teacherId && t.SchoolId == schoolId,
-                    cancellationToken)).FirstOrDefault();
-            }
-        }
-
-        if (teacher is null)
-        {
-            throw new DomainException($"Enseignant introuvable pour l'identifiant « {employeeNumber} ».");
-        }
-
-        return teacher;
+        throw new DomainException("Ouverture de session de cotation non autorisée pour ce compte.");
     }
 
     private static bool MatchesTeacherIdentity(Teacher teacher, UserAccount user, string identity)
@@ -579,8 +584,7 @@ public sealed partial class GradeService
 
     private void EnsureCanEnterGrades()
     {
-        if (_currentUser.IsAdministrator
-            || _currentUser.HasPermission(Permissions.AdminFull)
+        if (_currentUser.HasPermission(Permissions.AdminFull)
             || _currentUser.HasPermission(Permissions.GradesUpdate)
             || _currentUser.HasPermission(Permissions.GradesCreate))
         {
@@ -590,21 +594,26 @@ public sealed partial class GradeService
         throw new DomainException("Vous n'avez pas le droit de saisir des notes.");
     }
 
-    private CotationAccessScope ResolveCotationAccessScope()
+    private void EnsureCanRecalculatePeriodResultsManually()
     {
-        if (_currentUser.IsAdministrator
-            || _currentUser.HasPermission(Permissions.AdminFull)
-            || HasRole("ADMIN", "DIRECTION", "PROMOTEUR"))
+        if (_currentUser.HasPermission(Permissions.AdminFull)
+            || _currentUser.HasPermission(Permissions.GradesRecalculate))
         {
-            return CotationAccessScope.Full;
+            return;
         }
 
-        if (HasRole("PREFET", "PREFET_ETUDES", "PREFÉT", "PREFÉT_ÉTUDES"))
+        throw new DomainException("Vous n'avez pas le droit de lancer un recalcul manuel des moyennes.");
+    }
+
+    private CotationAccessScope ResolveCotationAccessScope()
+    {
+        if (_currentUser.HasPermission(Permissions.AdminFull)
+            || _currentUser.HasPermission(Permissions.GradesCotationDelegate))
         {
             return CotationAccessScope.Prefet;
         }
 
-        if (HasRole("TITULAIRE"))
+        if (_currentUser.HasPermission(Permissions.GradesCotationScopeClass))
         {
             return CotationAccessScope.ClassHolder;
         }
@@ -612,17 +621,9 @@ public sealed partial class GradeService
         return CotationAccessScope.Teacher;
     }
 
-    private bool HasRole(params string[] codes)
-    {
-        var roles = _currentUser.Roles;
-        if (roles.Count == 0)
-        {
-            return false;
-        }
-
-        return roles.Any(r => codes.Any(c =>
-            string.Equals(r, c, StringComparison.OrdinalIgnoreCase)));
-    }
+    private bool CanSkipTeacherPasswordForCotation() =>
+        _currentUser.HasPermission(Permissions.AdminFull)
+        || _currentUser.HasPermission(Permissions.GradesCotationDelegate);
 
     private async Task<bool> ValidateTeacherPasswordIfRequiredAsync(
         Guid schoolId,
@@ -632,8 +633,8 @@ public sealed partial class GradeService
         UserAccount? currentUser,
         CancellationToken cancellationToken)
     {
-        // Admin / Direction / Préfet : pas de mot de passe enseignant requis.
-        if (accessScope is CotationAccessScope.Full or CotationAccessScope.Prefet)
+        // Délégation (préfet / direction) : pas de mot de passe enseignant requis.
+        if (CanSkipTeacherPasswordForCotation())
         {
             return false;
         }
@@ -675,8 +676,7 @@ public sealed partial class GradeService
     {
         return scope switch
         {
-            // Direction / Préfet : données de l'enseignant identifié uniquement (pas tout l'établissement).
-            CotationAccessScope.Full or CotationAccessScope.Prefet =>
+            CotationAccessScope.Prefet or CotationAccessScope.Full =>
                 all.Where(a => a.TeacherId == teacherId).ToList(),
 
             CotationAccessScope.ClassHolder =>
