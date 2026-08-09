@@ -2,8 +2,15 @@ import com.android.build.gradle.LibraryExtension
 
 allprojects {
     repositories {
+        // Cache local des artefacts Flutter engine (évite storage.googleapis.com hors ligne).
+        maven {
+            url = uri("${rootProject.projectDir}/../build/flutter_maven")
+        }
         google()
         mavenCentral()
+        maven {
+            url = uri("https://storage.googleapis.com/download.flutter.io")
+        }
     }
 }
 

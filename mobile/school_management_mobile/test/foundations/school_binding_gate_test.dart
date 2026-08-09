@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_management_mobile/core/config/binding_migration_config.dart';
 import 'package:school_management_mobile/core/school_binding/school_binding.dart';
@@ -14,9 +15,14 @@ class _MemoryBindingRepository extends SchoolBindingRepository {
 
   @override
   Future<bool> hasBinding() async => _binding.schoolId.isNotEmpty;
+
+  @override
+  Future<bool> hasAnyRegisteredSchool() async => _binding.schoolId.isNotEmpty;
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SchoolBindingGate — étape 4', () {
     tearDown(() {
       SchoolBindingGate.bindingRepository = SchoolBindingRepository();
@@ -38,6 +44,12 @@ void main() {
         ),
       );
       expect(await SchoolBindingGate.shouldFilterDiscoveryByBinding(), isFalse);
+    });
+
+    test('shouldRequireActivationQr when registry empty', () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      SchoolBindingGate.bindingRepository = SchoolBindingRepository();
+      expect(await SchoolBindingGate.shouldRequireActivationQr(), isTrue);
     });
   });
 }

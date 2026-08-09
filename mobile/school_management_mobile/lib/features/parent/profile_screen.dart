@@ -142,6 +142,12 @@ class _ParentProfileScreenState extends ConsumerState<ParentProfileScreen> {
                 ),
                 const SizedBox(height: 14),
                 FilledButton.tonalIcon(
+                  onPressed: () => context.push('/schools'),
+                  icon: const Icon(Icons.apartment_outlined),
+                  label: const Text('Mes établissements'),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.tonalIcon(
                   onPressed: () => context.push('/parent/change-password'),
                   icon: const Icon(Icons.lock_reset_outlined),
                   label: const Text('Changer le mot de passe'),

@@ -2,12 +2,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_management_mobile/core/school_binding/school_binding.dart';
 import 'package:school_management_mobile/core/school_binding/school_binding_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('Étape 2 — SchoolBindingRepository', () {

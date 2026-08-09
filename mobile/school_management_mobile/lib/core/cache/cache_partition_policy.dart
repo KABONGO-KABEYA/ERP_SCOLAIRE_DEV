@@ -1,16 +1,16 @@
-import '../config/binding_migration_config.dart';
 import '../school_binding/school_binding_gate.dart';
 import '../school_binding/school_binding_repository.dart';
 
-/// Namespace cache par école (architecture v2 §4.9) — actif si `STRICT_SCHOOL_DISCOVERY`.
+/// Namespace cache par école (architecture v2 §4.9).
+///
+/// Actif dès qu'un [SchoolBinding] actif existe (mono ou multi) afin d'isoler
+/// auth / cache / push par `schoolId`. La discovery filtrée reste gouvernée
+/// séparément par `STRICT_SCHOOL_DISCOVERY` ([SchoolBindingGate]).
 abstract final class CachePartitionPolicy {
   static SchoolBindingRepository bindingRepository =
       SchoolBindingGate.bindingRepository;
 
   static Future<bool> get isPartitioningEnabled async {
-    if (!BindingMigrationPolicy.isStrictSchoolDiscoveryEnabled) {
-      return false;
-    }
     return bindingRepository.hasBinding();
   }
 

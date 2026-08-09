@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/school_binding/school_activation_service.dart';
+import '../../../core/school_binding/school_already_registered_exception.dart';
 import '../../../core/school_binding/school_binding_activation_gate.dart';
 import '../../../core/theme/erp_theme.dart';
 
@@ -54,6 +55,12 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
       if (!mounted) return;
       setState(() {
         _successSchool = binding.schoolName;
+        _loading = false;
+      });
+    } on SchoolAlreadyRegisteredException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
         _loading = false;
       });
     } catch (e) {
@@ -142,8 +149,14 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
               style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
             ),
             TextButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Retour connexion'),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/login');
+                }
+              },
+              child: const Text('Continuer'),
             ),
           ],
         ],

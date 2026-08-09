@@ -6,8 +6,8 @@ import '../core/auth/auth_storage.dart';
 import '../core/providers/app_providers.dart';
 import '../core/connection/connection_mode_notifier.dart';
 import '../core/school_binding/school_binding_gate.dart';
-import '../features/parent/activation/parent_activation_screen.dart';
 import '../features/auth/login_screen.dart';
+import '../features/parent/activation/parent_activation_screen.dart';
 import '../features/parent/attendance_screen.dart';
 import '../features/parent/bulletins_screen.dart';
 import '../features/parent/change_password_screen.dart';
@@ -19,6 +19,7 @@ import '../features/parent/hubs/parent_hub_screens.dart';
 import '../features/parent/parent_shell_screen.dart';
 import '../features/parent/payments_screen.dart';
 import '../features/parent/profile_screen.dart';
+import '../features/parent/schools/registered_schools_screen.dart';
 import '../features/parent/subscription_screen.dart';
 import '../features/parent/premium_subscription/screens/payment_confirm_screen.dart';
 import '../features/parent/premium_subscription/screens/payment_method_screen.dart';
@@ -52,7 +53,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loggedIn = authState.value ?? false;
       final onLogin = state.matchedLocation == '/login';
       final onActivate = state.matchedLocation.startsWith('/parent/activate');
+      final onSchools = state.matchedLocation == '/schools';
       final connection = ref.read(connectionModeProvider);
+
+      // Premier lancement / registre vide → QR obligatoire.
+      if (!onActivate &&
+          await SchoolBindingGate.shouldRequireActivationQr()) {
+        return '/parent/activate?reason=first_launch';
+      }
 
       if (connection.requiresReauthentication) {
         if (!loggedIn && onLogin) return null;
@@ -71,7 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      if (!loggedIn && !onLogin && !onActivate) return '/login';
+      if (!loggedIn && !onLogin && !onActivate && !onSchools) return '/login';
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
 
       if (state.matchedLocation == '/children') {
@@ -97,6 +105,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final token = state.uri.queryParameters['token'];
           return ParentActivationScreen(initialToken: token);
         },
+      ),
+      GoRoute(
+        path: '/schools',
+        builder: (_, __) => const RegisteredSchoolsScreen(),
       ),
       GoRoute(
         path: '/children',

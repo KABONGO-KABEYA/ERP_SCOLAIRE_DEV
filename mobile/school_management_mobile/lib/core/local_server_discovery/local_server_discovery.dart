@@ -56,6 +56,15 @@ class LocalServerDiscovery {
   /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
   /// Si le Local n'est plus éligible → découverte complète.
   Future<DiscoveryResult> recheck() async {
+    if (await SchoolBindingGate.shouldRequireActivationQr()) {
+      debugPrint('[Discovery] Registre vide → pas de discovery (QR requis)');
+      return _publish(
+        DiscoveryResult.offline(
+          'Activez l\'application avec le QR code de l\'école.',
+        ),
+      );
+    }
+
     final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
     final candidates = <String>{};
@@ -101,6 +110,15 @@ class LocalServerDiscovery {
 
   Future<DiscoveryResult> _run(int gen) async {
     _publish(DiscoveryResult.detecting);
+    if (await SchoolBindingGate.shouldRequireActivationQr()) {
+      debugPrint('[Discovery] Registre vide → pas de discovery (QR requis)');
+      return _publish(
+        DiscoveryResult.offline(
+          'Activez l\'application avec le QR code de l\'école.',
+        ),
+      );
+    }
+
     final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
     debugPrint('[Discovery] Préfixes device: ${prefixes.join(', ')}');

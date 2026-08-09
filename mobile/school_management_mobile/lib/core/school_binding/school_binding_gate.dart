@@ -2,7 +2,7 @@ import '../config/binding_migration_config.dart';
 import 'school_binding_activation_gate.dart';
 import 'school_binding_repository.dart';
 
-/// Gates connexion / discovery (architecture v2).
+/// Gates connexion / discovery (architecture v2 + multi-établissements).
 abstract final class SchoolBindingGate {
   static SchoolBindingRepository bindingRepository = SchoolBindingRepository();
 
@@ -12,6 +12,11 @@ abstract final class SchoolBindingGate {
       return false;
     }
     return !(await bindingRepository.hasBinding());
+  }
+
+  /// Premier lancement / registre vide → parcours QR obligatoire.
+  static Future<bool> shouldRequireActivationQr() async {
+    return !(await bindingRepository.hasAnyRegisteredSchool());
   }
 
   /// Pendant la fenêtre migration : login parent legacy autorisé sans binding.
@@ -28,7 +33,7 @@ abstract final class SchoolBindingGate {
 
   /// Entrée activation QR prioritaire (post-migration, pas de binding).
   static Future<bool> shouldPreferActivationEntryForParent() async {
-    if (await bindingRepository.hasBinding()) {
+    if (await bindingRepository.hasAnyRegisteredSchool()) {
       return false;
     }
     return BindingMigrationPolicy.isPostMigrationPhase;

@@ -21,7 +21,19 @@ class AuthStorage {
   ];
 
   static Future<String> _resolveKey(String base) async {
-    return CachePartitionPolicy.scopeKey(base);
+    final scoped = await CachePartitionPolicy.scopeKey(base);
+    if (scoped == base) return base;
+
+    // Migration soft mono → partition : copie la clé legacy non scopée.
+    final existing = await _storage.read(key: scoped);
+    if (existing == null) {
+      final legacy = await _storage.read(key: base);
+      if (legacy != null && legacy.isNotEmpty) {
+        await _storage.write(key: scoped, value: legacy);
+        await _storage.delete(key: base);
+      }
+    }
+    return scoped;
   }
 
   static Future<void> saveSession({
@@ -122,7 +134,7 @@ class AuthStorage {
     return '/parent/home';
   }
 
-  /// Efface la session courante (clés scopées ou legacy) — ne touche pas `device_id` / `school_binding`.
+  /// Efface la session courante (clés scopées ou legacy) — ne touche pas `device_id` / bindings.
   static Future<void> clearSession() async {
     if (await CachePartitionPolicy.isPartitioningEnabled) {
       for (final base in _sessionKeys) {
@@ -133,6 +145,15 @@ class AuthStorage {
 
     for (final base in _sessionKeys) {
       await _storage.delete(key: base);
+    }
+  }
+
+  /// Efface les tokens/roles stockés pour une école précise (suppression d'établissement).
+  static Future<void> clearSessionForSchool(String schoolId) async {
+    if (schoolId.isEmpty) return;
+    final prefix = CachePartitionPolicy.prefsPrefixForSchool(schoolId);
+    for (final base in _sessionKeys) {
+      await _storage.delete(key: '$prefix$base');
     }
   }
 

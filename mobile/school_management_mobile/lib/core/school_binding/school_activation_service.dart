@@ -2,7 +2,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../device/device_identity.dart';
 import '../../features/parent/offline/parent_offline_cache.dart';
-import 'activation_session.dart';
 import 'activation_session_store.dart';
 import 'bootstrap_api_client.dart';
 import 'school_binding.dart';
@@ -55,7 +54,7 @@ class SchoolActivationService {
       ),
     );
 
-    await _bindingRepository.save(binding);
+    await _bindingRepository.addSchool(binding, setAsActive: true);
     await _sessionStore.clear();
     await ParentOfflineCache.ensureActivePartition();
     return binding;

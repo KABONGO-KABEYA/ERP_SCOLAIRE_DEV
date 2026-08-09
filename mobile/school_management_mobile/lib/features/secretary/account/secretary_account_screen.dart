@@ -142,6 +142,12 @@ class _SecretaryAccountScreenState extends ConsumerState<SecretaryAccountScreen>
                 ),
                 const SizedBox(height: 20),
                 _AccountActionTile(
+                  icon: Icons.apartment_outlined,
+                  label: 'Mes établissements',
+                  onTap: () => context.push('/schools'),
+                ),
+                const SizedBox(height: 10),
+                _AccountActionTile(
                   icon: Icons.lock_outline,
                   label: 'Modifier le mot de passe',
                   onTap: () => context.push('/secretary/account/change-password'),
