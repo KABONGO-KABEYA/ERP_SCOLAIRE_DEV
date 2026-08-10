@@ -1,0 +1,43 @@
+# Build context = racine du dépôt (Coolify).
+# Bootstrap API globale — port public 1805 (surchargeable via PORT / ASPNETCORE_URLS).
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY Directory.Build.props ./
+COPY src/SchoolManagement.Shared/SchoolManagement.Shared.csproj src/SchoolManagement.Shared/
+COPY src/SchoolManagement.Domain/SchoolManagement.Domain.csproj src/SchoolManagement.Domain/
+COPY src/SchoolManagement.Application/SchoolManagement.Application.csproj src/SchoolManagement.Application/
+COPY src/SchoolManagement.Bootstrap.API/SchoolManagement.Bootstrap.API.csproj src/SchoolManagement.Bootstrap.API/
+
+RUN dotnet restore src/SchoolManagement.Bootstrap.API/SchoolManagement.Bootstrap.API.csproj
+
+COPY src/SchoolManagement.Shared/ src/SchoolManagement.Shared/
+COPY src/SchoolManagement.Domain/ src/SchoolManagement.Domain/
+COPY src/SchoolManagement.Application/ src/SchoolManagement.Application/
+COPY src/SchoolManagement.Bootstrap.API/ src/SchoolManagement.Bootstrap.API/
+
+RUN dotnet publish src/SchoolManagement.Bootstrap.API/SchoolManagement.Bootstrap.API.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PORT=1805 \
+    ASPNETCORE_URLS=http://0.0.0.0:1805 \
+    ASPNETCORE_ENVIRONMENT=Production
+
+EXPOSE 1805
+
+COPY --from=build /app/publish .
+
+HEALTHCHECK --interval=20s --timeout=8s --start-period=30s --retries=5 \
+  CMD curl -fsS "http://127.0.0.1:${PORT:-1805}/health" || exit 1
+
+ENTRYPOINT ["dotnet", "SchoolManagement.Bootstrap.API.dll"]

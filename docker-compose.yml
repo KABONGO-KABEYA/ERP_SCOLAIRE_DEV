@@ -62,6 +62,33 @@ services:
       retries: 20
       start_period: 40s
 
+  # Bootstrap API globale (activation mobile).
+  # Démarrer avec : docker compose --profile bootstrap up -d --build
+  bootstrap:
+    profiles: ["bootstrap"]
+    build:
+      context: .
+      dockerfile: Dockerfile.bootstrap
+    image: erp-scolaire-bootstrap:latest
+    container_name: erp-bootstrap
+    restart: unless-stopped
+    ports:
+      - "${BOOTSTRAP_HOST_PORT:-1805}:1805"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:1805
+      PORT: "1805"
+      Bootstrap__RelayApiKey: ${BOOTSTRAP_RELAY_API_KEY}
+      Bootstrap__Schools__0__SchoolId: ${BOOTSTRAP_SCHOOL_ID}
+      Bootstrap__Schools__0__ActivationBaseUrl: ${BOOTSTRAP_ACTIVATION_BASE_URL:-http://api:1804}
+      Bootstrap__Schools__0__CloudBaseUrl: ${BOOTSTRAP_CLOUD_BASE_URL:-http://api:1804}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:1805/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   erp_api_files:
   erp_api_logs:
