@@ -71,6 +71,7 @@ public static class SettingsNavCatalog
                 new SettingsNavItem { Key = "sauvegarde", Title = "Sauvegarde & restauration", IconKind = "DatabaseOutline", Section = null },
                 new SettingsNavItem { Key = "sync-cloud", Title = "Synchronisation cloud", IconKind = "CloudSync", Section = SettingsSection.SyncCloud },
                 new SettingsNavItem { Key = "activation-mobile-parent", Title = "Activation mobile parent", IconKind = "Qrcode", Section = SettingsSection.ParentActivation },
+                new SettingsNavItem { Key = "qr-etablissement", Title = "QR établissement", IconKind = "QrcodeScan", Section = SettingsSection.QrEtablissement },
                 new SettingsNavItem { Key = "mises-a-jour", Title = "Mises à jour", IconKind = "Update", Section = SettingsSection.MisesAJour },
                 new SettingsNavItem { Key = "journal", Title = "Journal d'activités", IconKind = "History", Section = null },
                 new SettingsNavItem { Key = "parametres-systeme", Title = "Paramètres système", IconKind = "CogOutline", Section = null },

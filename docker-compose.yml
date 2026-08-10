@@ -6,7 +6,7 @@
 #   3. Tester : http://localhost:1804/api/v1/health
 #
 # Le service `sql` est optionnel (profil "full").
-# En production, pointez SQL_CONNECTION_STRING vers votre SQL distant (ex. 161.97.105.22).
+# En production, pointez SQL_CONNECTION_STRING vers le SQL officiel (169.58.93.203).
 
 services:
   api:
@@ -79,9 +79,9 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:1805
       PORT: "1805"
       Bootstrap__RelayApiKey: ${BOOTSTRAP_RELAY_API_KEY}
-      Bootstrap__Schools__0__SchoolId: ${BOOTSTRAP_SCHOOL_ID}
-      Bootstrap__Schools__0__ActivationBaseUrl: ${BOOTSTRAP_ACTIVATION_BASE_URL:-http://api:1804}
-      Bootstrap__Schools__0__CloudBaseUrl: ${BOOTSTRAP_CLOUD_BASE_URL:-http://api:1804}
+      Bootstrap__ConnectionString: ${BOOTSTRAP_CONNECTION_STRING}
+      Bootstrap__AllowLegacyEnvSchoolRegistry: "false"
+      # Phase 8 : plus de Bootstrap__Schools__* — registre SQL uniquement.
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:1805/health"]
       interval: 30s

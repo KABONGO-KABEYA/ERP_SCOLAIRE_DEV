@@ -174,7 +174,7 @@ public sealed class CloudDatabaseConfigurationManager
         {
             ["ACTIF"] = "0",
             ["INTERVALLE_MINUTES"] = "5",
-            ["SERVEUR"] = "161.97.105.22",
+            ["SERVEUR"] = "169.58.93.203",
             ["PORT"] = "1433",
             ["BASE"] = "SchoolManagementRDC_Production",
             ["AUTHENTIFICATION"] = "SQL",

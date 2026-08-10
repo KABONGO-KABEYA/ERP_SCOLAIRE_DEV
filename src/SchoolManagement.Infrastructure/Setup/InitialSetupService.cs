@@ -5,6 +5,7 @@ using SchoolManagement.Application.Schools.DTOs;
 using SchoolManagement.Application.Schools.Interfaces;
 using SchoolManagement.Application.SchoolFees.DTOs;
 using SchoolManagement.Application.SchoolFees.Interfaces;
+using SchoolManagement.Application.SchoolEstablishment;
 using SchoolManagement.Application.Setup.DTOs;
 using SchoolManagement.Application.Setup.Interfaces;
 using SchoolManagement.Application.ServerIdentity;
@@ -24,6 +25,7 @@ public sealed class InitialSetupService : IInitialSetupService
     private readonly ISchoolService _schoolService;
     private readonly ISchoolFeeService _schoolFeeService;
     private readonly IServerIdentityProvider _serverIdentity;
+    private readonly ISchoolEstablishmentService _establishment;
     private readonly ILogger<InitialSetupService> _logger;
 
     public InitialSetupService(
@@ -32,6 +34,7 @@ public sealed class InitialSetupService : IInitialSetupService
         ISchoolService schoolService,
         ISchoolFeeService schoolFeeService,
         IServerIdentityProvider serverIdentity,
+        ISchoolEstablishmentService establishment,
         ILogger<InitialSetupService> logger)
     {
         _db = db;
@@ -39,6 +42,7 @@ public sealed class InitialSetupService : IInitialSetupService
         _schoolService = schoolService;
         _schoolFeeService = schoolFeeService;
         _serverIdentity = serverIdentity;
+        _establishment = establishment;
         _logger = logger;
     }
 
@@ -175,12 +179,43 @@ public sealed class InitialSetupService : IInitialSetupService
 
             await _serverIdentity.RefreshAsync(cancellationToken);
 
+            // Credential + publication Bootstrap : hors transaction école.
+            // Échec Bootstrap → école conservée + BootstrapSyncPending (retry admin).
+            SchoolEstablishmentQrDto? establishmentQr = null;
+            try
+            {
+                _db.OverrideTenantSchoolId = school.Id;
+                establishmentQr = await _establishment.ProvisionForNewSchoolAsync(
+                    school.Id,
+                    school.Name,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Provision credential établissement échouée après setup école {SchoolId} (école conservée).",
+                    school.Id);
+            }
+            finally
+            {
+                _db.OverrideTenantSchoolId = null;
+            }
+
             return new CompleteInitialSetupResultDto(
                 school.Id,
                 year.Id,
                 admin.Id,
                 school.Name,
-                admin.UserName);
+                admin.UserName,
+                BootstrapSyncPending: establishmentQr?.BootstrapSyncPending ?? true,
+                BootstrapSyncMessage: establishmentQr?.BootstrapSyncMessage
+                    ?? (establishmentQr is null
+                        ? "Credential établissement non provisionné — réessayez depuis l'admin."
+                        : null),
+                EstablishmentCredentialId: establishmentQr?.CredentialId,
+                EstablishmentCredentialVersion: establishmentQr?.CredentialVersion,
+                EstablishmentQrPayload: establishmentQr?.QrPayload);
         }
         finally
         {

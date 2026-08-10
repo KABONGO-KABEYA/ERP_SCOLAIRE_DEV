@@ -40,4 +40,9 @@ public sealed record CompleteInitialSetupResultDto(
     Guid AcademicYearId,
     Guid AdminUserId,
     string SchoolName,
-    string AdminUserName);
+    string AdminUserName,
+    bool BootstrapSyncPending = false,
+    string? BootstrapSyncMessage = null,
+    Guid? EstablishmentCredentialId = null,
+    int? EstablishmentCredentialVersion = null,
+    string? EstablishmentQrPayload = null);

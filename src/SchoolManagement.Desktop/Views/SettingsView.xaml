@@ -396,6 +396,14 @@
 
         <Grid Grid.Row="0"
               Margin="20,16"
+              Visibility="{Binding IsQrEtablissementSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <controls:SchoolEstablishmentQrControl HorizontalAlignment="Stretch"
+                                                   VerticalAlignment="Stretch"
+                                                   DataContext="{Binding SchoolEstablishmentQr}" />
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Margin="20,16"
               Visibility="{Binding IsMisesAJourSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
             <updates:UpdateSettingsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
         </Grid>

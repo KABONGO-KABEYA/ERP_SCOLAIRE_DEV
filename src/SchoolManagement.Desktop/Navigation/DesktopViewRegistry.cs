@@ -60,6 +60,7 @@ public sealed class DesktopViewRegistry : IDesktopViewRegistry
             ["Settings.SyncCloud"] = Settings("sync-cloud"),
             ["Settings.MisesAJour"] = Settings("mises-a-jour"),
             ["Settings.ParentActivation"] = Settings("activation-mobile-parent"),
+            ["Settings.QrEtablissement"] = Settings("qr-etablissement"),
             ["Security.Users"] = new DirectDesktopViewTarget(typeof(SecurityUsersViewModel)),
             ["Security.Roles"] = new DirectDesktopViewTarget(typeof(SecurityRolesViewModel)),
             ["Security.Exceptions"] = new DirectDesktopViewTarget(typeof(SecurityExceptionsViewModel)),

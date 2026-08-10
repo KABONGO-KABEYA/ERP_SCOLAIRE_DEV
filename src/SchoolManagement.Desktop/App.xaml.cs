@@ -176,6 +176,8 @@ public partial class App : System.Windows.Application
         services.AddTransient<IStudentCardApiService, StudentCardApiService>();
         services.AddTransient<ICloudSyncApiService, CloudSyncApiService>();
         services.AddTransient<IParentActivationApiService, ParentActivationApiService>();
+        services.AddTransient<ISchoolEstablishmentApiService, SchoolEstablishmentApiService>();
+        services.AddSingleton<IDesktopDialogs, WpfDesktopDialogs>();
         services.AddTransient<IFinanceApiService, FinanceApiService>();
         services.AddTransient<IGradeApiService, GradeApiService>();
         services.AddTransient<IBulletinApiService, BulletinApiService>();
@@ -244,6 +246,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<CurrencyManagementViewModel>();
         services.AddTransient<CloudSyncDashboardViewModel>();
         services.AddTransient<ParentActivationQrViewModel>();
+        services.AddTransient<SchoolEstablishmentQrViewModel>();
         services.AddTransient<StudentsViewModel>();
         services.AddTransient<StudentCardsViewModel>();
         services.AddTransient<CardTemplateDesignerViewModel>();

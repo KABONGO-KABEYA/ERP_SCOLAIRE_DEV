@@ -34,6 +34,7 @@ public partial class SettingsViewModel : ViewModelBase
         CurrencyManagementViewModel currencyManagement,
         CloudSyncDashboardViewModel cloudSyncDashboard,
         ParentActivationQrViewModel parentActivationQr,
+        SchoolEstablishmentQrViewModel schoolEstablishmentQr,
         CourseConfigurationViewModel courseConfiguration)
     {
         _schoolApiService = schoolApiService;
@@ -50,6 +51,7 @@ public partial class SettingsViewModel : ViewModelBase
         CurrencyManagement = currencyManagement;
         CloudSyncDashboard = cloudSyncDashboard;
         ParentActivationQr = parentActivationQr;
+        SchoolEstablishmentQr = schoolEstablishmentQr;
         CourseConfiguration = courseConfiguration;
         NewAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
         SelectedAdminUserAddressEditor = new AddressEditorViewModel(_geographyApiService);
@@ -91,6 +93,7 @@ public partial class SettingsViewModel : ViewModelBase
                     new SettingsNodeViewModel("Enseignants", "HumanMaleBoard", SettingsSection.Enseignants),
                     new SettingsNodeViewModel("Synchronisation cloud", "CloudSync", SettingsSection.SyncCloud),
                     new SettingsNodeViewModel("Activation mobile parent", "Qrcode", SettingsSection.ParentActivation),
+                    new SettingsNodeViewModel("QR établissement", "QrcodeScan", SettingsSection.QrEtablissement),
                     new SettingsNodeViewModel("Mises à jour", "Update", SettingsSection.MisesAJour)
                 ])
         ];
@@ -112,6 +115,7 @@ public partial class SettingsViewModel : ViewModelBase
         RemoveSettingsNavNodeIfUnauthorized(SettingsSection.Geographie, Permissions.GeographyManage);
         RemoveSettingsNavNodeIfUnauthorized(SettingsSection.SyncCloud, Permissions.CloudSyncManage);
         RemoveSettingsNavNodeIfUnauthorized(SettingsSection.ParentActivation, Permissions.ParentActivationManage);
+        RemoveSettingsNavNodeIfUnauthorized(SettingsSection.QrEtablissement, Permissions.SchoolsUpdate);
         RemoveSettingsNavNodeIfUnauthorized(SettingsSection.MisesAJour, Permissions.UpdatesManage);
 
         _ = LoadAsync();
@@ -329,6 +333,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public ParentActivationQrViewModel ParentActivationQr { get; }
 
+    public SchoolEstablishmentQrViewModel SchoolEstablishmentQr { get; }
+
     public CourseConfigurationViewModel CourseConfiguration { get; }
 
     public IReadOnlyList<AcademicYearDto> AcademicYears { get; private set; } = [];
@@ -370,6 +376,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsParentActivationSelected => SelectedSettingsNode?.Section == SettingsSection.ParentActivation;
 
+    public bool IsQrEtablissementSelected => SelectedSettingsNode?.Section == SettingsSection.QrEtablissement;
+
     public bool IsMisesAJourSelected => SelectedSettingsNode?.Section == SettingsSection.MisesAJour;
 
     public bool IsScrollableSettingsContent =>
@@ -382,6 +390,7 @@ public partial class SettingsViewModel : ViewModelBase
         && !IsCurrencySectionSelected
         && !IsSyncCloudSelected
         && !IsParentActivationSelected
+        && !IsQrEtablissementSelected
         && !IsMisesAJourSelected
         && !IsMatieresSelected;
 
@@ -415,6 +424,7 @@ public partial class SettingsViewModel : ViewModelBase
         "historique-taux" => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
         "sync-cloud" => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
         "activation-mobile-parent" => "Émettre un QR / lien pour activer l'application mobile d'un parent sur cette école.",
+        "qr-etablissement" => "QR de liaison téléphone ↔ établissement (affichage, impression, régénération). Distinct de l'invitation parent.",
         _ => SelectedSettingsNode?.Section switch
         {
             SettingsSection.Etablissement => "Informations générales, devises autorisées, logos, en-têtes, signatures et identité documentaire de l'établissement.",
@@ -430,6 +440,7 @@ public partial class SettingsViewModel : ViewModelBase
             SettingsSection.HistoriqueTaux => "Journal des modifications de taux (utilisateur, machine, IP, anciennes et nouvelles valeurs).",
             SettingsSection.SyncCloud => "État de la copie Local → Cloud : file d'attente, journal et synchronisation manuelle.",
             SettingsSection.ParentActivation => "Émettre un QR / lien pour activer l'application mobile d'un parent sur cette école.",
+            SettingsSection.QrEtablissement => "QR de liaison téléphone ↔ établissement (affichage, impression, régénération). Distinct de l'invitation parent.",
             SettingsSection.MisesAJour => "Vérification automatique, téléchargement et historique des versions de l'application.",
             SettingsSection.Matieres => "Configurez les cours retenus par année, classe et salle, avec affectation des enseignants.",
             SettingsSection.Geographie => "Gérez les pays, provinces, villes et communes. Importez un fichier Excel selon le modèle fourni.",
@@ -503,6 +514,10 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 // Pas de préchargement : génération à la demande.
             }
+            else if (item.Key == "qr-etablissement")
+            {
+                SchoolEstablishmentQr.LoadCommand.Execute(null);
+            }
             else if (item.Key == "matieres")
             {
                 CourseConfiguration.LoadCommand.Execute(null);
@@ -524,6 +539,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsParentActivationSelected));
+        OnPropertyChanged(nameof(IsQrEtablissementSelected));
         OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsMatieresSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
@@ -605,6 +621,7 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsCurrencySectionSelected));
         OnPropertyChanged(nameof(IsSyncCloudSelected));
         OnPropertyChanged(nameof(IsParentActivationSelected));
+        OnPropertyChanged(nameof(IsQrEtablissementSelected));
         OnPropertyChanged(nameof(IsMisesAJourSelected));
         OnPropertyChanged(nameof(IsScrollableSettingsContent));
         OnPropertyChanged(nameof(IsMatieresSelected));
@@ -645,6 +662,10 @@ public partial class SettingsViewModel : ViewModelBase
         else if (value?.Section == SettingsSection.Matieres)
         {
             CourseConfiguration.LoadCommand.Execute(null);
+        }
+        else if (value?.Section == SettingsSection.QrEtablissement)
+        {
+            SchoolEstablishmentQr.LoadCommand.Execute(null);
         }
         else if (value?.Section == SettingsSection.Geographie)
         {
@@ -1540,7 +1561,8 @@ public enum SettingsSection
     HistoriqueTaux = 16,
     MisesAJour = 17,
     Mentions = 18,
-    ParentActivation = 19
+    ParentActivation = 19,
+    QrEtablissement = 20
 }
 
 public sealed record ProgramFilterItem(SchoolProgram? Program, string Label);

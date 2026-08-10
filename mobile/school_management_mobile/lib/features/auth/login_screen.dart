@@ -58,6 +58,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
+      if (await SchoolBindingGate.shouldBlockSessionWithoutEstablishment()) {
+        if (!mounted) return;
+        setState(() {
+          _error =
+              'QR établissement requis — scannez le QR de l\'école avant de vous connecter.';
+          _loading = false;
+        });
+        context.go('/establish?reason=binding_required');
+        return;
+      }
+
       final session = await ref.read(authRepositoryProvider).login(
             _userController.text.trim(),
             _passwordController.text,
@@ -72,9 +83,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
         setState(() {
           _error =
-              'Activation requise — scannez le QR de l\'école avant de vous connecter.';
+              'QR établissement requis — scannez le QR de l\'école avant de vous connecter.';
         });
-        context.go('/parent/activate?reason=binding_required');
+        context.go('/establish?reason=binding_required');
         return;
       }
 
@@ -256,8 +267,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : const Text('Se connecter'),
                 ),
                 TextButton(
-                  onPressed: () => context.push('/parent/activate'),
-                  child: const Text('Activer avec QR code (parent)'),
+                  onPressed: () => context.push('/establish'),
+                  child: const Text('Rejoindre un établissement (QR)'),
                 ),
               ],
             ),

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -63,6 +64,27 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
         _error = e.toString();
         _loading = false;
       });
+    } on ParentActivationException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final body = e.response?.data;
+      String? detail;
+      if (body is Map && body['error'] != null) {
+        detail = body['error'].toString();
+      } else if (body != null) {
+        detail = body.toString();
+      }
+      setState(() {
+        _error = (detail != null && detail.isNotEmpty)
+            ? 'Activation refusée (${e.response?.statusCode}) : $detail'
+            : (e.message ?? e.toString());
+        _loading = false;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -99,7 +121,7 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Activer l\'application'),
+        title: const Text('Invitation parent'),
         backgroundColor: ErpColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -107,8 +129,9 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Scannez le QR code fourni par l\'école ou collez le token d\'activation. '
-            'La connexion Internet est requise (Bootstrap).',
+            'Invitation parent : scannez le QR d\'invitation fourni par l\'école '
+            'ou collez le token. Ce parcours est distinct du QR établissement '
+            '(liaison téléphone ↔ école). Connexion Internet requise (Bootstrap).',
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -122,7 +145,7 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
           TextField(
             controller: _tokenController,
             decoration: const InputDecoration(
-              labelText: 'Token JWT',
+              labelText: 'Token invitation parent',
               border: OutlineInputBorder(),
             ),
             maxLines: 3,
@@ -136,7 +159,7 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
                     width: 22,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Activer'),
+                : const Text('Valider l\'invitation'),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -145,7 +168,7 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
           if (_successSchool != null) ...[
             const SizedBox(height: 12),
             Text(
-              'École activée : $_successSchool. Vous pouvez vous connecter.',
+              'Invitation acceptée pour : $_successSchool.',
               style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
             ),
             TextButton(

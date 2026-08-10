@@ -501,6 +501,11 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<ParentActivationSchemaInitializer>>());
     await parentActivationSchema.EnsureCreatedAsync();
 
+    var schoolEstablishmentSchema = new SchoolEstablishmentSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<SchoolEstablishmentSchemaInitializer>>());
+    await schoolEstablishmentSchema.EnsureCreatedAsync();
+
     // En dernier : dépend des tables créées par les initialiseurs précédents (sync, caisse…).
     var schoolTenancySchema = new SchoolTenancySchemaInitializer(
         sqlConnectionString,

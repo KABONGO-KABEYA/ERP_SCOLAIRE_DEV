@@ -186,7 +186,9 @@ public sealed class ParentActivationService : IParentActivationService
         {
             new(JwtRegisteredClaimNames.Jti, tokenEntity.Id.ToString("D")),
             new(ClaimTypesCustom.SchoolId, tokenEntity.SchoolId.ToString("D")),
-            new(ActivationTokenConstants.TokenTypeClaim, ActivationTokenConstants.TokenTypeValue)
+            // Double claim : compat historique (`typ`) + verrou Phase 7 (`token_type`).
+            new(ActivationTokenConstants.TokenTypeClaim, ActivationTokenConstants.TokenTypeValue),
+            new(ActivationTokenConstants.TokenTypeClaimModern, ActivationTokenConstants.TokenTypeValue),
         };
 
         if (!string.IsNullOrWhiteSpace(tokenEntity.SuggestedUserName))
@@ -222,13 +224,12 @@ public sealed class ParentActivationService : IParentActivationService
         };
 
         var principal = handler.ValidateToken(token, parameters, out var validated);
-        if (validated is not JwtSecurityToken jwt
-            || jwt.Claims.FirstOrDefault(c => c.Type == ActivationTokenConstants.TokenTypeClaim)?.Value
-            != ActivationTokenConstants.TokenTypeValue)
+        if (validated is not JwtSecurityToken jwt)
         {
-            throw new InvalidOperationException("Type de token invalide.");
+            throw new InvalidOperationException(ParentActivationTokenTypeGuard.InvalidTypeMessage);
         }
 
+        ParentActivationTokenTypeGuard.EnsureParentActivationTokenType(jwt);
         return principal;
     }
 

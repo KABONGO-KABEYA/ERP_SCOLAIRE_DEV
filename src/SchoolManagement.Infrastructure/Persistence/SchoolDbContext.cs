@@ -11,6 +11,7 @@ using SchoolManagement.Domain.Entities.Deliberation;
 using SchoolManagement.Domain.Entities.Hr;
 using SchoolManagement.Domain.Entities.Notifications;
 using SchoolManagement.Domain.Entities.ParentActivation;
+using SchoolManagement.Domain.Entities.SchoolEstablishment;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
@@ -180,6 +181,7 @@ public class SchoolDbContext : DbContext
 
     public DbSet<ParentActivationToken> ParentActivationTokens => Set<ParentActivationToken>();
     public DbSet<ParentActivationSession> ParentActivationSessions => Set<ParentActivationSession>();
+    public DbSet<SchoolEstablishmentCredential> SchoolEstablishmentCredentials => Set<SchoolEstablishmentCredential>();
 
     // Sync cloud (outbox / journal) — tables locales uniquement
     public DbSet<SyncOutboxUnit> SyncOutboxUnits => Set<SyncOutboxUnit>();

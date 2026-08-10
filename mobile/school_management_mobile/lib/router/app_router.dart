@@ -7,6 +7,7 @@ import '../core/providers/app_providers.dart';
 import '../core/connection/connection_mode_notifier.dart';
 import '../core/school_binding/school_binding_gate.dart';
 import '../features/auth/login_screen.dart';
+import '../features/establishment/establishment_gate_screen.dart';
 import '../features/parent/activation/parent_activation_screen.dart';
 import '../features/parent/attendance_screen.dart';
 import '../features/parent/bulletins_screen.dart';
@@ -52,21 +53,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (authState.isLoading) return null;
       final loggedIn = authState.value ?? false;
       final onLogin = state.matchedLocation == '/login';
+      final onEstablish = state.matchedLocation.startsWith('/establish');
       final onActivate = state.matchedLocation.startsWith('/parent/activate');
       final onSchools = state.matchedLocation == '/schools';
       final connection = ref.read(connectionModeProvider);
 
-      // Premier lancement / registre vide → QR obligatoire.
-      if (!onActivate &&
-          await SchoolBindingGate.shouldRequireActivationQr()) {
-        return '/parent/activate?reason=first_launch';
+      // Premier lancement / registre vide → QR établissement obligatoire (tous rôles).
+      // Aucun accès login / home métier tant qu'aucune école n'est enregistrée.
+      if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
+        if (onEstablish) return null;
+        return '/establish?reason=first_launch';
       }
 
       if (connection.requiresReauthentication) {
         if (!loggedIn && onLogin) return null;
         await ref.read(authStateProvider.notifier).setLoggedIn(false);
-        if (!onLogin && !onActivate) {
+        if (!onLogin && !onEstablish && !onActivate) {
           return '/login?reason=server_instance';
+        }
+      }
+
+      if (loggedIn &&
+          await SchoolBindingGate.shouldBlockSessionWithoutEstablishment()) {
+        await ref.read(authStateProvider.notifier).setLoggedIn(false);
+        if (!onEstablish) {
+          return '/establish?reason=binding_required';
         }
       }
 
@@ -74,12 +85,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           await AuthStorage.isParent &&
           await SchoolBindingGate.shouldBlockParentSessionWithoutBinding()) {
         await ref.read(authStateProvider.notifier).setLoggedIn(false);
-        if (!onActivate) {
-          return '/parent/activate?reason=binding_required';
+        if (!onEstablish) {
+          return '/establish?reason=binding_required';
         }
       }
 
-      if (!loggedIn && !onLogin && !onActivate && !onSchools) return '/login';
+      if (!loggedIn && !onLogin && !onEstablish && !onActivate && !onSchools) {
+        return '/login';
+      }
       if (loggedIn && onLogin) return await AuthStorage.homeRoute;
 
       if (state.matchedLocation == '/children') {
@@ -99,6 +112,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/establish',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          final setActive =
+              state.uri.queryParameters['setActive'] != 'false';
+          return EstablishmentGateScreen(
+            initialToken: token,
+            setAsActive: setActive,
+          );
+        },
+      ),
       GoRoute(
         path: '/parent/activate',
         builder: (context, state) {

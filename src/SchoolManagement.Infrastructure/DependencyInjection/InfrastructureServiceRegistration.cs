@@ -29,6 +29,8 @@ using SchoolManagement.Infrastructure.ServerIdentity;
 using SchoolManagement.Application.ServerIdentity;
 using SchoolManagement.Application.ParentActivation;
 using SchoolManagement.Infrastructure.ParentActivation;
+using SchoolManagement.Application.SchoolEstablishment;
+using SchoolManagement.Infrastructure.SchoolEstablishment;
 using SchoolManagement.Infrastructure.Tenancy;
 
 public static class InfrastructureServiceRegistration
@@ -73,6 +75,14 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IParentActivationService, ParentActivationService>();
+        services.Configure<SchoolBootstrapRegistryOptions>(
+            configuration.GetSection(SchoolBootstrapRegistryOptions.SectionName));
+        services.AddSingleton<SchoolBootstrapPublishUrls>();
+        services.AddHttpClient<IBootstrapSchoolRegistryClient, BootstrapSchoolRegistryClient>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<ISchoolEstablishmentService, SchoolEstablishmentService>();
         services.AddScoped<PermissionDependencyService>();
         services.AddScoped<IPermissionDependencyService>(sp => sp.GetRequiredService<PermissionDependencyService>());
         services.AddScoped<IEffectivePermissionService, EffectivePermissionService>();

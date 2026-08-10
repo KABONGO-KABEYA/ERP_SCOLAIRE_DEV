@@ -38,7 +38,7 @@ public sealed class BootstrapOrchestrator
     {
         var schoolId = ActivationTokenRoutingReader.TryReadSchoolId(mobileRequest.Token);
         var tokenId = ActivationTokenRoutingReader.TryReadTokenId(mobileRequest.Token);
-        var school = _registry.Resolve(schoolId);
+        var school = await _registry.ResolveAsync(schoolId, cancellationToken);
 
         var bootstrapSessionId = Guid.NewGuid();
         var relayRequest = new ActivationStartRequest(
@@ -93,7 +93,7 @@ public sealed class BootstrapOrchestrator
             throw new InvalidOperationException("DeviceId incompatible.");
         }
 
-        var school = _registry.Resolve(state.SchoolId);
+        var school = await _registry.ResolveAsync(state.SchoolId, cancellationToken);
         var relayRequest = new ActivationCompleteRequest(
             state.SchoolActivationSessionId,
             mobileRequest.DeviceId);

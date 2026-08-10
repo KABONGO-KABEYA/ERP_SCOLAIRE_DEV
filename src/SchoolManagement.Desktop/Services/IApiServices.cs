@@ -1433,3 +1433,16 @@ public interface IParentActivationApiService
         SchoolManagement.Application.ParentActivation.IssueParentActivationTokenRequest request,
         CancellationToken cancellationToken = default);
 }
+
+public interface ISchoolEstablishmentApiService
+{
+    Task<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto> GetQrAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto> RotateAsync(
+        string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.SchoolEstablishment.BootstrapSyncRetryResult> RetryBootstrapSyncAsync(
+        CancellationToken cancellationToken = default);
+}

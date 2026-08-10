@@ -3179,6 +3179,34 @@ public sealed class ParentActivationApiService : ApiServiceBase, IParentActivati
             cancellationToken);
 }
 
+public sealed class SchoolEstablishmentApiService : ApiServiceBase, ISchoolEstablishmentApiService
+{
+    public SchoolEstablishmentApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory)
+    {
+    }
+
+    public Task<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto> GetQrAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto>(
+            "api/v1/school/establishment/qr",
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto> RotateAsync(
+        string? reason = null,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolEstablishment.SchoolEstablishmentQrDto>(
+            "api/v1/school/establishment/rotate",
+            new { reason },
+            cancellationToken);
+
+    public Task<SchoolManagement.Application.SchoolEstablishment.BootstrapSyncRetryResult> RetryBootstrapSyncAsync(
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.SchoolEstablishment.BootstrapSyncRetryResult>(
+            "api/v1/school/establishment/bootstrap-sync/retry",
+            new { },
+            cancellationToken);
+}
+
 public sealed class CourseConfigurationApiService : ApiServiceBase, ICourseConfigurationApiService
 {
     public CourseConfigurationApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }

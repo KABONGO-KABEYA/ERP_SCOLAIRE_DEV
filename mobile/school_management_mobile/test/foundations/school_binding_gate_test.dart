@@ -46,9 +46,10 @@ void main() {
       expect(await SchoolBindingGate.shouldFilterDiscoveryByBinding(), isFalse);
     });
 
-    test('shouldRequireActivationQr when registry empty', () async {
+    test('shouldRequireEstablishmentQr when registry empty', () async {
       FlutterSecureStorage.setMockInitialValues({});
       SchoolBindingGate.bindingRepository = SchoolBindingRepository();
+      expect(await SchoolBindingGate.shouldRequireEstablishmentQr(), isTrue);
       expect(await SchoolBindingGate.shouldRequireActivationQr(), isTrue);
     });
   });

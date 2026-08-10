@@ -108,7 +108,7 @@ class _RegisteredSchoolsScreenState
       if (outcome == RemoveSchoolOutcome.registryEmpty) {
         await ref.read(authStateProvider.notifier).setLoggedIn(false);
         if (!mounted) return;
-        context.go('/parent/activate?reason=registry_empty');
+        context.go('/establish?reason=registry_empty');
         return;
       }
 
@@ -182,7 +182,7 @@ class _RegisteredSchoolsScreenState
                   ],
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: () => context.push('/parent/activate'),
+                    onPressed: () => context.push('/establish'),
                     icon: const Icon(Icons.qr_code_scanner),
                     label: const Text('Ajouter un établissement (QR)'),
                   ),

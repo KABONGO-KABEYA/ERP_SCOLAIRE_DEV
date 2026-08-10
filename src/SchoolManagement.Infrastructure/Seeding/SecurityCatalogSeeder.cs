@@ -226,7 +226,8 @@ public sealed class SecurityCatalogSeeder
                 [
                     ("SYNC_CLOUD", "Synchronisation cloud", "Settings.SyncCloud", Permissions.CloudSyncManage, 1),
                     ("MISES_A_JOUR", "Mises à jour", "Settings.MisesAJour", Permissions.UpdatesManage, 2),
-                    ("PARENT_ACTIVATION", "Activation mobile parent", "Settings.ParentActivation", Permissions.ParentActivationManage, 3)
+                    ("PARENT_ACTIVATION", "Activation mobile parent", "Settings.ParentActivation", Permissions.ParentActivationManage, 3),
+                    ("QR_ETABLISSEMENT", "QR établissement", "Settings.QrEtablissement", Permissions.SchoolsUpdate, 4)
                 ])
             ]),
             ("PERSONNEL", "Personnel", "AccountTie", 30,

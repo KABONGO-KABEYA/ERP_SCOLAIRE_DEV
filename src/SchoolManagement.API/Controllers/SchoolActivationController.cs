@@ -25,7 +25,9 @@ public sealed class SchoolActivationController : ControllerBase
     {
         try
         {
-            var session = await _activation.StartAsync(request, cancellationToken);
+            // Phase 7 — rejet croisé token_type avant validation HMAC parent.
+            ParentActivationTokenTypeGuard.EnsureNotSchoolEstablishmentToken(request?.Token);
+            var session = await _activation.StartAsync(request!, cancellationToken);
             return Ok(session);
         }
         catch (InvalidOperationException ex)

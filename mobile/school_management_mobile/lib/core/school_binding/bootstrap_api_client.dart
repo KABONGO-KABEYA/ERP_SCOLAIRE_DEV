@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../config/bootstrap_config.dart';
 import '../school_binding/activation_session.dart';
+import '../school_binding/establishment_session.dart';
 import '../school_binding/school_binding.dart';
 
 class BootstrapStartRequest {
@@ -37,7 +38,40 @@ class BootstrapCompleteRequest {
       };
 }
 
-/// Client HTTP Bootstrap (architecture v2 §4.1 — activation uniquement).
+class EstablishmentStartRequest {
+  EstablishmentStartRequest({
+    required this.token,
+    required this.deviceId,
+    this.clientHints,
+  });
+
+  final String token;
+  final String deviceId;
+  final Map<String, dynamic>? clientHints;
+
+  Map<String, dynamic> toJson() => {
+        'token': token,
+        'deviceId': deviceId,
+        if (clientHints != null) 'clientHints': clientHints,
+      };
+}
+
+class EstablishmentCompleteRequest {
+  EstablishmentCompleteRequest({
+    required this.establishmentSessionId,
+    required this.deviceId,
+  });
+
+  final String establishmentSessionId;
+  final String deviceId;
+
+  Map<String, dynamic> toJson() => {
+        'establishmentSessionId': establishmentSessionId,
+        'deviceId': deviceId,
+      };
+}
+
+/// Client HTTP Bootstrap (activation parent + establishment).
 class BootstrapApiClient {
   BootstrapApiClient({Dio? dio})
       : _dio = dio ??
@@ -50,6 +84,9 @@ class BootstrapApiClient {
 
   final Dio _dio;
 
+  Dio get dio => _dio;
+
+  /// ParentActivation — `/activation/start` (refuse `school_establishment`).
   Future<ActivationSession> start(BootstrapStartRequest request) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/activation/start',
@@ -61,6 +98,28 @@ class BootstrapApiClient {
   Future<SchoolBinding> complete(BootstrapCompleteRequest request) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/activation/complete',
+      data: request.toJson(),
+    );
+    return SchoolBinding.fromJson(response.data ?? {});
+  }
+
+  /// QR établissement — `/establishment/start`.
+  Future<EstablishmentSession> startEstablishment(
+    EstablishmentStartRequest request,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/establishment/start',
+      data: request.toJson(),
+    );
+    return EstablishmentSession.fromJson(response.data ?? {});
+  }
+
+  /// QR établissement — `/establishment/complete` → [SchoolBinding].
+  Future<SchoolBinding> completeEstablishment(
+    EstablishmentCompleteRequest request,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/establishment/complete',
       data: request.toJson(),
     );
     return SchoolBinding.fromJson(response.data ?? {});

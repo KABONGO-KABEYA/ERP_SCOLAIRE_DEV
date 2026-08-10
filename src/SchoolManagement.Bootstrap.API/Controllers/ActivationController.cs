@@ -20,7 +20,9 @@ public sealed class ActivationController : ControllerBase
     {
         try
         {
-            var session = await _orchestrator.StartAsync(request, cancellationToken);
+            // Phase 7 — garde-fou Application partagé (token_type / typ).
+            ParentActivationTokenTypeGuard.EnsureNotSchoolEstablishmentToken(request?.Token);
+            var session = await _orchestrator.StartAsync(request!, cancellationToken);
             return Ok(session);
         }
         catch (InvalidOperationException ex)

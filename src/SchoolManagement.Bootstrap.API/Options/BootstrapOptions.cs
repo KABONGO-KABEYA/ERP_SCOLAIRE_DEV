@@ -6,6 +6,25 @@ public sealed class BootstrapOptions
 
     public string RelayApiKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Chaîne SQL du registre Bootstrap (DB dédiée <c>SchoolManagementBootstrap</c>).
+    /// Env Coolify : <c>Bootstrap__ConnectionString</c> ou <c>BOOTSTRAP_CONNECTION_STRING</c>.
+    /// </summary>
+    public string? ConnectionString { get; set; }
+
+    /// <summary>
+    /// Phase 8 : défaut <c>false</c> — le registre SQL fait foi.
+    /// Si <c>true</c>, fallback lecture <c>Bootstrap:Schools</c> uniquement si l'école est absente du SQL.
+    /// Ne pas réactiver pour contourner un échec cutover : identifier la dépendance.
+    /// </summary>
+    public bool AllowLegacyEnvSchoolRegistry { get; set; }
+
+    /// <summary>TTL session establish start→complete (minutes). Spec : 10–15.</summary>
+    public int EstablishmentSessionMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Legacy Coolify env — migrés au démarrage vers SQL puis à retirer (<c>Bootstrap__Schools__*</c>).
+    /// </summary>
     public List<SchoolRegistryEntryOptions> Schools { get; set; } = [];
 }
 
@@ -17,18 +36,11 @@ public sealed class SchoolRegistryEntryOptions
 
     public string CloudBaseUrl { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Empreinte SHA-256 (hex) de la clé publique RSA école — alignée sur health <c>identity.publicKeyFingerprint</c>.
-    /// Non utilisée en runtime v2.0.1 ; préparation registre / pinning (étape 8, cf. doc registre Bootstrap).
-    /// </summary>
     public string? PublicKeyFingerprint { get; set; }
 
-    /// <summary>Version de clé école (<c>identity.keyVersion</c>).</summary>
     public int? KeyVersion { get; set; }
 
-    /// <summary>PEM clé publique école (optionnel) — validation relay JWT / signature health (futur).</summary>
     public string? PublicKeyPem { get; set; }
 
-    /// <summary>Dernière instance serveur connue (audit ops, optionnel).</summary>
     public string? ServerInstanceId { get; set; }
 }

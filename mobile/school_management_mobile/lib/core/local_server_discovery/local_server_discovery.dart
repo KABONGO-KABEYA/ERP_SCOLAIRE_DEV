@@ -56,11 +56,11 @@ class LocalServerDiscovery {
   /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
   /// Si le Local n'est plus éligible → découverte complète.
   Future<DiscoveryResult> recheck() async {
-    if (await SchoolBindingGate.shouldRequireActivationQr()) {
-      debugPrint('[Discovery] Registre vide → pas de discovery (QR requis)');
+    if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
+      debugPrint('[Discovery] Registre vide → pas de discovery (QR établissement requis)');
       return _publish(
         DiscoveryResult.offline(
-          'Activez l\'application avec le QR code de l\'école.',
+          'Rejoignez un établissement avec le QR code de l\'école.',
         ),
       );
     }
@@ -110,11 +110,11 @@ class LocalServerDiscovery {
 
   Future<DiscoveryResult> _run(int gen) async {
     _publish(DiscoveryResult.detecting);
-    if (await SchoolBindingGate.shouldRequireActivationQr()) {
-      debugPrint('[Discovery] Registre vide → pas de discovery (QR requis)');
+    if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
+      debugPrint('[Discovery] Registre vide → pas de discovery (QR établissement requis)');
       return _publish(
         DiscoveryResult.offline(
-          'Activez l\'application avec le QR code de l\'école.',
+          'Rejoignez un établissement avec le QR code de l\'école.',
         ),
       );
     }
