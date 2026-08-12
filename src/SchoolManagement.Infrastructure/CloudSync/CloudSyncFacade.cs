@@ -38,6 +38,7 @@ public sealed class CloudSyncFacade : ICloudSyncFacade
         return await _engine.DrainAsync(
             criticalOnly,
             maxUnits: criticalOnly ? 25 : 80,
-            cancellationToken);
+            control: CloudSyncDrainControl.Production,
+            cancellationToken: cancellationToken);
     }
 }

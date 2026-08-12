@@ -36,4 +36,5 @@ public sealed record CloudSyncRunResultDto(
     int UnitsFailed,
     int RecordsSucceeded,
     int RecordsFailed,
-    int DurationMs);
+    int DurationMs,
+    int OrphanedSoftDeleted = 0);

@@ -1,0 +1,402 @@
+{
+  "startedAtUtc": "2026-08-09T15:59:27.8934833Z",
+  "repoRoot": "d:\\Mes Projet\\ERP_Administration_Scolaire_2026",
+  "database": "Data Source=localhost\\HEROS_SQL19;Initial Catalog=SchoolManagementRDC_Development;Integrated Security=True;Multiple Active Result Sets=True;Connect Timeout=15;Encrypt=False;Trust Server Certificate=True",
+  "schoolId": "71635f62-b975-479d-9e6e-fbacd05e4996",
+  "catalogHarness": {
+    "ModuleCode": "__P3V_MOD_8699bbbe",
+    "PageName": "Page harness 8699bbbe",
+    "permCodeA": "__p3v.cat.a.8699bbbe",
+    "permCodeB": "__p3v.cat.b.8699bbbe"
+  },
+  "perfMs": {
+    "listUsers": 15.1004,
+    "explain": 7.8292
+  },
+  "finishedAtUtc": "2026-08-09T15:59:46.27728Z",
+  "checks": [
+    {
+      "Name": "Users \u2014 cr\u00E9ation",
+      "Passed": true,
+      "Detail": "id=a6c55150-0f2d-4e14-a680-c3fc9b716df2 roles=0 teacherId=1537e702-05e0-4217-905d-abe0c7d43171"
+    },
+    {
+      "Name": "Users \u2014 candidat exclu apr\u00E8s cr\u00E9ation",
+      "Passed": true,
+      "Detail": "count=0"
+    },
+    {
+      "Name": "Users \u2014 refus double compte personnel",
+      "Passed": true,
+      "Detail": "Ce personnel poss\u00E8de d\u00E9j\u00E0 un compte utilisateur. Cr\u00E9ation refus\u00E9e."
+    },
+    {
+      "Name": "Users \u2014 multi-r\u00F4les (apr\u00E8s cr\u00E9ation)",
+      "Passed": true,
+      "Detail": "roles=[ENSEIGNANT,PARENT]"
+    },
+    {
+      "Name": "Users \u2014 d\u00E9sactivation",
+      "Passed": true,
+      "Detail": "IsActive=false"
+    },
+    {
+      "Name": "Users \u2014 r\u00E9activation \u002B reset MDP",
+      "Passed": true,
+      "Detail": "MustChangePassword=true"
+    },
+    {
+      "Name": "Audit \u2014 User.Created",
+      "Passed": true,
+      "Detail": "SecurityAuditLogs"
+    },
+    {
+      "Name": "Roles \u2014 ADMIN IsSystem",
+      "Passed": true,
+      "Detail": "IsSystem=true"
+    },
+    {
+      "Name": "Roles \u2014 suppression r\u00F4le syst\u00E8me refus\u00E9e",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "Roles \u2014 cr\u00E9ation \u00E9tablissement",
+      "Passed": true,
+      "Detail": "__P3V_CUSTOM_EFDB1FB9"
+    },
+    {
+      "Name": "Roles \u2014 matrice ADMIN lecture seule",
+      "Passed": true,
+      "Detail": "DomainException"
+    },
+    {
+      "Name": "Roles \u2014 auto-pr\u00E9requis students.create \u2192 students.read",
+      "Passed": true,
+      "Detail": "codes=[students.create,students.read]"
+    },
+    {
+      "Name": "Exceptions \u2014 Deny visible dans Explain",
+      "Passed": true,
+      "Detail": "IsEffective=False origins=2"
+    },
+    {
+      "Name": "Exceptions \u2014 Grant expir\u00E9 absent effectif",
+      "Passed": true,
+      "Detail": "schools.read"
+    },
+    {
+      "Name": "Exceptions \u2014 chevauchements Grant r\u00E9solus",
+      "Passed": true,
+      "Detail": "currencies.create pr\u00E9sent"
+    },
+    {
+      "Name": "Audit \u2014 Exception.Denied journalis\u00E9e",
+      "Passed": true,
+      "Detail": "ok"
+    },
+    {
+      "Name": "Catalogue \u2014 module cr\u00E9\u00E9",
+      "Passed": true,
+      "Detail": "__P3V_MOD_8699BBBE / __P3V_MOD_8699bbbe"
+    },
+    {
+      "Name": "Catalogue \u2014 audit Catalog.ModuleCreated",
+      "Passed": true,
+      "Detail": "SecurityAuditLogs"
+    },
+    {
+      "Name": "Catalogue \u2014 fonction cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "FN_8699BBBE"
+    },
+    {
+      "Name": "Catalogue \u2014 page cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "PG_8699BBBE"
+    },
+    {
+      "Name": "Catalogue \u2014 action cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "ACT_8699BBBE"
+    },
+    {
+      "Name": "Catalogue \u2014 permission A cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "Harness perm A"
+    },
+    {
+      "Name": "Catalogue \u2014 permission B cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "Help B"
+    },
+    {
+      "Name": "Catalogue \u2014 module mis \u00E0 jour",
+      "Passed": true,
+      "Detail": "nom \u002B sort"
+    },
+    {
+      "Name": "Catalogue \u2014 arbre contient le module test",
+      "Passed": true,
+      "Detail": "__P3V_MOD_8699bbbe"
+    },
+    {
+      "Name": "Catalogue \u2014 garde-fou Desktop modules SECURITY/PLATFORM/SETTINGS",
+      "Passed": true,
+      "Detail": "ProtectedModuleCodes"
+    },
+    {
+      "Name": "Catalogue \u2014 garde-fou Desktop permissions admin.full / platform.*",
+      "Passed": true,
+      "Detail": "ProtectedPermissionCodes"
+    },
+    {
+      "Name": "Catalogue \u2014 permission critique platform.superadmin active en BD",
+      "Passed": true,
+      "Detail": "Plateforme \u2014 Super Admin"
+    },
+    {
+      "Name": "Catalogue \u2014 permission critique platform.catalog.manage active en BD",
+      "Passed": true,
+      "Detail": "Plateforme \u2014 Catalogue"
+    },
+    {
+      "Name": "Catalogue \u2014 permission critique admin.full active en BD",
+      "Passed": true,
+      "Detail": "Administrateur \u00E9tablissement"
+    },
+    {
+      "Name": "Catalogue \u2014 d\u00E9pendance cr\u00E9\u00E9e",
+      "Passed": true,
+      "Detail": "__p3v.cat.a.8699bbbe \u2192 __p3v.cat.b.8699bbbe"
+    },
+    {
+      "Name": "Catalogue \u2014 doublon d\u00E9pendance refus\u00E9",
+      "Passed": true,
+      "Detail": "DomainException"
+    },
+    {
+      "Name": "Catalogue \u2014 cycle d\u00E9pendance refus\u00E9 (harness A\u2194B)",
+      "Passed": true,
+      "Detail": "DomainException"
+    },
+    {
+      "Name": "Catalogue \u2014 cycle d\u00E9pendance refus\u00E9 (grades.read \u2192 grades.create)",
+      "Passed": true,
+      "Detail": "r\u00E9gression catalogue"
+    },
+    {
+      "Name": "Catalogue \u2014 d\u00E9pendance supprim\u00E9e",
+      "Passed": true,
+      "Detail": "RemoveDependencyAsync"
+    },
+    {
+      "Name": "Catalogue \u2014 audit d\u00E9pendance / permission",
+      "Passed": true,
+      "Detail": "SecurityAuditLogs"
+    },
+    {
+      "Name": "Catalogue \u2014 navigation Desktop inclut page harness",
+      "Passed": true,
+      "Detail": "Page harness 8699bbbe"
+    },
+    {
+      "Name": "Catalogue \u2014 page harness DesktopViewKey r\u00E9solue",
+      "Passed": true,
+      "Detail": "Dashboard.Main ok"
+    },
+    {
+      "Name": "Catalogue API \u2014 EnsurePlatformSuperAdmin \u002B policy platform.catalog.manage",
+      "Passed": true,
+      "Detail": "PlatformCatalogController"
+    },
+    {
+      "Name": "Desktop \u2014 IPlatformCatalogApiService impl\u00E9ment\u00E9",
+      "Passed": true,
+      "Detail": "ApiServices"
+    },
+    {
+      "Name": "Desktop \u2014 PlatformCatalogView onglets Navigation/Permissions/D\u00E9pendances/Audit",
+      "Passed": true,
+      "Detail": "PlatformCatalogView.xaml"
+    },
+    {
+      "Name": "Desktop \u2014 PlatformCatalogView champs DisplayName / HelpText / m\u00E9tier",
+      "Passed": true,
+      "Detail": "ergonomie admin"
+    },
+    {
+      "Name": "Desktop \u2014 PlatformCatalogViewModel commandes Load/Save/Dependencies",
+      "Passed": true,
+      "Detail": "PlatformCatalogViewModel"
+    },
+    {
+      "Name": "Policies \u2014 PARENT refus\u00E9 security.users.manage",
+      "Passed": true,
+      "Detail": "403 attendu"
+    },
+    {
+      "Name": "Policies \u2014 ADMIN autoris\u00E9 security.users.manage",
+      "Passed": true,
+      "Detail": "admin.full bypass"
+    },
+    {
+      "Name": "Policies \u2014 PARENT refus\u00E9 platform.catalog.manage",
+      "Passed": true,
+      "Detail": "403 attendu"
+    },
+    {
+      "Name": "Policies \u2014 ADMIN autoris\u00E9 platform.catalog.manage",
+      "Passed": true,
+      "Detail": "admin.full"
+    },
+    {
+      "Name": "Policies \u2014 Super Admin plateforme autoris\u00E9 platform.catalog.manage",
+      "Passed": true,
+      "Detail": "effectif=True policy=True"
+    },
+    {
+      "Name": "Policies \u2014 utilisateur standard (PARENT) refus\u00E9 platform (403 attendu)",
+      "Passed": true,
+      "Detail": "in-process"
+    },
+    {
+      "Name": "Policies \u2014 policy enregistr\u00E9e security.users.manage",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "Policies \u2014 policy enregistr\u00E9e security.roles.manage",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "Policies \u2014 policy enregistr\u00E9e security.exceptions.manage",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "Policies \u2014 policy enregistr\u00E9e security.audit.read",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "Policies \u2014 policy enregistr\u00E9e platform.catalog.manage",
+      "Passed": true,
+      "Detail": "ADMIN"
+    },
+    {
+      "Name": "API \u2014 SecurityAdminController policies security.*",
+      "Passed": true,
+      "Detail": "fichier source"
+    },
+    {
+      "Name": "API \u2014 PlatformCatalogController policy platform.catalog.manage",
+      "Passed": true,
+      "Detail": "fichier source"
+    },
+    {
+      "Name": "API \u2014 AdminController users migr\u00E9 security.users.manage",
+      "Passed": true,
+      "Detail": "GET users"
+    },
+    {
+      "Name": "Desktop \u2014 registre Security.Users",
+      "Passed": true,
+      "Detail": "DirectDesktopViewTarget"
+    },
+    {
+      "Name": "Desktop \u2014 registre Security.Roles",
+      "Passed": true,
+      "Detail": "DirectDesktopViewTarget"
+    },
+    {
+      "Name": "Desktop \u2014 registre Security.Exceptions",
+      "Passed": true,
+      "Detail": "DirectDesktopViewTarget"
+    },
+    {
+      "Name": "Desktop \u2014 registre Security.Audit",
+      "Passed": true,
+      "Detail": "DirectDesktopViewTarget"
+    },
+    {
+      "Name": "Desktop \u2014 registre Platform.Catalog",
+      "Passed": true,
+      "Detail": "DirectDesktopViewTarget"
+    },
+    {
+      "Name": "Desktop \u2014 paire VM/View SecurityUsersViewModel",
+      "Passed": true,
+      "Detail": "SecurityUsersView"
+    },
+    {
+      "Name": "Desktop \u2014 paire VM/View SecurityRolesViewModel",
+      "Passed": true,
+      "Detail": "SecurityRolesView"
+    },
+    {
+      "Name": "Desktop \u2014 paire VM/View SecurityExceptionsViewModel",
+      "Passed": true,
+      "Detail": "SecurityExceptionsView"
+    },
+    {
+      "Name": "Desktop \u2014 paire VM/View SecurityAuditViewModel",
+      "Passed": true,
+      "Detail": "SecurityAuditView"
+    },
+    {
+      "Name": "Desktop \u2014 paire VM/View PlatformCatalogViewModel",
+      "Passed": true,
+      "Detail": "PlatformCatalogView"
+    },
+    {
+      "Name": "Nav Phase 2 \u2014 cl\u00E9s Security.* r\u00E9solues",
+      "Passed": true,
+      "Detail": "0 unresolved Security.*"
+    },
+    {
+      "Name": "Nav \u2014 cl\u00E9s Platform.* r\u00E9solues",
+      "Passed": true,
+      "Detail": "0 unresolved Platform.*"
+    },
+    {
+      "Name": "Non-r\u00E9gression Phase 1 \u2014 HasPermission PARENT payments.read",
+      "Passed": true,
+      "Detail": "true"
+    },
+    {
+      "Name": "Non-r\u00E9gression Phase 1 \u2014 HasPermission PARENT students.delete",
+      "Passed": true,
+      "Detail": "false"
+    },
+    {
+      "Name": "Non-r\u00E9gression JWT \u2014 codes uniquement",
+      "Passed": true,
+      "Detail": "sampleCount=5"
+    },
+    {
+      "Name": "Perf \u2014 GetUsersAsync \u003C 3000 ms",
+      "Passed": true,
+      "Detail": "15 ms"
+    },
+    {
+      "Name": "Perf \u2014 ExplainAsync \u003C 3000 ms",
+      "Passed": true,
+      "Detail": "8 ms"
+    },
+    {
+      "Name": "Audit \u2014 requ\u00EAte filtre \u00E9cole",
+      "Passed": true,
+      "Detail": "rows=19"
+    },
+    {
+      "Name": "Roles \u2014 suppression r\u00F4le \u00E9tablissement",
+      "Passed": true,
+      "Detail": "3d907852-7079-4469-a41c-f8316dedd91e"
+    }
+  ],
+  "passed": 76,
+  "failed": 0,
+  "total": 76
+}

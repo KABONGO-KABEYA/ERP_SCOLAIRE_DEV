@@ -1,0 +1,77 @@
+PASS | Users — création | id=a6c55150-0f2d-4e14-a680-c3fc9b716df2 roles=0 teacherId=1537e702-05e0-4217-905d-abe0c7d43171
+PASS | Users — candidat exclu après création | count=0
+PASS | Users — refus double compte personnel | Ce personnel possède déjà un compte utilisateur. Création refusée.
+PASS | Users — multi-rôles (après création) | roles=[ENSEIGNANT,PARENT]
+PASS | Users — désactivation | IsActive=false
+PASS | Users — réactivation + reset MDP | MustChangePassword=true
+PASS | Audit — User.Created | SecurityAuditLogs
+PASS | Roles — ADMIN IsSystem | IsSystem=true
+PASS | Roles — suppression rôle système refusée | ADMIN
+PASS | Roles — création établissement | __P3V_CUSTOM_EFDB1FB9
+PASS | Roles — matrice ADMIN lecture seule | DomainException
+PASS | Roles — auto-prérequis students.create → students.read | codes=[students.create,students.read]
+PASS | Exceptions — Deny visible dans Explain | IsEffective=False origins=2
+PASS | Exceptions — Grant expiré absent effectif | schools.read
+PASS | Exceptions — chevauchements Grant résolus | currencies.create présent
+PASS | Audit — Exception.Denied journalisée | ok
+PASS | Catalogue — module créé | __P3V_MOD_8699BBBE / __P3V_MOD_8699bbbe
+PASS | Catalogue — audit Catalog.ModuleCreated | SecurityAuditLogs
+PASS | Catalogue — fonction créée | FN_8699BBBE
+PASS | Catalogue — page créée | PG_8699BBBE
+PASS | Catalogue — action créée | ACT_8699BBBE
+PASS | Catalogue — permission A créée | Harness perm A
+PASS | Catalogue — permission B créée | Help B
+PASS | Catalogue — module mis à jour | nom + sort
+PASS | Catalogue — arbre contient le module test | __P3V_MOD_8699bbbe
+PASS | Catalogue — garde-fou Desktop modules SECURITY/PLATFORM/SETTINGS | ProtectedModuleCodes
+PASS | Catalogue — garde-fou Desktop permissions admin.full / platform.* | ProtectedPermissionCodes
+PASS | Catalogue — permission critique platform.superadmin active en BD | Plateforme — Super Admin
+PASS | Catalogue — permission critique platform.catalog.manage active en BD | Plateforme — Catalogue
+PASS | Catalogue — permission critique admin.full active en BD | Administrateur établissement
+PASS | Catalogue — dépendance créée | __p3v.cat.a.8699bbbe → __p3v.cat.b.8699bbbe
+PASS | Catalogue — doublon dépendance refusé | DomainException
+PASS | Catalogue — cycle dépendance refusé (harness A↔B) | DomainException
+PASS | Catalogue — cycle dépendance refusé (grades.read → grades.create) | régression catalogue
+PASS | Catalogue — dépendance supprimée | RemoveDependencyAsync
+PASS | Catalogue — audit dépendance / permission | SecurityAuditLogs
+PASS | Catalogue — navigation Desktop inclut page harness | Page harness 8699bbbe
+PASS | Catalogue — page harness DesktopViewKey résolue | Dashboard.Main ok
+PASS | Catalogue API — EnsurePlatformSuperAdmin + policy platform.catalog.manage | PlatformCatalogController
+PASS | Desktop — IPlatformCatalogApiService implémenté | ApiServices
+PASS | Desktop — PlatformCatalogView onglets Navigation/Permissions/Dépendances/Audit | PlatformCatalogView.xaml
+PASS | Desktop — PlatformCatalogView champs DisplayName / HelpText / métier | ergonomie admin
+PASS | Desktop — PlatformCatalogViewModel commandes Load/Save/Dependencies | PlatformCatalogViewModel
+PASS | Policies — PARENT refusé security.users.manage | 403 attendu
+PASS | Policies — ADMIN autorisé security.users.manage | admin.full bypass
+PASS | Policies — PARENT refusé platform.catalog.manage | 403 attendu
+PASS | Policies — ADMIN autorisé platform.catalog.manage | admin.full
+PASS | Policies — Super Admin plateforme autorisé platform.catalog.manage | effectif=True policy=True
+PASS | Policies — utilisateur standard (PARENT) refusé platform (403 attendu) | in-process
+PASS | Policies — policy enregistrée security.users.manage | ADMIN
+PASS | Policies — policy enregistrée security.roles.manage | ADMIN
+PASS | Policies — policy enregistrée security.exceptions.manage | ADMIN
+PASS | Policies — policy enregistrée security.audit.read | ADMIN
+PASS | Policies — policy enregistrée platform.catalog.manage | ADMIN
+PASS | API — SecurityAdminController policies security.* | fichier source
+PASS | API — PlatformCatalogController policy platform.catalog.manage | fichier source
+PASS | API — AdminController users migré security.users.manage | GET users
+PASS | Desktop — registre Security.Users | DirectDesktopViewTarget
+PASS | Desktop — registre Security.Roles | DirectDesktopViewTarget
+PASS | Desktop — registre Security.Exceptions | DirectDesktopViewTarget
+PASS | Desktop — registre Security.Audit | DirectDesktopViewTarget
+PASS | Desktop — registre Platform.Catalog | DirectDesktopViewTarget
+PASS | Desktop — paire VM/View SecurityUsersViewModel | SecurityUsersView
+PASS | Desktop — paire VM/View SecurityRolesViewModel | SecurityRolesView
+PASS | Desktop — paire VM/View SecurityExceptionsViewModel | SecurityExceptionsView
+PASS | Desktop — paire VM/View SecurityAuditViewModel | SecurityAuditView
+PASS | Desktop — paire VM/View PlatformCatalogViewModel | PlatformCatalogView
+PASS | Nav Phase 2 — clés Security.* résolues | 0 unresolved Security.*
+PASS | Nav — clés Platform.* résolues | 0 unresolved Platform.*
+PASS | Non-régression Phase 1 — HasPermission PARENT payments.read | true
+PASS | Non-régression Phase 1 — HasPermission PARENT students.delete | false
+PASS | Non-régression JWT — codes uniquement | sampleCount=5
+PASS | Perf — GetUsersAsync < 3000 ms | 15 ms
+PASS | Perf — ExplainAsync < 3000 ms | 8 ms
+PASS | Audit — requête filtre école | rows=19
+PASS | Roles — suppression rôle établissement | 3d907852-7079-4469-a41c-f8316dedd91e
+TOTAL: 76/76 passed

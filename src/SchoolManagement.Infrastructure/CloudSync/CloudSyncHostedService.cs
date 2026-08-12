@@ -73,7 +73,11 @@ public sealed class CloudSyncHostedService : BackgroundService
                 var engine = scope.ServiceProvider.GetRequiredService<ICloudSyncEngine>();
 
                 // Drain critique quasi immédiat
-                var critical = await engine.DrainAsync(criticalOnly: true, maxUnits: 80, stoppingToken);
+                var critical = await engine.DrainAsync(
+                    criticalOnly: true,
+                    maxUnits: 80,
+                    control: CloudSyncDrainControl.Production,
+                    cancellationToken: stoppingToken);
                 if (!critical.Skipped && (critical.UnitsSucceeded > 0 || critical.UnitsFailed > 0))
                 {
                     _logger.LogInformation(
@@ -85,7 +89,11 @@ public sealed class CloudSyncHostedService : BackgroundService
                 {
                     await engine.TryBootstrapFullSyncIfNeededAsync(stoppingToken);
                     await engine.EnqueueCatchUpAsync(stoppingToken);
-                    var full = await engine.DrainAsync(criticalOnly: false, maxUnits: 150, stoppingToken);
+                    var full = await engine.DrainAsync(
+                        criticalOnly: false,
+                        maxUnits: 150,
+                        control: CloudSyncDrainControl.Production,
+                        cancellationToken: stoppingToken);
                     lastFullDrain = DateTime.UtcNow;
 
                     if (full.Skipped)

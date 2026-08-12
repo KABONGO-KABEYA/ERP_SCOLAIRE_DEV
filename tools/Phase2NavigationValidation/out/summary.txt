@@ -1,0 +1,24 @@
+PASS | Nav Desktop ADMIN non vide | modules=14 pages=42
+PASS | Nav Desktop PARENT sous-ensemble | parentPages=9 adminPages=42
+PASS | Nav Desktop ENSEIGNANT sous-ensemble | teacherPages=14 adminPages=42
+PASS | Nav Desktop COMPTABLE sous-ensemble | comptablePages=15 adminPages=42
+PASS | Filtre — PARENT sans Personnel.Liste | hasPersonnel=False
+PASS | Filtre — PARENT sans Settings.Geographie (admin.full) | hasGeo=False
+PASS | Filtre — PARENT avec Grades.Main (grades.read) | hasGrades=True
+PASS | Filtre — ENSEIGNANT avec Grades.Main, sans Finance.Encaissements | keys=[Settings.Etablissement,Settings.StructurePedagogique,Settings.AnneesScolaires,Settings.Matieres,Settings.FraisScolaires,Students.Main,Academic.Main,Grades.Main,Results.ParClasse,Results.Individuel,Results.ValidationResultats,Results.Deliberation]
+PASS | Filtre — COMPTABLE avec Finance.Encaissements | ok
+PASS | Canal Web — aucune page (seed Web=false) | pages=0
+PASS | Canal Mobile — aucune page (seed Mobile=false) | pages=0
+PASS | Menu builder ADMIN — modules > 0 | modules=13
+PASS | Menu builder — clés non résolues omises (Security.Roles/Exceptions/Audit attendues) | unresolved=[Settings.ParentActivation]
+PASS | Parité modules shell vs catalogue ADMIN | all present
+PASS | Cache local — sérialisation / désérialisation | reloadedPages=42
+PASS | DesktopNavigationLocalCache — Save/Load | pages=9
+PASS | Cache local — fichier absent = null (pas de menu hardcodé) | no fallback static path in cache layer
+PASS | Menus hardcodés absents de ShellViewModel | InitializeNavigationAsync present, static ModuleNavItem list absent
+PASS | Plan — cache local (pas fallback statique) | plan updated
+PASS | Invalidation — Dashboard.Main retiré après désactivation page | hasDashboard=False pages=41
+PASS | Invalidation — Dashboard.Main revenu après réactivation | ok
+PASS | Non-régression Phase 1 — HasPermissionAsync | payments.read=True students.delete=False
+PASS | DesktopViewKey inconnue — omise sans crash | unresolved=[Does.Not.Exist]
+TOTAL: 23/23 passed

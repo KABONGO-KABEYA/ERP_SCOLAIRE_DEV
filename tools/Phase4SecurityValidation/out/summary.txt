@@ -1,0 +1,99 @@
+PASS | Doc — PHASE4_PERSONAS.md | personas
+PASS | Doc — PHASE4_PLANNED_PERMISSIONS.md | planned
+PASS | Doc — PHASE4_MIGRATION_CHECKLIST_TEMPLATE.md | checklist
+PASS | Doc — PHASE4_LOT0_VALIDATION.md | lot0 report
+PASS | Doc — PHASE4_LOT1_VALIDATION.md | lot1 report
+PASS | Doc — PHASE4_LOT2_VALIDATION.md | lot2 report
+PASS | Doc — PHASE4_LOT3_VALIDATION.md | lot3 report
+PASS | Doc — PHASE4_LOT4_VALIDATION.md | lot4 report
+PASS | Doc — PHASE4_LOT5_VALIDATION.md | lot5 report
+PASS | Doc — PHASE4_LOT6_VALIDATION.md | lot6 report
+PASS | Doc — PHASE4_LOT7_VALIDATION.md | lot7 report
+PASS | Doc — PHASE4_VALIDATION_REPORT.md | phase4 closure
+PASS | Doc — SECURITY_ENGINE_ARCHITECTURE.md | architecture ref
+PASS | Desktop — HasPermission positif | grades.create
+PASS | Desktop — HasPermission négatif | security.users.manage
+PASS | Desktop — HasPermission ignore rôle ADMIN sans code | pas de fallback rôle
+PASS | Desktop — SessionPermissions.Can | Can
+PASS | Desktop — IAuthSessionService.HasPermission déclaré | interface
+PASS | Desktop — SessionPermissions.cs présent | d:\Mes Projet\ERP_Administration_Scolaire_2026\src\SchoolManagement.Desktop\Services\SessionPermissions.cs
+PASS | Lot1 — PaymentsController sans AdminFull | grep
+PASS | Lot1 — FinanceController sans AdminFull | grep
+PASS | Lot1 — PaymentMutationPolicy sans IsAdministrator | grep
+PASS | Lot1 — Desktop finance sans IsAdministrator | grep périmètre Lot 1
+PASS | Lot1 — Permissions.All contient payments.cancel | payments.cancel
+PASS | Lot1 — Permissions.All contient payments.notes.update | payments.notes.update
+PASS | Lot1 — Permissions.All contient payments.paid-mutation | payments.paid-mutation
+PASS | Lot1 — Permissions.All contient pricing-categories.assign | pricing-categories.assign
+PASS | Lot2 — PersonnelController sans AdminFull | grep
+PASS | Lot2 — routes teachers policy TeachersManage | grep
+PASS | Lot2 — SettingsViewModel teachers via TeachersManage | SessionPermissions
+PASS | Lot2 — Permissions.All contient personnel.read | personnel.read
+PASS | Lot2 — Permissions.All contient personnel.manage | personnel.manage
+PASS | Lot2 — Permissions.All contient teachers.manage | teachers.manage
+PASS | Lot3 — GeographyAdminController sans AdminFull | grep
+PASS | Lot3 — CloudSyncController sans AdminFull | grep
+PASS | Lot3 — UpdateController sans AdminFull | grep
+PASS | Lot3 — ParentActivationIssueController sans AdminFull | grep
+PASS | Lot3 — GeographyController GET schools.read | policy lecture
+PASS | Lot3 — Permissions.All contient geography.manage | geography.manage
+PASS | Lot3 — Permissions.All contient cloud-sync.manage | cloud-sync.manage
+PASS | Lot3 — Permissions.All contient updates.manage | updates.manage
+PASS | Lot3 — Permissions.All contient parent-activation.manage | parent-activation.manage
+PASS | Lot4 — PedagogicalPeriodsController sans AdminFull | grep
+PASS | Lot4 — PedagogicalPeriodsController active grades.read | policy lecture
+PASS | Lot4 — PedagogicalPeriodService sans EnsureAdministrator/IsAdministrator | grep
+PASS | Lot4 — PedagogicalPeriodService PedagogicalPeriodsManage | HasPermission
+PASS | Lot4 — PedagogicalPeriodsViewModel SessionPermissions | Desktop
+PASS | Lot4 — Permissions.All contient pedagogical-periods.manage | pedagogical-periods.manage
+PASS | Lot5 — ResultValidationService sans HasElevatedRole | grep
+PASS | Lot5 — ResultValidationService sans IsAdministrator | grep
+PASS | Lot5 — ResultValidationService sans AdminFull | grep
+PASS | Lot5 — CanValidate → results-validation.validate only | permission
+PASS | Lot5 — CanLock → results-validation.lock only | permission
+PASS | Lot5 — CanUnlock → results-validation.unlock only | permission
+PASS | Lot5 — pas de recouvrement calendrier dans ResultValidationService | séparation domaines
+PASS | Lot5 — séparation période active (grades.read) vs calendrier (manage) | cross-check Lot 4
+PASS | Lot5 — API validate/lock/unlock policies distinctes | API
+PASS | Lot6 — Application sans HasRole( | grep src/Application
+PASS | Lot6 — Cotation sans IsAdministrator | grep
+PASS | Lot6 — scope delegate permission | HasPermission
+PASS | Lot6 — scope class permission | HasPermission
+PASS | Lot6 — DeleteEvaluation delete-with-grades permission | permission
+PASS | Lot6 — recalc manuel GradesRecalculate | permission
+PASS | Lot6 — workflow recalc AfterDataChange | method
+PASS | Lot6 — publish sans results-validation | indépendance publication
+PASS | Lot6 — DELETE evaluations GradesDelete | API
+PASS | Lot6 — calculate GradesRecalculate | API
+PASS | Lot6 — publish/unpublish policies distinctes | API
+PASS | Lot6 — Desktop cotation GradesCotationDelegate | SessionPermissions
+PASS | Lot6 — Desktop cotation sans rôles JWT hardcodés | grep
+PASS | Lot6 — Permissions.All contient grades.delete | grades.delete
+PASS | Lot6 — Permissions.All contient grades.evaluation.delete-with-grades | grades.evaluation.delete-with-grades
+PASS | Lot6 — Permissions.All contient grades.recalculate | grades.recalculate
+PASS | Lot6 — Permissions.All contient grades.publish | grades.publish
+PASS | Lot6 — Permissions.All contient grades.unpublish | grades.unpublish
+PASS | Lot6 — Permissions.All contient grades.cotation.delegate | grades.cotation.delegate
+PASS | Lot6 — Permissions.All contient grades.cotation.scope.class | grades.cotation.scope.class
+PASS | Lot7 — Application sans HasRole( | grep
+PASS | Lot7 — Application sans HasElevatedRole | grep
+PASS | Lot7 — Desktop modules migrés sans IsAdministrator | grep
+PASS | Lot7 — HttpContextCurrentUser sans Contains ADMIN | grep
+PASS | Lot7 — AuthSession IsAdministrator admin.full only | grep
+PASS | Lot7 — AdminFull uniquement gouvernance (AdminController) | grep controllers métier
+PASS | Lot7 — PermissionAuthorizationHandler admin.full bypass documenté | handler
+PASS | Lot7 — AllowAnonymous inventaire non vide | count=7
+PASS | Lot7 — catalogue aucune permission orpheline | ok
+PASS | Lot7 — aucune policy littérale hors catalogue | ok
+PASS | Lot7 — Permissions.All cohérent avec constantes | extra=0
+PASS | Lot7 — AuthorizationExtensions enregistre Permissions.All | policies
+PASS | Persona — ADMIN permissions attendues | have=True deny=True count=73
+PASS | Persona — DIRECTION permissions attendues | have=True deny=True count=23
+PASS | Persona — PREFET permissions attendues | have=True deny=True count=13
+PASS | Persona — PROMOTEUR permissions attendues | have=True deny=True count=14
+PASS | Persona — ENSEIGNANT permissions attendues | have=True deny=True count=9
+PASS | Persona — COMPTABLE permissions attendues | have=True deny=True count=12
+PASS | Persona — CAISSIER permissions attendues | have=True deny=True count=4
+PASS | Persona — PARENT permissions attendues | have=True deny=True count=4
+PASS | Non-régression — ResolveAsync ADMIN contient admin.full | admin.full
+TOTAL: 98/98 passed

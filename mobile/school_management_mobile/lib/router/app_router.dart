@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_storage.dart';
+import '../core/auth/mobile_role_routing.dart';
 import '../core/providers/app_providers.dart';
 import '../core/connection/connection_mode_notifier.dart';
 import '../core/school_binding/school_binding_gate.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/unsupported_role_screen.dart';
 import '../features/establishment/establishment_gate_screen.dart';
 import '../features/parent/activation/parent_activation_screen.dart';
 import '../features/parent/attendance_screen.dart';
@@ -56,6 +58,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final onEstablish = state.matchedLocation.startsWith('/establish');
       final onActivate = state.matchedLocation.startsWith('/parent/activate');
       final onSchools = state.matchedLocation == '/schools';
+      final onUnsupported =
+          state.matchedLocation == MobileRoleRouting.unsupportedRoute;
       final connection = ref.read(connectionModeProvider);
 
       // Premier lancement / registre vide → QR établissement obligatoire (tous rôles).
@@ -81,6 +85,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         }
       }
 
+      // Cohérence multi-école : jamais ActiveSchoolId ≠ JWT/session SchoolId.
+      if (loggedIn && !await AuthStorage.sessionMatchesActiveSchool) {
+        await AuthStorage.clearSession();
+        await ref.read(authStateProvider.notifier).setLoggedIn(false);
+        if (!onLogin && !onEstablish && !onActivate) {
+          return '/login?reason=school_mismatch';
+        }
+      }
+
       if (loggedIn &&
           await AuthStorage.isParent &&
           await SchoolBindingGate.shouldBlockParentSessionWithoutBinding()) {
@@ -99,19 +112,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/parent/home';
       }
 
-      final canEnroll = await AuthStorage.canManageEnrollments;
-      final writePolicy = ref.read(writePolicyProvider);
-      if (state.matchedLocation.startsWith('/secretary/enrollment') &&
-          !writePolicy.canEnrollStudents) {
-        return '/secretary/home';
-      }
-      if (state.matchedLocation.startsWith('/secretary') && !canEnroll) {
-        return await AuthStorage.homeRoute;
+      if (loggedIn) {
+        final space = await AuthStorage.mobileSpace;
+        final guard = MobileRoleRouting.guardRedirect(
+          space: space,
+          location: state.matchedLocation,
+        );
+        if (guard != null) return guard;
+
+        if (onUnsupported && space != MobileSpace.unsupported) {
+          return MobileRoleRouting.homeRouteFor(space);
+        }
+
+        final writePolicy = ref.read(writePolicyProvider);
+        if (state.matchedLocation.startsWith('/secretary/enrollment') &&
+            !writePolicy.canEnrollStudents) {
+          return '/secretary/home';
+        }
+        if (state.matchedLocation.startsWith('/secretary') &&
+            !await AuthStorage.canManageEnrollments) {
+          return await AuthStorage.homeRoute;
+        }
       }
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: MobileRoleRouting.unsupportedRoute,
+        builder: (_, __) => const UnsupportedRoleScreen(),
+      ),
       GoRoute(
         path: '/establish',
         builder: (context, state) {

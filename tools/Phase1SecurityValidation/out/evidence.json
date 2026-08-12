@@ -1,0 +1,300 @@
+{
+  "startedAtUtc": "2026-08-07T11:40:18.372941Z",
+  "repoRoot": "d:\\Mes Projet\\ERP_Administration_Scolaire_2026",
+  "database": "Data Source=localhost\\HEROS_SQL19;Initial Catalog=SchoolManagementRDC_Development;Integrated Security=True;Multiple Active Result Sets=True;Connect Timeout=15;Encrypt=False;Trust Server Certificate=True",
+  "schoolId": "71635f62-b975-479d-9e6e-fbacd05e4996",
+  "roleCodes": [
+    "ADMIN",
+    "CAISSIER",
+    "COMPTABLE",
+    "DIRECTION",
+    "ENSEIGNANT",
+    "PARENT",
+    "PREFET",
+    "PROMOTEUR",
+    "TEACHER"
+  ],
+  "permissionCount": 54,
+  "singleRole": {
+    "Roles": [
+      "PARENT"
+    ],
+    "PermissionCodes": [
+      "grades.read",
+      "payments.read",
+      "reports.read",
+      "students.read"
+    ],
+    "IsPlatformSuperAdmin": false
+  },
+  "multiRoles": {
+    "Roles": [
+      "COMPTABLE",
+      "ENSEIGNANT"
+    ],
+    "PermissionCount": 12,
+    "PermissionCodes": [
+      "accounting.read",
+      "deliberation.decision.read",
+      "deliberation.pv.read",
+      "grades.create",
+      "grades.read",
+      "grades.update",
+      "payments.create",
+      "payments.read",
+      "payments.validate",
+      "reports.read",
+      "results-validation.read",
+      "students.read"
+    ]
+  },
+  "grant": {
+    "beforeCreate": false,
+    "PermissionCodes": [
+      "grades.read",
+      "payments.read",
+      "reports.read",
+      "students.create",
+      "students.read"
+    ]
+  },
+  "deny": {
+    "hadRead": true,
+    "hadCreate": true,
+    "PermissionCodes": [
+      "deliberation.decision.read",
+      "deliberation.pv.read",
+      "results-validation.read",
+      "students.read"
+    ]
+  },
+  "expiry": {
+    "PermissionCodes": [
+      "grades.read",
+      "payments.read",
+      "reports.read",
+      "schools.read",
+      "students.read"
+    ]
+  },
+  "dependencies": {
+    "Closure": [
+      "students.create",
+      "students.read"
+    ],
+    "Incomplete": [],
+    "Complete": [
+      "students.create",
+      "students.read"
+    ]
+  },
+  "adminBypass": {
+    "Roles": [
+      "ADMIN"
+    ],
+    "PermissionCount": 54,
+    "HasAdminFull": true
+  },
+  "superAdmin": {
+    "IsPlatformSuperAdmin": true,
+    "Roles": [
+      "PARENT"
+    ],
+    "PlatformPerms": [
+      "platform.catalog.manage",
+      "platform.superadmin"
+    ]
+  },
+  "hasPermission": {
+    "parentPayments": true,
+    "parentCreate": false,
+    "adminAny": true,
+    "empty": false
+  },
+  "jwt": {
+    "ParentPermissionClaims": [
+      "grades.read",
+      "payments.read",
+      "reports.read",
+      "students.read"
+    ],
+    "ParentForbiddenMetadataFound": false,
+    "ParentPayloadLength": 623,
+    "AdminPermissionClaimCount": 54,
+    "SampleCodes": [
+      "grades.read",
+      "payments.read",
+      "reports.read",
+      "students.read"
+    ]
+  },
+  "authLifecycle": {
+    "LoginOk": true,
+    "RefreshOk": true,
+    "LoginInactiveRejected": true,
+    "RefreshInactiveRejected": true
+  },
+  "policies": {
+    "Succeeded": true,
+    "ParentDenyStudentsDelete": true,
+    "AdminAllowStudentsDelete": true,
+    "DynamicGradesRead": true
+  },
+  "performance": {
+    "ColdResolveMs": 14.7071,
+    "WarmAverageMs": 8.393902,
+    "ActivePermissionCodes": 54,
+    "PrerequisiteMapKeys": 54,
+    "EstimatedSnapshotBytes": 8670
+  },
+  "endpointInventory": {
+    "AuthorizeAttributes": 432,
+    "PolicyAttributes": 384,
+    "ControllerFiles": 44
+  },
+  "dynamicPolicyProvider": {
+    "Known": true,
+    "UnknownDynamic": true
+  },
+  "finishedAtUtc": "2026-08-07T11:40:46.4954221Z",
+  "checks": [
+    {
+      "Name": "Resolve \u2014 un seul r\u00F4le (PARENT)",
+      "Passed": true,
+      "Detail": "roles=[PARENT] perms=4 sample=[grades.read,payments.read,reports.read,students.read]"
+    },
+    {
+      "Name": "Resolve \u2014 multi-r\u00F4les (ENSEIGNANT \u222A COMPTABLE)",
+      "Passed": true,
+      "Detail": "roles=[COMPTABLE,ENSEIGNANT] has grades.create=True has payments.validate=True"
+    },
+    {
+      "Name": "Resolve \u2014 Grant (students.read \u002B students.create)",
+      "Passed": true,
+      "Detail": "beforeCreate=False afterRead=True afterCreate=True"
+    },
+    {
+      "Name": "Resolve \u2014 Deny (grades.read \u2192 retire aussi grades.create via closure)",
+      "Passed": true,
+      "Detail": "before read/create=True/True after read/create=False/False"
+    },
+    {
+      "Name": "Resolve \u2014 expiration exception (ValidTo exclusive)",
+      "Passed": true,
+      "Detail": "expired currencies.read=False active schools.read=True"
+    },
+    {
+      "Name": "Deps \u2014 closure students.create contient students.read",
+      "Passed": true,
+      "Detail": "closure=[students.create,students.read]"
+    },
+    {
+      "Name": "Resolve \u2014 d\u00E9pendances (create sans read = retir\u00E9 ; avec read = OK)",
+      "Passed": true,
+      "Detail": "incompleteCreate=False completeCreate=True"
+    },
+    {
+      "Name": "Resolve \u2014 bypass ADMIN (catalogue actif)",
+      "Passed": true,
+      "Detail": "roles=[ADMIN] permCount=54 activeCatalog\u224854 hasAdminFull=True"
+    },
+    {
+      "Name": "Resolve \u2014 Super Administrateur plateforme (platform.*)",
+      "Passed": true,
+      "Detail": "flag=True platform.superadmin=True platform.catalog.manage=True"
+    },
+    {
+      "Name": "HasPermissionAsync (parent/admin/empty)",
+      "Passed": true,
+      "Detail": "parent.payments.read=True parent.students.create=False admin.currencies.delete=True empty=False"
+    },
+    {
+      "Name": "JWT \u2014 permissions = codes uniquement (parent)",
+      "Passed": true,
+      "Detail": "permClaims=4 expected=4 allCodeShaped=True coverage=True"
+    },
+    {
+      "Name": "JWT \u2014 permissions = codes uniquement (admin)",
+      "Passed": true,
+      "Detail": "permClaims=54 expected=54 allCodeShaped=True coverage=True"
+    },
+    {
+      "Name": "JWT \u2014 claim platform_superadmin absent pour parent",
+      "Passed": true,
+      "Detail": "claims types=[sub,http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier,unique_name,http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name,school_id,full_name,jti,http://schemas.microsoft.com/ws/2008/06/identity/claims/role,permissions,exp,iss,aud]"
+    },
+    {
+      "Name": "JWT \u2014 claim platform_superadmin pr\u00E9sent pour admin si flag",
+      "Passed": true,
+      "Detail": "isPlatformSuperAdmin=False"
+    },
+    {
+      "Name": "Auth \u2014 login OK",
+      "Passed": true,
+      "Detail": "user=__p1v_parent_single tokenLen=924"
+    },
+    {
+      "Name": "Auth \u2014 refresh OK",
+      "Passed": true,
+      "Detail": "newTokenLen=924"
+    },
+    {
+      "Name": "Auth \u2014 login refus\u00E9 si IsActive=false",
+      "Passed": true,
+      "Detail": "UnauthorizedAccessException attendue"
+    },
+    {
+      "Name": "Auth \u2014 refresh refus\u00E9 si IsActive=false (ou token r\u00E9voqu\u00E9)",
+      "Passed": true,
+      "Detail": "UnauthorizedAccessException attendue"
+    },
+    {
+      "Name": "Policy \u2014 PARENT autoris\u00E9 payments.read",
+      "Passed": true,
+      "Detail": "policy=payments.read succeeded=True"
+    },
+    {
+      "Name": "Policy \u2014 PARENT refus\u00E9 students.delete",
+      "Passed": true,
+      "Detail": "policy=students.delete succeeded=False"
+    },
+    {
+      "Name": "Policy \u2014 ADMIN autoris\u00E9 students.delete (admin.full)",
+      "Passed": true,
+      "Detail": "policy=students.delete succeeded=True"
+    },
+    {
+      "Name": "Policy \u2014 dynamique grades.read pour PARENT",
+      "Passed": true,
+      "Detail": "policy=grades.read succeeded=True"
+    },
+    {
+      "Name": "Perf \u2014 ResolveAsync cold \u003C 3000 ms",
+      "Passed": true,
+      "Detail": "coldMs=14,7"
+    },
+    {
+      "Name": "Perf \u2014 ResolveAsync warm moyen \u003C 500 ms",
+      "Passed": true,
+      "Detail": "warmAvgMs=8,39 (n=100)"
+    },
+    {
+      "Name": "Cache \u2014 snapshot charg\u00E9 apr\u00E8s invalidation",
+      "Passed": true,
+      "Detail": "activeCodes=54 prereqKeys=54 ~8670 bytes"
+    },
+    {
+      "Name": "Non-r\u00E9gression \u2014 inventaire [Authorize] conserv\u00E9",
+      "Passed": true,
+      "Detail": "Authorize=432 Policy==384 controllers=44"
+    },
+    {
+      "Name": "PolicyProvider \u2014 r\u00E9solution dynamique par code",
+      "Passed": true,
+      "Detail": "known=True unknownDynamic=True"
+    }
+  ],
+  "passed": 27,
+  "failed": 0,
+  "total": 27
+}

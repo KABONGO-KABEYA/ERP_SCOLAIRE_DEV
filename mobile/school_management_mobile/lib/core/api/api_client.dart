@@ -17,6 +17,18 @@ class ApiClient {
       onRequest: (options, handler) async {
         final token = await AuthStorage.accessToken;
         if (token != null && token.isNotEmpty) {
+          if (!await AuthStorage.sessionMatchesActiveSchool) {
+            await AuthStorage.clear();
+            await _onSessionExpired?.call();
+            return handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.cancel,
+                message:
+                    'Session hors contexte établissement (ActiveSchoolId ≠ JWT.SchoolId).',
+              ),
+            );
+          }
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
@@ -104,6 +116,9 @@ class ApiClient {
         return false;
       }
 
+      final schoolId = user['schoolId']?.toString() ?? '';
+      if (schoolId.isEmpty) return false;
+
       await AuthStorage.saveSession(
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -118,7 +133,12 @@ class ApiClient {
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],
+        schoolId: schoolId,
       );
+      if (!await AuthStorage.sessionMatchesActiveSchool) {
+        await AuthStorage.clear();
+        return false;
+      }
       return true;
     } catch (_) {
       return false;

@@ -152,7 +152,7 @@
                           HeadersVisibility="Column"
                           HorizontalGridLinesBrush="#F1F5F9"
                           IsReadOnly="True"
-                          ItemsSource="{Binding Users}"
+                      ItemsSource="{Binding Users}"
                           RowBackground="Transparent"
                           RowHeight="34"
                           RowStyle="{StaticResource UsersListRow}"
@@ -265,7 +265,7 @@
                                                    Foreground="#166534"
                                                    Text="{Binding SelectedUserStatusLabel}" />
                                     </Border>
-                                </DockPanel>
+            </DockPanel>
                                 <TextBlock Margin="0,10,0,0"
                                            FontSize="18"
                                            FontWeight="SemiBold"
@@ -328,7 +328,7 @@
                                                    FontWeight="Medium"
                                                    Text="{Binding SelectedUserMustChangePasswordLabel}" />
                                     </StackPanel>
-                                </Grid>
+        </Grid>
                                 <TextBlock Margin="0,12,0,0"
                                            FontSize="12"
                                            Foreground="#6B7280"
@@ -339,13 +339,13 @@
                                            Foreground="#9CA3AF"
                                            Text="Rôles" />
                                 <ItemsControl ItemsSource="{Binding SelectedUserRoleBadges}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
                                             <Border Margin="0,0,6,4"
                                                     Padding="8,3"
                                                     Background="#E8EFFF"
@@ -355,9 +355,9 @@
                                                            Foreground="#1E5EFF"
                                                            Text="{Binding}" />
                                             </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                                 <TextBlock Margin="0,14,0,6"
                                            FontSize="11"
                                            FontWeight="SemiBold"
@@ -665,8 +665,8 @@
                                                 <TextBlock VerticalAlignment="Center" Text="Clôturer la sélection" />
                                             </StackPanel>
                                         </Button>
-                                    </WrapPanel>
-                                </StackPanel>
+                </WrapPanel>
+            </StackPanel>
                             </Border>
 
                             <Border Background="Transparent"
@@ -887,7 +887,7 @@
                                         BorderThickness="1"
                                         CornerRadius="10"
                                         Visibility="{Binding HasSelectedPersonnelCandidate, Converter={StaticResource BoolToVis}}">
-                                    <StackPanel>
+            <StackPanel>
                                         <TextBlock Margin="0,0,0,8"
                                                    FontWeight="SemiBold"
                                                    Foreground="#0F1F4A"
@@ -967,7 +967,7 @@
                                         <TextBlock VerticalAlignment="Center" Text="Créer l'utilisateur" />
                                     </StackPanel>
                                 </Button>
-                            </StackPanel>
+            </StackPanel>
                         </ScrollViewer>
                     </TabItem>
                 </TabControl>

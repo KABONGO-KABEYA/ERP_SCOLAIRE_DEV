@@ -13,6 +13,7 @@ public interface ICloudSyncEngine
     Task<CloudSyncRunResultDto> DrainAsync(
         bool criticalOnly = false,
         int maxUnits = 50,
+        CloudSyncDrainControl? control = null,
         CancellationToken cancellationToken = default);
 
     Task<CloudSyncStatusDto> GetStatusAsync(CancellationToken cancellationToken = default);

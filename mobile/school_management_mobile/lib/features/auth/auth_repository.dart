@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_storage.dart';
+import '../../core/auth/session_school_coherence.dart';
+import '../../core/cache/cache_partition_policy.dart';
 import '../../core/config/api_config.dart';
 import '../../core/models/api_response.dart';
 import '../parent/notifications/parent_push_foreground_service.dart';
@@ -40,12 +42,28 @@ class AuthRepository {
     }
 
     final session = AuthSession.fromJson(Map<String, dynamic>.from(api.data as Map));
+
+    final activeSchoolId = await CachePartitionPolicy.activeSchoolId();
+    if (!SessionSchoolCoherence.matchesLoginUser(
+      activeSchoolId: activeSchoolId,
+      userSchoolId: session.user.schoolId,
+      accessToken: session.accessToken,
+    )) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        message:
+            'Le compte connecté n\'appartient pas à l\'établissement actif. '
+            'Changez d\'établissement ou utilisez le bon compte.',
+      );
+    }
+
     await AuthStorage.saveSession(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
       userName: session.user.fullName,
       roles: session.user.roles,
       permissions: session.user.permissions,
+      schoolId: session.user.schoolId,
     );
     return session;
   }

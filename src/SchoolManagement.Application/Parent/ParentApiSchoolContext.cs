@@ -18,4 +18,20 @@ public static class ParentApiSchoolContext
             throw new UnauthorizedAccessException("Ressource hors contexte école.");
         }
     }
+
+    /// <summary>
+    /// Contrôle Parent ↔ Élève + SchoolId (pas de filtrage client).
+    /// </summary>
+    public static void EnsureChildAccess(bool hasGuardianLink, Guid? studentSchoolId, Guid schoolId)
+    {
+        if (!hasGuardianLink)
+        {
+            throw new UnauthorizedAccessException("Accès non autorisé à cet élève.");
+        }
+
+        if (studentSchoolId is null || studentSchoolId.Value != schoolId)
+        {
+            throw new UnauthorizedAccessException("Élève hors contexte école.");
+        }
+    }
 }

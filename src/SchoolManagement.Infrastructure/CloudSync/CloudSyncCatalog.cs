@@ -56,6 +56,7 @@ internal static class CloudSyncCatalog
         ("StudyOptions", typeof(StudyOption)),
         ("PedagogicalClasses", typeof(PedagogicalClass)),
         ("ClassRooms", typeof(ClassRoom)),
+        ("Branches", typeof(Branch)),
         ("Courses", typeof(Course)),
         ("AcademicPeriods", typeof(AcademicPeriod)),
         ("FeeTypes", typeof(FeeType)),

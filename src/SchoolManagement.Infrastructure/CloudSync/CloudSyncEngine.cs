@@ -1,7 +1,9 @@
+using System.Data.Common;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -55,6 +57,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     public async Task<CloudSyncRunResultDto> DrainAsync(
         bool criticalOnly = false,
         int maxUnits = 50,
+        CloudSyncDrainControl? control = null,
         CancellationToken cancellationToken = default)
     {
         if (!await _gate.WaitAsync(0, cancellationToken))
@@ -66,6 +69,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var startedAt = DateTime.UtcNow;
         var unitsSucceeded = 0;
         var unitsFailed = 0;
+        var orphanedSoftDeleted = 0;
         var recordsSucceeded = 0;
         var recordsFailed = 0;
         var tablesTouched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -73,7 +77,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
         try
         {
-            var open = await TryOpenRemoteAsync(cancellationToken);
+            var open = await TryOpenRemoteAsync(cancellationToken, control?.BypassActif == true);
             if (open.Skipped)
             {
                 await WriteJournalAsync(
@@ -94,8 +98,11 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             var query = local.SyncOutboxUnits
                 .Include(u => u.Items)
-                .Where(u => !u.IsDeleted
-                            && (u.Status == SyncOutboxStatus.Pending || u.Status == SyncOutboxStatus.Failed));
+                .Where(u => !u.IsDeleted);
+
+            query = control?.PendingOnly == true
+                ? query.Where(u => u.Status == SyncOutboxStatus.Pending)
+                : query.Where(u => u.Status == SyncOutboxStatus.Pending || u.Status == SyncOutboxStatus.Failed);
 
             if (localSchoolId is Guid sid)
             {
@@ -137,13 +144,17 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             foreach (var unit in units)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var outcome = await ProcessUnitAsync(local, remote, unit, cancellationToken);
+                var outcome = await ProcessUnitAsync(local, remote, unit, control, cancellationToken);
                 foreach (var t in outcome.Tables)
                 {
                     tablesTouched.Add(t);
                 }
 
-                if (outcome.Success)
+                if (outcome.OrphanedSoftDeleted)
+                {
+                    orphanedSoftDeleted++;
+                }
+                else if (outcome.Success)
                 {
                     unitsSucceeded++;
                     recordsSucceeded += outcome.RecordsOk;
@@ -161,9 +172,13 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             sw.Stop();
             var success = unitsFailed == 0;
-            var summary = success
-                ? $"Sync OK : {unitsSucceeded} unité(s), {recordsSucceeded} enregistrement(s) en {sw.ElapsedMilliseconds} ms."
-                : $"Sync partielle : {unitsSucceeded} OK, {unitsFailed} échec(s).";
+            var summary = orphanedSoftDeleted > 0
+                ? success
+                    ? $"Sync OK : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s) soft-deleted, {recordsSucceeded} enregistrement(s) en {sw.ElapsedMilliseconds} ms."
+                    : $"Sync partielle : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s), {unitsFailed} échec(s)."
+                : success
+                    ? $"Sync OK : {unitsSucceeded} unité(s), {recordsSucceeded} enregistrement(s) en {sw.ElapsedMilliseconds} ms."
+                    : $"Sync partielle : {unitsSucceeded} OK, {unitsFailed} échec(s).";
             var errorSummary = errors.Count == 0 ? null : string.Join(" | ", errors.Take(8));
 
             await WriteJournalAsync(
@@ -179,7 +194,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             _logger.LogInformation("Drain sync cloud : {Message}", summary);
             return new CloudSyncRunResultDto(
                 false, success, summary, unitsSucceeded, unitsFailed,
-                recordsSucceeded, recordsFailed, (int)sw.ElapsedMilliseconds);
+                recordsSucceeded, recordsFailed, (int)sw.ElapsedMilliseconds,
+                orphanedSoftDeleted);
         }
         catch (OperationCanceledException)
         {
@@ -465,7 +481,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     }
 
     private async Task<(bool Skipped, string Message, SchoolDbContext? Remote)> TryOpenRemoteAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool bypassActif = false)
     {
         if (!_cloudConfigManager.FileExists)
         {
@@ -482,7 +499,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return (true, $"Impossible de lire ServeurDonneesCloud.txt : {ex.Message}", null);
         }
 
-        if (!cloudConfig.Actif)
+        if (!cloudConfig.Actif && !bypassActif)
         {
             return (true, "Sync cloud désactivée (ACTIF=0).", null);
         }
@@ -558,6 +575,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         await UpsertAllAsync<ClassFeeAmount>(local, ctx, cancellationToken);
         await UpsertAllAsync<Bank>(local, ctx, cancellationToken);
         await UpsertAllAsync<CardTemplate>(local, ctx, cancellationToken);
+        await UpsertAllAsync<CurrencyDefinition>(local, ctx, cancellationToken);
         // Students / Teachers : AddressId optionnel — poussés à la demande via EnsureParent.
         await UpsertAllAsync<WithholdingType>(local, ctx, cancellationToken);
         await UpsertAllAsync<RevenueAllocationDestination>(local, ctx, cancellationToken);
@@ -634,12 +652,24 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         SchoolDbContext local,
         SchoolDbContext remote,
         SyncOutboxUnit unit,
+        CloudSyncDrainControl? control,
         CancellationToken cancellationToken)
     {
         var items = unit.Items
             .Where(i => !i.IsDeleted)
             .OrderBy(i => i.Sequence)
             .ToList();
+
+        var tables = items.Select(i => i.TableName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (control?.SoftDeleteOrphanedLocalEntity == true
+            && await TrySoftDeleteOrphanedUnitAsync(local, remote, unit, items, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Unité outbox {UnitId} soft-deleted (ORPHANED_LOCAL_ENTITY).",
+                unit.Id);
+            return new UnitOutcome(true, 0, 0, null, tables, OrphanedSoftDeleted: true);
+        }
 
         unit.Status = SyncOutboxStatus.InProgress;
         unit.AttemptCount++;
@@ -653,7 +683,6 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
         await local.SaveChangesAsync(cancellationToken);
 
-        var tables = items.Select(i => i.TableName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var applied = 0;
 
         try
@@ -691,6 +720,11 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             await tx.CommitAsync(cancellationToken);
 
+            if (control?.VerifyCloudAfterCommit == true)
+            {
+                await VerifyUnitOnCloudAsync(remote, items, cancellationToken);
+            }
+
             unit.Status = SyncOutboxStatus.Completed;
             unit.CompletedAt = DateTime.UtcNow;
             foreach (var item in items)
@@ -719,7 +753,25 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             var dead = unit.AttemptCount >= MaxAttemptsBeforeDeadLetter;
             var errorText = FormatException(ex);
-            unit.Status = dead ? SyncOutboxStatus.DeadLetter : SyncOutboxStatus.Failed;
+
+            if (control?.SoftDeleteOrphanedLocalEntity == true
+                && errorText.Contains("Confirmation cloud échouée", StringComparison.OrdinalIgnoreCase)
+                && await TrySoftDeleteOrphanedUnitAsync(local, remote, unit, items, cancellationToken))
+            {
+                _logger.LogInformation(
+                    "Unité outbox {UnitId} soft-deleted après verify (ORPHANED_LOCAL_ENTITY).",
+                    unit.Id);
+                return new UnitOutcome(true, 0, 0, null, tables, OrphanedSoftDeleted: true);
+            }
+
+            var retryPending = control?.RetryPendingOnDependencyError == true
+                               && !dead
+                               && IsLikelyTransientDependencyError(ex);
+            unit.Status = dead
+                ? SyncOutboxStatus.DeadLetter
+                : retryPending
+                    ? SyncOutboxStatus.Pending
+                    : SyncOutboxStatus.Failed;
             unit.LastError = Truncate(errorText, 2000);
             foreach (var item in items)
             {
@@ -728,9 +780,180 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             }
 
             await local.SaveChangesAsync(cancellationToken);
-            _logger.LogWarning(ex, "Échec unité sync {UnitId} ({Aggregate}).", unit.Id, unit.AggregateType);
+            if (retryPending)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Unité sync {UnitId} ({Aggregate}) remise Pending (dépendance absente / timeout transitoire).",
+                    unit.Id,
+                    unit.AggregateType);
+            }
+            else
+            {
+                _logger.LogWarning(ex, "Échec unité sync {UnitId} ({Aggregate}).", unit.Id, unit.AggregateType);
+            }
+
             return new UnitOutcome(false, 0, items.Count, errorText, tables);
         }
+    }
+
+    private async Task<bool> TrySoftDeleteOrphanedUnitAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        SyncOutboxUnit unit,
+        List<SyncOutboxItem> items,
+        CancellationToken cancellationToken)
+    {
+        var syncItems = items.Where(i => i.Operation != SyncOperationType.Delete).ToList();
+        if (syncItems.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var item in syncItems)
+        {
+            if (!CloudSyncCatalog.TryGetClrType(item.TableName, out var clrType))
+            {
+                return false;
+            }
+
+            if (await LocalEntityExistsAsync(local, clrType, item.EntityId, cancellationToken))
+            {
+                return false;
+            }
+
+            var cloudCount = await CountEntityOnCloudAsync(remote, clrType, item.EntityId, cancellationToken);
+            if (cloudCount != 0)
+            {
+                return false;
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        unit.IsDeleted = true;
+        unit.DeletedAt = now;
+        unit.LastError = "Soft-delete: ORPHANED_LOCAL_ENTITY (entité locale absente, cloud COUNT=0).";
+        foreach (var item in items)
+        {
+            item.IsDeleted = true;
+            item.DeletedAt = now;
+            item.LastError = unit.LastError;
+        }
+
+        await local.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private static async Task<bool> LocalEntityExistsAsync(
+        SchoolDbContext local,
+        Type clrType,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        var method = typeof(CloudSyncEngine)
+            .GetMethod(nameof(LocalEntityExistsByIdAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(clrType);
+
+        var task = (Task<bool>)method.Invoke(null, [local, entityId, cancellationToken])!;
+        return await task;
+    }
+
+    private static async Task<bool> LocalEntityExistsByIdAsync<TEntity>(
+        SchoolDbContext local,
+        Guid entityId,
+        CancellationToken cancellationToken)
+        where TEntity : AuditableEntity
+        => await local.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(e => e.Id == entityId, cancellationToken);
+
+    private static async Task VerifyUnitOnCloudAsync(
+        SchoolDbContext remote,
+        List<SyncOutboxItem> items,
+        CancellationToken cancellationToken)
+    {
+        var cs = remote.Database.GetConnectionString()
+            ?? throw new InvalidOperationException("ConnectionString cloud introuvable pour confirmation post-commit.");
+
+        var options = new DbContextOptionsBuilder<SchoolDbContext>()
+            .UseSqlServer(cs, sql => sql.CommandTimeout(30))
+            .Options;
+
+        await using var verify = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+
+        foreach (var item in items.Where(i => i.Operation != SyncOperationType.Delete))
+        {
+            if (!CloudSyncCatalog.TryGetClrType(item.TableName, out var clrType))
+            {
+                throw new InvalidOperationException($"Table sync inconnue pour vérif cloud : {item.TableName}");
+            }
+
+            var count = await CountEntityOnCloudAsync(verify, clrType, item.EntityId, cancellationToken);
+            if (count != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Confirmation cloud échouée {item.TableName}/{item.EntityId}: COUNT={count} (attendu 1).");
+            }
+        }
+    }
+
+    private static async Task<int> CountEntityOnCloudAsync(
+        SchoolDbContext verify,
+        Type clrType,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        var method = typeof(CloudSyncEngine)
+            .GetMethod(nameof(CountEntityByIdAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(clrType);
+
+        var task = (Task<int>)method.Invoke(null, [verify, entityId, cancellationToken])!;
+        return await task;
+    }
+
+    private static async Task<int> CountEntityByIdAsync<TEntity>(
+        SchoolDbContext verify,
+        Guid entityId,
+        CancellationToken cancellationToken)
+        where TEntity : AuditableEntity
+        => await verify.Set<TEntity>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .CountAsync(e => e.Id == entityId, cancellationToken);
+
+    private static bool IsLikelyTransientDependencyError(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException sql && (sql.Number == -2 || sql.Number == 1205))
+            {
+                return true;
+            }
+
+            if (current is DbException)
+            {
+                var msg = current.Message;
+                if (msg.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+                    || msg.Contains("time-out", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            var text = current.Message;
+            if (text.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("The INSERT statement conflicted", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("The UPDATE statement conflicted", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("Could not insert", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("parent row", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task PrefetchParentsForItemAsync(
@@ -839,10 +1062,10 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return;
         }
 
-        // Parents FK (élève, tarif, année…) avant l'écriture : sans ça Payments /
-        // StudentFeeBalances échouent dès que l'unité critique part avant l'entité Entity.
-        await EnsureFinanceParentsAsync(local, remote, localEntity, cancellationToken);
-        await EnsureStructuralParentsAsync(local, remote, localEntity, cancellationToken);
+        // Parents FK déjà poussés hors TX par PrefetchParentsForItemAsync.
+        // Ne pas rappeler EnsureParent ici : EnsureParent ouvre un nouveau DbContext /
+        // connexion qui se bloque sur les verrous des items précédents de la même TX
+        // (ex. Payments upserté → PaymentLines.EnsureParent(Payment) timeout 120s).
         UpsertScalars(remote, localEntity, remoteExists);
     }
 
@@ -914,11 +1137,16 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 await EnsureParentAsync<AcademicYear>(local, remote, card.AcademicYearId, cancellationToken);
                 await EnsureParentAsync<CardTemplate>(local, remote, card.TemplateId, cancellationToken);
                 break;
+            case Course course:
+                // BranchId nullable : SchoolId poussé via EnsureParent(Branch) → School.
+                await EnsureParentAsync<Branch>(local, remote, course.BranchId, cancellationToken);
+                break;
             case Teacher:
             case Role:
             case Section:
             case StudyOption:
             case SecurityModule:
+            case Branch:
                 // SchoolId / racines gérés dans EnsureParentAsync.
                 break;
         }
@@ -947,6 +1175,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 await EnsureParentAsync<WithholdingType>(local, remote, entry.WithholdingTypeId, cancellationToken);
                 await EnsureParentAsync<AcademicYear>(local, remote, entry.AcademicYearId, cancellationToken);
                 await EnsureParentAsync<Payment>(local, remote, entry.PaymentId, cancellationToken);
+                await EnsureParentAsync<CurrencyDefinition>(local, remote, entry.CurrencyId, cancellationToken);
                 break;
             case WithholdingApplication withholding:
                 await EnsureParentAsync<WithholdingConfiguration>(local, remote, withholding.WithholdingConfigurationId, cancellationToken);
@@ -962,6 +1191,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 await EnsureParentAsync<Student>(local, remote, payment.StudentId, cancellationToken);
                 await EnsureParentAsync<AcademicYear>(local, remote, payment.AcademicYearId, cancellationToken);
                 await EnsureParentAsync<Bank>(local, remote, payment.BankId, cancellationToken);
+                await EnsureParentAsync<CurrencyDefinition>(local, remote, payment.FeeCurrencyId, cancellationToken);
+                await EnsureParentAsync<CurrencyDefinition>(local, remote, payment.PaymentCurrencyId, cancellationToken);
                 break;
             case CashMovement cash:
                 await EnsureParentAsync<Payment>(local, remote, cash.PaymentId, cancellationToken);
@@ -1032,7 +1263,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             // School déjà géré ci-dessus.
         }
 
-        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency)
+        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency or CurrencyDefinition or Branch)
         {
             UpsertScalars(parentCtx, localParent, remoteExists: false);
             await parentCtx.SaveChangesAsync(cancellationToken);
@@ -1319,7 +1550,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 || (e.UpdatedAt != null && e.UpdatedAt > since)
                 || (e.DeletedAt != null && e.DeletedAt > since));
 
-        if (typeof(TEntity) != typeof(School) && typeof(TEntity).GetProperty("SchoolId")?.PropertyType == typeof(Guid))
+        var schoolIdProperty = local.Model.FindEntityType(typeof(TEntity))?.FindProperty("SchoolId");
+        if (typeof(TEntity) != typeof(School) && schoolIdProperty?.ClrType == typeof(Guid))
         {
             query = query.Where(e => EF.Property<Guid>(e, "SchoolId") == localSchoolId);
         }
@@ -1486,5 +1718,6 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         int RecordsOk,
         int RecordsFail,
         string? Error,
-        IReadOnlyList<string> Tables);
+        IReadOnlyList<string> Tables,
+        bool OrphanedSoftDeleted = false);
 }

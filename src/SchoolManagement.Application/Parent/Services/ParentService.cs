@@ -2,6 +2,7 @@ namespace SchoolManagement.Application.Parent.Services;
 
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
+using SchoolManagement.Application.Parent;
 using SchoolManagement.Application.Parent.DTOs;
 using SchoolManagement.Application.Parent.Interfaces;
 using SchoolManagement.Application.Payments.Interfaces;
@@ -711,10 +712,10 @@ public sealed class ParentService : IParentService
 
         var student = (await _studentRepository.FindAsync(s => s.Id == studentId, cancellationToken))
             .FirstOrDefault();
-        if (student is null || student.SchoolId != schoolId)
-        {
-            throw new UnauthorizedAccessException("Élève hors contexte école.");
-        }
+        ParentApiSchoolContext.EnsureChildAccess(
+            hasGuardianLink: true,
+            studentSchoolId: student?.SchoolId,
+            schoolId: schoolId);
     }
 
     private static string GuessMime(string fileName)

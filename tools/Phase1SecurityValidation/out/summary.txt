@@ -1,0 +1,28 @@
+PASS | Resolve — un seul rôle (PARENT) | roles=[PARENT] perms=4 sample=[grades.read,payments.read,reports.read,students.read]
+PASS | Resolve — multi-rôles (ENSEIGNANT ∪ COMPTABLE) | roles=[COMPTABLE,ENSEIGNANT] has grades.create=True has payments.validate=True
+PASS | Resolve — Grant (students.read + students.create) | beforeCreate=False afterRead=True afterCreate=True
+PASS | Resolve — Deny (grades.read → retire aussi grades.create via closure) | before read/create=True/True after read/create=False/False
+PASS | Resolve — expiration exception (ValidTo exclusive) | expired currencies.read=False active schools.read=True
+PASS | Deps — closure students.create contient students.read | closure=[students.create,students.read]
+PASS | Resolve — dépendances (create sans read = retiré ; avec read = OK) | incompleteCreate=False completeCreate=True
+PASS | Resolve — bypass ADMIN (catalogue actif) | roles=[ADMIN] permCount=54 activeCatalog≈54 hasAdminFull=True
+PASS | Resolve — Super Administrateur plateforme (platform.*) | flag=True platform.superadmin=True platform.catalog.manage=True
+PASS | HasPermissionAsync (parent/admin/empty) | parent.payments.read=True parent.students.create=False admin.currencies.delete=True empty=False
+PASS | JWT — permissions = codes uniquement (parent) | permClaims=4 expected=4 allCodeShaped=True coverage=True
+PASS | JWT — permissions = codes uniquement (admin) | permClaims=54 expected=54 allCodeShaped=True coverage=True
+PASS | JWT — claim platform_superadmin absent pour parent | claims types=[sub,http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier,unique_name,http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name,school_id,full_name,jti,http://schemas.microsoft.com/ws/2008/06/identity/claims/role,permissions,exp,iss,aud]
+PASS | JWT — claim platform_superadmin présent pour admin si flag | isPlatformSuperAdmin=False
+PASS | Auth — login OK | user=__p1v_parent_single tokenLen=924
+PASS | Auth — refresh OK | newTokenLen=924
+PASS | Auth — login refusé si IsActive=false | UnauthorizedAccessException attendue
+PASS | Auth — refresh refusé si IsActive=false (ou token révoqué) | UnauthorizedAccessException attendue
+PASS | Policy — PARENT autorisé payments.read | policy=payments.read succeeded=True
+PASS | Policy — PARENT refusé students.delete | policy=students.delete succeeded=False
+PASS | Policy — ADMIN autorisé students.delete (admin.full) | policy=students.delete succeeded=True
+PASS | Policy — dynamique grades.read pour PARENT | policy=grades.read succeeded=True
+PASS | Perf — ResolveAsync cold < 3000 ms | coldMs=14,7
+PASS | Perf — ResolveAsync warm moyen < 500 ms | warmAvgMs=8,39 (n=100)
+PASS | Cache — snapshot chargé après invalidation | activeCodes=54 prereqKeys=54 ~8670 bytes
+PASS | Non-régression — inventaire [Authorize] conservé | Authorize=432 Policy==384 controllers=44
+PASS | PolicyProvider — résolution dynamique par code | known=True unknownDynamic=True
+TOTAL: 27/27 passed

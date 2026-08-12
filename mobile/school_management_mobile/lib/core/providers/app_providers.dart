@@ -54,7 +54,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     try {
-      final loggedIn = await AuthStorage.isLoggedIn;
+      var loggedIn = await AuthStorage.isLoggedIn;
+      if (loggedIn && !await AuthStorage.sessionMatchesActiveSchool) {
+        await AuthStorage.clearSession();
+        loggedIn = false;
+      }
       state = AsyncValue.data(loggedIn);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

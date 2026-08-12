@@ -1,0 +1,515 @@
+{
+  "lot": "LOT0\u002BLOT1\u002BLOT2\u002BLOT3\u002BLOT4\u002BLOT5\u002BLOT6\u002BLOT7",
+  "startedAtUtc": "2026-08-07T15:18:10.3316245Z",
+  "repoRoot": "d:\\Mes Projet\\ERP_Administration_Scolaire_2026",
+  "lot7_allowAnonymous": [
+    "AuthController :: [HttpPost(\u0022login\u0022)]",
+    "AuthController :: [HttpPost(\u0022refresh\u0022)]",
+    "MobileSubscriptionPaymentController :: [HttpPost(\u0022payment/callback\u0022)]",
+    "SchoolActivationController :: [class AllowAnonymous]",
+    "SetupController :: [HttpGet(\u0022status\u0022)]",
+    "SetupController :: [HttpPost(\u0022complete\u0022)]",
+    "UpdateController :: [HttpGet(\u0022check\u0022)]"
+  ],
+  "lot7_catalogOrphans": [],
+  "lot7_catalogUsedCount": 73,
+  "lot7_unknownLiterals": [],
+  "database": "Data Source=localhost\\HEROS_SQL19;Initial Catalog=SchoolManagementRDC_Development;Integrated Security=True;Multiple Active Result Sets=True;Connect Timeout=15;Encrypt=False;Trust Server Certificate=True",
+  "schoolId": "71635f62-b975-479d-9e6e-fbacd05e4996",
+  "finishedAtUtc": "2026-08-07T15:18:32.8080865Z",
+  "checks": [
+    {
+      "Name": "Doc \u2014 PHASE4_PERSONAS.md",
+      "Passed": true,
+      "Detail": "personas"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_PLANNED_PERMISSIONS.md",
+      "Passed": true,
+      "Detail": "planned"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_MIGRATION_CHECKLIST_TEMPLATE.md",
+      "Passed": true,
+      "Detail": "checklist"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT0_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot0 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT1_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot1 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT2_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot2 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT3_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot3 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT4_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot4 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT5_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot5 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT6_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot6 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_LOT7_VALIDATION.md",
+      "Passed": true,
+      "Detail": "lot7 report"
+    },
+    {
+      "Name": "Doc \u2014 PHASE4_VALIDATION_REPORT.md",
+      "Passed": true,
+      "Detail": "phase4 closure"
+    },
+    {
+      "Name": "Doc \u2014 SECURITY_ENGINE_ARCHITECTURE.md",
+      "Passed": true,
+      "Detail": "architecture ref"
+    },
+    {
+      "Name": "Desktop \u2014 HasPermission positif",
+      "Passed": true,
+      "Detail": "grades.create"
+    },
+    {
+      "Name": "Desktop \u2014 HasPermission n\u00E9gatif",
+      "Passed": true,
+      "Detail": "security.users.manage"
+    },
+    {
+      "Name": "Desktop \u2014 HasPermission ignore r\u00F4le ADMIN sans code",
+      "Passed": true,
+      "Detail": "pas de fallback r\u00F4le"
+    },
+    {
+      "Name": "Desktop \u2014 SessionPermissions.Can",
+      "Passed": true,
+      "Detail": "Can"
+    },
+    {
+      "Name": "Desktop \u2014 IAuthSessionService.HasPermission d\u00E9clar\u00E9",
+      "Passed": true,
+      "Detail": "interface"
+    },
+    {
+      "Name": "Desktop \u2014 SessionPermissions.cs pr\u00E9sent",
+      "Passed": true,
+      "Detail": "d:\\Mes Projet\\ERP_Administration_Scolaire_2026\\src\\SchoolManagement.Desktop\\Services\\SessionPermissions.cs"
+    },
+    {
+      "Name": "Lot1 \u2014 PaymentsController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot1 \u2014 FinanceController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot1 \u2014 PaymentMutationPolicy sans IsAdministrator",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot1 \u2014 Desktop finance sans IsAdministrator",
+      "Passed": true,
+      "Detail": "grep p\u00E9rim\u00E8tre Lot 1"
+    },
+    {
+      "Name": "Lot1 \u2014 Permissions.All contient payments.cancel",
+      "Passed": true,
+      "Detail": "payments.cancel"
+    },
+    {
+      "Name": "Lot1 \u2014 Permissions.All contient payments.notes.update",
+      "Passed": true,
+      "Detail": "payments.notes.update"
+    },
+    {
+      "Name": "Lot1 \u2014 Permissions.All contient payments.paid-mutation",
+      "Passed": true,
+      "Detail": "payments.paid-mutation"
+    },
+    {
+      "Name": "Lot1 \u2014 Permissions.All contient pricing-categories.assign",
+      "Passed": true,
+      "Detail": "pricing-categories.assign"
+    },
+    {
+      "Name": "Lot2 \u2014 PersonnelController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot2 \u2014 routes teachers policy TeachersManage",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot2 \u2014 SettingsViewModel teachers via TeachersManage",
+      "Passed": true,
+      "Detail": "SessionPermissions"
+    },
+    {
+      "Name": "Lot2 \u2014 Permissions.All contient personnel.read",
+      "Passed": true,
+      "Detail": "personnel.read"
+    },
+    {
+      "Name": "Lot2 \u2014 Permissions.All contient personnel.manage",
+      "Passed": true,
+      "Detail": "personnel.manage"
+    },
+    {
+      "Name": "Lot2 \u2014 Permissions.All contient teachers.manage",
+      "Passed": true,
+      "Detail": "teachers.manage"
+    },
+    {
+      "Name": "Lot3 \u2014 GeographyAdminController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot3 \u2014 CloudSyncController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot3 \u2014 UpdateController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot3 \u2014 ParentActivationIssueController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot3 \u2014 GeographyController GET schools.read",
+      "Passed": true,
+      "Detail": "policy lecture"
+    },
+    {
+      "Name": "Lot3 \u2014 Permissions.All contient geography.manage",
+      "Passed": true,
+      "Detail": "geography.manage"
+    },
+    {
+      "Name": "Lot3 \u2014 Permissions.All contient cloud-sync.manage",
+      "Passed": true,
+      "Detail": "cloud-sync.manage"
+    },
+    {
+      "Name": "Lot3 \u2014 Permissions.All contient updates.manage",
+      "Passed": true,
+      "Detail": "updates.manage"
+    },
+    {
+      "Name": "Lot3 \u2014 Permissions.All contient parent-activation.manage",
+      "Passed": true,
+      "Detail": "parent-activation.manage"
+    },
+    {
+      "Name": "Lot4 \u2014 PedagogicalPeriodsController sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot4 \u2014 PedagogicalPeriodsController active grades.read",
+      "Passed": true,
+      "Detail": "policy lecture"
+    },
+    {
+      "Name": "Lot4 \u2014 PedagogicalPeriodService sans EnsureAdministrator/IsAdministrator",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot4 \u2014 PedagogicalPeriodService PedagogicalPeriodsManage",
+      "Passed": true,
+      "Detail": "HasPermission"
+    },
+    {
+      "Name": "Lot4 \u2014 PedagogicalPeriodsViewModel SessionPermissions",
+      "Passed": true,
+      "Detail": "Desktop"
+    },
+    {
+      "Name": "Lot4 \u2014 Permissions.All contient pedagogical-periods.manage",
+      "Passed": true,
+      "Detail": "pedagogical-periods.manage"
+    },
+    {
+      "Name": "Lot5 \u2014 ResultValidationService sans HasElevatedRole",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot5 \u2014 ResultValidationService sans IsAdministrator",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot5 \u2014 ResultValidationService sans AdminFull",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot5 \u2014 CanValidate \u2192 results-validation.validate only",
+      "Passed": true,
+      "Detail": "permission"
+    },
+    {
+      "Name": "Lot5 \u2014 CanLock \u2192 results-validation.lock only",
+      "Passed": true,
+      "Detail": "permission"
+    },
+    {
+      "Name": "Lot5 \u2014 CanUnlock \u2192 results-validation.unlock only",
+      "Passed": true,
+      "Detail": "permission"
+    },
+    {
+      "Name": "Lot5 \u2014 pas de recouvrement calendrier dans ResultValidationService",
+      "Passed": true,
+      "Detail": "s\u00E9paration domaines"
+    },
+    {
+      "Name": "Lot5 \u2014 s\u00E9paration p\u00E9riode active (grades.read) vs calendrier (manage)",
+      "Passed": true,
+      "Detail": "cross-check Lot 4"
+    },
+    {
+      "Name": "Lot5 \u2014 API validate/lock/unlock policies distinctes",
+      "Passed": true,
+      "Detail": "API"
+    },
+    {
+      "Name": "Lot6 \u2014 Application sans HasRole(",
+      "Passed": true,
+      "Detail": "grep src/Application"
+    },
+    {
+      "Name": "Lot6 \u2014 Cotation sans IsAdministrator",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot6 \u2014 scope delegate permission",
+      "Passed": true,
+      "Detail": "HasPermission"
+    },
+    {
+      "Name": "Lot6 \u2014 scope class permission",
+      "Passed": true,
+      "Detail": "HasPermission"
+    },
+    {
+      "Name": "Lot6 \u2014 DeleteEvaluation delete-with-grades permission",
+      "Passed": true,
+      "Detail": "permission"
+    },
+    {
+      "Name": "Lot6 \u2014 recalc manuel GradesRecalculate",
+      "Passed": true,
+      "Detail": "permission"
+    },
+    {
+      "Name": "Lot6 \u2014 workflow recalc AfterDataChange",
+      "Passed": true,
+      "Detail": "method"
+    },
+    {
+      "Name": "Lot6 \u2014 publish sans results-validation",
+      "Passed": true,
+      "Detail": "ind\u00E9pendance publication"
+    },
+    {
+      "Name": "Lot6 \u2014 DELETE evaluations GradesDelete",
+      "Passed": true,
+      "Detail": "API"
+    },
+    {
+      "Name": "Lot6 \u2014 calculate GradesRecalculate",
+      "Passed": true,
+      "Detail": "API"
+    },
+    {
+      "Name": "Lot6 \u2014 publish/unpublish policies distinctes",
+      "Passed": true,
+      "Detail": "API"
+    },
+    {
+      "Name": "Lot6 \u2014 Desktop cotation GradesCotationDelegate",
+      "Passed": true,
+      "Detail": "SessionPermissions"
+    },
+    {
+      "Name": "Lot6 \u2014 Desktop cotation sans r\u00F4les JWT hardcod\u00E9s",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.delete",
+      "Passed": true,
+      "Detail": "grades.delete"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.evaluation.delete-with-grades",
+      "Passed": true,
+      "Detail": "grades.evaluation.delete-with-grades"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.recalculate",
+      "Passed": true,
+      "Detail": "grades.recalculate"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.publish",
+      "Passed": true,
+      "Detail": "grades.publish"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.unpublish",
+      "Passed": true,
+      "Detail": "grades.unpublish"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.cotation.delegate",
+      "Passed": true,
+      "Detail": "grades.cotation.delegate"
+    },
+    {
+      "Name": "Lot6 \u2014 Permissions.All contient grades.cotation.scope.class",
+      "Passed": true,
+      "Detail": "grades.cotation.scope.class"
+    },
+    {
+      "Name": "Lot7 \u2014 Application sans HasRole(",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot7 \u2014 Application sans HasElevatedRole",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot7 \u2014 Desktop modules migr\u00E9s sans IsAdministrator",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot7 \u2014 HttpContextCurrentUser sans Contains ADMIN",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot7 \u2014 AuthSession IsAdministrator admin.full only",
+      "Passed": true,
+      "Detail": "grep"
+    },
+    {
+      "Name": "Lot7 \u2014 AdminFull uniquement gouvernance (AdminController)",
+      "Passed": true,
+      "Detail": "grep controllers m\u00E9tier"
+    },
+    {
+      "Name": "Lot7 \u2014 PermissionAuthorizationHandler admin.full bypass document\u00E9",
+      "Passed": true,
+      "Detail": "handler"
+    },
+    {
+      "Name": "Lot7 \u2014 AllowAnonymous inventaire non vide",
+      "Passed": true,
+      "Detail": "count=7"
+    },
+    {
+      "Name": "Lot7 \u2014 catalogue aucune permission orpheline",
+      "Passed": true,
+      "Detail": "ok"
+    },
+    {
+      "Name": "Lot7 \u2014 aucune policy litt\u00E9rale hors catalogue",
+      "Passed": true,
+      "Detail": "ok"
+    },
+    {
+      "Name": "Lot7 \u2014 Permissions.All coh\u00E9rent avec constantes",
+      "Passed": true,
+      "Detail": "extra=0"
+    },
+    {
+      "Name": "Lot7 \u2014 AuthorizationExtensions enregistre Permissions.All",
+      "Passed": true,
+      "Detail": "policies"
+    },
+    {
+      "Name": "Persona \u2014 ADMIN permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=73"
+    },
+    {
+      "Name": "Persona \u2014 DIRECTION permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=23"
+    },
+    {
+      "Name": "Persona \u2014 PREFET permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=13"
+    },
+    {
+      "Name": "Persona \u2014 PROMOTEUR permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=14"
+    },
+    {
+      "Name": "Persona \u2014 ENSEIGNANT permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=9"
+    },
+    {
+      "Name": "Persona \u2014 COMPTABLE permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=12"
+    },
+    {
+      "Name": "Persona \u2014 CAISSIER permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=4"
+    },
+    {
+      "Name": "Persona \u2014 PARENT permissions attendues",
+      "Passed": true,
+      "Detail": "have=True deny=True count=4"
+    },
+    {
+      "Name": "Non-r\u00E9gression \u2014 ResolveAsync ADMIN contient admin.full",
+      "Passed": true,
+      "Detail": "admin.full"
+    }
+  ],
+  "passed": 98,
+  "failed": 0,
+  "total": 98
+}

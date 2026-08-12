@@ -1,0 +1,259 @@
+{
+  "startedAtUtc": "2026-08-07T15:48:07.3033113Z",
+  "repoRoot": "d:\\Mes Projet\\ERP_Administration_Scolaire_2026",
+  "database": "Data Source=localhost\\HEROS_SQL19;Initial Catalog=SchoolManagementRDC_Development;Integrated Security=True;Multiple Active Result Sets=True;Connect Timeout=15;Encrypt=False;Trust Server Certificate=True",
+  "adminModules": [
+    "DASHBOARD",
+    "SETTINGS",
+    "PERSONNEL",
+    "STUDENTS",
+    "STUDENT_CARDS",
+    "ACADEMIC",
+    "PEDAGOGICAL_CALENDAR",
+    "GRADES",
+    "RESULTS",
+    "FINANCE",
+    "DOCUMENTS",
+    "STATISTICS",
+    "SECURITY",
+    "PLATFORM"
+  ],
+  "parentModules": [
+    "DASHBOARD",
+    "STUDENTS",
+    "GRADES",
+    "RESULTS",
+    "FINANCE",
+    "STATISTICS"
+  ],
+  "teacherModules": [
+    "SETTINGS",
+    "STUDENTS",
+    "ACADEMIC",
+    "GRADES",
+    "RESULTS",
+    "FINANCE",
+    "DOCUMENTS"
+  ],
+  "comptableModules": [
+    "DASHBOARD",
+    "SETTINGS",
+    "STUDENTS",
+    "ACADEMIC",
+    "FINANCE",
+    "DOCUMENTS",
+    "STATISTICS"
+  ],
+  "pageCounts": {
+    "Admin": 42,
+    "Parent": 9,
+    "Enseignant": 14,
+    "Comptable": 15
+  },
+  "webPages": 0,
+  "mobilePages": 0,
+  "unresolvedKeys": [
+    "Settings.ParentActivation"
+  ],
+  "builtModules": [
+    {
+      "Code": "DASHBOARD",
+      "Title": "Tableau de bord",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "SETTINGS",
+      "Title": "Param\u00E8tres",
+      "PageCount": 18,
+      "IsHub": true
+    },
+    {
+      "Code": "PERSONNEL",
+      "Title": "Personnel",
+      "PageCount": 4,
+      "IsHub": true
+    },
+    {
+      "Code": "STUDENTS",
+      "Title": "\u00C9l\u00E8ves",
+      "PageCount": 2,
+      "IsHub": false
+    },
+    {
+      "Code": "STUDENT_CARDS",
+      "Title": "Cartes \u00E9l\u00E8ves",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "ACADEMIC",
+      "Title": "Acad\u00E9mique",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "PEDAGOGICAL_CALENDAR",
+      "Title": "Calendrier p\u00E9dagogique",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "GRADES",
+      "Title": "Cotation",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "RESULTS",
+      "Title": "R\u00E9sultats scolaires",
+      "PageCount": 4,
+      "IsHub": true
+    },
+    {
+      "Code": "FINANCE",
+      "Title": "Financier",
+      "PageCount": 5,
+      "IsHub": true
+    },
+    {
+      "Code": "DOCUMENTS",
+      "Title": "Documents",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "STATISTICS",
+      "Title": "Statistiques",
+      "PageCount": 1,
+      "IsHub": false
+    },
+    {
+      "Code": "PLATFORM",
+      "Title": "Plateforme",
+      "PageCount": 1,
+      "IsHub": false
+    }
+  ],
+  "finishedAtUtc": "2026-08-07T15:48:20.9345376Z",
+  "checks": [
+    {
+      "Name": "Nav Desktop ADMIN non vide",
+      "Passed": true,
+      "Detail": "modules=14 pages=42"
+    },
+    {
+      "Name": "Nav Desktop PARENT sous-ensemble",
+      "Passed": true,
+      "Detail": "parentPages=9 adminPages=42"
+    },
+    {
+      "Name": "Nav Desktop ENSEIGNANT sous-ensemble",
+      "Passed": true,
+      "Detail": "teacherPages=14 adminPages=42"
+    },
+    {
+      "Name": "Nav Desktop COMPTABLE sous-ensemble",
+      "Passed": true,
+      "Detail": "comptablePages=15 adminPages=42"
+    },
+    {
+      "Name": "Filtre \u2014 PARENT sans Personnel.Liste",
+      "Passed": true,
+      "Detail": "hasPersonnel=False"
+    },
+    {
+      "Name": "Filtre \u2014 PARENT sans Settings.Geographie (admin.full)",
+      "Passed": true,
+      "Detail": "hasGeo=False"
+    },
+    {
+      "Name": "Filtre \u2014 PARENT avec Grades.Main (grades.read)",
+      "Passed": true,
+      "Detail": "hasGrades=True"
+    },
+    {
+      "Name": "Filtre \u2014 ENSEIGNANT avec Grades.Main, sans Finance.Encaissements",
+      "Passed": true,
+      "Detail": "keys=[Settings.Etablissement,Settings.StructurePedagogique,Settings.AnneesScolaires,Settings.Matieres,Settings.FraisScolaires,Students.Main,Academic.Main,Grades.Main,Results.ParClasse,Results.Individuel,Results.ValidationResultats,Results.Deliberation]"
+    },
+    {
+      "Name": "Filtre \u2014 COMPTABLE avec Finance.Encaissements",
+      "Passed": true,
+      "Detail": "ok"
+    },
+    {
+      "Name": "Canal Web \u2014 aucune page (seed Web=false)",
+      "Passed": true,
+      "Detail": "pages=0"
+    },
+    {
+      "Name": "Canal Mobile \u2014 aucune page (seed Mobile=false)",
+      "Passed": true,
+      "Detail": "pages=0"
+    },
+    {
+      "Name": "Menu builder ADMIN \u2014 modules \u003E 0",
+      "Passed": true,
+      "Detail": "modules=13"
+    },
+    {
+      "Name": "Menu builder \u2014 cl\u00E9s non r\u00E9solues omises (Security.Roles/Exceptions/Audit attendues)",
+      "Passed": true,
+      "Detail": "unresolved=[Settings.ParentActivation]"
+    },
+    {
+      "Name": "Parit\u00E9 modules shell vs catalogue ADMIN",
+      "Passed": true,
+      "Detail": "all present"
+    },
+    {
+      "Name": "Cache local \u2014 s\u00E9rialisation / d\u00E9s\u00E9rialisation",
+      "Passed": true,
+      "Detail": "reloadedPages=42"
+    },
+    {
+      "Name": "DesktopNavigationLocalCache \u2014 Save/Load",
+      "Passed": true,
+      "Detail": "pages=9"
+    },
+    {
+      "Name": "Cache local \u2014 fichier absent = null (pas de menu hardcod\u00E9)",
+      "Passed": true,
+      "Detail": "no fallback static path in cache layer"
+    },
+    {
+      "Name": "Menus hardcod\u00E9s absents de ShellViewModel",
+      "Passed": true,
+      "Detail": "InitializeNavigationAsync present, static ModuleNavItem list absent"
+    },
+    {
+      "Name": "Plan \u2014 cache local (pas fallback statique)",
+      "Passed": true,
+      "Detail": "plan updated"
+    },
+    {
+      "Name": "Invalidation \u2014 Dashboard.Main retir\u00E9 apr\u00E8s d\u00E9sactivation page",
+      "Passed": true,
+      "Detail": "hasDashboard=False pages=41"
+    },
+    {
+      "Name": "Invalidation \u2014 Dashboard.Main revenu apr\u00E8s r\u00E9activation",
+      "Passed": true,
+      "Detail": "ok"
+    },
+    {
+      "Name": "Non-r\u00E9gression Phase 1 \u2014 HasPermissionAsync",
+      "Passed": true,
+      "Detail": "payments.read=True students.delete=False"
+    },
+    {
+      "Name": "DesktopViewKey inconnue \u2014 omise sans crash",
+      "Passed": true,
+      "Detail": "unresolved=[Does.Not.Exist]"
+    }
+  ],
+  "passed": 23,
+  "failed": 0,
+  "total": 23
+}

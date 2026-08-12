@@ -396,6 +396,11 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<AttendanceSchemaInitializer>>());
     await attendanceSchema.EnsureUpdatedAsync();
 
+    var disciplineMeritSchema = new DisciplineMeritSchoolIdSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<DisciplineMeritSchoolIdSchemaInitializer>>());
+    await disciplineMeritSchema.EnsureUpdatedAsync();
+
     var schoolFeeSchema = new SchoolFeeSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<SchoolFeeSchemaInitializer>>());

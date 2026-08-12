@@ -171,6 +171,7 @@ void main() {
         userName: 'parentA',
         roles: const ['PARENT'],
         permissions: const [],
+        schoolId: schoolA,
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(
@@ -188,6 +189,7 @@ void main() {
         userName: 'parentB',
         roles: const ['PARENT'],
         permissions: const [],
+        schoolId: schoolB,
       );
       await prefs.setStringList(
         ParentPushPreferences.scopeKeyForSchool(

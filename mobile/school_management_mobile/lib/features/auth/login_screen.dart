@@ -19,7 +19,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _userController = TextEditingController(text: 'parent.kabeya');
+  final _userController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
   bool _obscurePassword = true;
@@ -35,6 +35,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _reauthBannerHandled = true;
       _error =
           'Le serveur de l\'école a été réinstallé. Données offline effacées — reconnectez-vous.';
+    } else if (reason == 'school_mismatch') {
+      _reauthBannerHandled = true;
+      _error =
+          'Session invalide pour l\'établissement actif. Reconnectez-vous.';
     }
   }
 
@@ -76,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
 
       final isParent = session.user.roles
-          .any((r) => r.toUpperCase().contains('PARENT'));
+          .any((r) => r.trim().toUpperCase() == 'PARENT');
       if (isParent &&
           await SchoolBindingGate.shouldBlockParentSessionWithoutBinding()) {
         await ref.read(authRepositoryProvider).logout(baseUrl: connection.baseUrl);
