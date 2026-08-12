@@ -136,6 +136,16 @@ public partial class LoginViewModel : ViewModelBase
 
     public void RefreshServerInfo() => LoadServerInfo();
 
+    /// <summary>Prépare un écran login propre après déconnexion (sans auto-login).</summary>
+    public void PrepareForFreshLogin()
+    {
+        Password = string.Empty;
+        ErrorMessage = null;
+        IsBusy = false;
+        IsPasswordVisible = false;
+        RefreshServerInfo();
+    }
+
     private void LoadServerInfo()
     {
         try

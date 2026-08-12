@@ -21,10 +21,8 @@ public interface IEnrollmentWizardService
 
     Task<StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
         Guid schoolId,
-        string lastName,
-        string firstName,
-        string registrationNumber,
-        string academicYearLabel,
+        Guid? userId,
+        Guid draftId,
         string documentType,
         string fileName,
         Stream content,

@@ -5177,7 +5177,8 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("RoleId");
 
                     b.HasIndex("UserId", "RoleId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("UserRoleAssignments", (string)null);
                 });
@@ -7080,6 +7081,51 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("SchoolId", "LastName", "FirstName");
 
                     b.ToTable("Guardians", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.Students.RegistrationNumberCounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("NextValue")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("SchoolId", "Year")
+                        .IsUnique();
+
+                    b.ToTable("RegistrationNumberCounters", (string)null);
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Students.Student", b =>
@@ -9850,6 +9896,17 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ResidenceAddress");
+                });
+
+            modelBuilder.Entity("SchoolManagement.Domain.Entities.Students.RegistrationNumberCounter", b =>
+                {
+                    b.HasOne("SchoolManagement.Domain.Entities.Settings.School", "School")
+                        .WithMany()
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("SchoolManagement.Domain.Entities.Students.Student", b =>

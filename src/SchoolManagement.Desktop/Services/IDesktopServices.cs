@@ -11,6 +11,9 @@ public interface INavigationService
     void NavigateTo(Type viewModelType);
 
     void NavigateTo(object viewModel);
+
+    /// <summary>Efface la vue courante (ex. déconnexion) sans fermer l'application.</summary>
+    void Clear();
 }
 
 public interface IThemeService

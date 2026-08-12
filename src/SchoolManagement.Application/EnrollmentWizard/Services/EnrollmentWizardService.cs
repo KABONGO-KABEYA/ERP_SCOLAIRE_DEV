@@ -51,6 +51,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
     private readonly IEnrollmentFormService _enrollmentFormService;
     private readonly IParentAccessProvisioningService _parentAccessProvisioning;
     private readonly INotificationService _notifications;
+    private readonly IRegistrationNumberAllocator _registrationNumberAllocator;
     private readonly IUnitOfWork _unitOfWork;
 
     public EnrollmentWizardService(
@@ -79,6 +80,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         IEnrollmentFormService enrollmentFormService,
         IParentAccessProvisioningService parentAccessProvisioning,
         INotificationService notifications,
+        IRegistrationNumberAllocator registrationNumberAllocator,
         IUnitOfWork unitOfWork)
     {
         _yearRepository = yearRepository;
@@ -106,6 +108,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         _enrollmentFormService = enrollmentFormService;
         _parentAccessProvisioning = parentAccessProvisioning;
         _notifications = notifications;
+        _registrationNumberAllocator = registrationNumberAllocator;
         _unitOfWork = unitOfWork;
     }
 
@@ -181,22 +184,17 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             0);
     }
 
+    /// <summary>
+    /// Preview non réservé du prochain matricule (GET /registration-number).
+    /// Le numéro définitif est alloué uniquement dans <see cref="CompleteAsync"/>.
+    /// </summary>
     public async Task<GeneratedRegistrationNumberDto> GenerateRegistrationNumberAsync(
         Guid schoolId,
         CancellationToken cancellationToken = default)
     {
-        var students = await _studentRepository.FindAsync(s => s.SchoolId == schoolId, cancellationToken);
         var year = DateTime.UtcNow.Year;
-        var next = students.Count + 1;
-        string candidate;
-        do
-        {
-            candidate = $"ELV-{year}-{next:D5}";
-            next++;
-        }
-        while (students.Any(s => s.RegistrationNumber.Equals(candidate, StringComparison.OrdinalIgnoreCase)));
-
-        return new GeneratedRegistrationNumberDto(candidate);
+        var preview = await _registrationNumberAllocator.PreviewNextAsync(schoolId, year, cancellationToken);
+        return new GeneratedRegistrationNumberDto(preview);
     }
 
     public async Task<IReadOnlyList<EnrollmentStudentSearchResultDto>> SearchStudentsAsync(
@@ -372,33 +370,24 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
 
     public async Task<StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
         Guid schoolId,
-        string lastName,
-        string firstName,
-        string registrationNumber,
-        string academicYearLabel,
+        Guid? userId,
+        Guid draftId,
         string documentType,
         string fileName,
         Stream content,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(lastName))
+        if (draftId == Guid.Empty)
         {
-            throw new DomainException("Le nom de l'élève est requis pour enregistrer un fichier.");
+            throw new DomainException("draftId est obligatoire pour enregistrer un fichier d'inscription.");
         }
 
-        if (string.IsNullOrWhiteSpace(registrationNumber))
-        {
-            throw new DomainException("Le matricule est requis pour enregistrer un fichier dans le dossier élève.");
-        }
-
-        var saved = await _studentDossierStorage.SaveStudentFileAsync(
-            new StudentDossierFileRequest(
-                lastName,
-                string.IsNullOrWhiteSpace(firstName) ? lastName : firstName,
-                registrationNumber,
-                academicYearLabel,
-                documentType,
-                fileName),
+        var saved = await _studentDossierStorage.SaveDraftFileAsync(
+            draftId,
+            schoolId,
+            userId,
+            documentType,
+            fileName,
             content,
             cancellationToken);
 
@@ -627,6 +616,17 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             throw new DomainException(validation.Issues.First().Message);
         }
 
+        if (request.DraftId is { } preCommitDraftId && preCommitDraftId != Guid.Empty)
+        {
+            var hasTempDocuments = request.Documents.Any(d =>
+                StudentDossierPathHelper.IsTempDraftPath(d.StoragePath));
+            if (hasTempDocuments
+                || StudentDossierPathHelper.IsTempDraftPath(request.PhotoPath))
+            {
+                _studentDossierStorage.AssertDraftAccess(preCommitDraftId, schoolId, userId: null);
+            }
+        }
+
         var prerequisites = await GetPrerequisitesAsync(schoolId, cancellationToken);
         if (!prerequisites.IsReady || prerequisites.CurrentAcademicYearId is null)
         {
@@ -656,33 +656,150 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             EnrollmentBusinessRules.EnsureAgeCompatible(request.DateOfBirth, pedagogicalClass, request.Scolarite.EnrollmentDate);
         }
 
-        Student student;
-        if (request.ExistingStudentId.HasValue)
+        // --- Transaction métier SQL (P1) ---
+        // Couvre : matricule P4, Student, adresses, guardians/liens, Enrollment,
+        // status history, catégorie GENERAL, fee balances, documents metadata, audit.
+        // Les SaveChanges internes (AddressService, EnsureGeneralPricingCategory, flushes
+        // intermédiaires) restent DANS la transaction : ils écrivent sans COMMIT autonome.
+        Student student = null!;
+        Enrollment enrollment = null!;
+        IReadOnlyList<Guardian> linkedGuardians = [];
+        decimal totalDue = 0m;
+        var balanceLineCount = 0;
+        var currency = Currency.CDF;
+
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            student = (await _studentRepository.FindAsync(
-                s => s.Id == request.ExistingStudentId.Value && s.SchoolId == schoolId && !s.IsArchived,
-                cancellationToken)).FirstOrDefault()
-                ?? throw new KeyNotFoundException("Élève introuvable.");
+            if (request.ExistingStudentId.HasValue)
+            {
+                // Réinscription : le Student préexistant n'est pas « créé » ici.
+                // Un rollback annule seulement les modifications de cette transaction
+                // (champs mis à jour, nouvelle Enrollment, etc.), pas la ligne Student historique.
+                student = (await _studentRepository.FindAsync(
+                    s => s.Id == request.ExistingStudentId.Value && s.SchoolId == schoolId && !s.IsArchived,
+                    ct)).FirstOrDefault()
+                    ?? throw new KeyNotFoundException("Élève introuvable.");
 
-            await ApplyStudentFieldsAsync(student, request, cancellationToken);
-            await _studentRepository.UpdateAsync(student, cancellationToken);
-        }
-        else
-        {
-            var registration = await GenerateRegistrationNumberAsync(schoolId, cancellationToken);
-            student = await CreateStudentEntityAsync(schoolId, registration.RegistrationNumber, request, cancellationToken);
-            await _studentRepository.AddAsync(student, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
+                await ApplyStudentFieldsAsync(student, request, ct);
+                await _studentRepository.UpdateAsync(student, ct);
+            }
+            else
+            {
+                var year = DateTime.UtcNow.Year;
+                var registrationNumber = await _registrationNumberAllocator.AllocateAsync(
+                    schoolId, year, ct);
+                student = await CreateStudentEntityAsync(schoolId, registrationNumber, request, ct);
+                await _studentRepository.AddAsync(student, ct);
+                // Flush intermédiaire DANS la TX : rend le Student visible aux FindAsync
+                // AsNoTracking des étapes suivantes (guardians, frais). Pas un commit autonome.
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
 
-        var linkedGuardians = await ReplaceGuardiansAsync(
-            schoolId,
-            student.Id,
-            request.Guardians,
-            request.ResidenceAddress,
-            cancellationToken);
+            linkedGuardians = await ReplaceGuardiansAsync(
+                schoolId,
+                student.Id,
+                request.Guardians,
+                request.ResidenceAddress,
+                ct);
 
-        // Ne jamais bloquer l'inscription si la création des comptes parents échoue.
+            var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
+            var generalCategory = await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, ct);
+            enrollment = new Enrollment
+            {
+                StudentId = student.Id,
+                AcademicYearId = academicYearId,
+                ClassRoomId = request.Scolarite.ClassRoomId,
+                FeePricingCategoryId = generalCategory.Id,
+                EnrollmentDate = request.Scolarite.EnrollmentDate,
+                Status = enrollmentStatus,
+                IsActive = true,
+                Notes = BuildEnrollmentNotes(request.Scolarite)
+            };
+
+            await _enrollmentRepository.AddAsync(enrollment, ct);
+
+            await _statusHistoryRepository.AddAsync(new StudentStatusHistory
+            {
+                StudentId = student.Id,
+                AcademicYearId = academicYearId,
+                PreviousStatus = EnrollmentStatus.PreInscription,
+                NewStatus = enrollmentStatus,
+                EffectiveDate = request.Scolarite.EnrollmentDate,
+                Reason = request.Scolarite.RegistrationKind.ToString()
+            }, ct);
+
+            var pedagogicalClassId = classRoom.PedagogicalClassId ?? request.Scolarite.PedagogicalClassId;
+            var feeSummary = await ResolveEnrollmentFeeSummaryAsync(
+                schoolId,
+                academicYearId,
+                pedagogicalClassId,
+                request.FeeSummary,
+                ct);
+
+            if (!pedagogicalClassId.HasValue)
+            {
+                throw new DomainException("La classe pédagogique est obligatoire pour initialiser les frais scolaires.");
+            }
+
+            currency = feeSummary?.Currency
+                ?? (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, ct))
+                    .FirstOrDefault()?.Currency
+                ?? Currency.CDF;
+
+            totalDue = await _feeBalanceProvisioner.ProvisionForStudentAsync(
+                schoolId,
+                student.Id,
+                academicYearId,
+                pedagogicalClassId.Value,
+                generalCategory.Id,
+                currency,
+                ct);
+
+            balanceLineCount = (await _feeBalanceRepository.FindAsync(
+                b => b.StudentId == student.Id,
+                ct)).Count;
+
+            await PersistDocumentsMetadataAsync(
+                student.Id,
+                student,
+                prerequisites.CurrentAcademicYearLabel ?? academicYearId.ToString(),
+                request.Documents,
+                request.DraftId,
+                ct);
+
+            var auditActions = new List<string>
+            {
+                "Dossier élève créé/mis à jour",
+                $"Matricule définitif : {student.RegistrationNumber}",
+                "Dossier scolaire et inscription enregistrés",
+                "Affectation classe et local confirmée",
+                balanceLineCount > 0
+                    ? $"Dossier financier initialisé ({balanceLineCount} solde(s), dû {totalDue:N2} {currency})"
+                    : "Frais scolaires : aucun tarif applicable pour la classe (soldes non créés)",
+                "Accès application parent : provisioning post-commit (best-effort)",
+                "Dossier de présence prêt",
+                "Dossier d'examens prêt",
+                "Dossier de bulletins prêt",
+                "Dossier disciplinaire prêt"
+            };
+
+            await _auditRepository.AddAsync(new AuditEntry
+            {
+                SchoolId = schoolId,
+                Action = "EnrollmentWizard.Complete",
+                EntityName = nameof(Student),
+                EntityId = student.Id,
+                NewValues = string.Join("; ", auditActions),
+                Timestamp = DateTime.UtcNow
+            }, ct);
+
+            // Flush final dans la TX ; le COMMIT est fait par ExecuteInTransactionAsync.
+            await _unitOfWork.SaveChangesAsync(ct);
+        }, cancellationToken);
+
+        // --- Après COMMIT : effets de bord best-effort ---
+        // Relation métier StudentGuardian déjà persistée ; le compte User + rôle PARENT
+        // ne doit pas faire échouer / polluer la transaction d'inscription.
         IReadOnlyList<ParentAppAccessCredentialDto> parentAccessAccounts = [];
         string parentAccessWarning = string.Empty;
         try
@@ -691,6 +808,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
                 schoolId,
                 linkedGuardians,
                 cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -698,112 +816,30 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
                 $" Accès parent non créé automatiquement ({ex.Message}). L'inscription élève est tout de même enregistrée.";
         }
 
-        var enrollmentStatus = MapRegistrationKind(request.Scolarite.RegistrationKind);
-        var generalCategory = await _schoolFeeService.EnsureGeneralPricingCategoryAsync(schoolId, cancellationToken);
-        var enrollment = new Enrollment
-        {
-            StudentId = student.Id,
-            AcademicYearId = academicYearId,
-            ClassRoomId = request.Scolarite.ClassRoomId,
-            FeePricingCategoryId = generalCategory.Id,
-            EnrollmentDate = request.Scolarite.EnrollmentDate,
-            Status = enrollmentStatus,
-            IsActive = true,
-            Notes = BuildEnrollmentNotes(request.Scolarite)
-        };
-
-        await _enrollmentRepository.AddAsync(enrollment, cancellationToken);
-
-        await _statusHistoryRepository.AddAsync(new StudentStatusHistory
-        {
-            StudentId = student.Id,
-            AcademicYearId = academicYearId,
-            PreviousStatus = EnrollmentStatus.PreInscription,
-            NewStatus = enrollmentStatus,
-            EffectiveDate = request.Scolarite.EnrollmentDate,
-            Reason = request.Scolarite.RegistrationKind.ToString()
-        }, cancellationToken);
-
-        var pedagogicalClassId = classRoom.PedagogicalClassId ?? request.Scolarite.PedagogicalClassId;
-        var feeSummary = await ResolveEnrollmentFeeSummaryAsync(
-            schoolId,
-            academicYearId,
-            pedagogicalClassId,
-            request.FeeSummary,
-            cancellationToken);
-
-        if (!pedagogicalClassId.HasValue)
-        {
-            throw new DomainException("La classe pédagogique est obligatoire pour initialiser les frais scolaires.");
-        }
-
-        var currency = feeSummary?.Currency
-            ?? (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId, cancellationToken))
-                .FirstOrDefault()?.Currency
-            ?? Currency.CDF;
-
-        var totalDue = await _feeBalanceProvisioner.ProvisionForStudentAsync(
-            schoolId,
-            student.Id,
-            academicYearId,
-            pedagogicalClassId.Value,
-            generalCategory.Id,
-            currency,
-            cancellationToken);
-
-        var balanceLineCount = (await _feeBalanceRepository.FindAsync(
-            b => b.StudentId == student.Id,
-            cancellationToken)).Count;
-
-        await PersistDocumentsAsync(
-            student.Id,
-            student,
-            prerequisites.CurrentAcademicYearLabel ?? academicYearId.ToString(),
-            request.Documents,
-            cancellationToken);
-
-        var auditActions = new List<string>
-        {
-            "Dossier élève créé/mis à jour",
-            $"Matricule définitif : {student.RegistrationNumber}",
-            "Dossier scolaire et inscription enregistrés",
-            "Affectation classe et local confirmée",
-            balanceLineCount > 0
-                ? $"Dossier financier initialisé ({balanceLineCount} solde(s), dû {totalDue:N2} {currency})"
-                : "Frais scolaires : aucun tarif applicable pour la classe (soldes non créés)",
-            parentAccessAccounts.Count > 0
-                ? $"Accès application parent : {parentAccessAccounts.Count} compte(s)"
-                : "Aucun accès application parent (pas de tuteur renseigné)",
-            "Dossier de présence prêt",
-            "Dossier d'examens prêt",
-            "Dossier de bulletins prêt",
-            "Dossier disciplinaire prêt"
-        };
-
-        await _auditRepository.AddAsync(new AuditEntry
-        {
-            SchoolId = schoolId,
-            Action = "EnrollmentWizard.Complete",
-            EntityName = nameof(Student),
-            EntityId = student.Id,
-            NewValues = string.Join("; ", auditActions),
-            Timestamp = DateTime.UtcNow
-        }, cancellationToken);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
         var yearLabel = prerequisites.CurrentAcademicYearLabel ?? academicYearId.ToString();
+        var dossierMessage = string.Empty;
         try
         {
-            _studentDossierStorage.EnsureStudentFolder(
-                student.LastName,
-                student.FirstName,
-                student.RegistrationNumber,
-                yearLabel);
+            _studentDossierStorage.EnsureStudentIdFolder(student.Id, yearLabel);
+
+            if (request.DraftId is { } draftId && draftId != Guid.Empty)
+            {
+                var promotion = await _studentDossierStorage.PromoteDraftToStudentAsync(
+                    draftId,
+                    schoolId,
+                    student.Id,
+                    yearLabel,
+                    cancellationToken);
+                if (!promotion.Succeeded)
+                {
+                    dossierMessage =
+                        $" Fichiers temporaires conservés (promotion en échec : {promotion.ErrorMessage}). Réessayez ou contactez l'administrateur.";
+                }
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // La fiche tentera aussi de créer le dossier ; on conserve l'erreur détaillée ci-dessous.
+            dossierMessage = $" Dossier fichiers non finalisé : {ex.Message}";
         }
 
         var ficheMessage = string.Empty;
@@ -859,7 +895,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             StudentDisplayName.Format(student),
             className,
             totalDue,
-            financialMessage + ficheMessage + parentAccessMessage,
+            financialMessage + ficheMessage + dossierMessage + parentAccessMessage,
             parentAccessAccounts);
     }
 
@@ -887,74 +923,100 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             cancellationToken: cancellationToken);
     }
 
-    private async Task PersistDocumentsAsync(
+    /// <summary>
+    /// Phase SQL uniquement : métadonnées StudentDocument / PhotoPath pointant vers
+    /// {année}/students/{StudentId}/… — aucune écriture filesystem définitive (P3).
+    /// </summary>
+    private async Task PersistDocumentsMetadataAsync(
         Guid studentId,
         Student student,
         string academicYearLabel,
         IReadOnlyList<EnrollmentDocumentStatusDto> documents,
+        Guid? draftId,
         CancellationToken cancellationToken)
     {
         foreach (var doc in documents.Where(d =>
                      d.Status.Equals("Complet", StringComparison.OrdinalIgnoreCase)
                      && !string.IsNullOrWhiteSpace(d.FileName)))
         {
-            var storagePath = await EnsureDossierStoragePathAsync(
-                student,
+            var finalPath = ResolveFinalDocumentStoragePath(
+                studentId,
                 academicYearLabel,
                 doc.DocumentType,
                 doc.FileName!,
                 doc.StoragePath,
-                cancellationToken);
+                draftId);
 
             await _studentDocumentRepository.AddAsync(new StudentDocument
             {
                 StudentId = studentId,
                 DocumentType = doc.DocumentType,
-                FileName = doc.FileName!,
-                StoragePath = storagePath,
+                FileName = Path.GetFileName(finalPath),
+                StoragePath = finalPath,
                 MimeType = GuessMimeType(doc.FileName),
                 FileSizeBytes = doc.FileSizeBytes
             }, cancellationToken);
 
             if (doc.DocumentType.Equals("Photo", StringComparison.OrdinalIgnoreCase))
             {
-                student.PhotoPath = storagePath;
+                student.PhotoPath = finalPath;
             }
+        }
+
+        if (StudentDossierPathHelper.IsTempDraftPath(student.PhotoPath))
+        {
+            var name = Path.GetFileName(student.PhotoPath!.Replace('\\', '/'));
+            student.PhotoPath = StudentDossierPathHelper.BuildStudentIdRelativeFilePath(
+                academicYearLabel, studentId, name);
         }
     }
 
-    private async Task<string> EnsureDossierStoragePathAsync(
-        Student student,
+    private static string ResolveFinalDocumentStoragePath(
+        Guid studentId,
         string academicYearLabel,
         string documentType,
         string fileName,
         string? storagePath,
-        CancellationToken cancellationToken)
+        Guid? draftId)
     {
-        if (StudentDossierPathHelper.IsServerStoragePath(storagePath))
+        var storedFileName = StudentDossierPathHelper.BuildStoredFileName(documentType, fileName);
+
+        // Chemin déjà définitif students/{id} → conserver.
+        if (StudentDossierPathHelper.IsStudentIdStoragePath(storagePath))
         {
-            return storagePath!;
+            return storagePath!.Replace('\\', '/');
         }
 
-        if (string.IsNullOrWhiteSpace(storagePath) || !File.Exists(storagePath))
+        // Chemin temp/{draftId}/… → mapper vers students/{StudentId}/…
+        if (StudentDossierPathHelper.IsTempDraftPath(storagePath))
         {
-            throw new DomainException(
-                $"Le fichier « {documentType} » doit être enregistré dans le dossier partagé avant validation.");
+            if (draftId.HasValue
+                && StudentDossierPathHelper.TryParseDraftIdFromPath(storagePath, out var pathDraft)
+                && pathDraft != draftId.Value)
+            {
+                throw new DomainException("Un fichier n'appartient pas au draftId de cette inscription.");
+            }
+
+            var name = Path.GetFileName(storagePath!.Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = storedFileName;
+            }
+
+            return StudentDossierPathHelper.BuildStudentIdRelativeFilePath(
+                academicYearLabel, studentId, name);
         }
 
-        await using var stream = File.OpenRead(storagePath);
-        var saved = await _studentDossierStorage.SaveStudentFileAsync(
-            new StudentDossierFileRequest(
-                student.LastName,
-                student.FirstName,
-                student.RegistrationNumber,
-                academicYearLabel,
-                documentType,
-                fileName),
-            stream,
-            cancellationToken);
+        // Legacy relatif déjà sur le partage (réinscription / ancien PhotoPath) → conserver.
+        if (StudentDossierPathHelper.IsServerStoragePath(storagePath)
+            && !StudentDossierPathHelper.IsTempDraftPath(storagePath))
+        {
+            return storagePath!.Replace('\\', '/');
+        }
 
-        return saved.StoragePath;
+        // Pas de chemin serveur : métadonnée anticipée vers le dossier StudentId.
+        return StudentDossierPathHelper.BuildStudentIdRelativeFilePath(
+            academicYearLabel, studentId, storedFileName);
     }
 
     private static string? GuessMimeType(string? fileName)

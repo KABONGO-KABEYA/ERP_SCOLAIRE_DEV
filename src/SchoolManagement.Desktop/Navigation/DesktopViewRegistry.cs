@@ -57,6 +57,8 @@ public sealed class DesktopViewRegistry : IDesktopViewRegistry
             ["Settings.Monnaies"] = Settings("monnaies"),
             ["Settings.TauxChange"] = Settings("taux-change"),
             ["Settings.HistoriqueTaux"] = Settings("historique-taux"),
+            ["Settings.Reglement"] = Settings("reglement"),
+            ["Settings.Mentions"] = Settings("mentions"),
             ["Settings.SyncCloud"] = Settings("sync-cloud"),
             ["Settings.MisesAJour"] = Settings("mises-a-jour"),
             ["Settings.ParentActivation"] = Settings("activation-mobile-parent"),
@@ -103,6 +105,7 @@ public sealed class DesktopViewRegistry : IDesktopViewRegistry
             "FINANCE" => typeof(FinanceHubViewModel),
             "PERSONNEL" => typeof(PersonnelHubViewModel),
             "RESULTS" => typeof(ResultsHubViewModel),
+            "DOCUMENTS" => typeof(DocumentsHubViewModel),
             _ => null
         };
 

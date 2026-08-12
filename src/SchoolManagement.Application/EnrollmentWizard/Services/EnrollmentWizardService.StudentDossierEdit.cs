@@ -1,5 +1,6 @@
 namespace SchoolManagement.Application.EnrollmentWizard.Services;
 
+using SchoolManagement.Application.Common.Storage;
 using SchoolManagement.Application.EnrollmentWizard;
 using SchoolManagement.Application.Common;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
@@ -190,11 +191,12 @@ public sealed partial class EnrollmentWizardService
         enrollment.Notes = BuildEnrollmentNotes(request.Scolarite);
         await _enrollmentRepository.UpdateAsync(enrollment, cancellationToken);
 
-        await PersistNewDocumentsAsync(
+        await PersistNewDocumentsMetadataAsync(
             student.Id,
             student,
             prerequisites.CurrentAcademicYearLabel ?? enrollment.AcademicYearId.ToString(),
             request.Documents,
+            request.DraftId,
             cancellationToken);
 
         await _auditRepository.AddAsync(new AuditEntry
@@ -211,14 +213,24 @@ public sealed partial class EnrollmentWizardService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var yearLabel = prerequisites.CurrentAcademicYearLabel ?? enrollment.AcademicYearId.ToString();
+        if (request.DraftId is { } draftId && draftId != Guid.Empty)
+        {
+            try
+            {
+                await _studentDossierStorage.PromoteDraftToStudentAsync(
+                    draftId, schoolId, student.Id, yearLabel, cancellationToken);
+            }
+            catch
+            {
+                // SQL déjà persisté — fichiers retry via draft.
+            }
+        }
+
         var ficheMessage = string.Empty;
         try
         {
-            _studentDossierStorage.EnsureStudentFolder(
-                student.LastName,
-                student.FirstName,
-                student.RegistrationNumber,
-                prerequisites.CurrentAcademicYearLabel ?? enrollment.AcademicYearId.ToString());
+            _studentDossierStorage.EnsureStudentIdFolder(student.Id, yearLabel);
 
             await _enrollmentFormService.SaveToStudentDossierAsync(
                 schoolId,
@@ -418,11 +430,12 @@ public sealed partial class EnrollmentWizardService
         return (true, null);
     }
 
-    private async Task PersistNewDocumentsAsync(
+    private async Task PersistNewDocumentsMetadataAsync(
         Guid studentId,
         Student student,
         string academicYearLabel,
         IReadOnlyList<EnrollmentDocumentStatusDto> documents,
+        Guid? draftId,
         CancellationToken cancellationToken)
     {
         var existingPaths = (await _studentDocumentRepository.FindAsync(
@@ -436,13 +449,13 @@ public sealed partial class EnrollmentWizardService
                      && !string.IsNullOrWhiteSpace(d.FileName)
                      && !string.IsNullOrWhiteSpace(d.StoragePath)))
         {
-            var storagePath = await EnsureDossierStoragePathAsync(
-                student,
+            var storagePath = ResolveFinalDocumentStoragePath(
+                studentId,
                 academicYearLabel,
                 doc.DocumentType,
                 doc.FileName!,
                 doc.StoragePath,
-                cancellationToken);
+                draftId);
 
             if (existingPaths.Contains(storagePath))
             {
@@ -453,13 +466,25 @@ public sealed partial class EnrollmentWizardService
             {
                 StudentId = studentId,
                 DocumentType = doc.DocumentType,
-                FileName = doc.FileName!,
+                FileName = Path.GetFileName(storagePath),
                 StoragePath = storagePath,
                 MimeType = GuessMimeType(doc.FileName),
                 FileSizeBytes = doc.FileSizeBytes
             }, cancellationToken);
 
+            if (doc.DocumentType.Equals("Photo", StringComparison.OrdinalIgnoreCase))
+            {
+                student.PhotoPath = storagePath;
+            }
+
             existingPaths.Add(storagePath);
+        }
+
+        if (StudentDossierPathHelper.IsTempDraftPath(student.PhotoPath))
+        {
+            var name = Path.GetFileName(student.PhotoPath!.Replace('\\', '/'));
+            student.PhotoPath = StudentDossierPathHelper.BuildStudentIdRelativeFilePath(
+                academicYearLabel, studentId, name);
         }
     }
 }

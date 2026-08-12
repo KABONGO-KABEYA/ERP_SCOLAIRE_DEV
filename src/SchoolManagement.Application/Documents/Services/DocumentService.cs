@@ -72,9 +72,7 @@ public sealed class DocumentService : IDocumentService
 
         var saved = await _studentDossierStorage.SaveStudentFileAsync(
             new StudentDossierFileRequest(
-                student.LastName,
-                student.FirstName,
-                student.RegistrationNumber,
+                student.Id,
                 currentYear?.Label ?? DateTime.UtcNow.Year.ToString(),
                 request.DocumentType,
                 fileName),

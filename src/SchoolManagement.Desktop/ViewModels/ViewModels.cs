@@ -38,6 +38,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ShellViewModel Shell { get; }
 
+    public void NotifyUserChanged() => OnPropertyChanged(nameof(UserDisplayName));
+
     [RelayCommand]
     private void ToggleTheme() => _themeService.SetTheme(!_themeService.IsDarkTheme);
 
@@ -45,7 +47,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task LogoutAsync()
     {
         await _authApiService.LogoutAsync();
-        System.Windows.Application.Current.Shutdown();
+        if (System.Windows.Application.Current is App app)
+        {
+            await app.LogoutToLoginAsync();
+        }
     }
 }
 
@@ -87,6 +92,25 @@ public partial class ShellViewModel : ViewModelBase
         _clockTimer.Start();
         CurrentDateLabel = DateTime.Now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
         CurrentTimeLabel = DateTime.Now.ToString("HH:mm");
+    }
+
+    /// <summary>Nettoyage UI shell après déconnexion (pas de Shutdown).</summary>
+    public void ResetForLogout()
+    {
+        _syncingSelection = true;
+        try
+        {
+            Modules.Clear();
+            SelectedModule = null;
+            NavigationError = null;
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        _navigationService.Clear();
+        OnPropertyChanged(nameof(CurrentViewModel));
     }
 
     /// <summary>

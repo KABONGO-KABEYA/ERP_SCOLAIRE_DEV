@@ -86,6 +86,7 @@ public class SchoolDbContext : DbContext
 
     // Élèves
     public DbSet<Student> Students => Set<Student>();
+    public DbSet<RegistrationNumberCounter> RegistrationNumberCounters => Set<RegistrationNumberCounter>();
     public DbSet<Guardian> Guardians => Set<Guardian>();
     public DbSet<StudentGuardian> StudentGuardians => Set<StudentGuardian>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();

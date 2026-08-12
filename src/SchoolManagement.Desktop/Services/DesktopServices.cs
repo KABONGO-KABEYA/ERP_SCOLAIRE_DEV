@@ -34,6 +34,17 @@ public sealed class NavigationService : INavigationService
         CurrentViewModel = viewModel;
         CurrentViewModelChanged?.Invoke();
     }
+
+    public void Clear()
+    {
+        if (CurrentViewModel is null)
+        {
+            return;
+        }
+
+        CurrentViewModel = null;
+        CurrentViewModelChanged?.Invoke();
+    }
 }
 
 public sealed class ThemeService : IThemeService

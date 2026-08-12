@@ -777,10 +777,7 @@ public interface IEnrollmentWizardApiService
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
-        string lastName,
-        string firstName,
-        string registrationNumber,
-        string academicYearLabel,
+        Guid draftId,
         string documentType,
         string filePath,
         CancellationToken cancellationToken = default);

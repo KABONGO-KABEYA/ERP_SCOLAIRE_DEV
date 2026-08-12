@@ -353,13 +353,15 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
             form = form with { ParentAccessAccounts = parentAccessAccounts };
         }
 
+        var enrollment = (await _enrollmentRepository.FindAsync(e => e.Id == enrollmentId, cancellationToken))
+            .FirstOrDefault()
+            ?? throw new KeyNotFoundException("Inscription introuvable.");
+
         var pdfBytes = EnrollmentFormPdfGenerator.BuildPdfBytes(form, TryLoadImage);
         await using var stream = new MemoryStream(pdfBytes);
         var saved = await _studentDossierStorage.SaveStudentFileAsync(
             new StudentDossierFileRequest(
-                form.LastName,
-                form.FirstName,
-                form.RegistrationNumber,
+                enrollment.StudentId,
                 form.AcademicYearLabel,
                 "Fiche_inscription",
                 "Fiche_inscription.pdf"),

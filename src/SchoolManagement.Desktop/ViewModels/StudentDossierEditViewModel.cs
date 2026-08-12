@@ -19,6 +19,7 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     private readonly IGeographyApiService _geographyApi;
     private readonly List<EnrollmentClassOptionDto> _allClasses = [];
     private Guid _studentId;
+    private readonly Guid _draftId = Guid.NewGuid();
     private bool _loadingDossier;
 
     public StudentDossierEditViewModel(
@@ -1001,23 +1002,10 @@ public partial class StudentDossierEditViewModel : ViewModelBase
 
     private async Task UploadPendingFilesAsync()
     {
-        if (string.IsNullOrWhiteSpace(LastName))
-        {
-            throw new InvalidOperationException("Le nom de l'élève est requis pour enregistrer les fichiers.");
-        }
-
-        if (string.IsNullOrWhiteSpace(AcademicYearLabel))
-        {
-            throw new InvalidOperationException("Année scolaire indisponible.");
-        }
-
         foreach (var doc in Documents.Where(d => !string.IsNullOrWhiteSpace(d.PendingFilePath)))
         {
             var stored = await _wizardApi.StoreEnrollmentFileAsync(
-                LastName,
-                GetDossierFirstName(),
-                RegistrationNumber,
-                AcademicYearLabel,
+                _draftId,
                 doc.DocumentType,
                 doc.PendingFilePath!);
 
@@ -1078,7 +1066,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             guardians,
             docs,
             null,
-            ConfirmAccuracy);
+            ConfirmAccuracy,
+            _draftId);
     }
 
     private List<GuardianInputDto> BuildGuardians()

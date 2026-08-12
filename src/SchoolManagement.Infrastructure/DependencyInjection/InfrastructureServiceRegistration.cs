@@ -20,7 +20,9 @@ using SchoolManagement.Infrastructure.Persistence;
 using SchoolManagement.Application.Notifications.Interfaces;
 using SchoolManagement.Infrastructure.Persistence.Repositories;
 using SchoolManagement.Application.Enrollment.Interfaces;
+using SchoolManagement.Application.EnrollmentWizard.Interfaces;
 using SchoolManagement.Application.Security;
+using SchoolManagement.Infrastructure.RegistrationNumbers;
 using SchoolManagement.Infrastructure.Security;
 using SchoolManagement.Infrastructure.Seeding;
 using SchoolManagement.Infrastructure.Services;
@@ -102,8 +104,10 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ISectionConsolidationService, SectionConsolidationService>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddSingleton<IStudentDossierStorageService, StudentDossierStorageService>();
+        services.AddHostedService<EnrollmentDraftCleanupHostedService>();
         services.AddSingleton<IDocumentBrandingStorageService, DocumentBrandingStorageService>();
         services.AddScoped<IEnrollmentMaintenanceService, EnrollmentMaintenanceService>();
+        services.AddScoped<IRegistrationNumberAllocator, RegistrationNumberAllocator>();
         services.AddSingleton<IPushNotificationSender, LoggingPushNotificationSender>();
 
         services.AddSingleton<DatabaseConnectionFactory>();

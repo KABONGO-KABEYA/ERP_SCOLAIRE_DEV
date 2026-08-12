@@ -166,6 +166,8 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
     [ObservableProperty] private string? _classChangeBlockedReason;
 
     [ObservableProperty] private string _registrationNumber = string.Empty;
+    /// <summary>Identifiant session fichiers temp/{draftId} (P3).</summary>
+    private readonly Guid _draftId = Guid.NewGuid();
     [ObservableProperty] private string _lastName = string.Empty;
     [ObservableProperty] private string _firstName = string.Empty;
     [ObservableProperty] private string _middleName = string.Empty;
@@ -1137,23 +1139,10 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
 
     private async Task UploadPendingFilesAsync()
     {
-        if (string.IsNullOrWhiteSpace(LastName))
-        {
-            throw new InvalidOperationException("Le nom de l'élève est requis pour enregistrer les fichiers.");
-        }
-
-        if (string.IsNullOrWhiteSpace(AcademicYearLabel))
-        {
-            throw new InvalidOperationException("Année scolaire indisponible.");
-        }
-
         foreach (var doc in Documents.Where(d => !string.IsNullOrWhiteSpace(d.PendingFilePath)))
         {
             var stored = await _wizardApi.StoreEnrollmentFileAsync(
-                LastName,
-                GetDossierFirstName(),
-                RegistrationNumber,
-                AcademicYearLabel,
+                _draftId,
                 doc.DocumentType,
                 doc.PendingFilePath!);
 
@@ -1955,7 +1944,8 @@ public partial class EnrollmentWizardViewModel : ViewModelBase
             guardians,
             docs,
             feeSummary,
-            ConfirmAccuracy);
+            ConfirmAccuracy,
+            _draftId);
     }
 
     private List<GuardianInputDto> BuildGuardians()

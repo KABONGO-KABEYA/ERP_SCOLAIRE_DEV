@@ -1173,13 +1173,10 @@ public sealed class StudentService : IStudentService
 
 
         var files = _studentDossierStorage.ListStudentFiles(
-
+            student.Id,
             student.LastName,
-
             student.FirstName,
-
             student.RegistrationNumber,
-
             academicYearLabel);
 
 

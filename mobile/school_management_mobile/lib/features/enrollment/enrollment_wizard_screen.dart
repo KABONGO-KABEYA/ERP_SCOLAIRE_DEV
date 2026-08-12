@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/api/api_error_message.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
 import 'enrollment_repository.dart';
@@ -72,6 +74,7 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
   // Identity
   String? _existingStudentId;
   String _registrationNumber = '';
+  late final String _draftId = _newDraftId();
   final _lastName = TextEditingController();
   final _firstName = TextEditingController();
   final _middleName = TextEditingController();
@@ -380,29 +383,9 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
   Future<void> _uploadPendingFiles() async {
     if (_pendingFiles.isEmpty) return;
 
-    if (_lastName.text.trim().isEmpty) {
-      throw StateError('Le nom de l\'élève est requis pour enregistrer les fichiers.');
-    }
-
-    if (_registrationNumber.isEmpty) {
-      _registrationNumber = await _repo.generateRegistrationNumber();
-    }
-
-    if (_structure == null) {
-      await _loadStructure(force: true);
-    }
-
-    final academicYearLabel = _academicYearLabel();
-    if (academicYearLabel.isEmpty) {
-      throw StateError('Année scolaire indisponible.');
-    }
-
     for (final pending in _pendingFiles.values) {
       final stored = await _repo.storeFile(
-        lastName: _lastName.text.trim(),
-        firstName: _dossierFirstName(),
-        registrationNumber: _registrationNumber,
-        academicYearLabel: academicYearLabel,
+        draftId: _draftId,
         documentType: pending.documentType,
         fileName: pending.fileName,
         filePath: pending.filePath,
@@ -421,6 +404,16 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
     }
 
     _pendingFiles.clear();
+  }
+
+  static String _newDraftId() {
+    final r = Random.secure();
+    final bytes = List<int>.generate(16, (_) => r.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+    final h = bytes.map(hex).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
   }
 
   String _documentSubtitle(String documentType) {
@@ -1134,6 +1127,7 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
       guardians: guardians,
       documents: docs,
       confirmAccuracy: confirm,
+      draftId: _draftId,
     );
   }
 
@@ -1170,7 +1164,7 @@ class _EnrollmentWizardScreenState extends ConsumerState<EnrollmentWizardScreen>
         _status = result.message;
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = resolveApiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

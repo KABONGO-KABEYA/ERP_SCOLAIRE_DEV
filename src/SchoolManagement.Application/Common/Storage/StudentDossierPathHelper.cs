@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace SchoolManagement.Application.Common.Storage;
@@ -6,6 +7,12 @@ namespace SchoolManagement.Application.Common.Storage;
 public static class StudentDossierPathHelper
 {
     public const string RootFolderName = "Dossier_Elève";
+    public const string TempFolderName = "temp";
+    public const string StudentsFolderName = "students";
+    public const string DraftMetaFileName = ".draft.json";
+
+    /// <summary>TTL des drafts abandonnés (48 h).</summary>
+    public static readonly TimeSpan DraftTimeToLive = TimeSpan.FromHours(48);
 
     public static string BuildStudentFolderName(string lastName, string firstName, string registrationNumber)
     {
@@ -50,6 +57,56 @@ public static class StudentDossierPathHelper
         return $"{baseName}{extension.ToLowerInvariant()}";
     }
 
+    public static string BuildDraftRelativeDirectory(Guid draftId) =>
+        $"{TempFolderName}/{draftId:D}";
+
+    public static string BuildStudentIdRelativeDirectory(string academicYearLabel, Guid studentId) =>
+        $"{BuildAcademicYearFolder(academicYearLabel)}/{StudentsFolderName}/{studentId:D}";
+
+    public static string BuildStudentIdRelativeFilePath(
+        string academicYearLabel,
+        Guid studentId,
+        string fileName) =>
+        $"{BuildStudentIdRelativeDirectory(academicYearLabel, studentId)}/{fileName}";
+
+    public static bool IsTempDraftPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var normalized = path.Replace('\\', '/').TrimStart('/');
+        return normalized.StartsWith($"{TempFolderName}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool TryParseDraftIdFromPath(string? path, out Guid draftId)
+    {
+        draftId = Guid.Empty;
+        if (!IsTempDraftPath(path))
+        {
+            return false;
+        }
+
+        var normalized = path!.Replace('\\', '/').TrimStart('/');
+        var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 && Guid.TryParse(parts[1], out draftId);
+    }
+
+    public static bool IsStudentIdStoragePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains($"/{StudentsFolderName}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Lecture legacy uniquement — NE PAS utiliser pour de nouvelles écritures (P3).
+    /// </summary>
     public static string? FindExistingStudentFolderName(
         string dossierRootPath,
         string registrationNumber,
@@ -77,7 +134,9 @@ public static class StudentDossierPathHelper
 
         foreach (var yearDirectory in Directory.EnumerateDirectories(dossierRootPath))
         {
-            if (string.Equals(Path.GetFileName(yearDirectory), yearFolder, StringComparison.OrdinalIgnoreCase))
+            var name = Path.GetFileName(yearDirectory);
+            if (string.Equals(name, yearFolder, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, TempFolderName, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -92,6 +151,11 @@ public static class StudentDossierPathHelper
         foreach (var directory in Directory.EnumerateDirectories(dossierRootPath))
         {
             var folderName = Path.GetFileName(directory);
+            if (string.Equals(folderName, TempFolderName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (folderName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
             {
                 return folderName;
@@ -101,12 +165,14 @@ public static class StudentDossierPathHelper
         return null;
     }
 
+    /// <summary>Résolution lecture (legacy Nom_Prenom_Matricule OU students/{StudentId}).</summary>
     public static string? ResolveStudentDirectory(
         string dossierRootPath,
         string lastName,
         string firstName,
         string registrationNumber,
-        string academicYearLabel)
+        string academicYearLabel,
+        Guid? studentId = null)
     {
         if (!Directory.Exists(dossierRootPath))
         {
@@ -114,6 +180,20 @@ public static class StudentDossierPathHelper
         }
 
         var yearFolder = BuildAcademicYearFolder(academicYearLabel);
+
+        if (studentId.HasValue)
+        {
+            var byId = Path.Combine(
+                dossierRootPath,
+                yearFolder,
+                StudentsFolderName,
+                studentId.Value.ToString("D"));
+            if (Directory.Exists(byId))
+            {
+                return byId;
+            }
+        }
+
         var studentFolder = FindExistingStudentFolderName(dossierRootPath, registrationNumber, academicYearLabel)
             ?? BuildStudentFolderName(lastName, firstName, registrationNumber);
         var directory = Path.Combine(dossierRootPath, yearFolder, studentFolder);
@@ -130,6 +210,11 @@ public static class StudentDossierPathHelper
         foreach (var directory in Directory.EnumerateDirectories(yearDirectoryPath))
         {
             var folderName = Path.GetFileName(directory);
+            if (string.Equals(folderName, StudentsFolderName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (folderName.EndsWith(registrationSuffix, StringComparison.OrdinalIgnoreCase))
             {
                 return folderName;
@@ -179,6 +264,47 @@ public static class StudentDossierPathHelper
         return sanitized;
     }
 
+    public static string SerializeDraftMeta(EnrollmentDraftMeta meta) =>
+        JsonSerializer.Serialize(meta);
+
+    public static EnrollmentDraftMeta? DeserializeDraftMeta(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<EnrollmentDraftMeta>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string GuessExtension(string documentType) =>
         documentType.Equals("Photo", StringComparison.OrdinalIgnoreCase) ? ".jpg" : ".pdf";
+}
+
+public sealed class EnrollmentDraftMeta
+{
+    public Guid DraftId { get; set; }
+
+    public Guid SchoolId { get; set; }
+
+    public Guid? CreatedByUserId { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public DateTime ExpiresAtUtc { get; set; }
+
+    public Guid? PromotedStudentId { get; set; }
+
+    public DateTime? PromotedAtUtc { get; set; }
+
+    /// <summary>
+    /// StudentId cible si la promotion a échoué après COMMIT SQL — ne pas purger tant que non promu.
+    /// </summary>
+    public Guid? PendingPromotionStudentId { get; set; }
+
+    public string? PendingPromotionAcademicYearLabel { get; set; }
+
+    public string? LastPromotionError { get; set; }
 }

@@ -222,7 +222,12 @@ public sealed class SecurityCatalogSeeder
                     ("TAUX", "Taux de change", "Settings.TauxChange", Permissions.ExchangeRatesRead, 5),
                     ("HISTO_TAUX", "Historique des taux", "Settings.HistoriqueTaux", Permissions.ExchangeRateHistoryRead, 6)
                 ]),
-                ("ADMIN_SYSTEME", "Administration système", 3,
+                ("ADMIN_SCOLAIRE", "Administration scolaire", 3,
+                [
+                    ("REGLEMENT", "Règlement intérieur", "Settings.Reglement", Permissions.SchoolsRead, 1),
+                    ("MENTIONS", "Mentions (pourcentages)", "Settings.Mentions", Permissions.SchoolsRead, 2)
+                ]),
+                ("ADMIN_SYSTEME", "Administration système", 4,
                 [
                     ("SYNC_CLOUD", "Synchronisation cloud", "Settings.SyncCloud", Permissions.CloudSyncManage, 1),
                     ("MISES_A_JOUR", "Mises à jour", "Settings.MisesAJour", Permissions.UpdatesManage, 2),
@@ -249,20 +254,6 @@ public sealed class SecurityCatalogSeeder
                 [
                     ("LISTE", "Liste des élèves", "Students.Main", Permissions.StudentsRead, 1),
                     ("INSCRIPTION", "Assistant d'inscription", "Students.Enrollment", Permissions.StudentsCreate, 2)
-                ])
-            ]),
-            ("STUDENT_CARDS", "Cartes élèves", "CardAccountDetails", 50,
-            [
-                ("CARTES", "Cartes", 1,
-                [
-                    ("MAIN", "Cartes élèves", "StudentCards.Main", Permissions.StudentCardsRead, 1)
-                ])
-            ]),
-            ("ACADEMIC", "Académique", "School", 60,
-            [
-                ("STRUCTURE", "Structure", 1,
-                [
-                    ("MAIN", "Académique", "Academic.Main", Permissions.SchoolsRead, 1)
                 ])
             ]),
             ("PEDAGOGICAL_CALENDAR", "Calendrier pédagogique", "CalendarClock", 70,
@@ -313,7 +304,8 @@ public sealed class SecurityCatalogSeeder
             [
                 ("GESTION", "Gestion", 1,
                 [
-                    ("MAIN", "Documents", "Documents.Main", Permissions.SchoolsRead, 1)
+                    ("MAIN", "Documents élèves", "Documents.Main", Permissions.SchoolsRead, 1),
+                    ("CARTES", "Cartes élèves", "StudentCards.Main", Permissions.StudentCardsRead, 2)
                 ])
             ]),
             ("STATISTICS", "Statistiques", "ChartBar", 120,
@@ -422,6 +414,138 @@ public sealed class SecurityCatalogSeeder
 
         await _context.SaveChangesAsync(cancellationToken);
         await ReconcileMovedSecurityNavigationAsync(cancellationToken);
+        await ReconcileDocumentsAndAcademicNavigationAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Hub Documents : Documents élèves + Cartes élèves ; retire Académique et l'ancien module Cartes élèves.
+    /// </summary>
+    private async Task ReconcileDocumentsAndAcademicNavigationAsync(CancellationToken cancellationToken)
+    {
+        var documentsModule = await _context.SecurityModules
+            .FirstOrDefaultAsync(m => m.Code == "DOCUMENTS", cancellationToken);
+        if (documentsModule is not null)
+        {
+            documentsModule.Name = "Documents";
+            documentsModule.Icon = "FileDocument";
+            documentsModule.IsActive = true;
+
+            var gestion = await _context.SecurityFunctions
+                .FirstOrDefaultAsync(f => f.ModuleId == documentsModule.Id && f.Code == "GESTION", cancellationToken);
+            if (gestion is not null)
+            {
+                gestion.IsActive = true;
+                await UpsertDocumentsPageAsync(
+                    gestion.Id, "MAIN", "Documents élèves", "Documents.Main",
+                    Permissions.SchoolsRead, 1, cancellationToken);
+                await UpsertDocumentsPageAsync(
+                    gestion.Id, "CARTES", "Cartes élèves", "StudentCards.Main",
+                    Permissions.StudentCardsRead, 2, cancellationToken);
+            }
+        }
+
+        await DeactivateSecurityModuleTreeAsync("ACADEMIC", cancellationToken);
+        await DeactivateSecurityModuleTreeAsync("STUDENT_CARDS", cancellationToken);
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UpsertDocumentsPageAsync(
+        Guid functionId,
+        string code,
+        string name,
+        string desktopKey,
+        string permission,
+        int sortOrder,
+        CancellationToken cancellationToken)
+    {
+        var page = await _context.SecurityPages
+            .FirstOrDefaultAsync(p => p.FunctionId == functionId && p.Code == code, cancellationToken);
+        if (page is null)
+        {
+            page = new SecurityPage
+            {
+                FunctionId = functionId,
+                Code = code,
+                Name = name,
+                DesktopViewKey = desktopKey,
+                RequiredPermissionCode = permission,
+                SortOrder = sortOrder,
+                IsActive = true,
+                IsAvailableOnDesktop = true,
+                IsAvailableOnWeb = false,
+                IsAvailableOnMobile = false
+            };
+            _context.SecurityPages.Add(page);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            page.Name = name;
+            page.DesktopViewKey = desktopKey;
+            page.RequiredPermissionCode = permission;
+            page.SortOrder = sortOrder;
+            page.IsActive = true;
+            page.IsAvailableOnDesktop = true;
+        }
+
+        var openAction = await _context.SecurityActions.FirstOrDefaultAsync(
+            a => a.PageId == page.Id && a.Code == "OPEN", cancellationToken);
+        if (openAction is null)
+        {
+            openAction = new SecurityAction
+            {
+                PageId = page.Id,
+                Code = "OPEN",
+                Name = "Ouvrir",
+                Description = $"Accéder à {name}",
+                SortOrder = 1,
+                IsActive = true,
+                IsAvailableOnDesktop = true
+            };
+            _context.SecurityActions.Add(openAction);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            openAction.IsActive = true;
+            openAction.Description = $"Accéder à {name}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(permission))
+        {
+            var permEntity = await _context.Permissions.FirstOrDefaultAsync(p => p.Code == permission, cancellationToken);
+            if (permEntity is not null && permEntity.SecurityActionId is null)
+            {
+                permEntity.SecurityActionId = openAction.Id;
+            }
+        }
+    }
+
+    private async Task DeactivateSecurityModuleTreeAsync(string moduleCode, CancellationToken cancellationToken)
+    {
+        var module = await _context.SecurityModules
+            .FirstOrDefaultAsync(m => m.Code == moduleCode, cancellationToken);
+        if (module is null)
+        {
+            return;
+        }
+
+        module.IsActive = false;
+        var functions = await _context.SecurityFunctions
+            .Where(f => f.ModuleId == module.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var fn in functions)
+        {
+            fn.IsActive = false;
+            var pages = await _context.SecurityPages
+                .Where(p => p.FunctionId == fn.Id)
+                .ToListAsync(cancellationToken);
+            foreach (var page in pages)
+            {
+                page.IsActive = false;
+            }
+        }
     }
 
     /// <summary>

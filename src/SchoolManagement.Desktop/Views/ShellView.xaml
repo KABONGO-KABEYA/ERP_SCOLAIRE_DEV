@@ -55,7 +55,6 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Width="42" Height="42"
                                 Background="{StaticResource ErpPrimaryBrush}"
@@ -66,7 +65,7 @@
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center" />
                         </Border>
-                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
                             <TextBlock FontFamily="{StaticResource ErpFontFamily}"
                                        FontSize="13" FontWeight="SemiBold"
                                        Foreground="White"
@@ -84,14 +83,6 @@
                                            Text="En ligne" />
                             </StackPanel>
                         </StackPanel>
-                        <Button Grid.Column="2"
-                                Command="{Binding DataContext.LogoutCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Width="40" Height="40"
-                                ToolTip="Déconnexion"
-                                Foreground="#94A3B8"
-                                Style="{StaticResource MaterialDesignIconButton}">
-                            <materialDesign:PackIcon Kind="Logout" Width="18" Height="18" />
-                        </Button>
                     </Grid>
                 </Border>
             </DockPanel>
@@ -199,33 +190,100 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Padding="6,4"
-                                Background="#F8FAFC"
-                                CornerRadius="14"
-                                BorderBrush="{StaticResource ErpBorderBrush}"
-                                BorderThickness="1">
-                            <StackPanel Orientation="Horizontal">
-                                <Border Width="36" Height="36"
-                                        Background="{StaticResource ErpPrimaryBrush}"
-                                        CornerRadius="18">
-                                    <materialDesign:PackIcon Kind="Account"
-                                                             Width="20" Height="20"
-                                                             Foreground="White"
-                                                             HorizontalAlignment="Center"
-                                                             VerticalAlignment="Center" />
+                        <materialDesign:PopupBox PlacementMode="BottomAndAlignRightEdges"
+                                                 StaysOpen="False"
+                                                 PopupMode="Click"
+                                                 ToolTip="Compte utilisateur"
+                                                 VerticalAlignment="Center">
+                            <materialDesign:PopupBox.ToggleContent>
+                                <Border Padding="6,4"
+                                        Background="#F8FAFC"
+                                        CornerRadius="14"
+                                        BorderBrush="{StaticResource ErpBorderBrush}"
+                                        BorderThickness="1"
+                                        Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="36" Height="36"
+                                                Background="{StaticResource ErpPrimaryBrush}"
+                                                CornerRadius="18">
+                                            <materialDesign:PackIcon Kind="Account"
+                                                                     Width="20" Height="20"
+                                                                     Foreground="White"
+                                                                     HorizontalAlignment="Center"
+                                                                     VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Margin="10,0,4,0" VerticalAlignment="Center">
+                                            <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                       Text="{Binding DataContext.UserDisplayName, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <TextBlock FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                       Text="{Binding Source={x:Static Application.Current}, Converter={StaticResource CurrentUserRoleConverter}}" />
+                                        </StackPanel>
+                                        <materialDesign:PackIcon Kind="ChevronDown"
+                                                                 Width="16" Height="16"
+                                                                 Margin="2,0,2,0"
+                                                                 Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                                 VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Border>
-                                <StackPanel Margin="10,0,6,0" VerticalAlignment="Center">
-                                    <TextBlock FontFamily="{StaticResource ErpFontFamily}"
-                                               FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{StaticResource ErpTextPrimaryBrush}"
-                                               Text="{Binding DataContext.UserDisplayName, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                    <TextBlock FontFamily="{StaticResource ErpFontFamily}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource ErpTextSecondaryBrush}"
-                                               Text="{Binding Source={x:Static Application.Current}, Converter={StaticResource CurrentUserRoleConverter}}" />
+                            </materialDesign:PopupBox.ToggleContent>
+
+                            <Border MinWidth="220"
+                                    Background="{StaticResource ErpCardBackgroundBrush}"
+                                    BorderBrush="{StaticResource ErpBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="6"
+                                    Effect="{StaticResource ErpCardShadow}">
+                                <StackPanel>
+                                    <Button HorizontalContentAlignment="Left"
+                                            Height="40"
+                                            Padding="12,0"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            ToolTip="Profil utilisateur">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AccountCircleOutline"
+                                                                     Width="18" Height="18"
+                                                                     Margin="0,0,10,0"
+                                                                     Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="Profil"
+                                                       FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="13"
+                                                       Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Separator Margin="8,4" Background="{StaticResource ErpBorderBrush}" />
+
+                                    <Button HorizontalContentAlignment="Left"
+                                            Height="40"
+                                            Padding="12,0"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Foreground="#DC2626"
+                                            ToolTip="Se déconnecter"
+                                            Command="{Binding DataContext.LogoutCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Logout"
+                                                                     Width="18" Height="18"
+                                                                     Margin="0,0,10,0"
+                                                                     Foreground="#DC2626"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="Se déconnecter"
+                                                       FontFamily="{StaticResource ErpFontFamily}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#DC2626"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
+                            </Border>
+                        </materialDesign:PopupBox>
                     </StackPanel>
                 </Grid>
             </Border>

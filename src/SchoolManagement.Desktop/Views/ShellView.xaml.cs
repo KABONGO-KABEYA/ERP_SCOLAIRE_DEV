@@ -15,15 +15,18 @@ public partial class ShellView : UserControl
     private readonly Dictionary<string, Button> _financeSubNavButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _personnelSubNavButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _resultsSubNavButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _documentsSubNavButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<Type, ToggleButton> _mainNavButtons = new();
     private Expander? _settingsExpander;
     private Expander? _financeExpander;
     private Expander? _personnelExpander;
     private Expander? _resultsExpander;
+    private Expander? _documentsExpander;
     private string? _selectedSettingsKey;
     private string? _selectedFinanceKey;
     private string? _selectedPersonnelKey;
     private string? _selectedResultsKey;
+    private string? _selectedDocumentsKey;
     private bool _isBuildingNavigation;
     private IDesktopViewRegistry? _viewRegistry;
 
@@ -97,6 +100,7 @@ public partial class ShellView : UserControl
         _financeSubNavButtons.Clear();
         _personnelSubNavButtons.Clear();
         _resultsSubNavButtons.Clear();
+        _documentsSubNavButtons.Clear();
         _mainNavButtons.Clear();
 
         foreach (var module in shellViewModel.Modules)
@@ -149,6 +153,18 @@ public partial class ShellView : UserControl
                 continue;
             }
 
+            if (module.IsHub && module.ViewModelType == typeof(DocumentsHubViewModel))
+            {
+                _documentsExpander = CreateDynamicHubExpander(
+                    shellViewModel,
+                    module,
+                    PackIconKind.FileDocument,
+                    _documentsSubNavButtons,
+                    (svm, page) => NavigateByDesktopViewKey(svm, page));
+                NavigationPanel.Children.Add(_documentsExpander);
+                continue;
+            }
+
             if (module.ViewModelType is null)
             {
                 continue;
@@ -178,13 +194,17 @@ public partial class ShellView : UserControl
 
         expander.Header = CreateExpanderHeader(module.Title, icon);
         var content = new StackPanel();
-        foreach (var group in module.Pages.GroupBy(p => p.FunctionName))
+        var groups = module.Pages.GroupBy(p => p.FunctionName).ToList();
+        foreach (var group in groups)
         {
-            content.Children.Add(new TextBlock
+            if (groups.Count > 1)
             {
-                Text = group.Key,
-                Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
-            });
+                content.Children.Add(new TextBlock
+                {
+                    Text = group.Key,
+                    Style = (Style)FindResource("ErpSidebarSubNavGroupTitle")
+                });
+            }
 
             foreach (var page in group.OrderBy(p => p.SortOrder))
             {
@@ -230,6 +250,8 @@ public partial class ShellView : UserControl
             "Security.Audit" => "ClipboardTextClock",
             "Security.Exceptions" => "ShieldKeyOutline",
             "Platform.Catalog" => "CloudCog",
+            "Documents.Main" => "FileDocumentOutline",
+            "StudentCards.Main" => "CardAccountDetails",
             _ => "CircleSmall"
         };
 
@@ -290,13 +312,16 @@ public partial class ShellView : UserControl
             _selectedFinanceKey = null;
             _selectedPersonnelKey = null;
             _selectedResultsKey = null;
+            _selectedDocumentsKey = null;
             UpdateSettingsSubNavSelection(page.DesktopViewKey);
             ClearFinanceSubNavSelection();
             ClearPersonnelSubNavSelection();
             ClearResultsSubNavSelection();
+            ClearDocumentsSubNavSelection();
             HighlightFinanceHeader(false);
             HighlightPersonnelHeader(false);
             HighlightResultsHeader(false);
+            HighlightDocumentsHeader(false);
             PageTitleText.Text = page.Title;
             PageSubtitleText.Text = GetDirectPageSubtitle(page.DesktopViewKey);
             return;
@@ -313,21 +338,59 @@ public partial class ShellView : UserControl
             _selectedSettingsKey = null;
             _selectedFinanceKey = null;
             _selectedPersonnelKey = null;
+            _selectedDocumentsKey = null;
             UpdateResultsSubNavSelection(page.DesktopViewKey);
             ClearSettingsSubNavSelection();
             ClearFinanceSubNavSelection();
             ClearPersonnelSubNavSelection();
+            ClearDocumentsSubNavSelection();
             HighlightSettingsHeader(false);
             HighlightFinanceHeader(false);
             HighlightPersonnelHeader(false);
+            HighlightDocumentsHeader(false);
             PageTitleText.Text = page.Title;
             PageSubtitleText.Text = "Résultats scolaires";
+            return;
+        }
+
+        if (owner?.ViewModelType == typeof(DocumentsHubViewModel))
+        {
+            if (_documentsExpander is not null)
+            {
+                _documentsExpander.IsExpanded = true;
+            }
+
+            _selectedDocumentsKey = page.DesktopViewKey;
+            _selectedSettingsKey = null;
+            _selectedFinanceKey = null;
+            _selectedPersonnelKey = null;
+            _selectedResultsKey = null;
+            UpdateDocumentsSubNavSelection(page.DesktopViewKey);
+            ClearSettingsSubNavSelection();
+            ClearFinanceSubNavSelection();
+            ClearPersonnelSubNavSelection();
+            ClearResultsSubNavSelection();
+            HighlightSettingsHeader(false);
+            HighlightFinanceHeader(false);
+            HighlightPersonnelHeader(false);
+            HighlightResultsHeader(false);
+            HighlightDocumentsHeader(true);
+            PageTitleText.Text = page.Title;
+            PageSubtitleText.Text = GetDocumentsPageSubtitle(page.DesktopViewKey);
             return;
         }
 
         PageTitleText.Text = page.Title;
         PageSubtitleText.Text = owner?.Title ?? "Gestion scolaire — République Démocratique du Congo";
     }
+
+    private static string GetDocumentsPageSubtitle(string desktopViewKey) =>
+        desktopViewKey switch
+        {
+            "Documents.Main" => "Gestion des documents élèves.",
+            "StudentCards.Main" => "Émission et suivi des cartes élèves.",
+            _ => "Documents"
+        };
 
     private static string GetDirectPageSubtitle(string desktopViewKey) =>
         desktopViewKey switch
@@ -440,6 +503,34 @@ public partial class ShellView : UserControl
             HighlightSettingsHeader(false);
         }
 
+        if (viewModelType != typeof(FinanceHubViewModel))
+        {
+            _selectedFinanceKey = null;
+            ClearFinanceSubNavSelection();
+            HighlightFinanceHeader(false);
+        }
+
+        if (viewModelType != typeof(PersonnelHubViewModel))
+        {
+            _selectedPersonnelKey = null;
+            ClearPersonnelSubNavSelection();
+            HighlightPersonnelHeader(false);
+        }
+
+        if (viewModelType != typeof(ResultsHubViewModel))
+        {
+            _selectedResultsKey = null;
+            ClearResultsSubNavSelection();
+            HighlightResultsHeader(false);
+        }
+
+        if (viewModelType != typeof(DocumentsHubViewModel))
+        {
+            _selectedDocumentsKey = null;
+            ClearDocumentsSubNavSelection();
+            HighlightDocumentsHeader(false);
+        }
+
         shellViewModel.SelectedModule = module;
         shellViewModel.NavigateToViewModelType(viewModelType);
 
@@ -468,13 +559,16 @@ public partial class ShellView : UserControl
         _selectedFinanceKey = null;
         _selectedPersonnelKey = null;
         _selectedResultsKey = null;
+        _selectedDocumentsKey = null;
         UpdateSettingsSubNavSelection(item.Key);
         ClearFinanceSubNavSelection();
         ClearPersonnelSubNavSelection();
         ClearResultsSubNavSelection();
+        ClearDocumentsSubNavSelection();
         HighlightFinanceHeader(false);
         HighlightPersonnelHeader(false);
         HighlightResultsHeader(false);
+        HighlightDocumentsHeader(false);
 
         if (shellViewModel.CurrentViewModel is SettingsViewModel settingsViewModel)
         {
@@ -501,13 +595,16 @@ public partial class ShellView : UserControl
         _selectedSettingsKey = null;
         _selectedPersonnelKey = null;
         _selectedResultsKey = null;
+        _selectedDocumentsKey = null;
         UpdateFinanceSubNavSelection(item.Key);
         ClearSettingsSubNavSelection();
         ClearPersonnelSubNavSelection();
         ClearResultsSubNavSelection();
+        ClearDocumentsSubNavSelection();
         HighlightSettingsHeader(false);
         HighlightPersonnelHeader(false);
         HighlightResultsHeader(false);
+        HighlightDocumentsHeader(false);
 
         if (shellViewModel.CurrentViewModel is FinanceHubViewModel financeViewModel)
         {
@@ -534,13 +631,16 @@ public partial class ShellView : UserControl
         _selectedSettingsKey = null;
         _selectedFinanceKey = null;
         _selectedResultsKey = null;
+        _selectedDocumentsKey = null;
         UpdatePersonnelSubNavSelection(item.Key);
         ClearSettingsSubNavSelection();
         ClearFinanceSubNavSelection();
         ClearResultsSubNavSelection();
+        ClearDocumentsSubNavSelection();
         HighlightSettingsHeader(false);
         HighlightFinanceHeader(false);
         HighlightResultsHeader(false);
+        HighlightDocumentsHeader(false);
         HighlightPersonnelHeader(true);
 
         if (shellViewModel.CurrentViewModel is PersonnelHubViewModel personnelViewModel)
@@ -568,13 +668,16 @@ public partial class ShellView : UserControl
         _selectedSettingsKey = null;
         _selectedFinanceKey = null;
         _selectedPersonnelKey = null;
+        _selectedDocumentsKey = null;
         UpdateResultsSubNavSelection(item.Key);
         ClearSettingsSubNavSelection();
         ClearFinanceSubNavSelection();
         ClearPersonnelSubNavSelection();
+        ClearDocumentsSubNavSelection();
         HighlightSettingsHeader(false);
         HighlightFinanceHeader(false);
         HighlightPersonnelHeader(false);
+        HighlightDocumentsHeader(false);
         HighlightResultsHeader(true);
 
         if (shellViewModel.CurrentViewModel is ResultsHubViewModel resultsViewModel)
@@ -598,6 +701,7 @@ public partial class ShellView : UserControl
         var isFinance = shellViewModel.SelectedModule?.ViewModelType == typeof(FinanceHubViewModel);
         var isPersonnel = shellViewModel.SelectedModule?.ViewModelType == typeof(PersonnelHubViewModel);
         var isResults = shellViewModel.SelectedModule?.ViewModelType == typeof(ResultsHubViewModel);
+        var isDocuments = shellViewModel.SelectedModule?.ViewModelType == typeof(DocumentsHubViewModel);
 
         if (_settingsExpander is not null)
         {
@@ -630,6 +734,15 @@ public partial class ShellView : UserControl
                 NavigateToResultsSection(shellViewModel, ResultsNavCatalog.DefaultItem);
             }
         }
+
+        if (_documentsExpander is not null)
+        {
+            HighlightDocumentsHeader(isDocuments);
+            if (isDocuments && !string.IsNullOrWhiteSpace(_selectedDocumentsKey))
+            {
+                UpdateDocumentsSubNavSelection(_selectedDocumentsKey);
+            }
+        }
     }
 
     private void HighlightPersonnelHeader(bool active)
@@ -656,6 +769,18 @@ public partial class ShellView : UserControl
             : Brushes.Transparent;
     }
 
+    private void HighlightDocumentsHeader(bool active)
+    {
+        if (_documentsExpander is null)
+        {
+            return;
+        }
+
+        _documentsExpander.Background = active
+            ? new SolidColorBrush(Color.FromRgb(37, 99, 235))
+            : Brushes.Transparent;
+    }
+
     private void UpdatePersonnelSubNavSelection(string selectedKey) =>
         UpdateSubNavSelection(_personnelSubNavButtons, selectedKey);
 
@@ -667,6 +792,12 @@ public partial class ShellView : UserControl
 
     private void ClearResultsSubNavSelection() =>
         UpdateSubNavSelection(_resultsSubNavButtons, null);
+
+    private void UpdateDocumentsSubNavSelection(string selectedKey) =>
+        UpdateSubNavSelection(_documentsSubNavButtons, selectedKey);
+
+    private void ClearDocumentsSubNavSelection() =>
+        UpdateSubNavSelection(_documentsSubNavButtons, null);
 
     private void HighlightSettingsHeader(bool active)
     {
@@ -894,6 +1025,20 @@ public partial class ShellView : UserControl
         {
             PageTitleText.Text = "Catalogue de sécurité";
             PageSubtitleText.Text = GetDirectPageSubtitle("Platform.Catalog");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is DocumentsViewModel)
+        {
+            PageTitleText.Text = "Documents élèves";
+            PageSubtitleText.Text = GetDocumentsPageSubtitle("Documents.Main");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is StudentCardsViewModel)
+        {
+            PageTitleText.Text = "Cartes élèves";
+            PageSubtitleText.Text = GetDocumentsPageSubtitle("StudentCards.Main");
             return;
         }
 

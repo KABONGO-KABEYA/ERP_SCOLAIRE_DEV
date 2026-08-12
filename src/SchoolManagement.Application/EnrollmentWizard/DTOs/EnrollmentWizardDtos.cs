@@ -123,7 +123,9 @@ public sealed record CompleteEnrollmentRequest(
     IReadOnlyList<GuardianInputDto> Guardians,
     IReadOnlyList<EnrollmentDocumentStatusDto> Documents,
     EnrollmentFeeSummaryDto? FeeSummary,
-    bool ConfirmAccuracy);
+    bool ConfirmAccuracy,
+    /// <summary>Identifiant de session wizard pour les fichiers temp/{draftId} (P3).</summary>
+    Guid? DraftId = null);
 
 public sealed record EnrollmentValidationIssueDto(string Code, string Message, string? StepHint);
 
@@ -157,6 +159,10 @@ public sealed record UpdateStudentDossierResultDto(
     string Message,
     IReadOnlyList<SchoolManagement.Application.Parent.DTOs.ParentAppAccessCredentialDto>? ParentAccessAccounts = null);
 
+/// <summary>
+/// Aperçu du prochain matricule (non réservé).
+/// Le matricule définitif est renvoyé par POST complete.
+/// </summary>
 public sealed record GeneratedRegistrationNumberDto(string RegistrationNumber);
 
 public sealed record ClassCapacityDto(

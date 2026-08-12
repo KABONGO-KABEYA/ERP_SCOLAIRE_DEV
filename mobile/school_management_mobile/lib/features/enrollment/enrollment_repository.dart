@@ -48,10 +48,7 @@ class EnrollmentRepository {
       );
 
   Future<StoredEnrollmentFile> storeFile({
-    required String lastName,
-    required String firstName,
-    required String registrationNumber,
-    required String academicYearLabel,
+    required String draftId,
     required String documentType,
     required String fileName,
     String? filePath,
@@ -69,10 +66,7 @@ class EnrollmentRepository {
     }
 
     final formData = FormData.fromMap({
-      'lastName': lastName,
-      'firstName': firstName,
-      'registrationNumber': registrationNumber,
-      'academicYearLabel': academicYearLabel,
+      'draftId': draftId,
       'documentType': documentType,
       'file': multipartFile,
     });

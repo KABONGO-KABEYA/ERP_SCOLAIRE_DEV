@@ -37,6 +37,11 @@ public class EnrollmentWizardController : ControllerBase
         return Ok(ApiResponse<EnrollmentPrerequisitesDto>.Ok(result));
     }
 
+    /// <summary>
+    /// Preview du prochain matricule (non réservé).
+    /// Le numéro affiché peut différer de celui attribué au POST complete
+    /// si une autre inscription est finalisée entre-temps.
+    /// </summary>
     [HttpGet("registration-number")]
     [Authorize(Policy = Permissions.StudentsCreate)]
     [ProducesResponseType(typeof(ApiResponse<GeneratedRegistrationNumberDto>), StatusCodes.Status200OK)]
@@ -75,10 +80,7 @@ public class EnrollmentWizardController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<StoredEnrollmentFileDto>), StatusCodes.Status200OK)]
     [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<IActionResult> StoreEnrollmentFile(
-        [FromForm] string lastName,
-        [FromForm] string firstName,
-        [FromForm] string registrationNumber,
-        [FromForm] string academicYearLabel,
+        [FromForm] Guid draftId,
         [FromForm] string documentType,
         IFormFile file,
         CancellationToken cancellationToken)
@@ -87,10 +89,8 @@ public class EnrollmentWizardController : ControllerBase
         await using var stream = file.OpenReadStream();
         var result = await _wizardService.StoreEnrollmentFileAsync(
             schoolId,
-            lastName,
-            firstName,
-            registrationNumber,
-            academicYearLabel,
+            _currentUser.UserId,
+            draftId,
             documentType,
             file.FileName,
             stream,

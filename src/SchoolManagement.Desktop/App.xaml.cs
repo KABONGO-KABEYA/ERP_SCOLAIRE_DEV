@@ -17,6 +17,8 @@ namespace SchoolManagement.Desktop;
 public partial class App : System.Windows.Application
 {
     private IHost? _host;
+    private bool _isShuttingDown;
+    private bool _mainWindowCloseHooked;
 
     public static IServiceProvider? Services { get; private set; }
 
@@ -103,14 +105,66 @@ public partial class App : System.Windows.Application
             }
         }
 
+        if (!await EnterAuthenticatedSessionAsync())
+        {
+            return;
+        }
+
+        _host.Services.GetRequiredService<DesktopUpdateCoordinator>().Start();
+    }
+
+    /// <summary>
+    /// Déconnexion utilisateur : session nettoyée → écran Login (processus conservé).
+    /// Distinct de la fermeture application (X / Alt+F4 → <see cref="Shutdown"/>).
+    /// </summary>
+    internal async Task LogoutToLoginAsync()
+    {
+        if (_host is null || _isShuttingDown)
+        {
+            return;
+        }
+
+        CloseSecondaryWindows();
+
+        var shell = _host.Services.GetRequiredService<ShellViewModel>();
+        shell.ResetForLogout();
+
+        if (MainWindow is Desktop.MainWindow shellWindow)
+        {
+            shellWindow.Hide();
+        }
+
+        var loginViewModel = _host.Services.GetRequiredService<LoginViewModel>();
+        loginViewModel.PrepareForFreshLogin();
+
+        var loginWindow = _host.Services.GetRequiredService<LoginWindow>();
+        if (loginWindow.ShowDialog() != true)
+        {
+            ExitApplication();
+            return;
+        }
+
+        if (!await EnterAuthenticatedSessionAsync())
+        {
+            return;
+        }
+    }
+
+    private async Task<bool> EnterAuthenticatedSessionAsync()
+    {
+        if (_host is null)
+        {
+            return false;
+        }
+
         var authSession = _host.Services.GetRequiredService<IAuthSessionService>();
         if (authSession.CurrentUser?.MustChangePassword == true)
         {
             var changePasswordWindow = _host.Services.GetRequiredService<ChangePasswordWindow>();
             if (changePasswordWindow.ShowDialog() != true)
             {
-                Shutdown();
-                return;
+                ExitApplication();
+                return false;
             }
         }
 
@@ -123,16 +177,69 @@ public partial class App : System.Windows.Application
                 "ERP Scolaire",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            Shutdown();
+            ExitApplication();
+            return false;
+        }
+
+        shellViewModel.RefreshCurrentAcademicYear();
+
+        var mainWindowViewModel = _host.Services.GetRequiredService<MainWindowViewModel>();
+        mainWindowViewModel.NotifyUserChanged();
+
+        var mainWindow = _host.Services.GetRequiredService<Desktop.MainWindow>();
+        MainWindow = mainWindow;
+        EnsureMainWindowCloseEndsApplication(mainWindow);
+        mainWindow.Show();
+        mainWindow.Activate();
+        return true;
+    }
+
+    private void EnsureMainWindowCloseEndsApplication(Desktop.MainWindow mainWindow)
+    {
+        if (_mainWindowCloseHooked)
+        {
             return;
         }
 
-        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-        MainWindow = mainWindow;
-        mainWindow.Show();
-        mainWindow.Activate();
+        _mainWindowCloseHooked = true;
+        mainWindow.Closed += OnMainWindowClosed;
+    }
 
-        _host.Services.GetRequiredService<DesktopUpdateCoordinator>().Start();
+    private void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        // X / Alt+F4 : fermeture complète — jamais retour Login.
+        ExitApplication();
+    }
+
+    private void ExitApplication()
+    {
+        if (_isShuttingDown)
+        {
+            return;
+        }
+
+        _isShuttingDown = true;
+        Shutdown();
+    }
+
+    private static void CloseSecondaryWindows()
+    {
+        foreach (Window window in Current.Windows.Cast<Window>().ToList())
+        {
+            if (window is Desktop.MainWindow or LoginWindow)
+            {
+                continue;
+            }
+
+            try
+            {
+                window.Close();
+            }
+            catch
+            {
+                // Ignore les fenêtres déjà en cours de fermeture.
+            }
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
@@ -263,6 +370,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<PedagogicalPeriodsViewModel>();
         services.AddTransient<AcademicViewModel>();
         services.AddTransient<DocumentsViewModel>();
+        services.AddTransient<DocumentsHubViewModel>();
         services.AddTransient<StatisticsViewModel>();
         services.AddTransient<AdministrationViewModel>();
         services.AddTransient<SecurityUsersViewModel>();
@@ -289,6 +397,8 @@ public partial class App : System.Windows.Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        _isShuttingDown = true;
+
         if (_host is not null)
         {
             await _host.StopAsync();

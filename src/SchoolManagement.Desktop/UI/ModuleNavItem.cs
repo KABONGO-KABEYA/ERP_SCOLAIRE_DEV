@@ -24,7 +24,7 @@ public static class DesktopNavigationMenuBuilder
 {
     private static readonly HashSet<string> HubModuleCodes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "SETTINGS", "FINANCE", "PERSONNEL", "RESULTS", "SECURITY"
+        "SETTINGS", "FINANCE", "PERSONNEL", "RESULTS", "SECURITY", "DOCUMENTS"
     };
 
     public static IReadOnlyList<ModuleNavItem> Build(

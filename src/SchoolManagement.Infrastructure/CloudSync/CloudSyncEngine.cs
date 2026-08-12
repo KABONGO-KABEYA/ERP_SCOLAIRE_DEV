@@ -138,48 +138,60 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             await using var remote = open.Remote!;
             remote.SuppressCloudSyncEnqueue = true;
 
-            // Référentiel finance d'abord (destinations, retenues, clés…) — commit hors outbox.
-            await EnsureFinanceReferenceDataAsync(local, remote, cancellationToken);
+            var loop = await ExecuteFinanceGatedUnitLoopAsync(
+                units,
+                prepareFinanceAsync: ct => EnsureFinanceReferenceDataAsync(local, remote, ct),
+                processUnitAsync: async (unit, ct) =>
+                {
+                    var outcome = await ProcessUnitAsync(local, remote, unit, control, ct);
+                    return new FinanceGatedUnitProcessResult(
+                        outcome.Success,
+                        outcome.OrphanedSoftDeleted,
+                        outcome.RecordsOk,
+                        outcome.RecordsFail,
+                        outcome.Error,
+                        outcome.Tables);
+                },
+                cancellationToken);
 
-            foreach (var unit in units)
+            unitsSucceeded = loop.UnitsSucceeded;
+            unitsFailed = loop.UnitsFailed;
+            orphanedSoftDeleted = loop.OrphanedSoftDeleted;
+            recordsSucceeded = loop.RecordsSucceeded;
+            recordsFailed = loop.RecordsFailed;
+            foreach (var t in loop.TablesTouched)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var outcome = await ProcessUnitAsync(local, remote, unit, control, cancellationToken);
-                foreach (var t in outcome.Tables)
-                {
-                    tablesTouched.Add(t);
-                }
-
-                if (outcome.OrphanedSoftDeleted)
-                {
-                    orphanedSoftDeleted++;
-                }
-                else if (outcome.Success)
-                {
-                    unitsSucceeded++;
-                    recordsSucceeded += outcome.RecordsOk;
-                }
-                else
-                {
-                    unitsFailed++;
-                    recordsFailed += outcome.RecordsFail;
-                    if (!string.IsNullOrWhiteSpace(outcome.Error))
-                    {
-                        errors.Add($"{unit.AggregateType}/{unit.AggregateId}: {outcome.Error}");
-                    }
-                }
+                tablesTouched.Add(t);
             }
 
+            errors.AddRange(loop.Errors);
+
             sw.Stop();
-            var success = unitsFailed == 0;
-            var summary = orphanedSoftDeleted > 0
-                ? success
-                    ? $"Sync OK : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s) soft-deleted, {recordsSucceeded} enregistrement(s) en {sw.ElapsedMilliseconds} ms."
-                    : $"Sync partielle : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s), {unitsFailed} échec(s)."
-                : success
-                    ? $"Sync OK : {unitsSucceeded} unité(s), {recordsSucceeded} enregistrement(s) en {sw.ElapsedMilliseconds} ms."
-                    : $"Sync partielle : {unitsSucceeded} OK, {unitsFailed} échec(s).";
-            var errorSummary = errors.Count == 0 ? null : string.Join(" | ", errors.Take(8));
+            var success = unitsFailed == 0 && !loop.FinancePrepFailed;
+            var summary = BuildDrainSummary(
+                success,
+                unitsSucceeded,
+                unitsFailed,
+                orphanedSoftDeleted,
+                recordsSucceeded,
+                loop.FinancePrepFailed,
+                loop.FinancePrepError,
+                (int)sw.ElapsedMilliseconds);
+            var errorSummaryParts = new List<string>();
+            if (loop.FinancePrepFailed && !string.IsNullOrWhiteSpace(loop.FinancePrepError))
+            {
+                errorSummaryParts.Add(
+                    "Préparation référentiel financier échouée : " + Truncate(loop.FinancePrepError!, 500));
+            }
+
+            if (errors.Count > 0)
+            {
+                errorSummaryParts.AddRange(errors.Take(8));
+            }
+
+            var errorSummary = errorSummaryParts.Count == 0
+                ? null
+                : string.Join(" | ", errorSummaryParts);
 
             await WriteJournalAsync(
                 startedAt, sw, skipped: false, success,
@@ -187,7 +199,12 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 recordsSucceeded + recordsFailed, recordsSucceeded, recordsFailed,
                 string.Join(',', tablesTouched.OrderBy(t => t).Take(40)),
                 errorSummary,
-                JsonSerializer.Serialize(new { errors }),
+                JsonSerializer.Serialize(new
+                {
+                    errors,
+                    financePrepFailed = loop.FinancePrepFailed,
+                    ensureFinanceCalls = loop.EnsureFinanceCallCount
+                }),
                 cancellationToken);
 
             WriteState(success, summary);
@@ -536,6 +553,146 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         }
 
         return (false, "OK", remote);
+    }
+
+    /// <summary>
+    /// Unité financière (Payment / FinanceBatch / tables critiques) — déclenche EnsureFinance une fois.
+    /// Les référentiels isolés (FinDevise, FinRetenue, FeeTypes…) en AggregateType Entity restent hors scope.
+    /// </summary>
+    internal static bool IsFinancialSyncUnit(SyncOutboxUnit unit)
+    {
+        if (string.Equals(unit.AggregateType, "Payment", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(unit.AggregateType, "FinanceBatch", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return unit.Items.Any(i =>
+            !i.IsDeleted && CloudSyncCatalog.IsCriticalTable(i.TableName));
+    }
+
+    /// <summary>
+    /// Parcourt les unités dans l'ordre fourni ; EnsureFinance 0 ou 1 fois à la première unité financière.
+    /// Exposé en internal pour tests unitaires (callbacks injectés).
+    /// </summary>
+    internal static async Task<FinanceGatedUnitLoopResult> ExecuteFinanceGatedUnitLoopAsync(
+        IReadOnlyList<SyncOutboxUnit> units,
+        Func<CancellationToken, Task> prepareFinanceAsync,
+        Func<SyncOutboxUnit, CancellationToken, Task<FinanceGatedUnitProcessResult>> processUnitAsync,
+        CancellationToken cancellationToken)
+    {
+        var financePrepared = false;
+        var financePrepFailed = false;
+        string? financePrepError = null;
+        var ensureFinanceCallCount = 0;
+        var unitsSucceeded = 0;
+        var unitsFailed = 0;
+        var orphanedSoftDeleted = 0;
+        var recordsSucceeded = 0;
+        var recordsFailed = 0;
+        var tablesTouched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var errors = new List<string>();
+
+        foreach (var unit in units)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (IsFinancialSyncUnit(unit))
+            {
+                if (financePrepFailed)
+                {
+                    // Reste Pending — ProcessUnit non appelé (AttemptCount inchangé).
+                    continue;
+                }
+
+                if (!financePrepared)
+                {
+                    try
+                    {
+                        ensureFinanceCallCount++;
+                        await prepareFinanceAsync(cancellationToken);
+                        financePrepared = true;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        financePrepFailed = true;
+                        financePrepError = FormatException(ex);
+                        // Unité financière courante non traitée (Pending).
+                        continue;
+                    }
+                }
+            }
+
+            var outcome = await processUnitAsync(unit, cancellationToken);
+            foreach (var t in outcome.Tables)
+            {
+                tablesTouched.Add(t);
+            }
+
+            if (outcome.OrphanedSoftDeleted)
+            {
+                orphanedSoftDeleted++;
+            }
+            else if (outcome.Success)
+            {
+                unitsSucceeded++;
+                recordsSucceeded += outcome.RecordsOk;
+            }
+            else
+            {
+                unitsFailed++;
+                recordsFailed += outcome.RecordsFail;
+                if (!string.IsNullOrWhiteSpace(outcome.Error))
+                {
+                    errors.Add($"{unit.AggregateType}/{unit.AggregateId}: {outcome.Error}");
+                }
+            }
+        }
+
+        return new FinanceGatedUnitLoopResult(
+            unitsSucceeded,
+            unitsFailed,
+            orphanedSoftDeleted,
+            recordsSucceeded,
+            recordsFailed,
+            ensureFinanceCallCount,
+            financePrepFailed,
+            financePrepError,
+            errors,
+            tablesTouched);
+    }
+
+    private static string BuildDrainSummary(
+        bool success,
+        int unitsSucceeded,
+        int unitsFailed,
+        int orphanedSoftDeleted,
+        int recordsSucceeded,
+        bool financePrepFailed,
+        string? financePrepError,
+        int elapsedMs)
+    {
+        if (financePrepFailed)
+        {
+            var detail = string.IsNullOrWhiteSpace(financePrepError)
+                ? "préparation référentiel financier échouée"
+                : "préparation référentiel financier échouée : " + Truncate(financePrepError, 240);
+            return unitsSucceeded > 0 || orphanedSoftDeleted > 0
+                ? $"Sync partielle : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s), {unitsFailed} échec(s) ; {detail}."
+                : $"Sync partielle : {detail}.";
+        }
+
+        return orphanedSoftDeleted > 0
+            ? success
+                ? $"Sync OK : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s) soft-deleted, {recordsSucceeded} enregistrement(s) en {elapsedMs} ms."
+                : $"Sync partielle : {unitsSucceeded} OK, {orphanedSoftDeleted} orpheline(s), {unitsFailed} échec(s)."
+            : success
+                ? $"Sync OK : {unitsSucceeded} unité(s), {recordsSucceeded} enregistrement(s) en {elapsedMs} ms."
+                : $"Sync partielle : {unitsSucceeded} OK, {unitsFailed} échec(s).";
     }
 
     /// <summary>
@@ -1712,6 +1869,26 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
     private static string? Truncate(string? value, int max) =>
         string.IsNullOrEmpty(value) ? value : value.Length <= max ? value : value[..max];
+
+    internal sealed record FinanceGatedUnitProcessResult(
+        bool Success,
+        bool OrphanedSoftDeleted,
+        int RecordsOk,
+        int RecordsFail,
+        string? Error,
+        IReadOnlyList<string> Tables);
+
+    internal sealed record FinanceGatedUnitLoopResult(
+        int UnitsSucceeded,
+        int UnitsFailed,
+        int OrphanedSoftDeleted,
+        int RecordsSucceeded,
+        int RecordsFailed,
+        int EnsureFinanceCallCount,
+        bool FinancePrepFailed,
+        string? FinancePrepError,
+        IReadOnlyList<string> Errors,
+        IReadOnlyCollection<string> TablesTouched);
 
     private sealed record UnitOutcome(
         bool Success,

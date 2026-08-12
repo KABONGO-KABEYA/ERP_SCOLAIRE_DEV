@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -168,90 +169,21 @@ public sealed class CloudDatabaseSyncService : ICloudDatabaseSyncService
         SchoolDbContext remote,
         CancellationToken cancellationToken);
 
-    /// <summary>Ordre respectant les dépendances FK (parents avant enfants).</summary>
+    /// <summary>Ordre respectant les dépendances FK — aligné sur <see cref="CloudSyncCatalog.SyncOrder"/>.</summary>
     private static IEnumerable<SyncTableAsync> BuildSyncPipeline()
     {
-        // Paramétrage / sécurité
-        yield return (l, r, ct) => UpsertAsync<School>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Permission>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Role>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<RolePermission>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<UserAccount>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<UserRoleAssignment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<AcademicYear>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Section>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudyOption>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<PedagogicalClass>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ClassRoom>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Course>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<AcademicPeriod>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<FeeType>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<FeeInstallment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<FeePricingCategory>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<FeeTypeInstallment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ClassFeeAmount>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Bank>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<CashRegister>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<AppConfiguration>(l, r, ct);
-
-        // Géographie
-        yield return (l, r, ct) => UpsertAsync<Country>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Province>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<City>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Commune>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<PostalAddress>(l, r, ct);
-
-        // Élèves / inscription
-        yield return (l, r, ct) => UpsertAsync<Student>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Guardian>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudentGuardian>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudentDocument>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Enrollment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<EnrollmentPricingCategoryHistory>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudentStatusHistory>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudentFeeBalance>(l, r, ct);
-
-        // Académique
-        yield return (l, r, ct) => UpsertAsync<Teacher>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<CourseAssignment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ScheduleSlot>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<StudentAttendance>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<TeacherAttendance>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<CalendarEvent>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<DisciplineRecord>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<MeritRecord>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Announcement>(l, r, ct);
-
-        // Notes
-        yield return (l, r, ct) => UpsertAsync<Evaluation>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<GradeEntry>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<PeriodResult>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ReportCard>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ReportCardDetail>(l, r, ct);
-
-        // Finance
-        yield return (l, r, ct) => UpsertAsync<WithholdingType>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<WithholdingConfiguration>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<RevenueAllocationDestination>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<RevenueAllocationKey>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<RevenueAllocationKeyDetail>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<Payment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<PaymentLine>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<PaymentReversal>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<CashMovement>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<RevenueAllocationEntry>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<WithholdingApplication>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ExpenseRequest>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ExpensePayment>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<ExpensePaymentAllocation>(l, r, ct);
-
-        // Branding / audit (léger)
-        yield return (l, r, ct) => UpsertAsync<SchoolLogo>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<SchoolDocumentHeader>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<SchoolSignature>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<SchoolStamp>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<SchoolDocumentFooter>(l, r, ct);
-        yield return (l, r, ct) => UpsertAsync<AuditEntry>(l, r, ct);
+        foreach (var (_, clrType) in CloudSyncCatalog.SyncOrder)
+        {
+            var entityType = clrType;
+            yield return async (local, remote, cancellationToken) =>
+            {
+                var method = typeof(CloudDatabaseSyncService)
+                    .GetMethod(nameof(UpsertAsync), BindingFlags.NonPublic | BindingFlags.Static)!
+                    .MakeGenericMethod(entityType);
+                var task = (Task<int>)method.Invoke(null, [local, remote, cancellationToken])!;
+                return await task.ConfigureAwait(false);
+            };
+        }
     }
 
     private static async Task<int> UpsertAsync<TEntity>(

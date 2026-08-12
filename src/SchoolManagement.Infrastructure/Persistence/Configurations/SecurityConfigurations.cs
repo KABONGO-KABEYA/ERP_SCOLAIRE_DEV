@@ -86,7 +86,10 @@ public class UserRoleAssignmentConfiguration : AuditableEntityConfiguration<User
         builder.ToTable("UserRoleAssignments");
         builder.HasOne(ur => ur.User).WithMany(u => u.Roles).HasForeignKey(ur => ur.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(ur => ur.Role).WithMany(r => r.Users).HasForeignKey(ur => ur.RoleId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(ur => new { ur.UserId, ur.RoleId }).IsUnique();
+        // Unique uniquement sur les lignes actives : compatible soft-delete (réactivation vs INSERT).
+        builder.HasIndex(ur => new { ur.UserId, ur.RoleId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
 

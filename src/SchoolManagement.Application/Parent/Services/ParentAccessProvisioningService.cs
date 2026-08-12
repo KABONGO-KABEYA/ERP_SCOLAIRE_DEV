@@ -143,9 +143,26 @@ public sealed class ParentAccessProvisioningService : IParentAccessProvisioningS
         Guid parentRoleId,
         CancellationToken cancellationToken)
     {
-        var assignments = await _userRoleRepository.FindAsync(a => a.UserId == userId, cancellationToken);
-        if (assignments.Any(a => a.RoleId == parentRoleId))
+        // IgnoreQueryFilters : une ligne PARENT soft-deleted serait masquée par FindAsync
+        // et un INSERT provoquerait SQL 2601 sur IX_UserRoleAssignments_UserId_RoleId.
+        var assignments = await _userRoleRepository.FindIncludingDeletedAsync(
+            a => a.UserId == userId && a.RoleId == parentRoleId,
+            cancellationToken);
+
+        var active = assignments.FirstOrDefault(a => !a.IsDeleted);
+        if (active is not null)
         {
+            return;
+        }
+
+        var softDeleted = assignments.FirstOrDefault(a => a.IsDeleted);
+        if (softDeleted is not null)
+        {
+            softDeleted.IsDeleted = false;
+            softDeleted.DeletedAt = null;
+            softDeleted.DeletedBy = null;
+            softDeleted.UpdatedAt = DateTime.UtcNow;
+            await _userRoleRepository.UpdateAsync(softDeleted, cancellationToken);
             return;
         }
 

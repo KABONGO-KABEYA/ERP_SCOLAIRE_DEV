@@ -2457,10 +2457,7 @@ public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWiza
             cancellationToken);
 
     public async Task<SchoolManagement.Application.EnrollmentWizard.DTOs.StoredEnrollmentFileDto> StoreEnrollmentFileAsync(
-        string lastName,
-        string firstName,
-        string registrationNumber,
-        string academicYearLabel,
+        Guid draftId,
         string documentType,
         string filePath,
         CancellationToken cancellationToken = default)
@@ -2469,10 +2466,7 @@ public sealed class EnrollmentWizardApiService : ApiServiceBase, IEnrollmentWiza
         await using var stream = File.OpenRead(filePath);
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(lastName), "lastName" },
-            { new StringContent(firstName), "firstName" },
-            { new StringContent(registrationNumber), "registrationNumber" },
-            { new StringContent(academicYearLabel), "academicYearLabel" },
+            { new StringContent(draftId.ToString("D")), "draftId" },
             { new StringContent(documentType), "documentType" },
             { new StreamContent(stream), "file", Path.GetFileName(filePath) }
         };

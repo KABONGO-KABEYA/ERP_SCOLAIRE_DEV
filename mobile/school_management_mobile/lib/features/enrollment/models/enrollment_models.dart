@@ -423,6 +423,7 @@ class CompleteEnrollmentRequest {
     required this.guardians,
     required this.documents,
     required this.confirmAccuracy,
+    this.draftId,
   });
 
   final String? existingStudentId;
@@ -442,6 +443,7 @@ class CompleteEnrollmentRequest {
   final List<GuardianInput> guardians;
   final List<EnrollmentDocumentStatus> documents;
   final bool confirmAccuracy;
+  final String? draftId;
 
   Map<String, dynamic> toJson() => {
         if (existingStudentId != null) 'existingStudentId': existingStudentId,
@@ -463,6 +465,7 @@ class CompleteEnrollmentRequest {
         'documents': documents.map((d) => d.toJson()).toList(),
         'feeSummary': null,
         'confirmAccuracy': confirmAccuracy,
+        if (draftId != null) 'draftId': draftId,
       };
 }
 
