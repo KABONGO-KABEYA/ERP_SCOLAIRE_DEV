@@ -227,9 +227,13 @@ class LocalServerDiscovery {
     }
 
     // 3) Scan sous-réseau — uniquement si LAN présent ; budget temps + plafond adresses.
+    //    lastKnown / config sont placés en tête des candidats (pas d'IP magique).
     if (lanAvailable) {
       debugPrint('[Discovery] Scan réseau (budget limité)');
-      final scanned = await _scanSubnet(prefixes, ctx);
+      final scanned = await _scanSubnet(prefixes, ctx, hintBaseUrls: [
+        if (last != null) last,
+        ...ApiConfig.localBaseUrlCandidates,
+      ]);
       if (gen != _generation) return _current;
       if (scanned != null) {
         await _saveLast(scanned.baseUrl!);
@@ -570,14 +574,15 @@ class LocalServerDiscovery {
 
   Future<DiscoveryResult?> _scanSubnet(
     List<String> prefixes,
-    _BindingDiscoveryContext ctx,
-  ) async {
+    _BindingDiscoveryContext ctx, {
+    List<String> hintBaseUrls = const [],
+  }) async {
     if (prefixes.isEmpty) return null;
 
     final scanPrefixes = _selectScanPrefixes(prefixes);
     if (scanPrefixes.isEmpty) return null;
 
-    final candidates = _buildScanCandidates(scanPrefixes);
+    final candidates = await _buildScanCandidates(scanPrefixes, hintBaseUrls);
     if (candidates.isEmpty) return null;
 
     debugPrint(
@@ -648,8 +653,11 @@ class LocalServerDiscovery {
     return scored.take(DiscoveryConstants.scanMaxPrefixes).toList();
   }
 
-  /// Candidats limités : IPs config d'abord, puis échantillon du /24.
-  List<String> _buildScanCandidates(List<String> scanPrefixes) {
+  /// Candidats limités : hints (lastKnown/config) d'abord, puis échantillon du /24.
+  Future<List<String>> _buildScanCandidates(
+    List<String> scanPrefixes,
+    List<String> hintBaseUrls,
+  ) async {
     final seen = <String>{};
     final out = <String>[];
 
@@ -661,18 +669,37 @@ class LocalServerDiscovery {
       if (seen.add(n)) out.add(n);
     }
 
+    // 1) Accélérateurs connus (lastKnown, dart-define) — même /24 uniquement.
+    for (final hint in hintBaseUrls) {
+      final host = _hostOf(hint);
+      final prefix = host == null ? null : DiscoveryConstants.ipv4Prefix(host);
+      if (prefix != null && scanPrefixes.contains(prefix)) add(hint);
+    }
+
     for (final c in ApiConfig.localBaseUrlCandidates) {
       final host = _hostOf(c);
       final prefix = host == null ? null : DiscoveryConstants.ipv4Prefix(host);
       if (prefix != null && scanPrefixes.contains(prefix)) add(c);
     }
 
-    // Hosts fréquents d'abord (.1 gateway, .2, .100, …) puis pas de 1..254 exhaustif.
-    const priorityHosts = <int>[
+    // 2) Dernier octet de lastKnown + hosts fréquents, sans IP magique fixe.
+    final priorityHosts = <int>{
       1, 2, 10, 20, 30, 50, 100, 101, 110, 120, 137, 150, 200, 250, 254,
-    ];
+    };
+    for (final hint in hintBaseUrls) {
+      final host = _hostOf(hint);
+      if (host == null) continue;
+      final parts = host.split('.');
+      if (parts.length == 4) {
+        final lastOctet = int.tryParse(parts[3]);
+        if (lastOctet != null && lastOctet >= 1 && lastOctet <= 254) {
+          priorityHosts.add(lastOctet);
+        }
+      }
+    }
+
     for (final prefix in scanPrefixes) {
-      for (final host in priorityHosts) {
+      for (final host in priorityHosts.toList()..sort()) {
         add('http://$prefix.$host:${DiscoveryConstants.apiPort}');
         if (out.length >= DiscoveryConstants.scanMaxAddresses) {
           return out;
@@ -680,7 +707,7 @@ class LocalServerDiscovery {
       }
     }
 
-    // Compléter jusqu'au plafond sans balayer tout le /24.
+    // 3) Compléter jusqu'au plafond sans balayer tout le /24.
     for (final prefix in scanPrefixes) {
       for (var i = 1; i <= 254; i++) {
         if (priorityHosts.contains(i)) continue;

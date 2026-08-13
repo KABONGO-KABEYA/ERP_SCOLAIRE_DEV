@@ -15,7 +15,7 @@ abstract final class DiscoveryConstants {
   /// Timeout exposé à l'UI (`ConnectionModeNotifier`) — légèrement > overall.
   static const Duration discoveryUiTimeout = Duration(seconds: 10);
 
-  static const Duration mdnsTimeout = Duration(seconds: 2);
+  static const Duration mdnsTimeout = Duration(seconds: 3);
   static const Duration mdnsStartTimeout = Duration(seconds: 1);
   static const Duration lastKnownTimeout = Duration(seconds: 1);
 
