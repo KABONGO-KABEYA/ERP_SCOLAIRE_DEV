@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../core/auth/auth_storage.dart';
 import '../core/auth/mobile_role_routing.dart';
 import '../core/providers/app_providers.dart';
-import '../core/connection/connection_mode_notifier.dart';
 import '../core/school_binding/school_binding_gate.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/unsupported_role_screen.dart';
@@ -383,7 +382,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(this._ref) {
     _ref.listen(authStateProvider, (_, __) => notifyListeners());
-    _ref.listen(connectionModeProvider, (_, __) => notifyListeners());
+    // Ne pas rafraîchir GoRouter à chaque local/cloud/offline/detecting :
+    // cela reconstruisait l'écran login et vidait la saisie.
+    // Notifier uniquement quand une redirection auth est réellement requise.
+    _ref.listen(connectionModeProvider, (prev, next) {
+      final was = prev?.requiresReauthentication ?? false;
+      if (next.requiresReauthentication && !was) {
+        notifyListeners();
+      }
+    });
   }
 
   final Ref _ref;

@@ -37,6 +37,9 @@ class LocalServerDiscovery {
   Future<DiscoveryResult>? _inFlight;
   int _generation = 0;
 
+  /// lastKnown ayant échoué pendant cette session (évite re-probes / boucles).
+  final Set<String> _sessionIgnoredLastKnown = <String>{};
+
   DiscoveryResult get current => _current;
 
   final _controller = StreamController<DiscoveryResult>.broadcast();
@@ -45,10 +48,12 @@ class LocalServerDiscovery {
   Future<DiscoveryResult> discover({bool force = false}) {
     if (!force && _inFlight != null) return _inFlight!;
     final gen = ++_generation;
-    _inFlight = _run(gen).whenComplete(() {
-      if (gen == _generation) _inFlight = null;
-    });
-    return _inFlight!;
+    final future = _runBounded(gen);
+    _inFlight = future;
+    unawaited(future.whenComplete(() {
+      if (identical(_inFlight, future)) _inFlight = null;
+    }));
+    return future;
   }
 
   Future<DiscoveryResult> rediscover() => discover(force: true);
@@ -73,7 +78,9 @@ class LocalServerDiscovery {
       candidates.add(ApiConfig.normalize(current));
     }
     final last = await _loadLast();
-    if (last != null) candidates.add(last);
+    if (last != null && !_sessionIgnoredLastKnown.contains(last)) {
+      candidates.add(last);
+    }
 
     for (final base in candidates) {
       if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base, ctx)) continue;
@@ -88,6 +95,7 @@ class LocalServerDiscovery {
         ctx: ctx,
       );
       if (local != null) return _publish(await _finalizeAccepted(local, ctx));
+      _ignoreLastKnownForSession(base);
       debugPrint(
         '[Discovery] Recheck refuse Local base=$base '
         'sameSubnet=${_isSameSubnet(base, prefixes)} '
@@ -108,6 +116,37 @@ class LocalServerDiscovery {
     return rediscover();
   }
 
+  Future<DiscoveryResult> _runBounded(int gen) async {
+    try {
+      return await _run(gen).timeout(DiscoveryConstants.discoveryOverallTimeout);
+    } on TimeoutException {
+      debugPrint(
+        '[Discovery] Budget global '
+        '${DiscoveryConstants.discoveryOverallTimeout.inSeconds}s dépassé '
+        '→ tentative cloud',
+      );
+      // Invalide le _run encore en cours pour qu'il n'écrase pas l'état UI.
+      if (gen == _generation) {
+        ++_generation;
+      }
+      final cloudGen = _generation;
+      try {
+        final ctx = await _loadBindingContext();
+        final remote = await _tryRemote(ctx);
+        if (cloudGen != _generation) return _current;
+        if (remote != null) {
+          return _publish(await _finalizeAccepted(remote, ctx));
+        }
+      } catch (e) {
+        debugPrint('[Discovery] Fallback cloud après timeout: $e');
+      }
+      if (cloudGen != _generation) return _current;
+      return _publish(DiscoveryResult.offline(
+        'Délai de découverte dépassé — aucun serveur accessible.',
+      ));
+    }
+  }
+
   Future<DiscoveryResult> _run(int gen) async {
     _publish(DiscoveryResult.detecting);
     if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
@@ -121,15 +160,25 @@ class LocalServerDiscovery {
 
     final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
-    debugPrint('[Discovery] Préfixes device: ${prefixes.join(', ')}');
+    final lanAvailable = prefixes.isNotEmpty;
+    debugPrint(
+      '[Discovery] Préfixes device: ${prefixes.isEmpty ? '(aucun)' : prefixes.join(', ')} '
+      'lanAvailable=$lanAvailable',
+    );
 
     // 1) Dernière IP connue — uniquement si encore sur le même /24.
     debugPrint('[Discovery] Dernière IP connue');
     final last = await _loadLast();
-    if (last != null && !_isVirtualBaseUrl(last) && !_isCloudBaseUrl(last, ctx)) {
-      if (!_isSameSubnet(last, prefixes)) {
-        debugPrint('[Discovery] lastKnown hors sous-réseau → ignoré ($last)');
-        await _clearLast();
+    if (last != null &&
+        !_isVirtualBaseUrl(last) &&
+        !_isCloudBaseUrl(last, ctx) &&
+        !_sessionIgnoredLastKnown.contains(last)) {
+      if (!lanAvailable || !_isSameSubnet(last, prefixes)) {
+        debugPrint('[Discovery] lastKnown hors sous-réseau / sans LAN → ignoré ($last)');
+        _ignoreLastKnownForSession(last);
+        if (!lanAvailable || !_isSameSubnet(last, prefixes)) {
+          await _clearLast();
+        }
       } else {
         debugPrint('[Discovery] Vérification Health $last');
         final health = await _probe(last, DiscoveryConstants.lastKnownTimeout);
@@ -142,29 +191,55 @@ class LocalServerDiscovery {
           messagePrefix: 'Serveur local (dernière IP)',
           ctx: ctx,
         );
-        if (local != null) return _publish(await _finalizeAccepted(local, ctx));
+        if (local != null) {
+          _sessionIgnoredLastKnown.remove(last);
+          return _publish(await _finalizeAccepted(local, ctx));
+        }
+        _ignoreLastKnownForSession(last);
         await _clearLast();
       }
     }
 
-    // 2) mDNS (mêmes sous-réseaux uniquement)
-    debugPrint('[Discovery] Recherche mDNS...');
-    final mdns = await _tryMdns(prefixes, ctx);
-    if (gen != _generation) return _current;
-    if (mdns != null) {
-      await _saveLast(mdns.baseUrl!);
-      debugPrint('[Discovery] Passage en serveur local (mDNS)');
-      return _publish(await _finalizeAccepted(mdns, ctx));
+    // 1b) Candidats LAN compilés (`LOCAL_API_CANDIDATES` / `LOCAL_API_BASE_URL`)
+    //     — jamais 127.0.0.1 (filtré dans ApiConfig).
+    if (lanAvailable) {
+      final configured = await _tryConfiguredLocals(prefixes, ctx);
+      if (gen != _generation) return _current;
+      if (configured != null) {
+        await _saveLast(configured.baseUrl!);
+        debugPrint('[Discovery] Passage en serveur local (config)');
+        return _publish(await _finalizeAccepted(configured, ctx));
+      }
     }
 
-    // 3) Scan sous-réseau courant
-    debugPrint('[Discovery] Scan réseau');
-    final scanned = await _scanSubnet(prefixes, ctx);
-    if (gen != _generation) return _current;
-    if (scanned != null) {
-      await _saveLast(scanned.baseUrl!);
-      debugPrint('[Discovery] Passage en serveur local (scan)');
-      return _publish(await _finalizeAccepted(scanned, ctx));
+    // 2) mDNS (mêmes sous-réseaux uniquement) — skip si pas de LAN.
+    if (lanAvailable) {
+      debugPrint('[Discovery] Recherche mDNS...');
+      final mdns = await _tryMdns(prefixes, ctx);
+      if (gen != _generation) return _current;
+      if (mdns != null) {
+        await _saveLast(mdns.baseUrl!);
+        debugPrint('[Discovery] Passage en serveur local (mDNS)');
+        return _publish(await _finalizeAccepted(mdns, ctx));
+      }
+    } else {
+      debugPrint('[Discovery] mDNS ignoré (réseau local indisponible)');
+    }
+
+    // 3) Scan sous-réseau — uniquement si LAN présent ; budget temps + plafond adresses.
+    if (lanAvailable) {
+      debugPrint('[Discovery] Scan réseau (budget limité)');
+      final scanned = await _scanSubnet(prefixes, ctx);
+      if (gen != _generation) return _current;
+      if (scanned != null) {
+        await _saveLast(scanned.baseUrl!);
+        debugPrint('[Discovery] Passage en serveur local (scan)');
+        return _publish(await _finalizeAccepted(scanned, ctx));
+      }
+    } else {
+      debugPrint(
+        '[Discovery] Scan subnet ignoré (pas de préfixe privé / LAN indisponible)',
+      );
     }
 
     // 4) Cloud → Mode Distant
@@ -186,6 +261,33 @@ class LocalServerDiscovery {
     return result;
   }
 
+  void _ignoreLastKnownForSession(String baseUrl) {
+    _sessionIgnoredLastKnown.add(ApiConfig.normalize(baseUrl));
+  }
+
+  Future<DiscoveryResult?> _tryConfiguredLocals(
+    List<String> localPrefixes,
+    _BindingDiscoveryContext ctx,
+  ) async {
+    for (final raw in ApiConfig.localBaseUrlCandidates) {
+      final base = ApiConfig.normalize(raw);
+      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base, ctx)) continue;
+      if (!_isSameSubnet(base, localPrefixes)) continue;
+      debugPrint('[Discovery] Candidat config $base');
+      final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+      final local = _acceptLocal(
+        base: base,
+        health: health,
+        source: DiscoverySource.lastKnown,
+        devicePrefixes: localPrefixes,
+        messagePrefix: 'Serveur local (config)',
+        ctx: ctx,
+      );
+      if (local != null) return local;
+    }
+    return null;
+  }
+
   Future<DiscoveryResult?> _tryRemote(_BindingDiscoveryContext ctx) async {
     final String remote;
     if (ctx.filterByBinding && ctx.binding != null) {
@@ -201,6 +303,13 @@ class LocalServerDiscovery {
     } else {
       remote = ApiConfig.effectiveCloudBaseUrl ??
           DiscoveryConstants.defaultRemoteBaseUrl;
+    }
+    if (DiscoveryConstants.isLoopbackHost(_hostOf(remote) ?? '')) {
+      debugPrint(
+        '[Discovery] URL cloud loopback ignorée ($remote) — '
+        'sur Android 127.0.0.1 = le téléphone (sauf adb reverse debug)',
+      );
+      return null;
     }
     debugPrint('[Discovery] Vérification Health distant $remote');
     final remoteHealth =
@@ -291,95 +400,171 @@ class LocalServerDiscovery {
     );
   }
 
+  /// mDNS entièrement isolé : aucune SocketException / erreur stream ne doit
+  /// remonter en Unhandled Exception. Échec = null → suite (scan / cloud).
   Future<DiscoveryResult?> _tryMdns(
     List<String> localPrefixes,
     _BindingDiscoveryContext ctx,
   ) async {
-    final client = MDnsClient();
+    if (localPrefixes.isEmpty) return null;
+
+    DiscoveryResult? result;
+    Object? zoneError;
+
+    await runZonedGuarded(() async {
+      result = await _tryMdnsBody(localPrefixes, ctx);
+    }, (error, stack) {
+      zoneError = error;
+      debugPrint('[Discovery] mDNS zone error (avalé): $error');
+    });
+
+    if (zoneError != null && result == null) {
+      debugPrint('[Discovery] mDNS échec réseau → null');
+    }
+    return result;
+  }
+
+  Future<DiscoveryResult?> _tryMdnsBody(
+    List<String> localPrefixes,
+    _BindingDiscoveryContext ctx,
+  ) async {
+    MDnsClient? client;
+    StreamSubscription<PtrResourceRecord>? sub;
     try {
-      await client.start();
+      client = MDnsClient();
+      try {
+        await client.start().timeout(DiscoveryConstants.mdnsStartTimeout);
+      } on SocketException catch (e) {
+        debugPrint('[Discovery] mDNS start SocketException: $e');
+        return null;
+      } on TimeoutException {
+        debugPrint('[Discovery] mDNS start timeout');
+        return null;
+      } on OSError catch (e) {
+        debugPrint('[Discovery] mDNS start OSError: $e');
+        return null;
+      }
+
       final completer = Completer<DiscoveryResult?>();
       final seen = <String>{};
 
       Future<void> tryBase(String base) async {
-        if (!seen.add(base) || completer.isCompleted) return;
-        if (!_isSameSubnet(base, localPrefixes)) {
-          debugPrint('[Discovery] mDNS hors sous-réseau ignoré $base');
-          return;
-        }
-        debugPrint('[Discovery] Service trouvé');
-        debugPrint('[Discovery] Vérification Health $base');
-        final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
-        final local = _acceptLocal(
-          base: base,
-          health: health,
-          source: DiscoverySource.mdns,
-          devicePrefixes: localPrefixes,
-          messagePrefix: 'Serveur local découvert (mDNS)',
-          ctx: ctx,
-        );
-        if (local != null && !completer.isCompleted) {
-          completer.complete(local);
+        try {
+          if (!seen.add(base) || completer.isCompleted) return;
+          if (!_isSameSubnet(base, localPrefixes)) {
+            debugPrint('[Discovery] mDNS hors sous-réseau ignoré $base');
+            return;
+          }
+          debugPrint('[Discovery] Service trouvé');
+          debugPrint('[Discovery] Vérification Health $base');
+          final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+          final local = _acceptLocal(
+            base: base,
+            health: health,
+            source: DiscoverySource.mdns,
+            devicePrefixes: localPrefixes,
+            messagePrefix: 'Serveur local découvert (mDNS)',
+            ctx: ctx,
+          );
+          if (local != null && !completer.isCompleted) {
+            completer.complete(local);
+          }
+        } catch (e) {
+          debugPrint('[Discovery] mDNS tryBase: $e');
         }
       }
 
       Future<void> handlePtr(PtrResourceRecord ptr) async {
-        await for (final srv in client.lookup<SrvResourceRecord>(
-          ResourceRecordQuery.service(ptr.domainName),
-        )) {
-          await for (final ip in client.lookup<IPAddressResourceRecord>(
-            ResourceRecordQuery.addressIPv4(srv.target),
-          )) {
-            if (completer.isCompleted) return;
-            final host = ip.address.address;
-            if (DiscoveryConstants.isLikelyVirtualHost(host)) {
-              debugPrint('[Discovery] IP virtuelle ignorée $host');
-              continue;
+        try {
+          await for (final srv in client!
+              .lookup<SrvResourceRecord>(
+                ResourceRecordQuery.service(ptr.domainName),
+              )
+              .handleError((Object e) {
+            debugPrint('[Discovery] mDNS SRV stream: $e');
+          })) {
+            await for (final ip in client
+                .lookup<IPAddressResourceRecord>(
+                  ResourceRecordQuery.addressIPv4(srv.target),
+                )
+                .handleError((Object e) {
+              debugPrint('[Discovery] mDNS A stream: $e');
+            })) {
+              if (completer.isCompleted) return;
+              final host = ip.address.address;
+              if (DiscoveryConstants.isLikelyVirtualHost(host)) {
+                debugPrint('[Discovery] IP virtuelle ignorée $host');
+                continue;
+              }
+              final port =
+                  srv.port == 0 ? DiscoveryConstants.apiPort : srv.port;
+              await tryBase('http://$host:$port');
             }
-            final port =
-                srv.port == 0 ? DiscoveryConstants.apiPort : srv.port;
-            await tryBase('http://$host:$port');
           }
+        } catch (e) {
+          debugPrint('[Discovery] mDNS handlePtr: $e');
         }
       }
 
-      final sub = client
+      sub = client
           .lookup<PtrResourceRecord>(
             ResourceRecordQuery.serverPointer(
               DiscoveryConstants.serviceTypeLocal,
             ),
           )
-          .listen((ptr) => handlePtr(ptr), onError: (_) {});
+          .listen(
+            (ptr) {
+              unawaited(handlePtr(ptr));
+            },
+            onError: (Object e) {
+              debugPrint('[Discovery] mDNS PTR stream: $e');
+            },
+            cancelOnError: false,
+          );
 
       unawaited(() async {
         try {
           final list = await InternetAddress.lookup(
             DiscoveryConstants.hostName,
             type: InternetAddressType.IPv4,
-          );
+          ).timeout(DiscoveryConstants.mdnsTimeout);
           for (final addr in list) {
             if (DiscoveryConstants.isLikelyVirtualHost(addr.address)) continue;
             final base =
                 'http://${addr.address}:${DiscoveryConstants.apiPort}';
             await tryBase(base);
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Discovery] mDNS hostname lookup: $e');
+        }
       }());
 
-      final result = await Future.any([
+      final settled = await Future.any([
         completer.future,
         Future<DiscoveryResult?>.delayed(
           DiscoveryConstants.mdnsTimeout,
           () => null,
         ),
       ]);
-      await sub.cancel();
-      return result;
+      return settled;
+    } on SocketException catch (e) {
+      debugPrint('[Discovery] mDNS SocketException: $e');
+      return null;
+    } on OSError catch (e) {
+      debugPrint('[Discovery] mDNS OSError: $e');
+      return null;
     } catch (e) {
       debugPrint('[Discovery] mDNS indisponible: $e');
       return null;
     } finally {
-      client.stop();
+      try {
+        await sub?.cancel();
+      } catch (_) {}
+      try {
+        client?.stop();
+      } catch (e) {
+        debugPrint('[Discovery] mDNS stop: $e');
+      }
     }
   }
 
@@ -389,41 +574,123 @@ class LocalServerDiscovery {
   ) async {
     if (prefixes.isEmpty) return null;
 
-    final candidates = <String>[];
-    for (final prefix in prefixes) {
-      for (var i = 1; i <= 254; i++) {
-        candidates.add('http://$prefix.$i:${DiscoveryConstants.apiPort}');
-      }
-    }
+    final scanPrefixes = _selectScanPrefixes(prefixes);
+    if (scanPrefixes.isEmpty) return null;
 
-    debugPrint('[Discovery] Scan de ${candidates.length} adresses');
+    final candidates = _buildScanCandidates(scanPrefixes);
+    if (candidates.isEmpty) return null;
+
+    debugPrint(
+      '[Discovery] Scan de ${candidates.length} adresses '
+      '(préfixes=${scanPrefixes.join(', ')}, '
+      'max=${DiscoveryConstants.scanMaxAddresses}, '
+      'timeout=${DiscoveryConstants.scanOverallTimeout.inSeconds}s)',
+    );
+
     final completer = Completer<DiscoveryResult?>();
     var index = 0;
+    final stopwatch = Stopwatch()..start();
+
     final workers =
         List.generate(DiscoveryConstants.scanMaxParallelism, (_) async {
       while (!completer.isCompleted && index < candidates.length) {
+        if (stopwatch.elapsed >= DiscoveryConstants.scanOverallTimeout) {
+          debugPrint('[Discovery] Scan timeout → abandon');
+          if (!completer.isCompleted) completer.complete(null);
+          return;
+        }
         final i = index++;
         if (i >= candidates.length) break;
         final url = candidates[i];
-        final health = await _probe(url, DiscoveryConstants.scanProbeTimeout);
-        final local = _acceptLocal(
-          base: url,
-          health: health,
-          source: DiscoverySource.subnetScan,
-          devicePrefixes: prefixes,
-          messagePrefix: 'Serveur local trouvé par scan',
-          ctx: ctx,
-        );
-        if (local != null && !completer.isCompleted) {
-          debugPrint('[Discovery] Serveur trouvé $url');
-          completer.complete(local);
+        try {
+          final health = await _probe(url, DiscoveryConstants.scanProbeTimeout);
+          final local = _acceptLocal(
+            base: url,
+            health: health,
+            source: DiscoverySource.subnetScan,
+            devicePrefixes: prefixes,
+            messagePrefix: 'Serveur local trouvé par scan',
+            ctx: ctx,
+          );
+          if (local != null && !completer.isCompleted) {
+            debugPrint('[Discovery] Serveur trouvé $url');
+            completer.complete(local);
+          }
+        } catch (e) {
+          debugPrint('[Discovery] Scan probe $url: $e');
         }
       }
     });
 
-    await Future.wait(workers);
+    try {
+      await Future.wait(workers).timeout(DiscoveryConstants.scanOverallTimeout);
+    } on TimeoutException {
+      debugPrint('[Discovery] Scan Future.wait timeout');
+    } catch (e) {
+      debugPrint('[Discovery] Scan erreur: $e');
+    }
+
     if (!completer.isCompleted) completer.complete(null);
     return completer.future;
+  }
+
+  /// Un seul préfixe /24 prioritaire (évite 4×254 probes).
+  List<String> _selectScanPrefixes(List<String> prefixes) {
+    final scored = [...prefixes]..sort((a, b) {
+        int rank(String p) {
+          if (p.startsWith('192.168.')) return 0;
+          if (p.startsWith('10.')) return 1;
+          return 2;
+        }
+
+        return rank(a).compareTo(rank(b));
+      });
+    return scored.take(DiscoveryConstants.scanMaxPrefixes).toList();
+  }
+
+  /// Candidats limités : IPs config d'abord, puis échantillon du /24.
+  List<String> _buildScanCandidates(List<String> scanPrefixes) {
+    final seen = <String>{};
+    final out = <String>[];
+
+    void add(String url) {
+      final n = ApiConfig.normalize(url);
+      if (!ApiConfig.isValidBaseUrl(n)) return;
+      final host = _hostOf(n);
+      if (host == null || DiscoveryConstants.isLikelyVirtualHost(host)) return;
+      if (seen.add(n)) out.add(n);
+    }
+
+    for (final c in ApiConfig.localBaseUrlCandidates) {
+      final host = _hostOf(c);
+      final prefix = host == null ? null : DiscoveryConstants.ipv4Prefix(host);
+      if (prefix != null && scanPrefixes.contains(prefix)) add(c);
+    }
+
+    // Hosts fréquents d'abord (.1 gateway, .2, .100, …) puis pas de 1..254 exhaustif.
+    const priorityHosts = <int>[
+      1, 2, 10, 20, 30, 50, 100, 101, 110, 120, 137, 150, 200, 250, 254,
+    ];
+    for (final prefix in scanPrefixes) {
+      for (final host in priorityHosts) {
+        add('http://$prefix.$host:${DiscoveryConstants.apiPort}');
+        if (out.length >= DiscoveryConstants.scanMaxAddresses) {
+          return out;
+        }
+      }
+    }
+
+    // Compléter jusqu'au plafond sans balayer tout le /24.
+    for (final prefix in scanPrefixes) {
+      for (var i = 1; i <= 254; i++) {
+        if (priorityHosts.contains(i)) continue;
+        add('http://$prefix.$i:${DiscoveryConstants.apiPort}');
+        if (out.length >= DiscoveryConstants.scanMaxAddresses) {
+          return out;
+        }
+      }
+    }
+    return out;
   }
 
   Future<List<String>> _localPrefixes() async {
@@ -432,7 +699,7 @@ class LocalServerDiscovery {
       for (final iface in await NetworkInterface.list(
         type: InternetAddressType.IPv4,
         includeLinkLocal: false,
-      )) {
+      ).timeout(const Duration(seconds: 2))) {
         for (final addr in iface.addresses) {
           if (DiscoveryConstants.isLikelyVirtualHost(addr.address)) continue;
           if (!DiscoveryConstants.isPrivateIpv4(addr.address)) continue;
@@ -502,6 +769,12 @@ class LocalServerDiscovery {
 
   Future<HealthInfo?> _probe(String baseUrl, Duration timeout) async {
     if (!ApiConfig.isValidBaseUrl(baseUrl)) return null;
+    final host = _hostOf(baseUrl);
+    if (host != null &&
+        DiscoveryConstants.isLoopbackHost(host) &&
+        !ApiConfig.allowUsbLoopback) {
+      return null;
+    }
     try {
       final dio = Dio(BaseOptions(
         baseUrl: ApiConfig.normalize(baseUrl),
@@ -530,10 +803,22 @@ class LocalServerDiscovery {
       DiscoveryConstants.lastKnownPrefsKey,
     );
     if (v == null || !ApiConfig.isValidBaseUrl(v)) return null;
-    return ApiConfig.normalize(v);
+    final normalized = ApiConfig.normalize(v);
+    final host = _hostOf(normalized);
+    if (host != null && DiscoveryConstants.isLoopbackHost(host)) {
+      debugPrint(
+        '[Discovery] lastKnown loopback ignoré ($normalized) — '
+        '127.0.0.1 = téléphone sur Android',
+      );
+      await _clearLast();
+      return null;
+    }
+    return normalized;
   }
 
   Future<void> _saveLast(String baseUrl) async {
+    final host = _hostOf(baseUrl);
+    if (host != null && DiscoveryConstants.isLikelyVirtualHost(host)) return;
     await SchoolScopedPreferences.setString(
       DiscoveryConstants.lastKnownPrefsKey,
       ApiConfig.normalize(baseUrl),

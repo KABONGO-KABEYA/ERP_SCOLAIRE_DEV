@@ -99,11 +99,13 @@ $ErrorActionPreference = $prevEap
 if ($UsbLocalTunnel) {
     & $adb -s $DeviceId reverse tcp:5041 tcp:5041
     Write-Host 'UsbLocalTunnel ON : Local via USB (127.0.0.1:5041) - debug only.'
+    Write-Host 'NOTE: Sur Android, 127.0.0.1 = le telephone. Necessite adb reverse + ALLOW_USB_LOCAL_LOOPBACK.'
 }
 
 if ($UsbCloudTunnel) {
     & $adb -s $DeviceId reverse tcp:1804 tcp:1804
     Write-Host 'UsbCloudTunnel ON : Distant via USB (127.0.0.1:1804) - debug only.'
+    Write-Host 'NOTE: Sur Android, 127.0.0.1 = le telephone. Necessite adb reverse + ALLOW_USB_LOCAL_LOOPBACK.'
 }
 
 $defines = @()
@@ -111,7 +113,9 @@ if ($LocalApiUrl) {
     $defines += "--dart-define=LOCAL_API_BASE_URL=$LocalApiUrl"
     $defines += "--dart-define=LOCAL_API_CANDIDATES=$LocalApiUrl"
 } elseif ($UsbLocalTunnel) {
+    # 127.0.0.1 = telephone ; utile UNIQUEMENT avec adb reverse (debug USB).
     $defines += "--dart-define=LOCAL_API_BASE_URL=http://127.0.0.1:5041"
+    $defines += "--dart-define=ALLOW_USB_LOCAL_LOOPBACK=true"
 } else {
     $lanLocal = Get-LanApiBaseUrl
     $lanCandidates = Get-LanApiCandidates
@@ -127,6 +131,7 @@ if ($CloudApiUrl) {
     $defines += "--dart-define=CLOUD_API_BASE_URL=$($env:CLOUD_API_BASE_URL)"
 } elseif ($UsbCloudTunnel) {
     $defines += "--dart-define=CLOUD_API_BASE_URL=http://127.0.0.1:1804"
+    $defines += "--dart-define=ALLOW_USB_LOCAL_LOOPBACK=true"
 } else {
     Write-Host "Distant API (4G / autre Wi-Fi) : $defaultCloudUrl"
     $defines += "--dart-define=CLOUD_API_BASE_URL=$defaultCloudUrl"

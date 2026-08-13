@@ -9,8 +9,17 @@
 /// `--dart-define=LOCAL_API_BASE_URL="http://192.168.137.33:5041"`
 /// Plusieurs IP locales (Ethernet + Wi‑Fi/hotspot) :
 /// `--dart-define=LOCAL_API_CANDIDATES="http://10.10.10.112:5041,http://192.168.137.33:5041"`
+///
+/// **Loopback (`127.0.0.1` / `localhost`) :**
+/// Sur Android, `127.0.0.1` désigne **le téléphone lui-même**, pas le PC.
+/// Ne jamais l'utiliser comme URL locale/cloud pour un APK « normal ».
+/// Uniquement pour debug USB avec `adb reverse`, et seulement si
+/// `--dart-define=ALLOW_USB_LOCAL_LOOPBACK=true` (voir `run-on-phone.ps1 -UsbLocalTunnel`).
 abstract final class ApiConfig {
   /// API locale principale (réseau établissement). Émulateur Android → 10.0.2.2.
+  ///
+  /// Ne pas passer `http://127.0.0.1:…` pour un build téléphone hors tunnel USB :
+  /// cela pointe vers le device, pas vers le serveur école.
   static const String localBaseUrl = String.fromEnvironment(
     'LOCAL_API_BASE_URL',
     defaultValue: 'http://10.0.2.2:5096',
@@ -24,9 +33,16 @@ abstract final class ApiConfig {
   );
 
   /// API distante publique (hors Wi‑Fi école). Pas de tunnel USB.
+  /// Éviter `127.0.0.1` sauf `-UsbCloudTunnel` + `ALLOW_USB_LOCAL_LOOPBACK`.
   static const String cloudBaseUrl = String.fromEnvironment(
     'CLOUD_API_BASE_URL',
     defaultValue: 'http://169.58.93.203:1804',
+  );
+
+  /// Autorise explicitement `127.0.0.1` / `localhost` (tunnel `adb reverse` uniquement).
+  static const bool allowUsbLoopback = bool.fromEnvironment(
+    'ALLOW_USB_LOCAL_LOOPBACK',
+    defaultValue: false,
   );
 
   /// Rétrocompatibilité : `API_BASE_URL` force l’URL locale si fournie.
@@ -36,16 +52,31 @@ abstract final class ApiConfig {
   );
 
   static const String _fallbackLocal = 'http://10.0.2.2:5096';
+  static const String _fallbackCloud = 'http://169.58.93.203:1804';
+
+  static bool isLoopbackUrl(String url) {
+    try {
+      final host = Uri.parse(normalize(url)).host.toLowerCase();
+      return host == '127.0.0.1' || host == 'localhost' || host == '::1';
+    } catch (_) {
+      return false;
+    }
+  }
 
   static String get effectiveLocalBaseUrl {
     final legacy = _legacyBaseUrl.trim();
-    if (isValidBaseUrl(legacy)) return normalize(legacy);
+    if (isValidBaseUrl(legacy) && _acceptLocalUrl(legacy)) {
+      return normalize(legacy);
+    }
     final local = localBaseUrl.trim();
-    if (isValidBaseUrl(local)) return normalize(local);
+    if (isValidBaseUrl(local) && _acceptLocalUrl(local)) {
+      return normalize(local);
+    }
     return _fallbackLocal;
   }
 
   /// Toutes les URL locales à sonder (ordre : candidates → primary → legacy).
+  /// Loopback exclu sauf [allowUsbLoopback].
   static List<String> get localBaseUrlCandidates {
     final seen = <String>{};
     final out = <String>[];
@@ -53,8 +84,7 @@ abstract final class ApiConfig {
     void add(String raw) {
       final url = normalize(raw.trim());
       if (!isValidBaseUrl(url)) return;
-      final host = Uri.parse(url).host.toLowerCase();
-      if (host == '127.0.0.1' || host == 'localhost') return;
+      if (!_acceptLocalUrl(url)) return;
       if (seen.add(url)) out.add(url);
     }
 
@@ -67,11 +97,21 @@ abstract final class ApiConfig {
     return out;
   }
 
-  static bool get hasCloudUrl => isValidBaseUrl(cloudBaseUrl.trim());
+  static bool _acceptLocalUrl(String url) {
+    if (!isLoopbackUrl(url)) return true;
+    // 127.0.0.1 sur Android = le device. Ignoré hors tunnel USB explicite.
+    return allowUsbLoopback;
+  }
+
+  static bool get hasCloudUrl => effectiveCloudBaseUrl != null;
 
   static String? get effectiveCloudBaseUrl {
     final cloud = cloudBaseUrl.trim();
     if (!isValidBaseUrl(cloud)) return null;
+    if (isLoopbackUrl(cloud) && !allowUsbLoopback) {
+      // Ne jamais traiter 127.0.0.1 comme serveur distant sur un téléphone.
+      return normalize(_fallbackCloud);
+    }
     return normalize(cloud);
   }
 

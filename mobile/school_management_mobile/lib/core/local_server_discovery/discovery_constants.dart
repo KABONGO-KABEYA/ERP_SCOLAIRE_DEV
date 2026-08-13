@@ -8,15 +8,41 @@ abstract final class DiscoveryConstants {
   static const String defaultRemoteBaseUrl = 'http://169.58.93.203:1804';
   static const String lastKnownPrefsKey = 'local_server_discovery.last_base_url';
 
+  /// Budget global d'une découverte complète (lastKnown → mDNS → scan → remote).
+  /// Au-delà : abandon local et tentative cloud / offline.
+  static const Duration discoveryOverallTimeout = Duration(seconds: 8);
+
+  /// Timeout exposé à l'UI (`ConnectionModeNotifier`) — légèrement > overall.
+  static const Duration discoveryUiTimeout = Duration(seconds: 10);
+
   static const Duration mdnsTimeout = Duration(seconds: 2);
-  static const Duration lastKnownTimeout = Duration(seconds: 2);
-  static const Duration scanProbeTimeout = Duration(milliseconds: 500);
+  static const Duration mdnsStartTimeout = Duration(seconds: 1);
+  static const Duration lastKnownTimeout = Duration(seconds: 1);
+
+  /// Durée max du scan subnet (indépendamment du nombre d'adresses).
+  static const Duration scanOverallTimeout = Duration(seconds: 3);
+  static const Duration scanProbeTimeout = Duration(milliseconds: 400);
+  static const int scanMaxParallelism = 12;
+
+  /// Plafond dur : jamais 254×N préfixes (évite ~1016 probes au démarrage).
+  static const int scanMaxAddresses = 48;
+
+  /// Nombre max de préfixes /24 scannés (Wi‑Fi école typiquement 1).
+  static const int scanMaxPrefixes = 1;
+
   static const Duration backgroundRecheckInterval = Duration(seconds: 60);
-  static const int scanMaxParallelism = 16;
+
+  /// `127.0.0.1` / `localhost` = le téléphone lui-même sur Android (sauf tunnel
+  /// `adb reverse` explicitement activé pour le debug USB).
+  static bool isLoopbackHost(String host) {
+    final h = host.trim().toLowerCase();
+    return h == '127.0.0.1' || h == 'localhost' || h == '::1';
+  }
 
   /// Préfixes / plages typiques d'adaptateurs virtuels (VBox, WSL, Hyper-V, VPN lab).
   /// Ignorés pour mDNS et scan afin d'éviter des probes inutiles qui figent l'UI.
   static bool isLikelyVirtualHost(String host) {
+    if (isLoopbackHost(host)) return true;
     final parts = host.split('.');
     if (parts.length != 4) return false;
     final a = int.tryParse(parts[0]) ?? -1;
@@ -43,6 +69,7 @@ abstract final class DiscoveryConstants {
   }
 
   static bool isPrivateIpv4(String host) {
+    if (isLoopbackHost(host)) return false;
     final parts = host.split('.');
     if (parts.length != 4) return false;
     final a = int.tryParse(parts[0]) ?? -1;

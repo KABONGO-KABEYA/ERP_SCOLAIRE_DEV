@@ -9,7 +9,6 @@ import '../../core/providers/app_providers.dart';
 import '../../core/school_binding/jwt_binding_migration_service.dart';
 import '../../core/school_binding/school_binding_gate.dart';
 import '../../core/theme/erp_theme.dart';
-import 'auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -165,9 +164,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildForm(BuildContext context, {bool showBrandHeader = false}) {
-    final connection = ref.watch(connectionModeProvider);
-    final offline = connection.mode == ConnectionMode.offline;
-    final detecting = connection.mode == ConnectionMode.detecting;
+    // Sélections étroites : un simple local↔cloud ne doit pas tout reconstruire
+    // ni toucher enabled/focus des champs.
+    final offline = ref.watch(
+      connectionModeProvider.select((s) => s.mode == ConnectionMode.offline),
+    );
+    final offlineMessage = ref.watch(
+      connectionModeProvider.select(
+        (s) => s.mode == ConnectionMode.offline ? s.message : null,
+      ),
+    );
+    final canSubmit = ref.watch(
+      connectionModeProvider.select(
+        (s) => s.mode.isOnline && s.baseUrl != null && s.baseUrl!.isNotEmpty,
+      ),
+    );
+    // Indicateur léger uniquement au tout premier bootstrap (pas de baseUrl encore).
+    final showBootstrapHint = ref.watch(
+      connectionModeProvider.select(
+        (s) =>
+            s.mode == ConnectionMode.detecting &&
+            (s.baseUrl == null || s.baseUrl!.isEmpty),
+      ),
+    );
 
     return Center(
       child: SingleChildScrollView(
@@ -189,12 +208,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Text('Accédez à votre espace mobile', style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 32),
                 ],
-                if (detecting) ...[
-                  const LinearProgressIndicator(),
-                  const SizedBox(height: 12),
+                if (showBootstrapHint) ...[
+                  const LinearProgressIndicator(minHeight: 2),
+                  const SizedBox(height: 8),
                   Text(
                     'Recherche du serveur…',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -208,15 +227,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       border: Border.all(color: ErpColors.danger.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      connection.message ??
+                      offlineMessage ??
                           'Aucun serveur n\'est accessible. Vérifiez le Wi‑Fi de l\'école ou Internet.',
                       style: const TextStyle(color: ErpColors.danger),
                     ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () =>
-                        ref.read(connectionModeProvider.notifier).refresh(),
+                    onPressed: () => ref
+                        .read(connectionModeProvider.notifier)
+                        .refresh(silent: false, full: true),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Réessayer'),
                   ),
@@ -224,7 +244,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
                 TextField(
                   controller: _userController,
-                  enabled: !offline && !detecting,
+                  // Jamais lié à `detecting` : la rediscovery ne doit pas couper
+                  // la saisie ni le focus clavier.
+                  enabled: !offline,
                   decoration: const InputDecoration(
                     labelText: 'Identifiant',
                     prefixIcon: Icon(Icons.person_outline),
@@ -234,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
-                  enabled: !offline && !detecting,
+                  enabled: !offline,
                   decoration: InputDecoration(
                     labelText: 'Mot de passe',
                     prefixIcon: const Icon(Icons.lock_outline),
@@ -261,7 +283,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: (_loading || offline || detecting) ? null : _submit,
+                  onPressed: (_loading || !canSubmit) ? null : _submit,
                   child: _loading
                       ? const SizedBox(
                           height: 20,

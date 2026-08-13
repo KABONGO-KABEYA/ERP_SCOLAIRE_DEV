@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import '../local_server_discovery/discovery_constants.dart';
 import '../local_server_discovery/discovery_models.dart';
 import '../local_server_discovery/local_server_discovery.dart';
 import 'connection_mode.dart';
@@ -9,10 +12,27 @@ class ConnectionProbe {
     Duration cloudTimeout = const Duration(seconds: 3),
     bool full = true,
   }) async {
-    final result = full
-        ? await LocalServerDiscovery.instance.rediscover()
-        : await LocalServerDiscovery.instance.recheck();
-    return _map(result);
+    try {
+      final result = await (full
+              ? LocalServerDiscovery.instance.rediscover()
+              : LocalServerDiscovery.instance.recheck())
+          .timeout(DiscoveryConstants.discoveryUiTimeout);
+      return _map(result);
+    } on TimeoutException {
+      // Ne jamais laisser refresh() bloqué : état propre → Mode Cache / offline.
+      return const ConnectionSnapshot(
+        mode: ConnectionMode.offline,
+        hasInternet: false,
+        message:
+            'Délai de détection dépassé — Mode Cache si des données existent.',
+      );
+    } catch (e) {
+      return ConnectionSnapshot(
+        mode: ConnectionMode.offline,
+        hasInternet: false,
+        message: 'Erreur de détection : $e — Mode Cache si des données existent.',
+      );
+    }
   }
 
   ConnectionSnapshot _map(DiscoveryResult result) {

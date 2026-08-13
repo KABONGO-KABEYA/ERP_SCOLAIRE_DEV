@@ -4,6 +4,8 @@ using SchoolManagement.Application.Common;
 using SchoolManagement.Application.Common.Interfaces;
 using SchoolManagement.Application.Dashboard.DTOs;
 using SchoolManagement.Application.Dashboard.Interfaces;
+using SchoolManagement.Application.RevenueAllocation.DTOs;
+using SchoolManagement.Application.RevenueAllocation.Interfaces;
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Settings;
@@ -41,6 +43,7 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
     private readonly IRepository<SchoolLogo> _schoolLogoRepository;
     private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<PedagogicalClass> _pedagogicalClassRepository;
+    private readonly IRevenueAllocationService _revenueAllocationService;
 
     public PromoterDashboardService(
         IRepository<School> schoolRepository,
@@ -63,7 +66,8 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         IRepository<FeeInstallment> feeInstallmentRepository,
         IRepository<SchoolLogo> schoolLogoRepository,
         IRepository<Section> sectionRepository,
-        IRepository<PedagogicalClass> pedagogicalClassRepository)
+        IRepository<PedagogicalClass> pedagogicalClassRepository,
+        IRevenueAllocationService revenueAllocationService)
     {
         _schoolRepository = schoolRepository;
         _academicYearRepository = academicYearRepository;
@@ -86,6 +90,7 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         _schoolLogoRepository = schoolLogoRepository;
         _sectionRepository = sectionRepository;
         _pedagogicalClassRepository = pedagogicalClassRepository;
+        _revenueAllocationService = revenueAllocationService;
     }
 
     public async Task<PromoterDashboardOverviewDto> GetOverviewAsync(
@@ -240,11 +245,14 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             expenseYear,
             expenseCategories);
 
+        // Répartition = même moteur que Desktop (Rapports financiers → Répartitions).
+        // Période du jour local établissement (serveur école) : J-1 = avant aujourd'hui.
+        var schoolToday = DateOnly.FromDateTime(DateTime.Now);
         var funds = await BuildFeeFundCashFlowAsync(
             schoolId,
             selectedFeeId,
-            todayStart,
-            yearStart,
+            currentYearId,
+            schoolToday,
             cancellationToken);
         var withholdings = await BuildWithholdingsForFeeAsync(
             schoolId,
@@ -557,14 +565,17 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         var school = (await _schoolRepository.FindAsync(s => s.Id == schoolId, cancellationToken)).FirstOrDefault();
         var feeTypes = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId && f.IsActive, cancellationToken)).ToList();
         var selectedFee = ResolveSelectedFeeType(feeTypes, school?.DefaultFeeTypeId, feeTypeId);
-        var todayStart = DateTime.UtcNow.Date;
-        var (yearStart, _) = await ResolveSchoolYearRangeAsync(schoolId, cancellationToken);
+        var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
+            .OrderByDescending(y => y.StartDate)
+            .ToList();
+        var schoolToday = DateOnly.FromDateTime(DateTime.Now);
+        var currentYear = ResolveOperationalAcademicYear(years, schoolToday);
         _ = period;
         return await BuildFeeFundCashFlowAsync(
             schoolId,
             selectedFee?.Id,
-            todayStart,
-            yearStart,
+            currentYear?.Id,
+            schoolToday,
             cancellationToken);
     }
 
@@ -1605,11 +1616,18 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         return rows;
     }
 
+    /// <summary>
+    /// Cash-flow des comptes de répartition pour le dashboard Promoteur.
+    /// Délègue à <see cref="IRevenueAllocationService.GetAllocationCashFlowAsync"/>
+    /// (même logique que Desktop → Rapports financiers → Répartitions) :
+    /// J-1 = solde avant <paramref name="schoolToday"/>, J = activité du jour,
+    /// retenues incluses dans les comptes (filtre frais via PaymentLines).
+    /// </summary>
     private async Task<IReadOnlyList<FundAllocationShareDto>> BuildFeeFundCashFlowAsync(
         Guid schoolId,
         Guid? selectedFeeId,
-        DateTime todayStart,
-        DateTime yearStart,
+        Guid? academicYearId,
+        DateOnly schoolToday,
         CancellationToken cancellationToken)
     {
         if (selectedFeeId is null)
@@ -1617,127 +1635,36 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             return [];
         }
 
-        var todayEnd = todayStart.AddDays(1);
-        var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
-        var paymentDateById = payments.ToDictionary(p => p.Id, p => p.PaymentDate.Date);
+        var cashFlow = await _revenueAllocationService.GetAllocationCashFlowAsync(
+            schoolId,
+            new RevenueAllocationSearchRequest(
+                AcademicYearId: academicYearId,
+                FromDate: schoolToday,
+                ToDate: schoolToday,
+                StudentId: null,
+                PaymentId: null,
+                DestinationId: null,
+                FeeTypeId: selectedFeeId,
+                SectionId: null,
+                ClassRoomId: null,
+                CurrencyId: null),
+            cancellationToken);
 
-        var entries = (await _allocationEntryRepository.FindAsync(
-                e => e.SchoolId == schoolId
-                     && e.FeeTypeId == selectedFeeId.Value
-                     && e.WithholdingTypeId == null,
-                cancellationToken))
-            .Where(e => paymentDateById.ContainsKey(e.PaymentId))
-            .ToList();
-
-        var destinations = (await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken))
-            .ToDictionary(d => d.Id);
-
-        // Comptes configurés sur la clé ouverte du frais (année courante) + comptes déjà alimentés.
-        var destinationIds = new HashSet<Guid>();
-        var currentYear = (await _academicYearRepository.FindAsync(
-                y => y.SchoolId == schoolId && y.IsCurrent,
-                cancellationToken))
-            .FirstOrDefault();
-        if (currentYear is not null)
-        {
-            var openKey = (await _allocationKeyRepository.FindAsync(
-                    k => k.SchoolId == schoolId
-                         && k.AcademicYearId == currentYear.Id
-                         && k.FeeTypeId == selectedFeeId.Value
-                         && k.EndDate == null,
-                    cancellationToken))
-                .OrderByDescending(k => k.StartDate)
-                .ThenByDescending(k => k.CreatedAt)
-                .FirstOrDefault();
-            if (openKey is not null)
+        // Agrège les devises par destination (UI dashboard mono-ligne / compte).
+        var rows = cashFlow.GlobalRows
+            .Where(r => r.DestinationId != Guid.Empty)
+            .GroupBy(r => r.DestinationId)
+            .Select((g, i) =>
             {
-                var details = await _allocationKeyDetailRepository.FindAsync(
-                    d => d.AllocationKeyId == openKey.Id,
-                    cancellationToken);
-                foreach (var d in details)
-                {
-                    destinationIds.Add(d.DestinationId);
-                }
-            }
-        }
-
-        foreach (var id in entries.Select(e => e.DestinationId))
-        {
-            destinationIds.Add(id);
-        }
-
-        if (destinationIds.Count == 0)
-        {
-            return [];
-        }
-
-        var expenses = (await LoadExpensesAsync(schoolId, cancellationToken))
-            .Where(e => destinationIds.Contains(e.DestinationId))
-            .ToList();
-
-        decimal SumEnc(IEnumerable<RevenueAllocationEntry> source, DateTime? fromInclusive, DateTime? toExclusive)
-        {
-            return source
-                .Where(e =>
-                {
-                    if (!paymentDateById.TryGetValue(e.PaymentId, out var date))
-                    {
-                        return false;
-                    }
-
-                    if (fromInclusive.HasValue && date < fromInclusive.Value)
-                    {
-                        return false;
-                    }
-
-                    if (toExclusive.HasValue && date >= toExclusive.Value)
-                    {
-                        return false;
-                    }
-
-                    return true;
-                })
-                .Sum(e => e.Amount);
-        }
-
-        decimal SumDep(IEnumerable<ExpensePayment> source, DateTime? fromInclusive, DateTime? toExclusive)
-        {
-            return source
-                .Where(e =>
-                {
-                    var date = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                    if (fromInclusive.HasValue && date < fromInclusive.Value)
-                    {
-                        return false;
-                    }
-
-                    if (toExclusive.HasValue && date >= toExclusive.Value)
-                    {
-                        return false;
-                    }
-
-                    return true;
-                })
-                .Sum(e => e.Amount);
-        }
-
-        var rows = destinationIds
-            .Select((id, i) =>
-            {
-                destinations.TryGetValue(id, out var dest);
-                var destEntries = entries.Where(e => e.DestinationId == id);
-                var destExpenses = expenses.Where(e => e.DestinationId == id);
-                // J-1 : solde depuis le début d'année scolaire jusqu'à hier.
-                var j1Enc = SumEnc(destEntries, yearStart, todayStart);
-                var j1Dep = SumDep(destExpenses, yearStart, todayStart);
-                var periodJ1 = j1Enc - j1Dep;
-                var encJ = SumEnc(destEntries, todayStart, todayEnd);
-                var depJ = SumDep(destExpenses, todayStart, todayEnd);
-                var solde = periodJ1 + encJ - depJ;
+                var first = g.First();
+                var periodJ1 = g.Sum(x => x.PeriodJ1);
+                var encJ = g.Sum(x => x.Encaissement);
+                var depJ = g.Sum(x => x.DepenseP);
+                var solde = g.Sum(x => x.PeriodeP);
                 return new FundAllocationShareDto(
-                    id,
-                    dest?.Code ?? "—",
-                    dest?.Name ?? "Compte",
+                    g.Key,
+                    first.DestinationCode,
+                    first.DestinationName,
                     periodJ1,
                     encJ,
                     depJ,
@@ -1745,11 +1672,7 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                     0,
                     Palette[i % Palette.Length]);
             })
-            .Where(r =>
-                r.PeriodJ1 != 0
-                || r.EncaissementJ != 0
-                || r.DepenseJ != 0
-                || destinations.GetValueOrDefault(r.DestinationId)?.IsActive == true)
+            .Where(r => r.PeriodJ1 != 0 || r.EncaissementJ != 0 || r.DepenseJ != 0 || r.Solde != 0)
             .OrderByDescending(r => r.EncaissementJ)
             .ThenByDescending(r => r.Solde)
             .ThenBy(r => r.Name)
