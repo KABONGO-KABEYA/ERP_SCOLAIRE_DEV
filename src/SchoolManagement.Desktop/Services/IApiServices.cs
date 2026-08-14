@@ -983,10 +983,23 @@ public interface IPromoterDashboardApiService
 
     Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>> GetPaymentsAsync(
         SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Today,
+        Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.RevenuePointDto>> GetRevenueDetailAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Month,
+        Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>> GetExpensesAsync(
         SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Month,
+        Guid? destinationId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto> GetEnrolledStudentsAsync(

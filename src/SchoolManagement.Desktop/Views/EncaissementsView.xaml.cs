@@ -36,8 +36,12 @@ public partial class EncaissementsView : UserControl
         }
 
         var menu = new ContextMenu { Style = (Style)FindResource("ErpStudentsContextMenu") };
-        menu.Items.Add(CreateMenuItem("Encaisser un paiement", PackIconKind.CashPlus, BrushFrom(30, 94, 255),
-            (_, _) => vm.CollectPaymentCommand.Execute(student)));
+        if (vm.CanCreatePayments)
+        {
+            menu.Items.Add(CreateMenuItem("Encaisser un paiement", PackIconKind.CashPlus, BrushFrom(30, 94, 255),
+                (_, _) => vm.CollectPaymentCommand.Execute(student)));
+        }
+
         menu.Items.Add(CreateMenuItem("Consulter l'historique des paiements", PackIconKind.History, BrushFrom(31, 41, 55),
             (_, _) => vm.ViewPaymentHistoryCommand.Execute(student)));
         menu.Items.Add(CreateMenuItem("Voir la situation financière", PackIconKind.ChartBoxOutline, BrushFrom(30, 94, 255),

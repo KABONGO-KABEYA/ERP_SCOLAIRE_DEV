@@ -19,7 +19,8 @@ public enum DashboardDetailScope
 {
     Today = 0,
     Month = 1,
-    Year = 2
+    Year = 2,
+    Custom = 3
 }
 
 /// Centre de pilotage promoteur — payload lecture seule.
@@ -177,6 +178,8 @@ public sealed record DashboardExpenseLineDto(
     DateOnly ExpenseDate,
     string Label,
     string Category,
+    Guid DestinationId,
+    string AccountTypeName,
     decimal Amount,
     string Currency,
     string Reference);

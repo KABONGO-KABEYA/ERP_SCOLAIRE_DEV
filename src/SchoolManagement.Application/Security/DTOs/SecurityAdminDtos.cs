@@ -43,7 +43,9 @@ public sealed record SecurityUserDto(
     IReadOnlyList<string> Roles,
     IReadOnlyList<Guid> RoleIds,
     IReadOnlyList<string> RoleLabels = null!,
-    DateTime? LastLoginAt = null);
+    DateTime? LastLoginAt = null,
+    /// <summary>Compte parent / tuteur (externe) — opposé aux agents internes.</summary>
+    bool IsExternalParent = false);
 
 public sealed record CreateSecurityUserRequest(
     Guid TeacherId,

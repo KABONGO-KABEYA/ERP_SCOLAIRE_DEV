@@ -78,6 +78,13 @@ public sealed class FinanceOperationService : IFinanceOperationService
     {
         var year = await ResolveYearAsync(schoolId, request.AcademicYearId, cancellationToken);
         var enrollments = await LoadActiveEnrollmentsAsync(schoolId, year.Id, cancellationToken);
+        if (request.StudentId.HasValue)
+        {
+            enrollments = enrollments
+                .Where(e => e.StudentId == request.StudentId.Value)
+                .ToList();
+        }
+
         enrollments = await ApplyStructureFiltersAsync(
             schoolId,
             enrollments,

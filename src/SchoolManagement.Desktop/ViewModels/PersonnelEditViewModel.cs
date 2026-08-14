@@ -425,12 +425,10 @@ public partial class PersonnelEditViewModel : ViewModelBase
 
     private async Task LoadLookupsAsync()
     {
-        if (Departments.Count == 0)
+        Departments.Clear();
+        foreach (var dept in await _personnelApi.GetDepartmentsAsync())
         {
-            foreach (var dept in await _personnelApi.GetDepartmentsAsync())
-            {
-                Departments.Add(dept);
-            }
+            Departments.Add(dept);
         }
 
         JobFunctions.Clear();

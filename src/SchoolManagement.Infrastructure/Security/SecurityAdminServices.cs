@@ -686,6 +686,8 @@ public sealed class SecurityUserAdminService : ISecurityUserAdminService
         {
             var roles = assignments.Where(a => a.UserId == u.Id).ToList();
             var labels = PreferBusinessRoleLabels(roles.Select(r => (r.Code, r.Name)).ToList());
+            var isExternalParent = u.GuardianId.HasValue
+                || roles.Any(r => r.Code.Equals("PARENT", StringComparison.OrdinalIgnoreCase));
             return new SecurityUserDto(
                 u.Id,
                 u.UserName,
@@ -699,7 +701,8 @@ public sealed class SecurityUserAdminService : ISecurityUserAdminService
                 roles.Select(r => r.Code).OrderBy(c => c).ToList(),
                 roles.Select(r => r.RoleId).ToList(),
                 labels,
-                u.LastLoginAt);
+                u.LastLoginAt,
+                isExternalParent);
         }).ToList();
     }
 

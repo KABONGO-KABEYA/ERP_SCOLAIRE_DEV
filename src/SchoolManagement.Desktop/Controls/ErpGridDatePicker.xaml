@@ -11,14 +11,24 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0"
-                       Margin="0,0,6,0"
-                       VerticalAlignment="Center"
-                       FontFamily="{StaticResource ErpFontFamily}"
-                       FontSize="13"
-                       FontWeight="Medium"
-                       Foreground="{StaticResource ErpTextPrimaryBrush}"
-                       Text="{Binding SelectedDate, ElementName=Root, StringFormat=dd/MM/yyyy, TargetNullValue=—}" />
+            <TextBox x:Name="DateTextBox"
+                     Grid.Column="0"
+                     Margin="0,0,6,0"
+                     VerticalAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     CaretBrush="{StaticResource ErpPrimaryBrush}"
+                     FocusVisualStyle="{x:Null}"
+                     FontFamily="{StaticResource ErpFontFamily}"
+                     FontSize="13"
+                     FontWeight="Medium"
+                     Foreground="{StaticResource ErpTextPrimaryBrush}"
+                     Padding="0"
+                     SelectionBrush="{StaticResource ErpPrimaryLightBrush}"
+                     LostFocus="DateTextBox_OnLostFocus"
+                     PreviewKeyDown="DateTextBox_OnPreviewKeyDown"
+                     GotKeyboardFocus="DateTextBox_OnGotKeyboardFocus" />
             <Button x:Name="OpenCalendarButton"
                     Grid.Column="1"
                     Click="OpenCalendarButton_OnClick"

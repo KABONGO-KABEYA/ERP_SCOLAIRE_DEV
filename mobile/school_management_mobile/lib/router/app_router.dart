@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_storage.dart';
 import '../core/auth/mobile_role_routing.dart';
+import '../core/auth/permission_policy.dart';
 import '../core/providers/app_providers.dart';
 import '../core/school_binding/school_binding_gate.dart';
 import '../features/auth/login_screen.dart';
@@ -36,6 +37,12 @@ import '../features/teacher/grade_entry_screen.dart';
 import '../features/direction/dashboard_screen.dart';
 import '../features/promoteur/dashboard_screen.dart';
 import '../features/promoteur/detail_screens.dart';
+import '../features/admin/admin_dashboard_screen.dart';
+import '../features/admin/daf_student_analytics_screens.dart';
+import '../features/admin/financial_reports_screen.dart';
+import '../features/admin/payment_situation_screen.dart';
+import '../features/admin/personnel_list_screen.dart';
+import '../features/admin/pricing_categories_screen.dart';
 import '../features/enrollment/enrollment_wizard_screen.dart';
 import '../features/secretary/secretary_home_screen.dart';
 import '../features/secretary/account/about_screen.dart';
@@ -121,6 +128,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
         if (onUnsupported && space != MobileSpace.unsupported) {
           return MobileRoleRouting.homeRouteFor(space);
+        }
+
+        if (space == MobileSpace.daf) {
+          final perms = await AuthStorage.permissions;
+          final path = state.matchedLocation.split('?').first;
+          if (path.startsWith('/promoteur/payments') ||
+              path.startsWith('/promoteur/debtors') ||
+              path == '/promoteur/dashboard' ||
+              path == '/promoteur/students') {
+            return MobileRoleRouting.dafHome;
+          }
+          if (path.startsWith('/admin/financial-reports') &&
+              !PermissionPolicy.canViewFinancialReports(perms)) {
+            return MobileRoleRouting.dafHome;
+          }
+          if (path.startsWith('/admin/payment-situations') &&
+              !PermissionPolicy.canViewFinancialReports(perms)) {
+            return MobileRoleRouting.dafHome;
+          }
+          if (path.startsWith('/admin/personnel') &&
+              !PermissionPolicy.canViewPersonnel(perms)) {
+            return MobileRoleRouting.dafHome;
+          }
+          if (path.startsWith('/admin/pricing-categories') &&
+              !PermissionPolicy.canAssignPricingCategories(perms)) {
+            return MobileRoleRouting.dafHome;
+          }
+          if (path.startsWith('/admin/expenses') &&
+              !PermissionPolicy.canViewExpenses(perms)) {
+            return MobileRoleRouting.dafHome;
+          }
         }
 
         final writePolicy = ref.read(writePolicyProvider);
@@ -268,6 +306,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
       GoRoute(path: '/promoteur/dashboard', builder: (_, __) => const PromoteurDashboardScreen()),
+      GoRoute(path: '/admin/dashboard', builder: (_, __) => const AdminDashboardScreen()),
+      GoRoute(path: '/admin/students', builder: (_, __) => const EnrolledStudentsAnalyticsScreen()),
+      GoRoute(
+        path: '/admin/students/:studentId/consultation',
+        builder: (context, state) => DafStudentConsultationScreen(
+          studentId: state.pathParameters['studentId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/financial-reports',
+        builder: (_, __) => const FinancialReportsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/payment-situations',
+        builder: (_, __) => const PaymentSituationScreen(),
+      ),
+      GoRoute(
+        path: '/admin/pricing-categories',
+        builder: (_, __) => const PricingCategoriesScreen(),
+      ),
+      GoRoute(
+        path: '/admin/expenses',
+        builder: (context, state) => PromoteurExpensesDetailScreen(
+          scope: state.uri.queryParameters['scope'] ?? 'Month',
+          category: state.uri.queryParameters['category'],
+        ),
+      ),
+      GoRoute(
+        path: '/admin/personnel',
+        builder: (_, __) => const PersonnelListScreen(),
+      ),
+      GoRoute(
+        path: '/admin/presence',
+        builder: (_, __) => const AdminModulePlaceholderScreen(
+          title: 'Présence des élèves',
+          message: 'Le module de présence des élèves sera disponible prochainement. La navigation est déjà préparée.',
+        ),
+      ),
       GoRoute(
         path: '/promoteur/payments',
         builder: (context, state) => PromoteurPaymentsDetailScreen(
@@ -322,6 +398,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/promoteur/students', builder: (_, __) => const PromoteurStudentsDetailScreen()),
+      GoRoute(
+        path: '/promoteur/students/:studentId/consultation',
+        builder: (context, state) => DafStudentConsultationScreen(
+          studentId: state.pathParameters['studentId']!,
+        ),
+      ),
       GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
       GoRoute(path: '/secretary/account', builder: (_, __) => const SecretaryAccountScreen()),
       GoRoute(

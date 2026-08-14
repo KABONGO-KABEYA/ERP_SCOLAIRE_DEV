@@ -42,11 +42,49 @@ public partial class StudentsViewModel : ViewModelBase
         StatusMessage = "Utilisez les filtres puis cliquez sur « Afficher » pour lister les élèves.";
         AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
         _ = LoadFilterOptionsAsync();
+        ApplyNavigationPreset();
+    }
+
+    private bool _pendingDashboardSearch;
+
+    private void ApplyNavigationPreset()
+    {
+        var preset = StudentsNavigationBridge.ConsumePreset();
+        if (preset is null)
+        {
+            return;
+        }
+
+        IsFiltersExpanded = preset.OpenFiltersExpanded;
+        if (preset.IncludeInscritsOnly)
+        {
+            IncludeInscrits = true;
+            IncludeExcluded = false;
+            IncludeAbandoned = false;
+        }
+
+        if (preset.AutoLoadCurrentYear)
+        {
+            _pendingDashboardSearch = true;
+            TryExecuteDashboardPresetSearch();
+        }
+    }
+
+    private void TryExecuteDashboardPresetSearch()
+    {
+        if (!_pendingDashboardSearch || AcademicYearRefreshBridge.SelectedYearId is null)
+        {
+            return;
+        }
+
+        _pendingDashboardSearch = false;
+        _ = SearchAsync(applyFilters: true);
     }
 
     private void OnGlobalAcademicYearChanged()
     {
         RefreshClassRoomOptions();
+        TryExecuteDashboardPresetSearch();
         QueueSearch();
     }
 
@@ -83,6 +121,12 @@ public partial class StudentsViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? _selectedStudyOption;
+
+    [ObservableProperty]
+    private DateTime? _enrollmentDateFrom;
+
+    [ObservableProperty]
+    private DateTime? _enrollmentDateTo;
 
     [ObservableProperty]
     private bool _isFiltersExpanded = true;
@@ -233,6 +277,8 @@ public partial class StudentsViewModel : ViewModelBase
             && SelectedPedagogicalClass is null
             && SelectedClassRoom is null
             && string.IsNullOrWhiteSpace(SelectedStudyOption)
+            && EnrollmentDateFrom is null
+            && EnrollmentDateTo is null
             && string.IsNullOrWhiteSpace(SearchText)
             && !IncludeExcluded
             && !IncludeAbandoned)
@@ -262,6 +308,8 @@ public partial class StudentsViewModel : ViewModelBase
                 SelectedPedagogicalClass?.Id,
                 SelectedClassRoom?.Id,
                 SelectedStudyOption,
+                EnrollmentDateFrom.HasValue ? DateOnly.FromDateTime(EnrollmentDateFrom.Value) : null,
+                EnrollmentDateTo.HasValue ? DateOnly.FromDateTime(EnrollmentDateTo.Value) : null,
                 ApplyFilters: applyFilters,
                 IncludeAll: false,
                 IncludeInscrits: IncludeInscrits,
@@ -301,6 +349,8 @@ public partial class StudentsViewModel : ViewModelBase
         SelectedPedagogicalClass = null;
         SelectedClassRoom = null;
         SelectedStudyOption = null;
+        EnrollmentDateFrom = null;
+        EnrollmentDateTo = null;
         IncludeInscrits = true;
         IncludeExcluded = false;
         IncludeAbandoned = false;

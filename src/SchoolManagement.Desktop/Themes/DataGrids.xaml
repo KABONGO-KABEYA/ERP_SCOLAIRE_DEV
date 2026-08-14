@@ -196,4 +196,90 @@
         <Setter Property="CellStyle" Value="{StaticResource ErpStudentsDataGridCell}" />
     </Style>
 
+    <!-- Liste des utilisateurs (SecurityUsersView — panneau gauche) -->
+    <Style x:Key="ErpUsersListColumnHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="#0B1F47" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="BorderBrush" Value="#1E3A5F" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ErpUsersListCell" TargetType="DataGridCell">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#EEF2FF" />
+                <Setter Property="Foreground" Value="#0F172A" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ErpUsersListRow" TargetType="DataGridRow">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#EEF2FF" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#F1F5F9" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ErpUsersListDataGrid" TargetType="DataGrid">
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="AlternatingRowBackground" Value="#F8FAFC" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="CanUserReorderColumns" Value="False" />
+        <Setter Property="CanUserResizeColumns" Value="True" />
+        <Setter Property="CellStyle" Value="{StaticResource ErpUsersListCell}" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource ErpUsersListColumnHeader}" />
+        <Setter Property="EnableColumnVirtualization" Value="True" />
+        <Setter Property="EnableRowVirtualization" Value="True" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="HorizontalGridLinesBrush" Value="#F1F5F9" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="RowBackground" Value="Transparent" />
+        <Setter Property="RowHeight" Value="34" />
+        <Setter Property="RowStyle" Value="{StaticResource ErpUsersListRow}" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="VerticalGridLinesBrush" Value="#F1F5F9" />
+    </Style>
+
 </ResourceDictionary>

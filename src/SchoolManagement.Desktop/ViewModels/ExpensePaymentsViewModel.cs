@@ -10,6 +10,7 @@ using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
 using SchoolManagement.Desktop.Views;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -91,6 +92,8 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
         StatusMessage = "Consultez et enregistrez les dépenses de l'établissement.";
         AcademicYearRefreshBridge.CurrentYearChanged += OnGlobalAcademicYearChanged;
     }
+
+    public bool CanManageExpenses => SessionPermissions.Can(_authSession, Permissions.AccountingManage);
 
     private void OnGlobalAcademicYearChanged()
     {

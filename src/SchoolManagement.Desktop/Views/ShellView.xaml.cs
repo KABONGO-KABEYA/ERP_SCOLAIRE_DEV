@@ -713,7 +713,7 @@ public partial class ShellView : UserControl
             HighlightFinanceHeader(isFinance);
             if (isFinance && string.IsNullOrWhiteSpace(_selectedFinanceKey))
             {
-                NavigateToFinanceSection(shellViewModel, FinanceNavCatalog.DefaultItem);
+                NavigateToFinanceSection(shellViewModel, ResolveFinanceNavItem(shellViewModel));
             }
         }
 
@@ -887,8 +887,8 @@ public partial class ShellView : UserControl
             return;
         }
 
-        var key = _selectedFinanceKey ?? FinanceNavCatalog.DefaultItem.Key;
-        var item = FinanceNavCatalog.FindByKey(key) ?? FinanceNavCatalog.DefaultItem;
+        var key = _selectedFinanceKey;
+        var item = ResolveFinanceNavItem(shellViewModel, key);
         _selectedFinanceKey = item.Key;
         if (_financeExpander is not null)
         {
@@ -1068,5 +1068,49 @@ public partial class ShellView : UserControl
             "reglement" => "Rédigez et enregistrez le règlement d'ordre intérieur.",
             _ => "Configuration de l'établissement scolaire."
         };
+    }
+
+    private FinanceNavItem ResolveFinanceNavItem(ShellViewModel shellViewModel, string? preferredKey = null)
+    {
+        var accessibleItems = GetAccessibleFinanceNavItems(shellViewModel);
+        if (!string.IsNullOrWhiteSpace(preferredKey))
+        {
+            var preferred = accessibleItems.FirstOrDefault(item =>
+                item.Key.Equals(preferredKey, StringComparison.OrdinalIgnoreCase));
+            if (preferred is not null)
+            {
+                return preferred;
+            }
+        }
+
+        if (accessibleItems.Count > 0)
+        {
+            return accessibleItems[0];
+        }
+
+        return FinanceNavCatalog.FindByKey("rapports-financiers")
+            ?? FinanceNavCatalog.Groups.SelectMany(group => group.Items).First();
+    }
+
+    private List<FinanceNavItem> GetAccessibleFinanceNavItems(ShellViewModel shellViewModel)
+    {
+        var financeModule = shellViewModel.Modules.FirstOrDefault(module =>
+            module.ViewModelType == typeof(FinanceHubViewModel));
+        if (financeModule is null || _viewRegistry is null)
+        {
+            return [];
+        }
+
+        var items = new List<FinanceNavItem>();
+        foreach (var page in financeModule.Pages.OrderBy(page => page.SortOrder))
+        {
+            if (_viewRegistry.TryResolve(page.DesktopViewKey, out var target)
+                && target is FinanceDesktopViewTarget finance)
+            {
+                items.Add(finance.Item);
+            }
+        }
+
+        return items;
     }
 }

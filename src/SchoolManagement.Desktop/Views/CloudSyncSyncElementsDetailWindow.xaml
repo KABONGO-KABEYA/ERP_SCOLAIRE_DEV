@@ -1,0 +1,50 @@
+<Window x:Class="SchoolManagement.Desktop.Views.CloudSyncSyncElementsDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Éléments synchronisés"
+        Width="420"
+        SizeToContent="Height"
+        MaxHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F7FB"
+        ResizeMode="NoResize">
+    <DockPanel Margin="20">
+        <Button DockPanel.Dock="Bottom"
+                Margin="0,16,0,0"
+                HorizontalAlignment="Right"
+                Content="Fermer"
+                IsCancel="True"
+                Click="Close_Click"
+                Style="{StaticResource MaterialDesignOutlinedButton}"
+                Padding="18,0"
+                Height="36" />
+
+        <StackPanel>
+            <TextBlock Text="Éléments synchronisés"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource ErpTextPrimaryBrush}" />
+            <TextBlock x:Name="SubtitleText"
+                       Margin="0,4,0,12"
+                       FontSize="12"
+                       Foreground="{StaticResource ErpTextSecondaryBrush}" />
+
+            <Border Background="White"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="14,12">
+                <ItemsControl x:Name="DetailItems">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="13"
+                                       Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                       Text="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </StackPanel>
+    </DockPanel>
+</Window>

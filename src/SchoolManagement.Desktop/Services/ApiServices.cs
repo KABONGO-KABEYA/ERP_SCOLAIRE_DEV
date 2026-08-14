@@ -1271,6 +1271,7 @@ public sealed class FinanceApiService : ApiServiceBase, IFinanceApiService
             $"pageSize={request.PageSize}"
         };
         if (request.AcademicYearId.HasValue) parts.Add($"academicYearId={request.AcademicYearId}");
+        if (request.StudentId.HasValue) parts.Add($"studentId={request.StudentId}");
         if (request.SectionId.HasValue) parts.Add($"sectionId={request.SectionId}");
         if (request.PedagogicalClassId.HasValue) parts.Add($"pedagogicalClassId={request.PedagogicalClassId}");
         if (request.ClassRoomId.HasValue) parts.Add($"classRoomId={request.ClassRoomId}");
@@ -1948,15 +1949,45 @@ public sealed class PromoterDashboardApiService : ApiServiceBase, IPromoterDashb
 
     public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>> GetPaymentsAsync(
         SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Today,
-        CancellationToken cancellationToken = default) =>
-        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>>(
-            $"api/v1/dashboard/payments?scope={scope}", cancellationToken);
+        Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/v1/dashboard/payments?scope={scope}";
+        if (feeTypeId.HasValue) url += $"&feeTypeId={feeTypeId}";
+        if (fromDate.HasValue) url += $"&fromDate={fromDate:yyyy-MM-dd}";
+        if (toDate.HasValue) url += $"&toDate={toDate:yyyy-MM-dd}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardPaymentLineDto>>(url, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.RevenuePointDto>> GetRevenueDetailAsync(
+        SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Month,
+        Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/v1/dashboard/revenue-detail?scope={scope}";
+        if (feeTypeId.HasValue) url += $"&feeTypeId={feeTypeId}";
+        if (fromDate.HasValue) url += $"&fromDate={fromDate:yyyy-MM-dd}";
+        if (toDate.HasValue) url += $"&toDate={toDate:yyyy-MM-dd}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.RevenuePointDto>>(url, cancellationToken);
+    }
 
     public Task<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>> GetExpensesAsync(
         SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope scope = SchoolManagement.Application.Dashboard.DTOs.DashboardDetailScope.Month,
-        CancellationToken cancellationToken = default) =>
-        GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>>(
-            $"api/v1/dashboard/expenses?scope={scope}", cancellationToken);
+        Guid? destinationId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/v1/dashboard/expenses?scope={scope}";
+        if (destinationId.HasValue) url += $"&destinationId={destinationId}";
+        if (fromDate.HasValue) url += $"&fromDate={fromDate:yyyy-MM-dd}";
+        if (toDate.HasValue) url += $"&toDate={toDate:yyyy-MM-dd}";
+        return GetAsync<IReadOnlyList<SchoolManagement.Application.Dashboard.DTOs.DashboardExpenseLineDto>>(url, cancellationToken);
+    }
 
     public Task<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto> GetEnrolledStudentsAsync(
         CancellationToken cancellationToken = default) =>

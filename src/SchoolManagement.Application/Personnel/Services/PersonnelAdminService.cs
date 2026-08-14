@@ -71,13 +71,18 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
     public async Task EnsureDefaultLookupsAsync(Guid schoolId, CancellationToken cancellationToken = default)
     {
         var existing = await _departmentRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken);
-        if (existing.Count > 0)
-        {
-            return;
-        }
+        var existingCodes = existing
+            .Select(d => d.Code.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var added = false;
         foreach (var (code, name) in DefaultDepartments)
         {
+            if (existingCodes.Contains(code))
+            {
+                continue;
+            }
+
             await _departmentRepository.AddAsync(new HrDepartment
             {
                 SchoolId = schoolId,
@@ -85,9 +90,14 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
                 Name = name,
                 IsActive = true
             }, cancellationToken);
+            existingCodes.Add(code);
+            added = true;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        if (added)
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<PersonnelKpiDto> GetKpisAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -246,7 +256,14 @@ public sealed class PersonnelAdminService : IPersonnelAdminService
     {
         await EnsureDefaultLookupsAsync(schoolId, cancellationToken);
         var departments = await _departmentRepository.FindAsync(d => d.SchoolId == schoolId && d.IsActive, cancellationToken);
-        return departments.OrderBy(d => d.Name).Select(d => new HrDepartmentDto(d.Id, d.Code, d.Name, d.IsActive)).ToList();
+
+        // Filet de sécurité UI : une entrée par code même si des doublons historiques existent encore.
+        return departments
+            .GroupBy(d => d.Code.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(d => d.CreatedAt).ThenBy(d => d.Id).First())
+            .OrderBy(d => d.Name)
+            .Select(d => new HrDepartmentDto(d.Id, d.Code, d.Name, d.IsActive))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<HrJobFunctionDto>> GetJobFunctionsAsync(

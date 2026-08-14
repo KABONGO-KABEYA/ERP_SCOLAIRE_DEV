@@ -21,12 +21,6 @@ public partial class FinanceHubView : UserControl
         {
             FinanceNavigationBridge.ApplyToViewModel(vm, item);
         }
-        else if (DataContext is FinanceHubViewModel hub && string.IsNullOrWhiteSpace(hub.ActiveNavKey))
-        {
-            var defaultItem = FinanceNavCatalog.DefaultItem;
-            FinanceNavigationBridge.ApplyToViewModel(hub, defaultItem);
-            FinanceNavigationBridge.Select(defaultItem);
-        }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)

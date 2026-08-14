@@ -195,6 +195,26 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty] private Axis[] _expenseXAxes = [];
     [ObservableProperty] private ISeries[] _enrollmentSeries = [];
     [ObservableProperty] private Axis[] _enrollmentXAxes = [];
+    [ObservableProperty] private Axis[] _enrollmentYAxes = [];
+    [ObservableProperty] private ISeries[] _presenceChartSeries = [];
+    [ObservableProperty] private Axis[] _presenceChartXAxes = [];
+    [ObservableProperty] private Axis[] _presenceChartYAxes = [];
+    [ObservableProperty] private ISeries[] _paymentsChartSeries = [];
+    [ObservableProperty] private Axis[] _paymentsChartXAxes = [];
+    [ObservableProperty] private Axis[] _paymentsChartYAxes = [];
+    [ObservableProperty] private bool _paymentsChartEmpty = true;
+
+    [ObservableProperty] private DashboardMainChartKind _selectedMainChartKind = DashboardMainChartKind.Enrollments;
+    [ObservableProperty] private ISeries[] _mainChartSeries = [];
+    [ObservableProperty] private Axis[] _mainChartXAxes = [];
+    [ObservableProperty] private Axis[] _mainChartYAxes = [];
+    [ObservableProperty] private string _mainChartSubtitle = "";
+    [ObservableProperty] private bool _mainChartEmpty = true;
+
+    private string _enrollmentChartSubtitle = "";
+    private int _paymentsTodayCount;
+    private decimal _paymentsMonthDailyTotal;
+
     [ObservableProperty] private ISeries[] _attendanceWeekSeries = [];
     [ObservableProperty] private Axis[] _attendanceXAxes = [];
     [ObservableProperty] private ISeries[] _genderPieSeries = [];
@@ -225,6 +245,34 @@ public partial class DashboardViewModel : ViewModelBase
             _ = RefreshEnrollmentChartAsync();
     }
 
+    partial void OnSelectedMainChartKindChanged(DashboardMainChartKind value)
+    {
+        ApplyMainChartView();
+        SyncMainChartSubtitle();
+        NotifyMainChartChromeChanged();
+    }
+
+    public string MainChartTitle => SelectedMainChartKind switch
+    {
+        DashboardMainChartKind.Enrollments => "Évolution des inscriptions",
+        DashboardMainChartKind.Presence => "Présence aujourd'hui",
+        DashboardMainChartKind.Payments => "Paiements",
+        _ => "Statistiques"
+    };
+
+    public bool IsEnrollmentPeriodVisible => SelectedMainChartKind == DashboardMainChartKind.Enrollments;
+
+    public bool MainChartLoading => SelectedMainChartKind switch
+    {
+        DashboardMainChartKind.Enrollments => EnrollmentLoading,
+        DashboardMainChartKind.Presence => AttendanceLoading,
+        DashboardMainChartKind.Payments => PaymentsLoading,
+        _ => false
+    };
+
+    [RelayCommand]
+    private void SelectMainChart(DashboardMainChartKind kind) => SelectedMainChartKind = kind;
+
     [RelayCommand]
     private async Task RefreshAllAsync()
     {
@@ -249,6 +297,8 @@ public partial class DashboardViewModel : ViewModelBase
         finally
         {
             IsRefreshing = false;
+            ApplyMainChartView();
+            NotifyMainChartChromeChanged();
         }
     }
 
@@ -281,6 +331,57 @@ public partial class DashboardViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenStudents() => _navigation.NavigateTo<StudentsViewModel>();
+
+    [RelayCommand]
+    private void OpenStudentsFromKpi()
+    {
+        if (IsDafUser())
+        {
+            _navigation.NavigateTo<DashboardEnrolledStudentsDetailViewModel>(recordBack: true);
+            return;
+        }
+
+        StudentsNavigationBridge.RequestFromDashboard();
+        _navigation.NavigateTo<StudentsViewModel>();
+    }
+
+    private static bool IsDafUser(IAuthSessionService session)
+    {
+        var roles = session.CurrentUser?.Roles ?? Array.Empty<string>();
+        return roles.Any(r => r.Equals("DAF", StringComparison.OrdinalIgnoreCase))
+            && !roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool IsDafUser() => IsDafUser(_authSession);
+
+    [RelayCommand]
+    private void OpenPersonnelFromKpi() => OpenPersonnel();
+
+    [RelayCommand]
+    private void OpenCollectedFromKpi()
+    {
+        var item = FinanceNavCatalog.FindByKey("rapports-financiers") ?? FinanceNavCatalog.DefaultItem;
+        FinanceNavigationBridge.Select(item);
+        _navigation.NavigateTo<FinanceHubViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenExpensesFromKpi()
+    {
+        var item = FinanceNavCatalog.FindByKey("depenses") ?? FinanceNavCatalog.DefaultItem;
+        FinanceNavigationBridge.Select(item);
+        _navigation.NavigateTo<FinanceHubViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenPresenceFromKpi() => _navigation.NavigateTo<StudentAttendancePlaceholderViewModel>();
+
+    [RelayCommand]
+    private void OpenClassesFromKpi()
+    {
+        StudentsNavigationBridge.RequestFromDashboard();
+        _navigation.NavigateTo<StudentsViewModel>();
+    }
 
     [RelayCommand]
     private void OpenAcademic() => _navigation.NavigateTo<AcademicViewModel>();
@@ -392,6 +493,11 @@ public partial class DashboardViewModel : ViewModelBase
             OverviewLoading = false;
             AttendanceLoading = false;
             ClassesLoading = false;
+            if (SelectedMainChartKind == DashboardMainChartKind.Presence)
+            {
+                ApplyMainChartView();
+                NotifyMainChartChromeChanged();
+            }
         }
 
         try
@@ -473,7 +579,7 @@ public partial class DashboardViewModel : ViewModelBase
         PaymentsError = false;
         try
         {
-            var data = await _dashboardApi.GetPaymentsAsync(DashboardDetailScope.Today, ct);
+            var data = await _dashboardApi.GetPaymentsAsync(DashboardDetailScope.Today, cancellationToken: ct);
             RecentPayments = new ObservableCollection<DashboardPaymentItem>(
                 data.Select(p => new DashboardPaymentItem(
                     p.StudentName,
@@ -484,15 +590,42 @@ public partial class DashboardViewModel : ViewModelBase
                     p.PaymentDateUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
                     p.Reference)));
             PaymentsEmpty = RecentPayments.Count == 0;
+
+            var points = await _dashboardApi.GetRevenueAsync(DashboardPeriod.Month, RevenueGranularity.Daily, ct);
+            PaymentsChartXAxes = CreateChartCategoryXAxes(points.Select(p => p.Label).ToArray(), labelsRotation: 18);
+            PaymentsChartYAxes = CreateChartValueYAxes(points.Select(p => p.Amount));
+            PaymentsChartSeries =
+            [
+                new ColumnSeries<decimal>
+                {
+                    Values = points.Select(p => p.Amount).ToArray(),
+                    Name = "Encaissements",
+                    MaxBarWidth = 22,
+                    Fill = new SolidColorPaint(SKColor.Parse("#2563EB").WithAlpha(200)),
+                    Stroke = null
+                }
+            ];
+            PaymentsChartEmpty = points.Count == 0 || points.All(p => p.Amount == 0);
+            _paymentsTodayCount = data.Count;
+            _paymentsMonthDailyTotal = points.Sum(p => p.Amount);
+            if (SelectedMainChartKind == DashboardMainChartKind.Payments)
+                SyncMainChartSubtitle();
         }
         catch
         {
             PaymentsError = true;
             PaymentsEmpty = true;
+            PaymentsChartEmpty = true;
+            PaymentsChartSeries = EmptyCartesianSeries;
         }
         finally
         {
             PaymentsLoading = false;
+            if (SelectedMainChartKind == DashboardMainChartKind.Payments)
+            {
+                ApplyMainChartView();
+                NotifyMainChartChromeChanged();
+            }
         }
     }
 
@@ -538,7 +671,7 @@ public partial class DashboardViewModel : ViewModelBase
             var monthlyTask = _dashboardApi.GetRevenueAsync(DashboardPeriod.Year, RevenueGranularity.Monthly, ct);
             var feeTask = _dashboardApi.GetRepartitionAsync(DashboardPeriod.Month, ct);
             var fundTask = _dashboardApi.GetDistributionAsync(DashboardPeriod.Month, cancellationToken: ct);
-            var expenseTask = _dashboardApi.GetExpensesAsync(DashboardDetailScope.Month, ct);
+            var expenseTask = _dashboardApi.GetExpensesAsync(DashboardDetailScope.Month, cancellationToken: ct);
             await Task.WhenAll(monthlyTask, feeTask, fundTask, expenseTask);
 
             var monthly = await monthlyTask;
@@ -668,40 +801,47 @@ public partial class DashboardViewModel : ViewModelBase
         {
             var option = SelectedEnrollmentPeriod ?? EnrollmentPeriodOptions[1];
             var points = await _dashboardApi.GetRevenueAsync(option.Period, option.Granularity, ct);
-            // Proxy “évolution” : série financière disponible ; inscriptions dédiées absentes API
-            EnrollmentXAxes =
-            [
-                new Axis
-                {
-                    Labels = points.Select(p => p.Label).ToArray(),
-                    LabelsRotation = 15,
-                    TextSize = 11,
-                    LabelsPaint = new SolidColorPaint(SKColor.Parse("#6B7280"))
-                }
-            ];
+            // Proxy « évolution » : série financière disponible ; inscriptions dédiées absentes API
+            var labels = points.Select(p => p.Label).ToArray();
+            var amounts = points.Select(p => p.Amount).ToArray();
+            EnrollmentXAxes = CreateChartCategoryXAxes(labels, labelsRotation: 15);
+            EnrollmentYAxes = CreateChartValueYAxes(amounts);
             EnrollmentSeries =
             [
                 new LineSeries<decimal>
                 {
-                    Values = points.Select(p => p.Amount).ToArray(),
+                    Values = amounts,
                     Name = "Évolution (encaissements)",
-                    GeometrySize = 5,
-                    Fill = new SolidColorPaint(SKColor.Parse("#1E3A8A").WithAlpha(35)),
+                    GeometrySize = 7,
+                    GeometryFill = new SolidColorPaint(SKColor.Parse("#1E3A8A")),
+                    GeometryStroke = new SolidColorPaint(SKColors.White) { StrokeThickness = 2 },
+                    Fill = new SolidColorPaint(SKColor.Parse("#1E3A8A").WithAlpha(40)),
                     Stroke = new SolidColorPaint(SKColor.Parse("#1E3A8A")) { StrokeThickness = 3 },
-                    LineSmoothness = 0.6
+                    LineSmoothness = 0.35
                 }
             ];
             EnrollmentEmpty = points.Count == 0;
+            _enrollmentChartSubtitle = BuildEnrollmentChartSubtitle(amounts);
+            if (SelectedMainChartKind == DashboardMainChartKind.Enrollments)
+                MainChartSubtitle = _enrollmentChartSubtitle;
         }
         catch
         {
             EnrollmentError = true;
             EnrollmentEmpty = true;
             EnrollmentSeries = EmptyCartesianSeries;
+            _enrollmentChartSubtitle = "";
+            if (SelectedMainChartKind == DashboardMainChartKind.Enrollments)
+                MainChartSubtitle = "";
         }
         finally
         {
             EnrollmentLoading = false;
+            if (SelectedMainChartKind == DashboardMainChartKind.Enrollments)
+            {
+                ApplyMainChartView();
+                NotifyMainChartChromeChanged();
+            }
         }
     }
 
@@ -842,7 +982,7 @@ public partial class DashboardViewModel : ViewModelBase
                 FormatMoney(c.Amount, overview.Currency),
                 $"#{c.Rank}")));
 
-        BuildAttendanceWeekPlaceholder(overview.QuickStats.PresentStudents, overview.QuickStats.AbsentStudents);
+        BuildPresenceChart(overview.QuickStats.PresentStudents, overview.QuickStats.AbsentStudents);
 
         CalendarItems =
         [
@@ -914,30 +1054,150 @@ public partial class DashboardViewModel : ViewModelBase
         return "0 %";
     }
 
-    private void BuildAttendanceWeekPlaceholder(int present, int absent)
+    private void BuildPresenceChart(int present, int absent)
     {
-        var labels = new[] { "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim" };
-        var values = Enumerable.Range(0, 7)
-            .Select(i => (decimal)Math.Max(0, present - (i % 3) + (i == 6 ? -present : 0)))
-            .ToArray();
-        AttendanceXAxes =
-        [
-            new Axis
-            {
-                Labels = labels,
-                TextSize = 11,
-                LabelsPaint = new SolidColorPaint(SKColor.Parse("#6B7280"))
-            }
-        ];
-        AttendanceWeekSeries =
+        var presentValue = (decimal)Math.Max(0, present);
+        var absentValue = (decimal)Math.Max(0, absent);
+        PresenceChartXAxes = CreateChartCategoryXAxes(["Présents", "Absents"]);
+        PresenceChartYAxes = CreateChartValueYAxes([presentValue, absentValue]);
+        PresenceChartSeries =
         [
             new ColumnSeries<decimal>
             {
-                Values = values,
-                Name = "Présences (indicatif)",
-                Fill = new SolidColorPaint(SKColor.Parse("#16A34A"))
+                Values = [presentValue, 0m],
+                Name = "Présents",
+                MaxBarWidth = 64,
+                Fill = new SolidColorPaint(SKColor.Parse("#16A34A")),
+                Stroke = null
+            },
+            new ColumnSeries<decimal>
+            {
+                Values = [0m, absentValue],
+                Name = "Absents",
+                MaxBarWidth = 64,
+                Fill = new SolidColorPaint(SKColor.Parse("#DC2626")),
+                Stroke = null
             }
         ];
+
+        if (SelectedMainChartKind == DashboardMainChartKind.Presence)
+            SyncMainChartSubtitle();
+    }
+
+    private void SyncMainChartSubtitle()
+    {
+        MainChartSubtitle = SelectedMainChartKind switch
+        {
+            DashboardMainChartKind.Presence => AttendanceEmpty
+                ? "Aucune donnée de présence enregistrée aujourd'hui."
+                : $"Taux de présence : {KpiPresencePercent} · Présents {PresenceStudentsLabel} · Absents {AbsenceStudentsLabel}",
+            DashboardMainChartKind.Payments => _paymentsTodayCount > 0
+                ? $"{_paymentsTodayCount} paiement(s) aujourd'hui · {FormatMoney(_paymentsMonthDailyTotal, Currency)} sur 30 jours"
+                : $"Encaissements journaliers — {FormatMoney(_paymentsMonthDailyTotal, Currency)} sur 30 jours",
+            _ => string.IsNullOrEmpty(_enrollmentChartSubtitle)
+                ? "Série basée sur les encaissements (proxy inscriptions)."
+                : _enrollmentChartSubtitle
+        };
+    }
+
+    private void ApplyMainChartView()
+    {
+        switch (SelectedMainChartKind)
+        {
+            case DashboardMainChartKind.Presence:
+                MainChartSeries = PresenceChartSeries;
+                MainChartXAxes = PresenceChartXAxes;
+                MainChartYAxes = PresenceChartYAxes;
+                MainChartEmpty = AttendanceEmpty;
+                break;
+            case DashboardMainChartKind.Payments:
+                MainChartSeries = PaymentsChartSeries;
+                MainChartXAxes = PaymentsChartXAxes;
+                MainChartYAxes = PaymentsChartYAxes;
+                MainChartEmpty = PaymentsChartEmpty;
+                break;
+            default:
+                MainChartSeries = EnrollmentSeries;
+                MainChartXAxes = EnrollmentXAxes;
+                MainChartYAxes = EnrollmentYAxes;
+                MainChartEmpty = EnrollmentEmpty;
+                break;
+        }
+    }
+
+    private void NotifyMainChartChromeChanged()
+    {
+        OnPropertyChanged(nameof(MainChartTitle));
+        OnPropertyChanged(nameof(MainChartLoading));
+        OnPropertyChanged(nameof(IsEnrollmentPeriodVisible));
+    }
+
+    private string BuildEnrollmentChartSubtitle(decimal[] amounts)
+    {
+        if (amounts.Length == 0)
+            return "Série basée sur les encaissements (proxy inscriptions).";
+
+        var ordered = amounts.Select(a => (double)a).Where(v => v >= 0).OrderBy(v => v).ToArray();
+        if (ordered.Length >= 2)
+        {
+            var max = ordered[^1];
+            var second = ordered[^2];
+            if (second > 0 && max > second * 4)
+                return "Pic isolé détecté — survolez le point pour la valeur exacte.";
+        }
+
+        return "Série basée sur les encaissements (proxy inscriptions).";
+    }
+
+    private static Axis[] CreateChartCategoryXAxes(string[] labels, int labelsRotation = 0) =>
+    [
+        new Axis
+        {
+            Labels = labels,
+            LabelsRotation = labelsRotation,
+            TextSize = 12,
+            LabelsPaint = new SolidColorPaint(SKColor.Parse("#64748B")),
+            SeparatorsPaint = new SolidColorPaint(SKColor.Parse("#E2E8F0"))
+        }
+    ];
+
+    private static Axis[] CreateChartValueYAxes(IEnumerable<decimal> values)
+    {
+        var max = SuggestChartYMax(values);
+        return
+        [
+            new Axis
+            {
+                MinLimit = 0,
+                MaxLimit = max,
+                TextSize = 11,
+                LabelsPaint = new SolidColorPaint(SKColor.Parse("#64748B")),
+                SeparatorsPaint = new SolidColorPaint(SKColor.Parse("#E2E8F0")),
+                Labeler = value => value >= 1_000_000 ? $"{value / 1_000_000:0.#}M" :
+                    value >= 1_000 ? $"{value / 1_000:0.#}k" : $"{value:0}"
+            }
+        ];
+    }
+
+    private static double SuggestChartYMax(IEnumerable<decimal> values)
+    {
+        var list = values.Select(v => (double)v).Where(v => v >= 0).OrderBy(v => v).ToList();
+        if (list.Count == 0)
+            return 100;
+        if (list.Count == 1)
+            return Math.Max(list[0] * 1.15, 10);
+
+        var max = list[^1];
+        var second = list[^2];
+        if (second > 0 && max > second * 4)
+            return second * 1.35;
+
+        return max <= 0 ? 100 : max * 1.12;
+    }
+
+    private void BuildAttendanceWeekPlaceholder(int present, int absent)
+    {
+        _ = present;
         _ = absent;
     }
 
@@ -1036,6 +1296,13 @@ public partial class DashboardViewModel : ViewModelBase
 
     private static string GetErrorMessage(Exception ex) =>
         ex is HttpRequestException http ? http.Message : "Chargement impossible.";
+}
+
+public enum DashboardMainChartKind
+{
+    Enrollments,
+    Presence,
+    Payments
 }
 
 public sealed record EnrollmentPeriodOption(string Label, DashboardPeriod Period, RevenueGranularity Granularity);

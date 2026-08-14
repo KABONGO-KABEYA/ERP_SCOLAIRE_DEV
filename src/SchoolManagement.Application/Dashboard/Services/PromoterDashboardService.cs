@@ -645,9 +645,11 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
-        var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, cancellationToken);
+        var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, fromDate, toDate, cancellationToken);
         var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
         var paymentIds = payments.Select(p => p.Id).ToHashSet();
         var allLines = await _paymentLineRepository.FindAsync(l => paymentIds.Contains(l.PaymentId), cancellationToken);
@@ -689,6 +691,8 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var school = (await _schoolRepository.FindAsync(s => s.Id == schoolId, cancellationToken)).FirstOrDefault();
@@ -726,7 +730,6 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 .Where(p => p.Amount > 0)
                 .Select(p =>
                 {
-                    // Libellé mois seul (ex. « Septembre ») — année scolaire déjà contextualisée.
                     var label = p.PeriodStartUtc.ToString("MMMM", fr);
                     if (label.Length > 0)
                     {
@@ -738,10 +741,13 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 .ToList();
         }
 
-        // Mois : uniquement les jours avec au moins une perception.
-        var (monthStart, monthEnd) = ResolveRange(DashboardPeriod.Month);
-        var lastDay = monthEnd < DateTime.UtcNow.Date.AddDays(1) ? monthEnd : DateTime.UtcNow.Date.AddDays(1);
-        return BuildDailySeriesFromAmounts(payments, amountByPayment, monthStart, lastDay)
+        var (rangeStart, rangeEnd) = scope == DashboardDetailScope.Custom
+            ? ResolveCustomRange(fromDate, toDate)
+            : scope == DashboardDetailScope.Today
+                ? ResolveRange(DashboardPeriod.Today)
+                : ResolveRange(DashboardPeriod.Month);
+        var cappedEnd = rangeEnd < DateTime.UtcNow.Date.AddDays(1) ? rangeEnd : DateTime.UtcNow.Date.AddDays(1);
+        return BuildDailySeriesFromAmounts(payments, amountByPayment, rangeStart, cappedEnd)
             .Where(p => p.Amount > 0)
             .Select(p => p with
             {
@@ -754,6 +760,8 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? destinationId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var expenses = await LoadExpensesAsync(schoolId, cancellationToken);
@@ -763,7 +771,6 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         IEnumerable<ExpensePayment> filtered;
         if (scope == DashboardDetailScope.Year)
         {
-            // Année scolaire : privilégier AcademicYearId opérationnel, avec filet date.
             var years = (await _academicYearRepository.FindAsync(y => y.SchoolId == schoolId, cancellationToken))
                 .OrderByDescending(y => y.StartDate)
                 .ToList();
@@ -789,7 +796,7 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         }
         else
         {
-            var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, cancellationToken);
+            var (start, end) = await ResolveDetailRangeAsync(schoolId, scope, fromDate, toDate, cancellationToken);
             filtered = expenses.Where(e =>
             {
                 var dt = e.ExpenseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
@@ -801,15 +808,20 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
             .OrderByDescending(e => e.ExpenseDate)
             .ThenBy(e => e.Label)
             .Take(2000)
-            .Select(e => new DashboardExpenseLineDto(
-                e.Id,
-                e.ExpenseDate,
-                e.Label,
-                FormatExpenseCategory(e.Category)
-                    ?? destMap.GetValueOrDefault(e.DestinationId, "Autres"),
-                e.Amount,
-                e.Currency.ToString(),
-                e.Reference))
+            .Select(e =>
+            {
+                var accountType = destMap.GetValueOrDefault(e.DestinationId, "Autres");
+                return new DashboardExpenseLineDto(
+                    e.Id,
+                    e.ExpenseDate,
+                    e.Label,
+                    FormatExpenseCategory(e.Category) ?? accountType,
+                    e.DestinationId,
+                    accountType,
+                    e.Amount,
+                    e.Currency.ToString(),
+                    e.Reference);
+            })
             .ToList();
     }
 
@@ -2014,13 +2026,31 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
     private async Task<(DateTime Start, DateTime End)> ResolveDetailRangeAsync(
         Guid schoolId,
         DashboardDetailScope scope,
+        DateOnly? fromDate,
+        DateOnly? toDate,
         CancellationToken cancellationToken) =>
         scope switch
         {
             DashboardDetailScope.Today => ResolveRange(DashboardPeriod.Today),
             DashboardDetailScope.Month => ResolveRange(DashboardPeriod.Month),
+            DashboardDetailScope.Custom => ResolveCustomRange(fromDate, toDate),
             _ => await ResolveSchoolYearRangeAsync(schoolId, cancellationToken)
         };
+
+    private static (DateTime Start, DateTime End) ResolveCustomRange(DateOnly? fromDate, DateOnly? toDate)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var startDate = fromDate ?? toDate ?? today;
+        var endDate = toDate ?? fromDate ?? today;
+        if (endDate < startDate)
+        {
+            (startDate, endDate) = (endDate, startDate);
+        }
+
+        var start = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var end = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(1);
+        return (start, end);
+    }
 
     private async Task<List<Payment>> LoadValidatedPaymentsAsync(Guid schoolId, CancellationToken cancellationToken)
     {

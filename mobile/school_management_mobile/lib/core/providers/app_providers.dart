@@ -12,6 +12,9 @@ import '../../features/promoteur/promoteur_dashboard_repository.dart';
 import '../../features/enrollment/enrollment_repository.dart';
 import '../../features/enrollment/geography_repository.dart';
 import '../../features/secretary/secretary_student_repository.dart';
+import '../../features/admin/daf_student_repository.dart';
+import '../../features/admin/admin_finance_repository.dart';
+import '../../features/admin/admin_personnel_repository.dart';
 
 export '../connection/connection_mode_notifier.dart';
 export '../connection/write_policy.dart';
@@ -42,6 +45,12 @@ final geographyRepositoryProvider =
     Provider((ref) => GeographyRepository(ref.watch(apiClientProvider)));
 final secretaryStudentRepositoryProvider =
     Provider((ref) => SecretaryStudentRepository(ref.watch(apiClientProvider)));
+final dafStudentRepositoryProvider =
+    Provider((ref) => DafStudentRepository(ref.watch(apiClientProvider)));
+final adminFinanceRepositoryProvider =
+    Provider((ref) => AdminFinanceRepository(ref.watch(apiClientProvider)));
+final adminPersonnelRepositoryProvider =
+    Provider((ref) => AdminPersonnelRepository(ref.watch(apiClientProvider)));
 
 final authStateProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) => AuthNotifier());

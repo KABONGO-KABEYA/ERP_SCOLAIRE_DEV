@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Markup;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +26,9 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // Force dd/MM/yyyy sur tous les DatePicker WPF (culture courte fr-FR), y compris sans style ERP.
+        ApplyFrenchDateCulture();
+
         ProcessEnvironmentNormalizer.Apply();
         base.OnStartup(e);
 
@@ -342,6 +347,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<ChangePasswordViewModel>();
         services.AddSingleton<ShellViewModel>();
         services.AddTransient<DashboardViewModel>();
+        services.AddTransient<DashboardCollectedDetailViewModel>();
+        services.AddTransient<DashboardExpensesDetailViewModel>();
+        services.AddTransient<DashboardEnrolledStudentsDetailViewModel>();
+        services.AddTransient<DashboardStudentConsultationViewModel>();
+        services.AddTransient<StudentAttendancePlaceholderViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<DocumentBrandingViewModel>();
         services.AddTransient<GeographyAdminViewModel>();
@@ -417,5 +427,28 @@ public partial class App : System.Windows.Application
         }
 
         return current.Message;
+    }
+
+    /// <summary>
+    /// Aligne la culture UI sur fr-FR pour que les DatePicker natifs acceptent/affichent dd/MM/yyyy.
+    /// </summary>
+    private static void ApplyFrenchDateCulture()
+    {
+        var culture = CultureInfo.GetCultureInfo("fr-FR");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+
+        try
+        {
+            FrameworkElement.LanguageProperty.OverrideMetadata(
+                typeof(FrameworkElement),
+                new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(culture.IetfLanguageTag)));
+        }
+        catch (ArgumentException)
+        {
+            // Déjà défini (ex. redémarrage de domaine) — ignorer.
+        }
     }
 }

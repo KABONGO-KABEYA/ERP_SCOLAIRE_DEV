@@ -47,18 +47,24 @@ public interface IPromoterDashboardService
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<RevenuePointDto>> GetRevenueDetailAsync(
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? feeTypeId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DashboardExpenseLineDto>> GetExpensesDetailAsync(
         Guid schoolId,
         DashboardDetailScope scope,
         Guid? destinationId = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DashboardDebtorLineDto>> GetDebtorsDetailAsync(

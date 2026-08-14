@@ -89,6 +89,18 @@
                                            ItemsSource="{Binding ClassRooms}"
                                            Label="Locale"
                                            SelectedItem="{Binding SelectedClassRoom, Mode=TwoWay}" />
+                        <erp:ErpDateField Margin="0,0,12,12"
+                                          HorizontalAlignment="Stretch"
+                                          Label="Inscription du"
+                                          SelectedDate="{Binding EnrollmentDateFrom, Mode=TwoWay}"
+                                          IsCompact="True"
+                                          ShowBadges="False" />
+                        <erp:ErpDateField Margin="0,0,0,12"
+                                          HorizontalAlignment="Stretch"
+                                          Label="Inscription au"
+                                          SelectedDate="{Binding EnrollmentDateTo, Mode=TwoWay}"
+                                          IsCompact="True"
+                                          ShowBadges="False" />
                     </UniformGrid>
 
                     <TextBlock Margin="0,0,0,6"

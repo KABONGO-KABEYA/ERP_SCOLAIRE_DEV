@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/widgets/erp_qr_scanner.dart';
 import '../../../core/school_binding/establishment_token_parser.dart';
 import '../../../core/school_binding/school_already_registered_exception.dart';
 import '../../../core/school_binding/school_binding_activation_gate.dart';
@@ -131,32 +132,36 @@ class _EstablishmentGateScreenState extends State<EstablishmentGateScreen> {
         backgroundColor: ErpColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          const Text(
-            'Scannez le QR établissement fourni par l\'école '
-            '(afficheur Desktop / Setup). Obligatoire pour tous les utilisateurs '
-            '(parents, enseignants, direction, secrétariat…). '
-            'Connexion Internet requise (Bootstrap).',
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Ce parcours est distinct de l\'invitation parent.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.secondary,
-              fontStyle: FontStyle.italic,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Scannez le QR établissement fourni par l\'école '
+                  '(afficheur Desktop / Setup). Obligatoire pour tous les utilisateurs '
+                  '(parents, enseignants, direction, secrétariat…). '
+                  'Connexion Internet requise (Bootstrap).',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ce parcours est distinct de l\'invitation parent.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.secondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ErpQrScanner(onDetect: _onDetect),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 220,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: MobileScanner(onDetect: _onDetect),
-            ),
-          ),
-          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
           TextField(
             controller: _tokenController,
             decoration: const InputDecoration(
@@ -205,6 +210,9 @@ class _EstablishmentGateScreenState extends State<EstablishmentGateScreen> {
               child: const Text('Continuer vers la connexion'),
             ),
           ],
+              ],
+            ),
+          ),
         ],
       ),
     );

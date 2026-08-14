@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using QRCoder;
 using SchoolManagement.Application.DocumentBranding.DTOs;
+using SchoolManagement.Application.EnrollmentWizard;
 using SchoolManagement.Application.EnrollmentWizard.DTOs;
 using SchoolManagement.Desktop.Services;
 
@@ -14,31 +15,31 @@ namespace SchoolManagement.Desktop.Printing;
 
 public static class EnrollmentFormDocumentBuilder
 {
-    // A4 @ 96 DPI — marges ~12 mm
+    // A4 @ 96 DPI — marges ~8–10 mm (cible 1 page)
     private const double PageWidth = 794;
     private const double PageHeight = 1123;
-    private const double PageMargin = 45;
+    private const double PageMargin = 32;
 
     private const double ContentWidth = PageWidth - PageMargin * 2;
     private const double MainColWidth = ContentWidth * 0.70;
     private const double SideColWidth = ContentWidth * 0.30;
 
     private const double LeftInnerWidth = MainColWidth - 2;
-    private const double LabelColWidth = 88;
+    private const double LabelColWidth = 80;
     private const double ValueColWidth = LeftInnerWidth / 2 - LabelColWidth;
 
-    // Photo ~3,5 × 4,5 cm
-    private const double PhotoWidth = 132;
-    private const double PhotoHeight = 170;
-    private const double QrSize = 62;
+    // Photo compacte ~2,8 × 3,5 cm
+    private const double PhotoWidth = 106;
+    private const double PhotoHeight = 132;
+    private const double QrSize = 52;
 
-    private const double FontBody = 8.5;
-    private const double FontSmall = 7.75;
-    private const double FontSection = 8.75;
-    private const double FontTitle = 12;
-    private const double FontMatricule = 10.5;
-    private const double CellPad = 3;
-    private const double SectionGap = 3;
+    private const double FontBody = 8.25;
+    private const double FontSmall = 7.25;
+    private const double FontSection = 8.25;
+    private const double FontTitle = 11;
+    private const double FontMatricule = 9.5;
+    private const double CellPad = 2;
+    private const double SectionGap = 2;
 
     private static readonly Brush PrimaryBlue = new SolidColorBrush(Color.FromRgb(21, 101, 192));
     private static readonly Brush LightBlueBg = new SolidColorBrush(Color.FromRgb(227, 242, 253));
@@ -154,10 +155,10 @@ public static class EnrollmentFormDocumentBuilder
     {
         var section = new Section { Margin = new Thickness(0, 0, 3, 0) };
         section.Blocks.Add(SectionBlock("1. IDENTIFICATION DE L'ÉLÈVE", BuildIdentityGrid(form)));
-        section.Blocks.Add(SectionBlock("2. FILIATION", BuildFiliationGrid(form)));
+        section.Blocks.Add(SectionBlock("2. FILIATION / RESPONSABLES", BuildFiliationGrid(form)));
         section.Blocks.Add(SectionBlock("3. ACCÈS APPLICATION MOBILE", BuildParentAccessBlock(form)));
         section.Blocks.Add(SectionBlock("4. INFORMATIONS SCOLAIRES", BuildScolariteGrid(form)));
-        section.Blocks.Add(SectionBlock("5. DOCUMENTS FOURNIS", BuildDocumentsGrid(form)));
+        section.Blocks.Add(SectionBlock("5. PIÈCES JUSTIFICATIVES", BuildDocumentsGrid(form)));
         section.Blocks.Add(SectionBlock("6. RENSEIGNEMENTS MÉDICAUX", BuildMedicalGrid(form)));
         section.Blocks.Add(SectionBlock("7. OBSERVATIONS", BuildObservationsBlock(form)));
         return section;
@@ -293,35 +294,43 @@ public static class EnrollmentFormDocumentBuilder
 
     private static Block BuildDocumentsGrid(EnrollmentFormDocumentDto form)
     {
-        var knownDocuments = new[]
-        {
-            "Acte de naissance", "Photos", "Pièce d'identité", "Bulletin",
-            "Certificat médical", "Attestation de réussite", "Certificat de transfert", "Autres"
-        };
+        var knownDocuments = EnrollmentFormDocumentChecklist.KnownDocuments;
 
         var table = CreateTable();
-        table.Columns.Add(Col(LeftInnerWidth / 2));
-        table.Columns.Add(Col(LeftInnerWidth / 2));
+        table.Columns.Add(Col(LeftInnerWidth / 4));
+        table.Columns.Add(Col(LeftInnerWidth / 4));
+        table.Columns.Add(Col(LeftInnerWidth / 4));
+        table.Columns.Add(Col(LeftInnerWidth / 4));
         var group = RowGroup();
 
-        for (var i = 0; i < knownDocuments.Length; i += 2)
+        for (var i = 0; i < knownDocuments.Length; i += 4)
         {
             var row = new TableRow();
-            row.Cells.Add(DocCell(knownDocuments[i], IsDocumentProvided(form.ProvidedDocuments, knownDocuments[i])));
-            row.Cells.Add(i + 1 < knownDocuments.Length
-                ? DocCell(knownDocuments[i + 1], IsDocumentProvided(form.ProvidedDocuments, knownDocuments[i + 1]))
-                : EmptyCell());
+            for (var j = 0; j < 4; j++)
+            {
+                if (i + j < knownDocuments.Length)
+                {
+                    var label = knownDocuments[i + j];
+                    row.Cells.Add(DocCell(label, EnrollmentFormDocumentChecklist.IsProvided(form.ProvidedDocuments, label)));
+                }
+                else
+                {
+                    row.Cells.Add(EmptyCell());
+                }
+            }
+
             group.Rows.Add(row);
         }
 
-        var extras = form.ProvidedDocuments
-            .Where(d => !knownDocuments.Contains(d, StringComparer.OrdinalIgnoreCase))
-            .ToList();
-        for (var i = 0; i < extras.Count; i += 2)
+        var extras = EnrollmentFormDocumentChecklist.ExtraDocuments(form.ProvidedDocuments).ToList();
+        for (var i = 0; i < extras.Count; i += 4)
         {
             var row = new TableRow();
-            row.Cells.Add(DocCell(extras[i], true));
-            row.Cells.Add(i + 1 < extras.Count ? DocCell(extras[i + 1], true) : EmptyCell());
+            for (var j = 0; j < 4; j++)
+            {
+                row.Cells.Add(i + j < extras.Count ? DocCell(extras[i + j], true) : EmptyCell());
+            }
+
             group.Rows.Add(row);
         }
 
@@ -365,7 +374,7 @@ public static class EnrollmentFormDocumentBuilder
             group.Rows.Add(textRow);
         }
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 1; i++)
         {
             var lineRow = new TableRow();
             lineRow.Cells.Add(new TableCell(new Paragraph(new Run(" "))
@@ -423,11 +432,11 @@ public static class EnrollmentFormDocumentBuilder
             FontWeight = FontWeights.Bold,
             FontSize = FontMatricule,
             TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 4),
-            LineHeight = 12
+            Margin = new Thickness(0, 0, 0, 2),
+            LineHeight = 11
         });
 
-        var qr = CreateQrCodeImage(form.RegistrationNumber, QrSize);
+        var qr = CreateQrCodeImage(EnrollmentFormDocumentChecklist.BuildQrPayload(form), QrSize);
         if (qr is not null)
         {
             section.Blocks.Add(new Paragraph(new InlineUIContainer(qr))
@@ -443,12 +452,15 @@ public static class EnrollmentFormDocumentBuilder
 
     private static Block BuildFinancialBlock(EnrollmentFormDocumentDto form)
     {
+        var currency = string.IsNullOrWhiteSpace(form.Currency) ? "—" : form.Currency!;
         var culture = CultureInfo.GetCultureInfo("fr-FR");
-        var currency = form.Currency ?? "CDF";
         var fee = form.RegistrationFee?.ToString("N0", culture) ?? "—";
-        var paid = form.AmountPaid > 0 ? $"{form.AmountPaid:N0}" : "—";
-        var balance = form.BalanceDue?.ToString("N0", culture) ?? fee;
-        var isUnpaid = form.AmountPaid <= 0;
+        var paid = form.AmountPaid.ToString("N0", culture);
+        var balance = form.BalanceDue?.ToString("N0", culture)
+            ?? (form.RegistrationFee.HasValue
+                ? (form.RegistrationFee.Value - form.AmountPaid).ToString("N0", culture)
+                : "—");
+        var isUnpaid = form.BalanceDue is > 0 || (form.RegistrationFee is > 0 && form.AmountPaid <= 0);
 
         var table = CreateTable();
         var labelW = SideColWidth * 0.55;
@@ -457,29 +469,15 @@ public static class EnrollmentFormDocumentBuilder
         table.Columns.Add(Col(amountW));
         var group = RowGroup();
 
-        group.Rows.Add(FinRow("Frais d'inscription", $"{fee} {currency}", false));
-        group.Rows.Add(FinRow("Montant payé", paid == "—" ? paid : $"{paid} {currency}", false));
-        group.Rows.Add(FinRow("Reste à payer", $"{balance} {currency}", isUnpaid));
+        group.Rows.Add(FinRow("Frais d'inscription", fee == "—" ? fee : $"{fee} {currency}", false));
+        group.Rows.Add(FinRow("Montant payé", $"{paid} {currency}", false));
+        group.Rows.Add(FinRow("Devise", currency, false));
+        group.Rows.Add(FinRow("Solde", balance == "—" ? balance : $"{balance} {currency}", isUnpaid));
 
         table.RowGroups.Add(group);
 
         var section = new Section { Margin = new Thickness(CellPad) };
         section.Blocks.Add(table);
-        section.Blocks.Add(new Paragraph(new Run("Mode de paiement :"))
-        {
-            FontWeight = FontWeights.SemiBold,
-            FontSize = FontSmall,
-            Margin = new Thickness(0, 4, 0, 2),
-            LineHeight = 10
-        });
-        section.Blocks.Add(CreateCheckboxGroup(string.Empty,
-        [
-            ("Espèces", false),
-            ("Mobile Money", false),
-            ("Chèque", false),
-            ("Banque", false)
-        ]));
-        section.Blocks.Add(FinRowParagraph("N° Reçu", "—", false));
         return section;
     }
 
@@ -487,28 +485,51 @@ public static class EnrollmentFormDocumentBuilder
         EnrollmentFormDocumentDto form,
         IDocumentBrandingPathResolver brandingPathResolver)
     {
-        var signatures = form.Branding.Signatures;
-        var secretary = FindSignature(signatures, "secrétaire", "secretaire", "secretariat");
-        var director = FindSignature(signatures, "direction", "directeur", "directrice", "visa");
-
-        var slotWidth = ContentWidth / 4;
-        var table = CreateTable();
-        for (var i = 0; i < 4; i++)
+        var signatures = form.Branding.Signatures.Take(3).ToList();
+        if (signatures.Count == 0)
         {
-            table.Columns.Add(Col(slotWidth));
+            var fallback = new[] { "Parents / Tuteur", "Secrétariat", "Direction" };
+            var table = CreateTable();
+            foreach (var _ in fallback)
+            {
+                table.Columns.Add(Col(ContentWidth / fallback.Length));
+            }
+
+            var row = new TableRow();
+            foreach (var title in fallback)
+            {
+                row.Cells.Add(SignatureCell(title, null, null, brandingPathResolver));
+            }
+
+            var group = RowGroup();
+            group.Rows.Add(row);
+            table.RowGroups.Add(group);
+            table.Margin = new Thickness(0, SectionGap, 0, SectionGap);
+            return table;
         }
 
-        var row = new TableRow();
-        row.Cells.Add(SignatureCell("Parents / Tuteur", null, null, brandingPathResolver));
-        row.Cells.Add(SignatureCell("Secrétaire", secretary?.ImagePath, secretary?.SignatoryName, brandingPathResolver));
-        row.Cells.Add(SignatureCell("Visa de la Direction", director?.ImagePath, director?.SignatoryName, brandingPathResolver));
-        row.Cells.Add(StampCell(form.Branding.Stamps.FirstOrDefault(), brandingPathResolver));
+        var slotWidth = ContentWidth / signatures.Count;
+        var sigTable = CreateTable();
+        for (var i = 0; i < signatures.Count; i++)
+        {
+            sigTable.Columns.Add(Col(slotWidth));
+        }
 
-        var group = RowGroup();
-        group.Rows.Add(row);
-        table.RowGroups.Add(group);
-        table.Margin = new Thickness(0, SectionGap, 0, SectionGap);
-        return table;
+        var sigRow = new TableRow();
+        foreach (var signature in signatures)
+        {
+            sigRow.Cells.Add(SignatureCell(
+                signature.Function,
+                signature.ImagePath,
+                signature.SignatoryName,
+                brandingPathResolver));
+        }
+
+        var sigGroup = RowGroup();
+        sigGroup.Rows.Add(sigRow);
+        sigTable.RowGroups.Add(sigGroup);
+        sigTable.Margin = new Thickness(0, SectionGap, 0, SectionGap);
+        return sigTable;
     }
 
     private static Block BuildAuditFooter(EnrollmentFormDocumentDto form)
@@ -935,16 +956,7 @@ public static class EnrollmentFormDocumentBuilder
         new(new Paragraph()) { Padding = new Thickness(CellPad, 2, CellPad, 2) };
 
     private static bool IsDocumentProvided(IReadOnlyList<string> documents, string label) =>
-        documents.Any(document =>
-            document.Equals(label, StringComparison.OrdinalIgnoreCase)
-            || (label.Equals("Photos", StringComparison.OrdinalIgnoreCase)
-                && document.Equals("Photo", StringComparison.OrdinalIgnoreCase))
-            || (label.Equals("Pièce d'identité", StringComparison.OrdinalIgnoreCase)
-                && document.Contains("identité", StringComparison.OrdinalIgnoreCase))
-            || (label.Equals("Attestation de réussite", StringComparison.OrdinalIgnoreCase)
-                && document.Contains("réussite", StringComparison.OrdinalIgnoreCase))
-            || (label.Equals("Certificat de transfert", StringComparison.OrdinalIgnoreCase)
-                && document.Contains("transfert", StringComparison.OrdinalIgnoreCase)));
+        EnrollmentFormDocumentChecklist.IsProvided(documents, label);
 
     private static System.Windows.Controls.Image? CreateQrCodeImage(string content, double size)
     {

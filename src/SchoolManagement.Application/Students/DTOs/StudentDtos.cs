@@ -72,6 +72,8 @@ public sealed record StudentSearchRequest(
     Guid? PedagogicalClassId,
     Guid? ClassRoomId,
     string? StudyOption,
+    DateOnly? EnrollmentDateFrom = null,
+    DateOnly? EnrollmentDateTo = null,
     bool ApplyFilters = false,
     bool IncludeAll = false,
     bool IncludeInscrits = true,

@@ -14,6 +14,7 @@ public static class EnrollmentFormPdfGenerator
     private static readonly Color LightBlue = Color.FromHex("#E3F2FD");
     private static readonly Color BorderBlue = Color.FromHex("#BBDEFB");
     private static readonly Color TextMuted = Color.FromHex("#475569");
+    private static readonly CultureInfo Fr = CultureInfo.GetCultureInfo("fr-FR");
 
     static EnrollmentFormPdfGenerator()
     {
@@ -29,24 +30,21 @@ public static class EnrollmentFormPdfGenerator
             document.Page(page =>
             {
                 page.Size(PageSizes.A4);
-                page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(8.5f).FontColor(Colors.Black));
+                page.MarginHorizontal(16);
+                page.MarginVertical(12);
+                page.DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Black));
 
                 page.Content().Column(column =>
                 {
-                    column.Spacing(6);
+                    column.Spacing(3);
                     column.Item().Element(c => BuildHeader(c, form, loadImage));
                     column.Item().Element(c => BuildRegimeStatut(c, form));
                     column.Item().Row(row =>
                     {
-                        row.Spacing(8);
-                        row.RelativeItem(7).Element(c => BuildIdentityColumn(c, form, loadImage));
+                        row.Spacing(6);
+                        row.RelativeItem(7).Element(c => BuildMainColumn(c, form));
                         row.RelativeItem(3).Element(c => BuildSideColumn(c, form, loadImage));
                     });
-                    column.Item().Element(c => BuildGuardiansSection(c, form));
-                    column.Item().Element(c => BuildParentAccessSection(c, form));
-                    column.Item().Element(c => BuildMedicalSection(c, form));
-                    column.Item().Element(c => BuildDocumentsSection(c, form));
                     column.Item().Element(c => BuildSignatures(c, form, loadImage));
                     column.Item().Element(c => BuildAuditFooter(c, form));
                 });
@@ -56,20 +54,21 @@ public static class EnrollmentFormPdfGenerator
 
     private static void BuildHeader(IContainer container, EnrollmentFormDocumentDto form, Func<string?, byte[]?> loadImage)
     {
-        container.Border(1).BorderColor(BorderBlue).Background(LightBlue).Padding(8).Column(col =>
+        container.Border(1).BorderColor(BorderBlue).Background(LightBlue).Padding(4).Column(col =>
         {
+            col.Spacing(1);
             if (!DocumentPrintHeaderComposer.TryComposeFullWidthImage(col.Item(), form.Branding, loadImage))
             {
                 var headerBytes = loadImage(form.Branding.HeaderImagePath) ?? loadImage(form.Branding.PrimaryLogoPath);
                 if (headerBytes is not null)
                 {
-                    col.Item().Height(48).Image(headerBytes).FitUnproportionally();
+                    col.Item().MaxHeight(42).Image(headerBytes).FitUnproportionally();
                 }
             }
 
-            col.Item().AlignCenter().Text(form.SchoolName).Bold().FontSize(12).FontColor(PrimaryBlue);
-            col.Item().AlignCenter().Text("FICHE D'INSCRIPTION").Bold().FontSize(11).FontColor(PrimaryBlue);
-            col.Item().AlignCenter().Text($"Année scolaire {form.AcademicYearLabel}").FontColor(TextMuted);
+            col.Item().AlignCenter().Text(form.SchoolName).Bold().FontSize(10).FontColor(PrimaryBlue);
+            col.Item().AlignCenter().Text("FICHE D'INSCRIPTION").Bold().FontSize(10).FontColor(PrimaryBlue);
+            col.Item().AlignCenter().Text($"Année scolaire {form.AcademicYearLabel}").FontSize(8).FontColor(TextMuted);
         });
     }
 
@@ -93,72 +92,116 @@ public static class EnrollmentFormPdfGenerator
         });
     }
 
-    private static void BuildIdentityColumn(IContainer container, EnrollmentFormDocumentDto form, Func<string?, byte[]?> loadImage)
+    private static void BuildMainColumn(IContainer container, EnrollmentFormDocumentDto form)
     {
         container.Column(col =>
         {
-            col.Spacing(4);
-            col.Item().Element(c => SectionTitle(c, "Identité de l'élève"));
-            col.Item().Element(c => KeyValueTable(c, new (string, string?)[]
-            {
+            col.Spacing(3);
+            col.Item().Element(c => SectionTitle(c, "1. Identification de l'élève"));
+            col.Item().Element(c => CompactTwoColTable(c,
+            [
                 ("Matricule", form.RegistrationNumber),
-                ("Nom", form.LastName),
-                ("Postnom", form.MiddleName),
-                ("Prénom", form.FirstName),
                 ("Sexe", form.GenderLabel),
-                ("Date de naissance", form.DateOfBirth.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+                ("Nom", form.LastName),
+                ("Date naissance", form.DateOfBirth.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+                ("Postnom", form.MiddleName),
                 ("Âge", $"{form.Age} ans"),
-                ("Lieu de naissance", form.PlaceOfBirth),
+                ("Prénom", form.FirstName),
+                ("Lieu naissance", form.PlaceOfBirth),
                 ("Nationalité", form.Nationality),
                 ("Téléphone", form.Phone),
                 ("Email", form.Email),
-            }));
+                ("", null),
+            ]));
 
-            col.Item().Element(c => SectionTitle(c, "Adresse"));
-            col.Item().Element(c => KeyValueTable(c, new (string, string?)[]
-            {
+            col.Item().Element(c => SectionTitle(c, "2. Adresse"));
+            col.Item().Element(c => CompactTwoColTable(c,
+            [
                 ("Province", form.Province),
                 ("Territoire/Ville", form.Territory),
                 ("Commune", form.Commune),
                 ("Avenue", form.Avenue),
                 ("N° maison", form.HouseNumber),
-            }));
+                ("", null),
+            ]));
 
-            col.Item().Element(c => SectionTitle(c, "Scolarité"));
-            col.Item().Element(c => KeyValueTable(c, new (string, string?)[]
-            {
+            col.Item().Element(c => SectionTitle(c, "3. Scolarité"));
+            col.Item().Element(c => CompactTwoColTable(c,
+            [
                 ("Section", form.SectionName),
                 ("Classe", form.ClassName),
-                ("Date d'inscription", form.EnrollmentDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
-                ("École précédente", form.PreviousSchool),
-                ("Classe précédente", form.PreviousClass),
+                ("Date inscription", form.EnrollmentDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+                ("École préc.", form.PreviousSchool),
+                ("Classe préc.", form.PreviousClass),
                 ("Code élève préc.", form.PreviousStudentCode),
-            }));
+            ]));
+
+            col.Item().Element(c => BuildGuardiansSection(c, form));
+            col.Item().Element(c => BuildParentAccessSection(c, form));
+            col.Item().Element(c => SectionTitle(c, "6. Informations médicales"));
+            col.Item().Element(c => CompactTwoColTable(c,
+            [
+                ("Groupe sanguin", form.BloodGroup),
+                ("Allergies", form.Allergies),
+                ("Maladies chroniques", form.ChronicDiseases),
+                ("Handicap", form.Disability),
+                ("Médecin", form.DoctorName),
+                ("Centre médical", form.MedicalCenter),
+            ]));
+
+            col.Item().Element(c => SectionTitle(c, "7. Pièces justificatives"));
+            col.Item().Element(c => BuildDocumentsChecklist(c, form));
+
+            col.Item().Element(c => SectionTitle(c, "8. Observations"));
+            col.Item().Border(1).BorderColor(BorderBlue).Padding(3).MinHeight(18)
+                .Text(string.IsNullOrWhiteSpace(form.Observations) ? "—" : form.Observations)
+                .FontSize(7.5f).FontColor(TextMuted);
         });
     }
 
     private static void BuildSideColumn(IContainer container, EnrollmentFormDocumentDto form, Func<string?, byte[]?> loadImage)
     {
-        container.Border(1).BorderColor(BorderBlue).Padding(6).Column(col =>
+        container.Column(col =>
         {
-            col.Spacing(4);
-            col.Item().AlignCenter().Text("Photo").SemiBold().FontColor(PrimaryBlue);
+            col.Spacing(3);
 
-            var photoBytes = loadImage(form.PhotoPath);
-            if (photoBytes is not null)
+            col.Item().Border(1).BorderColor(BorderBlue).Padding(4).Column(photo =>
             {
-                col.Item().AlignCenter().Width(90).Height(110).Image(photoBytes).FitArea();
-            }
-            else
-            {
-                col.Item().AlignCenter().Width(90).Height(110).Border(1).BorderColor(BorderBlue)
-                    .AlignMiddle().AlignCenter().Text("Photo").FontColor(TextMuted);
-            }
+                photo.Item().AlignCenter().Text("Photo").SemiBold().FontSize(8).FontColor(PrimaryBlue);
+                var photoBytes = loadImage(form.PhotoPath);
+                if (photoBytes is not null)
+                {
+                    photo.Item().AlignCenter().Width(72).Height(88).Image(photoBytes).FitArea();
+                }
+                else
+                {
+                    photo.Item().AlignCenter().Width(72).Height(88).Border(1).BorderColor(BorderBlue)
+                        .AlignMiddle().AlignCenter().Text("Photo").FontSize(7).FontColor(TextMuted);
+                }
+            });
 
-            col.Item().PaddingTop(6).AlignCenter().Text("QR Code").SemiBold().FontColor(PrimaryBlue);
-            var qrPayload = $"ELV:{form.RegistrationNumber}|{form.LastName}|{form.FirstName}|{form.AcademicYearLabel}";
-            var qrBytes = GenerateQrCode(qrPayload);
-            col.Item().AlignCenter().Width(62).Height(62).Image(qrBytes);
+            col.Item().Border(1).BorderColor(BorderBlue).Padding(4).Column(id =>
+            {
+                id.Spacing(2);
+                id.Item().AlignCenter().Text("Identification").SemiBold().FontSize(8).FontColor(PrimaryBlue);
+                id.Item().AlignCenter().Text(form.RegistrationNumber).Bold().FontSize(9);
+                id.Item().AlignCenter().Text("QR Code").SemiBold().FontSize(7).FontColor(PrimaryBlue);
+                var qrBytes = GenerateQrCode(EnrollmentFormDocumentChecklist.BuildQrPayload(form));
+                id.Item().AlignCenter().Width(54).Height(54).Image(qrBytes);
+            });
+
+            col.Item().Border(1).BorderColor(BorderBlue).Padding(4).Column(fin =>
+            {
+                fin.Spacing(1);
+                fin.Item().AlignCenter().Text("Informations financières").SemiBold().FontSize(8).FontColor(PrimaryBlue);
+                fin.Item().Element(c => KeyValueTable(c,
+                [
+                    ("Frais d'inscription", FormatMoney(form.RegistrationFee, form.Currency)),
+                    ("Montant payé", FormatMoney(form.AmountPaid, form.Currency)),
+                    ("Devise", string.IsNullOrWhiteSpace(form.Currency) ? "—" : form.Currency),
+                    ("Solde", FormatMoney(form.BalanceDue, form.Currency)),
+                ]));
+            });
         });
     }
 
@@ -166,16 +209,16 @@ public static class EnrollmentFormPdfGenerator
     {
         container.Column(col =>
         {
-            col.Item().Element(c => SectionTitle(c, "Responsables / Contacts"));
+            col.Item().Element(c => SectionTitle(c, "4. Responsables / Contacts"));
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
+                    columns.RelativeColumn(1.4f);
+                    columns.RelativeColumn(2.2f);
+                    columns.RelativeColumn(1.6f);
+                    columns.RelativeColumn(1.8f);
+                    columns.RelativeColumn(1.6f);
                 });
 
                 table.Cell().Element(CellHeader).Text("Rôle");
@@ -184,13 +227,20 @@ public static class EnrollmentFormPdfGenerator
                 table.Cell().Element(CellHeader).Text("Email");
                 table.Cell().Element(CellHeader).Text("Profession");
 
-                foreach (var guardian in form.Guardians)
+                var rows = form.Guardians.Take(4).ToList();
+                if (rows.Count == 0)
                 {
-                    table.Cell().Element(CellValue).Text(guardian.Relationship);
-                    table.Cell().Element(CellValue).Text(guardian.FullName);
-                    table.Cell().Element(CellValue).Text(guardian.Phone ?? "—");
-                    table.Cell().Element(CellValue).Text(guardian.Email ?? "—");
-                    table.Cell().Element(CellValue).Text(guardian.Profession ?? "—");
+                    table.Cell().ColumnSpan(5).Element(CellValue).Text("Aucun responsable enregistré.").FontColor(TextMuted);
+                    return;
+                }
+
+                foreach (var guardian in rows)
+                {
+                    table.Cell().Element(CellValue).Text(guardian.Relationship).FontSize(7);
+                    table.Cell().Element(CellValue).Text(guardian.FullName).FontSize(7);
+                    table.Cell().Element(CellValue).Text(guardian.Phone ?? "—").FontSize(7);
+                    table.Cell().Element(CellValue).Text(guardian.Email ?? "—").FontSize(7);
+                    table.Cell().Element(CellValue).Text(guardian.Profession ?? "—").FontSize(7);
                 }
             });
         });
@@ -201,23 +251,21 @@ public static class EnrollmentFormPdfGenerator
         var accounts = form.ParentAccessAccounts ?? [];
         container.Column(col =>
         {
-            col.Item().Element(c => SectionTitle(c, "Accès application mobile (parent)"));
+            col.Item().Element(c => SectionTitle(c, "5. Accès application mobile (parent)"));
             if (accounts.Count == 0)
             {
-                col.Item().Text("Aucun compte d'accès parent généré pour cette inscription.").FontColor(TextMuted);
+                col.Item().Text("Aucun compte d'accès parent généré.").FontSize(7).FontColor(TextMuted);
                 return;
             }
 
-            col.Item().Text("Remettre ces identifiants au responsable pour se connecter à l'application mobile.")
-                .FontColor(TextMuted).FontSize(8);
-            col.Item().PaddingTop(3).Table(table =>
+            col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.RelativeColumn(3);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(3);
+                    columns.RelativeColumn(2.4f);
+                    columns.RelativeColumn(1.8f);
+                    columns.RelativeColumn(1.6f);
+                    columns.RelativeColumn(2.2f);
                 });
 
                 table.Cell().Element(CellHeader).Text("Responsable");
@@ -225,7 +273,7 @@ public static class EnrollmentFormPdfGenerator
                 table.Cell().Element(CellHeader).Text("Mot de passe");
                 table.Cell().Element(CellHeader).Text("Remarque");
 
-                foreach (var account in accounts)
+                foreach (var account in accounts.Take(3))
                 {
                     var password = string.IsNullOrWhiteSpace(account.TemporaryPassword)
                         ? "———"
@@ -236,62 +284,81 @@ public static class EnrollmentFormPdfGenerator
                             ? "Mot de passe déjà communiqué / à réinitialiser"
                             : "Compte existant";
 
-                    table.Cell().Element(CellValue).Text(account.GuardianFullName);
-                    table.Cell().Element(CellValue).Text(account.UserName).SemiBold();
-                    table.Cell().Element(CellValue).Text(password).SemiBold();
-                    table.Cell().Element(CellValue).Text(remark).FontSize(7).FontColor(TextMuted);
+                    table.Cell().Element(CellValue).Text(account.GuardianFullName).FontSize(7);
+                    table.Cell().Element(CellValue).Text(account.UserName).SemiBold().FontSize(7);
+                    table.Cell().Element(CellValue).Text(password).SemiBold().FontSize(7);
+                    table.Cell().Element(CellValue).Text(remark).FontSize(6.5f).FontColor(TextMuted);
                 }
             });
         });
     }
 
-    private static void BuildMedicalSection(IContainer container, EnrollmentFormDocumentDto form)
+    private static void BuildDocumentsChecklist(IContainer container, EnrollmentFormDocumentDto form)
     {
-        container.Column(col =>
+        container.Table(table =>
         {
-            col.Item().Element(c => SectionTitle(c, "Informations médicales"));
-            col.Item().Element(c => KeyValueTable(c, new (string, string?)[]
+            table.ColumnsDefinition(columns =>
             {
-                ("Groupe sanguin", form.BloodGroup),
-                ("Allergies", form.Allergies),
-                ("Maladies chroniques", form.ChronicDiseases),
-                ("Handicap", form.Disability),
-                ("Médecin", form.DoctorName),
-                ("Centre médical", form.MedicalCenter),
-                ("Observations", form.Observations),
-            }));
-        });
-    }
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+                columns.RelativeColumn();
+            });
 
-    private static void BuildDocumentsSection(IContainer container, EnrollmentFormDocumentDto form)
-    {
-        container.Column(col =>
-        {
-            col.Item().Element(c => SectionTitle(c, "Pièces justificatives"));
-            col.Item().Text(form.ProvidedDocuments.Count == 0
-                ? "Aucune pièce enregistrée."
-                : string.Join(", ", form.ProvidedDocuments)).FontColor(TextMuted);
+            foreach (var label in EnrollmentFormDocumentChecklist.KnownDocuments)
+            {
+                var mark = EnrollmentFormDocumentChecklist.IsProvided(form.ProvidedDocuments, label) ? "☑" : "☐";
+                table.Cell().Element(CellValue).Text($"{mark} {label}").FontSize(7);
+            }
+
+            var extras = EnrollmentFormDocumentChecklist.ExtraDocuments(form.ProvidedDocuments).Take(4).ToList();
+            foreach (var extra in extras)
+            {
+                table.Cell().Element(CellValue).Text($"☑ {extra}").FontSize(7);
+            }
         });
     }
 
     private static void BuildSignatures(IContainer container, EnrollmentFormDocumentDto form, Func<string?, byte[]?> loadImage)
     {
-        container.PaddingTop(8).Row(row =>
+        var signatures = form.Branding.Signatures.Take(3).ToList();
+        if (signatures.Count == 0)
         {
-            row.Spacing(8);
-            foreach (var signature in form.Branding.Signatures.Take(3))
+            container.PaddingTop(2).Row(row =>
             {
-                row.RelativeItem().Border(1).BorderColor(BorderBlue).Padding(6).Column(col =>
+                row.Spacing(6);
+                foreach (var title in new[] { "Parents / Tuteur", "Secrétariat", "Direction" })
+                {
+                    row.RelativeItem().Border(1).BorderColor(BorderBlue).Padding(4).Column(col =>
+                    {
+                        col.Item().AlignCenter().Text(title).SemiBold().FontSize(7);
+                        col.Item().PaddingTop(18).AlignCenter().Text("Signature").FontSize(6.5f).FontColor(TextMuted);
+                    });
+                }
+            });
+            return;
+        }
+
+        container.PaddingTop(2).Row(row =>
+        {
+            row.Spacing(6);
+            foreach (var signature in signatures)
+            {
+                row.RelativeItem().Border(1).BorderColor(BorderBlue).Padding(4).Column(col =>
                 {
                     var imageBytes = loadImage(signature.ImagePath);
                     if (imageBytes is not null)
                     {
-                        col.Item().AlignCenter().Height(36).Image(imageBytes).FitArea();
+                        col.Item().AlignCenter().Height(28).Image(imageBytes).FitArea();
+                    }
+                    else
+                    {
+                        col.Item().Height(14);
                     }
 
-                    col.Item().AlignCenter().Text(signature.SignatoryName).SemiBold().FontSize(8);
-                    col.Item().AlignCenter().Text(signature.Function).FontColor(TextMuted).FontSize(7);
-                    col.Item().PaddingTop(12).AlignCenter().Text("Signature").FontColor(TextMuted).FontSize(7);
+                    col.Item().AlignCenter().Text(signature.SignatoryName).SemiBold().FontSize(7);
+                    col.Item().AlignCenter().Text(signature.Function).FontColor(TextMuted).FontSize(6.5f);
+                    col.Item().PaddingTop(8).AlignCenter().Text("Signature").FontColor(TextMuted).FontSize(6.5f);
                 });
             }
         });
@@ -299,15 +366,16 @@ public static class EnrollmentFormPdfGenerator
 
     private static void BuildAuditFooter(IContainer container, EnrollmentFormDocumentDto form)
     {
-        container.PaddingTop(6).BorderTop(1).BorderColor(BorderBlue).Column(col =>
+        container.BorderTop(1).BorderColor(BorderBlue).PaddingTop(2).Column(col =>
         {
             col.Item().Text(text =>
             {
-                text.Span("Généré le ").FontColor(TextMuted);
+                text.DefaultTextStyle(x => x.FontSize(6.5f).FontColor(TextMuted));
+                text.Span("Généré le ");
                 text.Span(form.GeneratedAt.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture));
-                text.Span($"  •  Par {form.PrintedBy ?? "Système"}").FontColor(TextMuted);
-                text.Span($"  •  Poste {form.Workstation}").FontColor(TextMuted);
-                text.Span($"  •  ERP {form.ErpVersion}").FontColor(TextMuted);
+                text.Span($"  •  Par {form.PrintedBy ?? "Système"}");
+                text.Span($"  •  Poste {form.Workstation}");
+                text.Span($"  •  ERP {form.ErpVersion}");
             });
 
             if (form.Branding.Footer is not null)
@@ -315,14 +383,67 @@ public static class EnrollmentFormPdfGenerator
                 var footer = form.Branding.Footer;
                 var parts = new[] { footer.Address, footer.Phone, footer.Email, footer.Website }
                     .Where(p => !string.IsNullOrWhiteSpace(p));
-                col.Item().Text(string.Join("  •  ", parts)).FontSize(7).FontColor(TextMuted);
+                col.Item().Text(string.Join("  •  ", parts)).FontSize(6.5f).FontColor(TextMuted);
             }
         });
     }
 
+    private static string FormatMoney(decimal? amount, string? currency)
+    {
+        if (amount is null)
+        {
+            return "—";
+        }
+
+        var cur = string.IsNullOrWhiteSpace(currency) ? "" : $" {currency}";
+        return $"{amount.Value.ToString("N0", Fr)}{cur}";
+    }
+
     private static void SectionTitle(IContainer container, string title) =>
-        container.Background(LightBlue).Border(1).BorderColor(BorderBlue).Padding(4)
-            .Text(title).SemiBold().FontSize(9).FontColor(PrimaryBlue);
+        container.Background(LightBlue).Border(1).BorderColor(BorderBlue).PaddingVertical(2).PaddingHorizontal(4)
+            .Text(title).SemiBold().FontSize(8).FontColor(PrimaryBlue);
+
+    private static void CompactTwoColTable(IContainer container, IReadOnlyList<(string Label, string? Value)> pairs)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(72);
+                columns.RelativeColumn();
+                columns.ConstantColumn(78);
+                columns.RelativeColumn();
+            });
+
+            for (var i = 0; i < pairs.Count; i += 2)
+            {
+                var left = pairs[i];
+                if (string.IsNullOrEmpty(left.Label))
+                {
+                    table.Cell().ColumnSpan(2).Element(EmptyCell);
+                }
+                else
+                {
+                    table.Cell().Element(CellHeader).Text(left.Label).FontSize(7);
+                    table.Cell().Element(CellValue).Text(Display(left.Value)).FontSize(7.5f);
+                }
+
+                if (i + 1 < pairs.Count)
+                {
+                    var right = pairs[i + 1];
+                    if (string.IsNullOrEmpty(right.Label))
+                    {
+                        table.Cell().ColumnSpan(2).Element(EmptyCell);
+                    }
+                    else
+                    {
+                        table.Cell().Element(CellHeader).Text(right.Label).FontSize(7);
+                        table.Cell().Element(CellValue).Text(Display(right.Value)).FontSize(7.5f);
+                    }
+                }
+            }
+        });
+    }
 
     private static void KeyValueTable(IContainer container, IReadOnlyList<(string Label, string? Value)> rows)
     {
@@ -330,24 +451,30 @@ public static class EnrollmentFormPdfGenerator
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.ConstantColumn(95);
+                columns.RelativeColumn(1.3f);
                 columns.RelativeColumn();
             });
 
             foreach (var (label, value) in rows)
             {
-                table.Cell().Element(CellHeader).Text(label);
-                table.Cell().Element(CellValue).Text(string.IsNullOrWhiteSpace(value) ? "—" : value);
+                table.Cell().Element(CellHeader).Text(label).FontSize(6.5f);
+                table.Cell().Element(CellValue).Text(Display(value)).FontSize(7);
             }
         });
     }
 
+    private static string Display(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+
     private static IContainer CellHeader(IContainer container) =>
-        container.BorderBottom(1).BorderColor(BorderBlue).PaddingVertical(2).PaddingHorizontal(3)
-            .Background(LightBlue).DefaultTextStyle(x => x.SemiBold().FontSize(8));
+        container.BorderBottom(0.5f).BorderColor(BorderBlue).PaddingVertical(1).PaddingHorizontal(2)
+            .Background(LightBlue).DefaultTextStyle(x => x.SemiBold().FontSize(7));
 
     private static IContainer CellValue(IContainer container) =>
-        container.BorderBottom(1).BorderColor(BorderBlue).PaddingVertical(2).PaddingHorizontal(3);
+        container.BorderBottom(0.5f).BorderColor(BorderBlue).PaddingVertical(1).PaddingHorizontal(2);
+
+    private static IContainer EmptyCell(IContainer container) =>
+        container.Padding(0);
 
     private static byte[] GenerateQrCode(string payload)
     {

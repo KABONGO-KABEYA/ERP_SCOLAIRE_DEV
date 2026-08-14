@@ -164,6 +164,7 @@ class EnrollmentClassOption {
     required this.isSelectable,
     this.minAge,
     this.maxAge,
+    this.studyOption,
   });
 
   final String classRoomId;
@@ -178,6 +179,7 @@ class EnrollmentClassOption {
   final bool isSelectable;
   final int? minAge;
   final int? maxAge;
+  final String? studyOption;
 
   factory EnrollmentClassOption.fromJson(Map<String, dynamic> json) => EnrollmentClassOption(
         classRoomId: json['classRoomId'] as String,
@@ -192,6 +194,7 @@ class EnrollmentClassOption {
         isSelectable: json['isSelectable'] as bool? ?? true,
         minAge: json['minAge'] as int?,
         maxAge: json['maxAge'] as int?,
+        studyOption: json['studyOption'] as String?,
       );
 }
 

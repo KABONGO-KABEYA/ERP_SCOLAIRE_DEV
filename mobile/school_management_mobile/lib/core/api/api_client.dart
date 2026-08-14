@@ -231,6 +231,28 @@ class ApiClient {
     return fromJson(Map<String, dynamic>.from(api.data as Map));
   }
 
+  Future<T> putObject<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(path, data: data);
+    final body = response.data;
+    if (body == null) {
+      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+    }
+
+    final api = ApiResponse.fromJson(body, (d) => d);
+    if (!api.success || api.data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        message: api.message ?? 'Erreur API',
+      );
+    }
+
+    return fromJson(Map<String, dynamic>.from(api.data as Map));
+  }
+
   Future<T> uploadMultipart<T>(
     String path,
     FormData formData,

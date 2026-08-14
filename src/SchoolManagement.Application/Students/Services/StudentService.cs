@@ -832,7 +832,11 @@ public sealed class StudentService : IStudentService
 
         || request.ClassRoomId.HasValue
 
-        || !string.IsNullOrWhiteSpace(request.StudyOption);
+        || !string.IsNullOrWhiteSpace(request.StudyOption)
+
+        || request.EnrollmentDateFrom.HasValue
+
+        || request.EnrollmentDateTo.HasValue;
 
 
 
@@ -998,9 +1002,45 @@ public sealed class StudentService : IStudentService
 
             .Where(e => MatchesEnrollmentScope(e, request))
 
+            .Where(e => MatchesEnrollmentDateRange(e, request))
+
             .Select(e => e.StudentId)
 
             .ToHashSet();
+
+    }
+
+
+
+    private static bool MatchesEnrollmentDateRange(Enrollment enrollment, StudentSearchRequest request)
+
+    {
+
+        if (!request.EnrollmentDateFrom.HasValue && !request.EnrollmentDateTo.HasValue)
+
+        {
+
+            return true;
+
+        }
+
+
+
+        var from = request.EnrollmentDateFrom ?? DateOnly.MinValue;
+
+        var to = request.EnrollmentDateTo ?? DateOnly.MaxValue;
+
+        if (to < from)
+
+        {
+
+            (from, to) = (to, from);
+
+        }
+
+
+
+        return enrollment.EnrollmentDate >= from && enrollment.EnrollmentDate <= to;
 
     }
 

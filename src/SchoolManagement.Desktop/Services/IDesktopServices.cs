@@ -4,13 +4,17 @@ public interface INavigationService
 {
     object? CurrentViewModel { get; }
 
+    bool CanNavigateBack { get; }
+
     event Action? CurrentViewModelChanged;
 
-    void NavigateTo<TViewModel>() where TViewModel : class;
+    void NavigateTo<TViewModel>(bool recordBack = false) where TViewModel : class;
 
-    void NavigateTo(Type viewModelType);
+    void NavigateTo(Type viewModelType, bool recordBack = false);
 
-    void NavigateTo(object viewModel);
+    void NavigateTo(object viewModel, bool recordBack = false);
+
+    bool NavigateBack();
 
     /// <summary>Efface la vue courante (ex. déconnexion) sans fermer l'application.</summary>
     void Clear();

@@ -75,6 +75,43 @@ void main() {
       );
     });
 
+    test('DAF → /admin/dashboard', () {
+      expect(
+        MobileRoleRouting.homeRoute(
+          roles: const ['DAF'],
+          permissions: const ['reports.read'],
+        ),
+        MobileRoleRouting.dafHome,
+      );
+    });
+
+    test('DAF refuse promoteur dashboard et encaissements', () {
+      const space = MobileSpace.daf;
+      expect(
+        MobileRoleRouting.canAccessLocation(space: space, location: '/admin/dashboard'),
+        isTrue,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(space: space, location: '/admin/financial-reports'),
+        isTrue,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(space: space, location: '/promoteur/dashboard'),
+        isFalse,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(space: space, location: '/promoteur/payments'),
+        isFalse,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(
+          space: space,
+          location: '/promoteur/students/abc/consultation',
+        ),
+        isTrue,
+      );
+    });
+
     test('PREFET → unsupported', () {
       expect(
         MobileRoleRouting.resolve(

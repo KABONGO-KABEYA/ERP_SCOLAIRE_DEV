@@ -73,6 +73,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var recordsSucceeded = 0;
         var recordsFailed = 0;
         var tablesTouched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var tableRecordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var errors = new List<string>();
 
         try
@@ -164,6 +165,11 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 tablesTouched.Add(t);
             }
 
+            foreach (var (table, count) in loop.TableRecordCounts)
+            {
+                tableRecordCounts[table] = tableRecordCounts.GetValueOrDefault(table) + count;
+            }
+
             errors.AddRange(loop.Errors);
 
             sw.Stop();
@@ -197,7 +203,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 startedAt, sw, skipped: false, success,
                 units.Count, unitsSucceeded, unitsFailed,
                 recordsSucceeded + recordsFailed, recordsSucceeded, recordsFailed,
-                string.Join(',', tablesTouched.OrderBy(t => t).Take(40)),
+                FormatTableCounts(tableRecordCounts),
                 errorSummary,
                 JsonSerializer.Serialize(new
                 {
@@ -225,7 +231,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 startedAt, sw, skipped: false, success: false,
                 unitsSucceeded + unitsFailed, unitsSucceeded, unitsFailed,
                 recordsSucceeded + recordsFailed, recordsSucceeded, recordsFailed,
-                null, ex.Message, null, cancellationToken);
+                FormatTableCounts(tableRecordCounts),
+                ex.Message, null, cancellationToken);
             WriteState(success: false, ex.Message);
             return new CloudSyncRunResultDto(
                 false, false, ex.Message, unitsSucceeded, unitsFailed,
@@ -591,6 +598,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var recordsSucceeded = 0;
         var recordsFailed = 0;
         var tablesTouched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var tableRecordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var errors = new List<string>();
 
         foreach (var unit in units)
@@ -633,6 +641,15 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 tablesTouched.Add(t);
             }
 
+            if (outcome.Success && !outcome.OrphanedSoftDeleted)
+            {
+                foreach (var item in unit.Items.Where(i => !i.IsDeleted))
+                {
+                    tableRecordCounts[item.TableName] =
+                        tableRecordCounts.GetValueOrDefault(item.TableName) + 1;
+                }
+            }
+
             if (outcome.OrphanedSoftDeleted)
             {
                 orphanedSoftDeleted++;
@@ -663,7 +680,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             financePrepFailed,
             financePrepError,
             errors,
-            tablesTouched);
+            tablesTouched,
+            tableRecordCounts);
     }
 
     private static string BuildDrainSummary(
@@ -1888,7 +1906,22 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         bool FinancePrepFailed,
         string? FinancePrepError,
         IReadOnlyList<string> Errors,
-        IReadOnlyCollection<string> TablesTouched);
+        IReadOnlyCollection<string> TablesTouched,
+        IReadOnlyDictionary<string, int> TableRecordCounts);
+
+    private static string? FormatTableCounts(IReadOnlyDictionary<string, int> counts)
+    {
+        if (counts.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join(';',
+            counts
+                .OrderByDescending(kv => kv.Value)
+                .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(kv => $"{kv.Key}={kv.Value}"));
+    }
 
     private sealed record UnitOutcome(
         bool Success,

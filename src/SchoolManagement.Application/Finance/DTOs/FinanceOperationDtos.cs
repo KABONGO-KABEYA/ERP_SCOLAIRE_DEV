@@ -53,7 +53,8 @@ public sealed record StudentPaymentSituationSearchRequest(
     PaymentSituationStatus? PaymentStatus = null,
     string? Search = null,
     int Page = 1,
-    int PageSize = 50);
+    int PageSize = 50,
+    Guid? StudentId = null);
 
 public sealed record StudentPaymentSituationSearchResultDto(
     IReadOnlyList<StudentPaymentSituationDto> Items,

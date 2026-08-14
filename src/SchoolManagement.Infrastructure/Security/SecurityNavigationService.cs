@@ -9,6 +9,13 @@ namespace SchoolManagement.Infrastructure.Security;
 
 public sealed class SecurityNavigationService : ISecurityNavigationService
 {
+    private static readonly HashSet<string> DafAllowedModuleCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "DASHBOARD",
+        "PERSONNEL",
+        "FINANCE"
+    };
+
     private readonly SchoolDbContext _db;
     private readonly SecurityCatalogCache _cache;
     private readonly IEffectivePermissionService _effectivePermissions;
@@ -34,12 +41,18 @@ public sealed class SecurityNavigationService : ISecurityNavigationService
         var effective = await _effectivePermissions.ResolveAsync(userId, cancellationToken);
         var permissionSet = effective.PermissionCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var hasAdminFull = permissionSet.Contains(Permissions.AdminFull);
+        var restrictToDafMenu = ShouldRestrictNavigationToDafMenu(effective.Roles);
 
         var catalog = await EnsureNavigationSnapshotAsync(cancellationToken);
         var modules = new List<NavigationModuleDto>();
 
         foreach (var module in catalog.Modules.OrderBy(m => m.SortOrder).ThenBy(m => m.Name))
         {
+            if (restrictToDafMenu && !DafAllowedModuleCodes.Contains(module.Code))
+            {
+                continue;
+            }
+
             var functions = new List<NavigationFunctionDto>();
             foreach (var function in module.Functions.OrderBy(f => f.SortOrder).ThenBy(f => f.Name))
             {
@@ -186,6 +199,16 @@ public sealed class SecurityNavigationService : ISecurityNavigationService
         {
             _db.IgnoreSchoolScope = previousIgnore;
         }
+    }
+
+    private static bool ShouldRestrictNavigationToDafMenu(IReadOnlyList<string> roles)
+    {
+        if (roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        return roles.Any(r => r.Equals("DAF", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool CanAccess(

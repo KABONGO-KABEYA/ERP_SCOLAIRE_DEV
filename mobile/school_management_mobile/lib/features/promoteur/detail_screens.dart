@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
+import '../admin/daf_student_analytics_screens.dart';
 import 'dashboard_formatters.dart';
 import 'models/promoteur_dashboard_models.dart';
 import 'promoteur_dashboard_repository.dart';
@@ -384,9 +385,11 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
     });
     try {
       var items = await ref.read(promoteurDashboardRepositoryProvider).getExpenses(_scope);
-      final cat = widget.category;
+      var cat = widget.category;
       if (cat != null && cat.isNotEmpty) {
-        items = items.where((e) => e.category.toLowerCase() == cat.toLowerCase()).toList();
+        items = items
+            .where((e) => e.accountTypeName.toLowerCase() == cat.toLowerCase())
+            .toList();
       }
       if (!mounted) return;
       setState(() => _items = items);
@@ -416,6 +419,7 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
     final items = _items ?? const <DashboardExpenseLine>[];
     final total = items.fold<double>(0, (s, e) => s + e.amount);
     final currency = items.isEmpty ? 'CDF' : items.first.currency;
+    final filteredByAccount = widget.category != null && widget.category!.isNotEmpty;
 
     return Scaffold(
       backgroundColor: ErpColors.pageBackground,
@@ -470,19 +474,68 @@ class _PromoteurExpensesDetailScreenState extends ConsumerState<PromoteurExpense
                             style: TextStyle(color: ErpColors.textSecondary),
                           ),
                         )
-                      else if (_scope == DashboardDetailScope.year)
-                        ..._buildYearHierarchy(items)
-                      else if (_scope == DashboardDetailScope.month)
-                        ..._buildMonthHierarchy(items)
+                      else if (filteredByAccount)
+                        ..._buildPeriodHierarchy(items)
                       else
-                        ...items.map((e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _ExpenseDetailTile(expense: e),
-                            )),
+                        ..._buildAccountTypeHierarchy(items),
                     ],
                   ),
                 ),
     );
+  }
+
+  List<Widget> _buildAccountTypeHierarchy(List<DashboardExpenseLine> items) {
+    final byAccount = <String, List<DashboardExpenseLine>>{};
+    for (final e in items) {
+      byAccount.putIfAbsent(e.accountTypeName, () => []).add(e);
+    }
+    final accountKeys = byAccount.keys.toList()..sort();
+
+    return accountKeys.map((account) {
+      final accountItems = byAccount[account]!;
+      final accountTotal = accountItems.fold<double>(0, (s, e) => s + e.amount);
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: ErpColors.border),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            controlAffinity: ListTileControlAffinity.leading,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            title: Text(
+              account,
+              style: const TextStyle(fontWeight: FontWeight.w700, color: ErpColors.navy),
+            ),
+            trailing: Text(
+              formatMoney(accountTotal, accountItems.first.currency),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: ErpColors.danger),
+            ),
+            children: _buildPeriodHierarchy(accountItems),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildPeriodHierarchy(List<DashboardExpenseLine> items) {
+    if (_scope == DashboardDetailScope.year) {
+      return _buildYearHierarchy(items);
+    }
+    if (_scope == DashboardDetailScope.month) {
+      return _buildMonthHierarchy(items);
+    }
+    return items
+        .map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ExpenseDetailTile(expense: e),
+            ))
+        .toList();
   }
 
   List<Widget> _buildYearHierarchy(List<DashboardExpenseLine> items) {
@@ -612,6 +665,7 @@ class _ExpenseDetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dateFmt = DateFormat('dd/MM/yyyy');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -630,9 +684,19 @@ class _ExpenseDetailTile extends StatelessWidget {
                 Text(expense.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 const SizedBox(height: 2),
                 Text(
-                  '${expense.category}${expense.reference.isEmpty ? '' : ' · ${expense.reference}'}',
+                  dateFmt.format(expense.expenseDate),
                   style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  expense.accountTypeName,
+                  style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary, fontWeight: FontWeight.w600),
+                ),
+                if (expense.reference.isNotEmpty)
+                  Text(
+                    expense.reference,
+                    style: const TextStyle(fontSize: 10, color: ErpColors.textSecondary),
+                  ),
               ],
             ),
           ),
@@ -1098,183 +1162,9 @@ class _PromoteurFundMovementsScreenState extends ConsumerState<PromoteurFundMove
   }
 }
 
-class PromoteurStudentsDetailScreen extends ConsumerStatefulWidget {
+class PromoteurStudentsDetailScreen extends StatelessWidget {
   const PromoteurStudentsDetailScreen({super.key});
 
   @override
-  ConsumerState<PromoteurStudentsDetailScreen> createState() => _PromoteurStudentsDetailScreenState();
-}
-
-class _PromoteurStudentsDetailScreenState extends ConsumerState<PromoteurStudentsDetailScreen> {
-  EnrolledStudentsBySection? _data;
-  String? _error;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final data = await ref.read(promoteurDashboardRepositoryProvider).getEnrolledStudents();
-      if (!mounted) return;
-      setState(() => _data = data);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final data = _data;
-    return Scaffold(
-      backgroundColor: ErpColors.pageBackground,
-      appBar: AppBar(
-        title: const Text('Élèves inscrits'),
-        backgroundColor: Colors.white,
-        foregroundColor: ErpColors.navy,
-        elevation: 0,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: ErpColors.danger)))
-              : data == null
-                  ? const Center(child: Text('Aucune donnée'))
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: _StatTile(label: 'Total', value: '${data.totalStudents}', color: ErpColors.navy)),
-                              const SizedBox(width: 8),
-                              Expanded(child: _StatTile(label: 'Garçons', value: '${data.totalBoys}', color: ErpColors.primary)),
-                              const SizedBox(width: 8),
-                              Expanded(child: _StatTile(label: 'Filles', value: '${data.totalGirls}', color: const Color(0xFFEC4899))),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ...data.sections.map((section) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: ErpColors.border),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              section.sectionName,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 15,
-                                                color: ErpColors.navy,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            '${section.totalStudents} · ♂ ${section.boys} · ♀ ${section.girls}',
-                                            style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: DataTable(
-                                        headingRowHeight: 36,
-                                        dataRowMinHeight: 36,
-                                        dataRowMaxHeight: 44,
-                                        columnSpacing: 20,
-                                        horizontalMargin: 14,
-                                        headingTextStyle: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: ErpColors.textSecondary,
-                                        ),
-                                        columns: const [
-                                          DataColumn(label: Text('Classe')),
-                                          DataColumn(label: Text('Total'), numeric: true),
-                                          DataColumn(label: Text('Filles'), numeric: true),
-                                          DataColumn(label: Text('Garçons'), numeric: true),
-                                        ],
-                                        rows: [
-                                          ...section.classes.map(
-                                            (c) => DataRow(
-                                              cells: [
-                                                DataCell(Text(c.className, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataCell(Text('${c.totalStudents}', style: const TextStyle(fontSize: 12))),
-                                                DataCell(Text('${c.girls}', style: const TextStyle(fontSize: 12))),
-                                                DataCell(Text('${c.boys}', style: const TextStyle(fontSize: 12))),
-                                              ],
-                                            ),
-                                          ),
-                                          DataRow(
-                                            color: WidgetStatePropertyAll(ErpColors.primary.withValues(alpha: 0.06)),
-                                            cells: [
-                                              const DataCell(Text('Total section', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
-                                              DataCell(Text('${section.totalStudents}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
-                                              DataCell(Text('${section.girls}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
-                                              DataCell(Text('${section.boys}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value, required this.color});
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const EnrolledStudentsAnalyticsScreen();
 }

@@ -5,6 +5,10 @@
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
     <Grid Style="{StaticResource ErpFadeIn}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -109,26 +113,81 @@
                                   HeadersVisibility="Column"
                                   IsReadOnly="True"
                                   ItemsSource="{Binding RecentJournal}"
-                                  MaxHeight="360">
+                                  MaxHeight="360"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#EEF2F7">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Width="140"
+                                <DataGridTextColumn Width="128"
                                                     Binding="{Binding StartedAt, StringFormat=dd/MM HH:mm:ss}"
                                                     Header="Date" />
-                                <DataGridTextColumn Width="70"
+                                <DataGridTemplateColumn Width="2*"
+                                                        MinWidth="200"
+                                                        Header="Éléments synchronisés">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,2"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock VerticalAlignment="Center"
+                                                           FontSize="12"
+                                                           Foreground="{StaticResource ErpTextPrimaryBrush}"
+                                                           Text="{Binding SyncElementsSummary}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding SyncElementsTooltip}">
+                                                    <TextBlock.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick"
+                                                                      Command="{Binding ShowSyncElementsDetailCommand}" />
+                                                    </TextBlock.InputBindings>
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Cursor" Value="Arrow" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSummaryTruncated}" Value="True">
+                                                                    <Setter Property="Cursor" Value="Hand" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <Button Margin="6,0,0,0"
+                                                        Padding="6,2"
+                                                        VerticalAlignment="Center"
+                                                        Content="Voir tout"
+                                                        Command="{Binding ShowSyncElementsDetailCommand}"
+                                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                                        FontSize="11">
+                                                    <Button.Visibility>
+                                                        <Binding Path="IsSummaryTruncated" Converter="{StaticResource BoolToVis}" />
+                                                    </Button.Visibility>
+                                                </Button>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Width="52"
                                                     Binding="{Binding DurationMs}"
                                                     Header="ms" />
-                                <DataGridCheckBoxColumn Width="50"
-                                                        Binding="{Binding Success}"
+                                <DataGridCheckBoxColumn Width="44"
+                                                        Binding="{Binding Success, Mode=OneWay}"
+                                                        IsReadOnly="True"
                                                         Header="OK" />
-                                <DataGridTextColumn Width="60"
+                                <DataGridTextColumn Width="58"
                                                     Binding="{Binding UnitsSucceeded}"
-                                                    Header="Unités OK" />
-                                <DataGridTextColumn Width="60"
+                                                    Header="Unités" />
+                                <DataGridTextColumn Width="58"
                                                     Binding="{Binding UnitsFailed}"
                                                     Header="Échecs" />
                                 <DataGridTextColumn Width="*"
+                                                    MinWidth="120"
                                                     Binding="{Binding ErrorSummary}"
-                                                    Header="Erreur" />
+                                                    Header="Erreur">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="ToolTip" Value="{Binding ErrorSummary}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>

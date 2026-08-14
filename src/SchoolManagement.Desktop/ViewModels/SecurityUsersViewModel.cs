@@ -191,6 +191,8 @@ public partial class SecurityUsersViewModel : ViewModelBase
     [ObservableProperty] private string _roleSearchText = string.Empty;
     [ObservableProperty] private string _permissionSearchText = string.Empty;
     [ObservableProperty] private string _personnelSearchText = string.Empty;
+    /// <summary>true = agents internes ; false = parents externes.</summary>
+    [ObservableProperty] private bool _filterInternalAgents = true;
     [ObservableProperty] private int _permissionCurrentPage = 1;
     [ObservableProperty] private int _permissionTotalCount;
     [ObservableProperty] private Guid _newExceptionPermissionId;
@@ -276,7 +278,36 @@ public partial class SecurityUsersViewModel : ViewModelBase
         SyncRolePicksFromSelectedUser();
     }
 
+    public bool FilterExternalParents
+    {
+        get => !FilterInternalAgents;
+        set
+        {
+            if (value == FilterExternalParents)
+            {
+                return;
+            }
+
+            FilterInternalAgents = !value;
+        }
+    }
+
+    public int InternalUserCount => _allUsers.Count(u => !u.IsExternalParent);
+
+    public int ExternalUserCount => _allUsers.Count(u => u.IsExternalParent);
+
+    public string AudienceFilterHint => FilterInternalAgents
+        ? $"{Users.Count} agent(s) interne(s) affiché(s) — {ExternalUserCount} parent(s) masqué(s)"
+        : $"{Users.Count} parent(s) externe(s) affiché(s) — {InternalUserCount} agent(s) masqué(s)";
+
     partial void OnSearchTextChanged(string value) => ApplyUserFilter();
+
+    partial void OnFilterInternalAgentsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(FilterExternalParents));
+        OnPropertyChanged(nameof(AudienceFilterHint));
+        ApplyUserFilter();
+    }
 
     partial void OnRoleSearchTextChanged(string value) => ApplyRoleFilter();
 
@@ -321,10 +352,12 @@ public partial class SecurityUsersViewModel : ViewModelBase
     {
         var selectedId = SelectedUser?.Id;
         var term = SearchText.Trim();
-        IEnumerable<SecurityUserDto> filtered = _allUsers;
+        IEnumerable<SecurityUserDto> filtered = _allUsers.Where(u =>
+            FilterInternalAgents ? !u.IsExternalParent : u.IsExternalParent);
+
         if (!string.IsNullOrWhiteSpace(term))
         {
-            filtered = _allUsers.Where(u =>
+            filtered = filtered.Where(u =>
                 u.UserName.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || u.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || u.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
@@ -335,6 +368,8 @@ public partial class SecurityUsersViewModel : ViewModelBase
         Users.Clear();
         foreach (var u in filtered.OrderBy(x => x.UserName))
             Users.Add(u);
+
+        OnPropertyChanged(nameof(AudienceFilterHint));
 
         SelectedUser = selectedId is null
             ? Users.FirstOrDefault()
@@ -399,6 +434,9 @@ public partial class SecurityUsersViewModel : ViewModelBase
 
             ApplyRoleFilter();
             ApplyUserFilter();
+            OnPropertyChanged(nameof(InternalUserCount));
+            OnPropertyChanged(nameof(ExternalUserCount));
+            OnPropertyChanged(nameof(AudienceFilterHint));
             StatusMessage = null;
             await SearchPersonnelCandidatesAsync();
         }

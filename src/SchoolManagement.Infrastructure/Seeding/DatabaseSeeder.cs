@@ -76,6 +76,7 @@ public sealed class DatabaseSeeder
         _context.IgnoreSchoolScope = true;
         try
         {
+            await SeedDafDemoAsync(cancellationToken);
             await SeedParentDemoAsync(cancellationToken);
             await SeedKabeyaParentAsync(cancellationToken);
             await SeedDemoAcademicStructureAsync(cancellationToken);
@@ -907,5 +908,53 @@ public sealed class DatabaseSeeder
 
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Compte direction démo créé (direction / Direction@2026).");
+    }
+
+    private async Task SeedDafDemoAsync(CancellationToken cancellationToken)
+    {
+        var dafRole = await _context.Roles
+            .FirstOrDefaultAsync(r => r.Code == "DAF" && !r.IsDeleted, cancellationToken);
+        if (dafRole is null)
+        {
+            return;
+        }
+
+        if (await _context.UserAccounts.AnyAsync(u => u.UserName == "daf", cancellationToken))
+        {
+            return;
+        }
+
+        var school = await _context.Schools.FirstOrDefaultAsync(s => s.Id == dafRole.SchoolId, cancellationToken);
+        if (school is null)
+        {
+            return;
+        }
+
+        var dafUser = new UserAccount
+        {
+            SchoolId = school.Id,
+            UserName = "daf",
+            Email = "daf@ecole.rdc",
+            PasswordHash = _passwordHasher.Hash("Daf@2026"),
+            FirstName = "Jean",
+            LastName = "Kabongo",
+            IsActive = true,
+            MustChangePassword = false
+        };
+        _context.UserAccounts.Add(dafUser);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        if (!await _context.UserRoleAssignments.AnyAsync(
+                ur => ur.UserId == dafUser.Id && ur.RoleId == dafRole.Id, cancellationToken))
+        {
+            _context.UserRoleAssignments.Add(new UserRoleAssignment
+            {
+                UserId = dafUser.Id,
+                RoleId = dafRole.Id
+            });
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Compte DAF démo créé (daf / Daf@2026).");
     }
 }

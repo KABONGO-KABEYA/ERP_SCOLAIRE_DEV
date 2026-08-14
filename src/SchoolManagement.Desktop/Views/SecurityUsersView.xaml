@@ -103,23 +103,49 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Recherche + Actualiser -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
-            <Button DockPanel.Dock="Right"
-                    Margin="8,0,0,0"
-                    Padding="14,6"
-                    VerticalAlignment="Center"
-                    Command="{Binding LoadCommand}"
-                    Style="{StaticResource ErpSecondaryButton}">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="Refresh" Margin="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBlock VerticalAlignment="Center" Text="Actualiser" />
-                </StackPanel>
-            </Button>
-            <erp:ErpSearchField HorizontalAlignment="Stretch"
-                                Placeholder="Rechercher un utilisateur (identifiant, nom, email)…"
-                                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-        </DockPanel>
+        <!-- Audience + Recherche + Actualiser -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                <TextBlock Margin="0,0,12,0"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="#475569"
+                           Text="Afficher :" />
+                <RadioButton Margin="0,0,16,0"
+                             VerticalAlignment="Center"
+                             Content="Interne (Agent)"
+                             FontSize="12"
+                             GroupName="UserAudienceFilter"
+                             IsChecked="{Binding FilterInternalAgents, Mode=TwoWay}" />
+                <RadioButton VerticalAlignment="Center"
+                             Content="Externe (Parent)"
+                             FontSize="12"
+                             GroupName="UserAudienceFilter"
+                             IsChecked="{Binding FilterExternalParents, Mode=TwoWay}" />
+                <TextBlock Margin="16,0,0,0"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="#64748B"
+                           Text="{Binding AudienceFilterHint}" />
+            </StackPanel>
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right"
+                        Margin="8,0,0,0"
+                        Padding="14,6"
+                        VerticalAlignment="Center"
+                        Command="{Binding LoadCommand}"
+                        Style="{StaticResource ErpSecondaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Refresh" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock VerticalAlignment="Center" Text="Actualiser" />
+                    </StackPanel>
+                </Button>
+                <erp:ErpSearchField HorizontalAlignment="Stretch"
+                                    Placeholder="Rechercher un utilisateur (identifiant, nom, email)…"
+                                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            </DockPanel>
+        </StackPanel>
 
         <!-- Gauche : liste | Droite : onglets -->
         <Grid Grid.Row="1">

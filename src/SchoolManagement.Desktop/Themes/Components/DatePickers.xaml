@@ -14,33 +14,7 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="DatePickerTextBox">
-                    <Grid x:Name="WatermarkWrapper">
-                        <TextBox x:Name="PART_TextBox"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 CaretBrush="{StaticResource ErpPrimaryBrush}"
-                                 FocusVisualStyle="{x:Null}"
-                                 FontFamily="{TemplateBinding FontFamily}"
-                                 FontSize="{TemplateBinding FontSize}"
-                                 Foreground="{TemplateBinding Foreground}"
-                                 HorizontalContentAlignment="Stretch"
-                                 Padding="{TemplateBinding Padding}"
-                                 SelectionBrush="{StaticResource ErpPrimaryLightBrush}"
-                                 VerticalContentAlignment="Center" />
-                        <ContentControl x:Name="PART_Watermark"
-                                        HorizontalAlignment="Left"
-                                        IsHitTestVisible="False"
-                                        Margin="0,0,4,0"
-                                        Opacity="0.45"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed" />
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <!-- Template par défaut conservé : la saisie clavier dd/MM/yyyy (culture fr-FR) reste possible. -->
     </Style>
 
     <Style x:Key="ErpGridDatePickerButton" TargetType="Button">
@@ -69,6 +43,8 @@
     </Style>
 
     <Style x:Key="ErpGridDatePicker" TargetType="DatePicker">
+        <Setter Property="Language" Value="fr-FR" />
+        <Setter Property="SelectedDateFormat" Value="Short" />
         <Setter Property="Foreground" Value="{StaticResource ErpTextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource ErpFontFamily}" />
         <Setter Property="FontSize" Value="13" />
@@ -81,7 +57,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DatePicker">
-                    <Grid x:Name="PART_Root">
+                    <Grid x:Name="PART_Root"
+                          Language="fr-FR">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -90,6 +67,7 @@
                                            Grid.Column="0"
                                            Focusable="{TemplateBinding Focusable}"
                                            HorizontalContentAlignment="Stretch"
+                                           Language="fr-FR"
                                            Style="{StaticResource ErpGridDatePickerTextBox}"
                                            VerticalContentAlignment="Center" />
                         <Button x:Name="PART_Button"
@@ -112,7 +90,8 @@
                                     Padding="6">
                                 <Calendar x:Name="PART_Calendar"
                                           Background="White"
-                                          BorderThickness="0" />
+                                          BorderThickness="0"
+                                          Language="fr-FR" />
                             </Border>
                         </Popup>
                     </Grid>

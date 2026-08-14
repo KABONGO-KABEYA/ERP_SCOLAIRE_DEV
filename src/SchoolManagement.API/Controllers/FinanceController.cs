@@ -23,7 +23,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpGet("payment-situations")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.StudentsRead)]
     [ProducesResponseType(typeof(ApiResponse<StudentPaymentSituationSearchResultDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchPaymentSituations(
         [FromQuery] StudentPaymentSituationSearchRequest request,
@@ -34,7 +34,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpGet("payment-situations/{enrollmentId:guid}/installment-plan")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.StudentsRead)]
     [ProducesResponseType(typeof(ApiResponse<StudentInstallmentPaymentPlanDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetInstallmentPaymentPlan(
         Guid enrollmentId,
@@ -50,7 +50,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpGet("pricing-assignments")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.PricingCategoriesAssign)]
     [ProducesResponseType(typeof(ApiResponse<StudentPricingAssignmentSearchResultDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchPricingAssignments(
         [FromQuery] StudentPricingAssignmentSearchRequest request,
@@ -77,7 +77,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpGet("pricing-assignments/{enrollmentId:guid}/history")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.PricingCategoriesAssign)]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PricingCategoryHistoryLineDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPricingAssignmentHistory(
         Guid enrollmentId,
@@ -89,7 +89,7 @@ public sealed class FinanceController : ControllerBase
     }
 
     [HttpGet("pricing-assignments/{enrollmentId:guid}/applicable-fees")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.PricingCategoriesAssign)]
     [ProducesResponseType(typeof(ApiResponse<StudentApplicableFeesDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetApplicableFees(
         Guid enrollmentId,

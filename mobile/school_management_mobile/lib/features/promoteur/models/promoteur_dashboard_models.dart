@@ -487,6 +487,8 @@ class DashboardExpenseLine {
     required this.expenseDate,
     required this.label,
     required this.category,
+    required this.destinationId,
+    required this.accountTypeName,
     required this.amount,
     required this.currency,
     required this.reference,
@@ -496,6 +498,8 @@ class DashboardExpenseLine {
   final DateTime expenseDate;
   final String label;
   final String category;
+  final String destinationId;
+  final String accountTypeName;
   final double amount;
   final String currency;
   final String reference;
@@ -505,6 +509,8 @@ class DashboardExpenseLine {
         expenseDate: DateTime.tryParse(json['expenseDate']?.toString() ?? '') ?? DateTime.now(),
         label: json['label'] as String? ?? '',
         category: json['category'] as String? ?? '',
+        destinationId: json['destinationId']?.toString() ?? '',
+        accountTypeName: json['accountTypeName'] as String? ?? json['category'] as String? ?? 'Autres',
         amount: _d(json['amount']),
         currency: json['currency'] as String? ?? 'CDF',
         reference: json['reference'] as String? ?? '',

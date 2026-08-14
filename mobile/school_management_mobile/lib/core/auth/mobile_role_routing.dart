@@ -4,6 +4,7 @@ enum MobileSpace {
   teacher,
   promoteur,
   secretary,
+  daf,
   unsupported,
 }
 
@@ -21,6 +22,7 @@ abstract final class MobileRoleRouting {
   static const teacherHome = '/teacher/assignments';
   static const promoteurHome = '/promoteur/dashboard';
   static const secretaryHome = '/secretary/home';
+  static const dafHome = '/admin/dashboard';
   static const unsupportedRoute = '/unsupported-role';
 
   static List<String> normalizeRoles(Iterable<String> roles) => roles
@@ -54,6 +56,7 @@ abstract final class MobileRoleRouting {
       'ENSEIGNANT',
       'TEACHER',
       'PROMOTEUR',
+      'DAF',
       ...unsupportedMobileRoleCodes,
     };
     if (roleCodes.any(blocking.contains)) return false;
@@ -81,6 +84,7 @@ abstract final class MobileRoleRouting {
       return MobileSpace.teacher;
     }
     if (hasExactRole(roleCodes, 'PROMOTEUR')) return MobileSpace.promoteur;
+    if (hasExactRole(roleCodes, 'DAF')) return MobileSpace.daf;
     if (hasExactRole(roleCodes, 'PARENT')) return MobileSpace.parent;
 
     if (hasSecretaryMobileAccess(roles: roleCodes, permissions: permissions)) {
@@ -95,6 +99,7 @@ abstract final class MobileRoleRouting {
         MobileSpace.teacher => teacherHome,
         MobileSpace.promoteur => promoteurHome,
         MobileSpace.secretary => secretaryHome,
+        MobileSpace.daf => dafHome,
         MobileSpace.unsupported => unsupportedRoute,
       };
 
@@ -121,12 +126,24 @@ abstract final class MobileRoleRouting {
       return space == MobileSpace.teacher;
     }
     if (path.startsWith('/promoteur')) {
+      if (space == MobileSpace.daf) {
+        return _isDafSharedPromoteurRoute(path);
+      }
       return space == MobileSpace.promoteur;
+    }
+    if (path.startsWith('/admin')) {
+      return space == MobileSpace.daf;
     }
     if (path.startsWith('/secretary')) {
       return space == MobileSpace.secretary;
     }
     return true;
+  }
+
+  /// Consultation élève partagée (legacy) — préférer /admin/students/:id/consultation.
+  static bool _isDafSharedPromoteurRoute(String path) {
+    final normalized = path.split('?').first;
+    return RegExp(r'^/promoteur/students/[^/]+/consultation$').hasMatch(normalized);
   }
 
   static String? guardRedirect({

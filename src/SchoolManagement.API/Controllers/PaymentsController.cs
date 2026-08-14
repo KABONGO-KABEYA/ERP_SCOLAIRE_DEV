@@ -129,7 +129,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpGet("student/{studentId:guid}/summary")]
-    [Authorize(Policy = Permissions.PaymentsRead)]
+    [Authorize(Policy = Permissions.StudentsRead)]
     [ProducesResponseType(typeof(ApiResponse<StudentFinancialSummaryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStudentSummary(
         Guid studentId,

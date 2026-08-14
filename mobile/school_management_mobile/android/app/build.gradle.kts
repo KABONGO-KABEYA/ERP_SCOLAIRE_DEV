@@ -37,6 +37,7 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }
 
 kotlin {

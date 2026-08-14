@@ -120,6 +120,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
             f => f.StudentId == student.Id && yearTariffIds.Contains(f.ClassFeeAmountId),
             cancellationToken)).ToList();
         var registrationFee = feeBalances.Sum(f => f.AmountDue);
+        var amountPaid = feeBalances.Sum(f => f.AmountPaid);
         var currency = feeBalances.FirstOrDefault()?.Currency;
 
         var documents = (await _studentDocumentRepository.FindAsync(d => d.StudentId == student.Id, cancellationToken))
@@ -186,7 +187,7 @@ public sealed class EnrollmentFormService : IEnrollmentFormService
             ExtractObservations(student.MedicalNotes),
             documents,
             registrationFee > 0 ? registrationFee : null,
-            0m,
+            amountPaid,
             currency?.ToString(),
             _currentUser.UserName ?? "Système",
             Environment.MachineName,

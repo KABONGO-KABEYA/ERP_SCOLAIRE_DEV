@@ -111,7 +111,7 @@ public sealed class SecurityCatalogSeeder
             (Permissions.PaymentsCancel, Permissions.PaymentsRead),
             (Permissions.PaymentsNotesUpdate, Permissions.PaymentsRead),
             (Permissions.PaymentsPaidMutation, Permissions.PaymentsRead),
-            (Permissions.PricingCategoriesAssign, Permissions.PaymentsRead),
+            (Permissions.PricingCategoriesAssign, Permissions.StudentsRead),
             (Permissions.RevenueAllocationManage, Permissions.RevenueAllocationRead),
             (Permissions.WithholdingsManage, Permissions.WithholdingsRead),
             (Permissions.CurrenciesCreate, Permissions.CurrenciesRead),
@@ -182,6 +182,53 @@ public sealed class SecurityCatalogSeeder
             {
                 PermissionId = dependent.Id,
                 RequiresPermissionId = requires.Id,
+                IsActive = true
+            });
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await ReconcilePricingCategoryPermissionDependencyAsync(cancellationToken);
+    }
+
+    private async Task ReconcilePricingCategoryPermissionDependencyAsync(CancellationToken cancellationToken)
+    {
+        var assign = await _context.Permissions.FirstOrDefaultAsync(
+            p => p.Code == Permissions.PricingCategoriesAssign, cancellationToken);
+        var studentsRead = await _context.Permissions.FirstOrDefaultAsync(
+            p => p.Code == Permissions.StudentsRead, cancellationToken);
+        var paymentsRead = await _context.Permissions.FirstOrDefaultAsync(
+            p => p.Code == Permissions.PaymentsRead, cancellationToken);
+        if (assign is null || studentsRead is null)
+        {
+            return;
+        }
+
+        if (paymentsRead is not null)
+        {
+            var legacy = await _context.PermissionDependencies.FirstOrDefaultAsync(
+                d => d.PermissionId == assign.Id
+                     && d.RequiresPermissionId == paymentsRead.Id
+                     && !d.IsDeleted,
+                cancellationToken);
+            if (legacy is not null)
+            {
+                legacy.IsActive = false;
+                legacy.IsDeleted = true;
+                legacy.DeletedAt = DateTime.UtcNow;
+            }
+        }
+
+        var exists = await _context.PermissionDependencies.AnyAsync(
+            d => d.PermissionId == assign.Id
+                 && d.RequiresPermissionId == studentsRead.Id
+                 && !d.IsDeleted,
+            cancellationToken);
+        if (!exists)
+        {
+            _context.PermissionDependencies.Add(new PermissionDependency
+            {
+                PermissionId = assign.Id,
+                RequiresPermissionId = studentsRead.Id,
                 IsActive = true
             });
         }
@@ -287,13 +334,13 @@ public sealed class SecurityCatalogSeeder
             [
                 ("OPERATIONS", "Opérations", 1,
                 [
-                    ("ENCAISSEMENTS", "Encaissements", "Finance.Encaissements", Permissions.PaymentsRead, 1),
-                    ("CATEGORIES", "Catégories tarifaires", "Finance.CategoriesTarifaires", Permissions.PaymentsRead, 2)
+                    ("ENCAISSEMENTS", "Encaissements", "Finance.Encaissements", Permissions.PaymentsCreate, 1),
+                    ("CATEGORIES", "Catégories tarifaires", "Finance.CategoriesTarifaires", Permissions.PricingCategoriesAssign, 2)
                 ]),
                 ("RAPPORTS", "Rapports", 2,
                 [
                     ("RAPPORTS_FIN", "Rapports financiers", "Finance.Rapports", Permissions.ReportsRead, 1),
-                    ("SITUATION", "Situation des paiements", "Finance.SituationPaiements", Permissions.PaymentsRead, 2)
+                    ("SITUATION", "Situation des paiements", "Finance.SituationPaiements", Permissions.ReportsRead, 2)
                 ]),
                 ("COMPTABILITE", "Comptabilité", 3,
                 [
@@ -415,6 +462,104 @@ public sealed class SecurityCatalogSeeder
         await _context.SaveChangesAsync(cancellationToken);
         await ReconcileMovedSecurityNavigationAsync(cancellationToken);
         await ReconcileDocumentsAndAcademicNavigationAsync(cancellationToken);
+        await ReconcilePersonnelNavigationPermissionsAsync(cancellationToken);
+        await ReconcileFinanceNavigationPermissionsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Corrige les permissions héritées (admin.full) sur le module Personnel pour permettre l'accès DAF.
+    /// </summary>
+    private async Task ReconcilePersonnelNavigationPermissionsAsync(CancellationToken cancellationToken)
+    {
+        var personnelModule = await _context.SecurityModules
+            .FirstOrDefaultAsync(m => m.Code == "PERSONNEL", cancellationToken);
+        if (personnelModule is null)
+        {
+            return;
+        }
+
+        personnelModule.IsActive = true;
+
+        var gestion = await _context.SecurityFunctions
+            .FirstOrDefaultAsync(f => f.ModuleId == personnelModule.Id && f.Code == "GESTION", cancellationToken);
+        if (gestion is not null)
+        {
+            gestion.IsActive = true;
+            await UpsertDocumentsPageAsync(
+                gestion.Id, "LISTE", "Liste du personnel", "Personnel.Liste",
+                Permissions.PersonnelRead, 1, cancellationToken);
+            await UpsertDocumentsPageAsync(
+                gestion.Id, "NOUVEAU", "Nouveau personnel", "Personnel.Nouveau",
+                Permissions.PersonnelManage, 2, cancellationToken);
+        }
+
+        var organisation = await _context.SecurityFunctions
+            .FirstOrDefaultAsync(f => f.ModuleId == personnelModule.Id && f.Code == "ORGANISATION", cancellationToken);
+        if (organisation is not null)
+        {
+            organisation.IsActive = true;
+            await UpsertDocumentsPageAsync(
+                organisation.Id, "FONCTIONS", "Fonctions / Postes", "Personnel.Fonctions",
+                Permissions.PersonnelManage, 1, cancellationToken);
+            await UpsertDocumentsPageAsync(
+                organisation.Id, "DEPARTEMENTS", "Départements", "Personnel.Departements",
+                Permissions.PersonnelManage, 2, cancellationToken);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Permissions navigation Financier : Encaissements réservé à payments.create, catégories à pricing-categories.assign.
+    /// </summary>
+    private async Task ReconcileFinanceNavigationPermissionsAsync(CancellationToken cancellationToken)
+    {
+        var financeModule = await _context.SecurityModules
+            .FirstOrDefaultAsync(m => m.Code == "FINANCE", cancellationToken);
+        if (financeModule is null)
+        {
+            return;
+        }
+
+        financeModule.IsActive = true;
+
+        var operations = await _context.SecurityFunctions
+            .FirstOrDefaultAsync(f => f.ModuleId == financeModule.Id && f.Code == "OPERATIONS", cancellationToken);
+        if (operations is not null)
+        {
+            operations.IsActive = true;
+            await UpsertDocumentsPageAsync(
+                operations.Id, "ENCAISSEMENTS", "Encaissements", "Finance.Encaissements",
+                Permissions.PaymentsCreate, 1, cancellationToken);
+            await UpsertDocumentsPageAsync(
+                operations.Id, "CATEGORIES", "Catégories tarifaires", "Finance.CategoriesTarifaires",
+                Permissions.PricingCategoriesAssign, 2, cancellationToken);
+        }
+
+        var rapports = await _context.SecurityFunctions
+            .FirstOrDefaultAsync(f => f.ModuleId == financeModule.Id && f.Code == "RAPPORTS", cancellationToken);
+        if (rapports is not null)
+        {
+            rapports.IsActive = true;
+            await UpsertDocumentsPageAsync(
+                rapports.Id, "RAPPORTS_FIN", "Rapports financiers", "Finance.Rapports",
+                Permissions.ReportsRead, 1, cancellationToken);
+            await UpsertDocumentsPageAsync(
+                rapports.Id, "SITUATION", "Situation des paiements", "Finance.SituationPaiements",
+                Permissions.ReportsRead, 2, cancellationToken);
+        }
+
+        var comptabilite = await _context.SecurityFunctions
+            .FirstOrDefaultAsync(f => f.ModuleId == financeModule.Id && f.Code == "COMPTABILITE", cancellationToken);
+        if (comptabilite is not null)
+        {
+            comptabilite.IsActive = true;
+            await UpsertDocumentsPageAsync(
+                comptabilite.Id, "DEPENSES", "Dépenses", "Finance.Depenses",
+                Permissions.AccountingRead, 1, cancellationToken);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -693,6 +838,7 @@ public sealed class SecurityCatalogSeeder
             ("CAISSIER", "Caissier", UserRole.Comptable, 60),
             ("PREFET", "Préfet des études", UserRole.Direction, 70),
             ("PROMOTEUR", "Promoteur", UserRole.Direction, 80),
+            ("DAF", "Directeur Administratif et Financier", UserRole.Comptable, 90),
         };
 
         var allPermissions = await _context.Permissions.Where(p => p.IsActive).ToListAsync(cancellationToken);
@@ -844,6 +990,18 @@ public sealed class SecurityCatalogSeeder
                 Permissions.DeliberationDecisionRead, Permissions.DeliberationDecisionWrite,
                 Permissions.ReportsRead
             ], cancellationToken);
+
+            await SyncRolePermissionsExactAsync(schoolId, "DAF",
+            [
+                Permissions.ReportsRead,
+                Permissions.SchoolsRead,
+                Permissions.StudentsRead,
+                Permissions.PersonnelRead,
+                Permissions.PricingCategoriesAssign,
+                Permissions.AccountingRead,
+                Permissions.RevenueAllocationRead,
+                Permissions.WithholdingsRead
+            ], cancellationToken);
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -884,6 +1042,61 @@ public sealed class SecurityCatalogSeeder
                 existingRp.IsDeleted = false;
                 existingRp.DeletedAt = null;
                 existingRp.DeletedBy = null;
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SyncRolePermissionsExactAsync(
+        Guid schoolId,
+        string roleCode,
+        IEnumerable<string> permissionCodes,
+        CancellationToken cancellationToken)
+    {
+        var role = await _context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(
+            r => r.SchoolId == schoolId && r.Code == roleCode && !r.IsDeleted, cancellationToken);
+        if (role is null)
+        {
+            return;
+        }
+
+        var codes = permissionCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var permissions = await _context.Permissions
+            .Where(p => codes.Contains(p.Code))
+            .ToListAsync(cancellationToken);
+        var permissionIds = permissions.Select(p => p.Id).ToHashSet();
+
+        foreach (var permission in permissions)
+        {
+            var existingRp = await _context.RolePermissions.IgnoreQueryFilters().FirstOrDefaultAsync(
+                rp => rp.RoleId == role.Id && rp.PermissionId == permission.Id, cancellationToken);
+            if (existingRp is null)
+            {
+                _context.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = role.Id,
+                    PermissionId = permission.Id
+                });
+            }
+            else if (existingRp.IsDeleted)
+            {
+                existingRp.IsDeleted = false;
+                existingRp.DeletedAt = null;
+                existingRp.DeletedBy = null;
+            }
+        }
+
+        var existingRolePermissions = await _context.RolePermissions.IgnoreQueryFilters()
+            .Where(rp => rp.RoleId == role.Id && !rp.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        foreach (var rolePermission in existingRolePermissions)
+        {
+            if (!permissionIds.Contains(rolePermission.PermissionId))
+            {
+                rolePermission.IsDeleted = true;
+                rolePermission.DeletedAt = DateTime.UtcNow;
             }
         }
 

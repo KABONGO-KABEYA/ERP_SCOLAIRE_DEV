@@ -107,6 +107,7 @@ public partial class EncaissementsViewModel : ViewModelBase
     public bool CanGoNextPage => CurrentPage < TotalPages;
     public bool CanMutatePaidPayments => SessionPermissions.Can(_authSession, Permissions.PaymentsPaidMutation);
     public bool CanCancelPaidPayments => SessionPermissions.Can(_authSession, Permissions.PaymentsCancel);
+    public bool CanCreatePayments => SessionPermissions.Can(_authSession, Permissions.PaymentsCreate);
 
     partial void OnIsFiltersExpandedChanged(bool value) => OnPropertyChanged(nameof(FiltersToggleLabel));
     partial void OnStudentsFoundCountChanged(int value) => OnPropertyChanged(nameof(FiltersHeaderText));

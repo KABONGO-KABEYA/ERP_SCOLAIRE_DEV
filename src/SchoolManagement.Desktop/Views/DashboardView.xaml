@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
-             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI">
+             xmlns:ui="clr-namespace:SchoolManagement.Desktop.UI"
+             xmlns:vm="clr-namespace:SchoolManagement.Desktop.ViewModels">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <ui:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis" />
@@ -16,7 +17,10 @@
 
             <!-- LIGNE 1 : 6 KPI -->
             <UniformGrid Columns="6" Margin="0,0,0,20">
-                <Border Style="{StaticResource ErpStatCard}">
+                <Border Style="{StaticResource ErpStatCard}" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenStudentsFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#DBEAFE">
                             <materialDesign:PackIcon Kind="AccountGroup" Width="24" Height="24"
@@ -30,7 +34,10 @@
                                    Text="{Binding KpiStudentsTrendDisplay}" />
                     </StackPanel>
             </Border>
-                <Border Style="{StaticResource ErpStatCard}">
+                <Border Style="{StaticResource ErpStatCard}" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenPersonnelFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#DCFCE7">
                             <materialDesign:PackIcon Kind="AccountTie" Width="24" Height="24" Foreground="#16A34A"
@@ -43,7 +50,10 @@
                                    Text="{Binding KpiTeachersTrendDisplay}" />
                         </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}">
+                <Border Style="{StaticResource ErpStatCard}" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenClassesFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#E0E7FF">
                             <materialDesign:PackIcon Kind="GoogleClassroom" Width="24" Height="24" Foreground="#1E3A8A"
@@ -56,7 +66,10 @@
                                    Text="{Binding KpiClassesTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}">
+                <Border Style="{StaticResource ErpStatCard}" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCollectedFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#DBEAFE">
                             <materialDesign:PackIcon Kind="CashMultiple" Width="24" Height="24"
@@ -70,7 +83,10 @@
                                    Text="{Binding KpiTotalCollectedTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}">
+                <Border Style="{StaticResource ErpStatCard}" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenExpensesFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#FEF3C7">
                             <materialDesign:PackIcon Kind="CashMinus" Width="24" Height="24" Foreground="#F59E0B"
@@ -83,7 +99,10 @@
                                    Text="{Binding KpiExpenseTrendDisplay}" />
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource ErpStatCard}" Margin="0">
+                <Border Style="{StaticResource ErpStatCard}" Margin="0" Cursor="Hand">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding OpenPresenceFromKpiCommand}" />
+                    </Border.InputBindings>
                     <StackPanel VerticalAlignment="Center">
                         <Border Width="44" Height="44" CornerRadius="14" Background="#DCFCE7">
                             <materialDesign:PackIcon Kind="AccountCheck" Width="24" Height="24" Foreground="#16A34A"
@@ -193,106 +212,132 @@
                 </Border>
             </Grid>
 
-            <!-- LIGNE 3 : 4 cartes -->
-            <UniformGrid Columns="4" Margin="0,0,0,4">
-                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
-                    <DockPanel>
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                            <TextBlock Style="{StaticResource ErpSectionTitle}" Text="Évolution des inscriptions" Margin="0" />
-                            <ComboBox DockPanel.Dock="Right" Width="120" HorizontalAlignment="Right"
-                                      ItemsSource="{Binding EnrollmentPeriodOptions}"
-                                      SelectedItem="{Binding SelectedEnrollmentPeriod}"
-                                      DisplayMemberPath="Label" />
-                        </DockPanel>
-                        <Grid>
-                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="120"
-                                         Visibility="{Binding EnrollmentLoading, Converter={StaticResource BoolToVis}}" />
-                            <lvc:CartesianChart Series="{Binding EnrollmentSeries}"
-                                                XAxes="{Binding EnrollmentXAxes}"
-                                                YAxes="{Binding DefaultYAxes}"
-                                                LegendPosition="Hidden"
-                                                Visibility="{Binding EnrollmentLoading, Converter={StaticResource InvBoolToVis}}" />
-                        </Grid>
-                    </DockPanel>
-                </Border>
+            <!-- LIGNE 3 : graphique principal + activités -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
-                                   Text="Présence aujourd'hui" Margin="0,0,0,8" />
-                        <Grid>
-                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="120"
-                                         Visibility="{Binding AttendanceLoading, Converter={StaticResource BoolToVis}}" />
-                            <Grid Visibility="{Binding AttendanceLoading, Converter={StaticResource InvBoolToVis}}">
-                                <lvc:PieChart Series="{Binding PresenceRingSeries}"
-                                              Width="180" Height="180"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              InitialRotation="-90" LegendPosition="Hidden" />
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock HorizontalAlignment="Center" FontSize="28" FontWeight="Bold"
-                                               Foreground="{StaticResource ErpTextPrimaryBrush}"
-                                               Text="{Binding KpiPresencePercent}" />
-                                    <TextBlock HorizontalAlignment="Center" FontSize="12"
-                                               Foreground="{StaticResource ErpTextSecondaryBrush}" Text="Taux de présence" />
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </DockPanel>
-                </Border>
-
-                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
-                                   Text="Derniers paiements" Margin="0,0,0,12" />
-                        <Grid>
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                        Visibility="{Binding PaymentsLoading, Converter={StaticResource BoolToVis}}">
-                                <ProgressBar IsIndeterminate="True" Width="120" Height="4" />
+                <Border Grid.Column="0" Style="{StaticResource ErpWidgetCard}" MinHeight="420" Margin="0,0,8,0">
+                    <DockPanel LastChildFill="True">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Style="{StaticResource ErpSectionTitle}"
+                                       Text="{Binding MainChartTitle}"
+                                       VerticalAlignment="Center"
+                                       Margin="0" />
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <ComboBox Width="120" Margin="0,0,12,0" VerticalAlignment="Center"
+                                          ItemsSource="{Binding EnrollmentPeriodOptions}"
+                                          SelectedItem="{Binding SelectedEnrollmentPeriod}"
+                                          DisplayMemberPath="Label">
+                                    <ComboBox.Style>
+                                        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEnrollmentPeriodVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ComboBox.Style>
+                                </ComboBox>
+                                <Border Background="#F1F5F9" CornerRadius="8" Padding="3">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Inscriptions" Padding="12,6"
+                                                Command="{Binding SelectMainChartCommand}"
+                                                CommandParameter="{x:Static vm:DashboardMainChartKind.Enrollments}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErpTextSecondaryBrush}" />
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedMainChartKind}" Value="{x:Static vm:DashboardMainChartKind.Enrollments}">
+                                                            <Setter Property="Background" Value="White" />
+                                                            <Setter Property="Foreground" Value="{StaticResource ErpPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="Présence" Padding="12,6"
+                                                Command="{Binding SelectMainChartCommand}"
+                                                CommandParameter="{x:Static vm:DashboardMainChartKind.Presence}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErpTextSecondaryBrush}" />
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedMainChartKind}" Value="{x:Static vm:DashboardMainChartKind.Presence}">
+                                                            <Setter Property="Background" Value="White" />
+                                                            <Setter Property="Foreground" Value="{StaticResource ErpPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="Paiements" Padding="12,6"
+                                                Command="{Binding SelectMainChartCommand}"
+                                                CommandParameter="{x:Static vm:DashboardMainChartKind.Payments}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                                                    <Setter Property="Foreground" Value="{StaticResource ErpTextSecondaryBrush}" />
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedMainChartKind}" Value="{x:Static vm:DashboardMainChartKind.Payments}">
+                                                            <Setter Property="Background" Value="White" />
+                                                            <Setter Property="Foreground" Value="{StaticResource ErpPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                            <TextBlock Style="{StaticResource ErpWidgetStateText}" Text="Aucun paiement récent."
-                                       Visibility="{Binding PaymentsEmpty, Converter={StaticResource BoolToVis}}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          Visibility="{Binding PaymentsEmpty, Converter={StaticResource InvBoolToVis}}">
-                                <ItemsControl ItemsSource="{Binding RecentPayments}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Margin="0,0,0,10" Padding="10" CornerRadius="12" Background="#F8FAFC">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Width="40" Height="40" CornerRadius="20" Background="#DBEAFE">
-                                                        <materialDesign:PackIcon Kind="Account" Width="20" Height="20"
-                                                                                 Foreground="{StaticResource ErpPrimaryBrush}"
-                                                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
-                                                        <TextBlock FontWeight="SemiBold" FontSize="13"
-                                                                   Text="{Binding StudentName}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock FontSize="11" Foreground="{StaticResource ErpTextSecondaryBrush}"
-                                                                   Text="{Binding ClassOrReference}" />
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                        <TextBlock FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Right"
-                                                                   Text="{Binding AmountLabel}" />
-                                                        <Border Margin="0,4,0,0" Padding="8,2" CornerRadius="8"
-                                                                Background="#DCFCE7" HorizontalAlignment="Right">
-                                                            <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#16A34A" Text="Payé" />
-                                                        </Border>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                        </DockPanel>
+
+                        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" FontSize="12"
+                                   Foreground="{StaticResource ErpTextSecondaryBrush}"
+                                   Text="{Binding MainChartSubtitle}"
+                                   TextWrapping="Wrap" />
+
+                        <Grid MinHeight="300">
+                            <ProgressBar Height="4" IsIndeterminate="True" VerticalAlignment="Center" Width="140"
+                                         HorizontalAlignment="Center"
+                                         Visibility="{Binding MainChartLoading, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Style="{StaticResource ErpWidgetStateText}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="Aucune donnée disponible pour ce graphique."
+                                       Visibility="{Binding MainChartEmpty, Converter={StaticResource BoolToVis}}" />
+                            <lvc:CartesianChart Margin="0,4,0,0"
+                                                Series="{Binding MainChartSeries}"
+                                                XAxes="{Binding MainChartXAxes}"
+                                                YAxes="{Binding MainChartYAxes}"
+                                                LegendPosition="Hidden"
+                                                TooltipPosition="Top">
+                                <lvc:CartesianChart.Style>
+                                    <Style TargetType="lvc:CartesianChart">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding MainChartLoading}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding MainChartEmpty}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </lvc:CartesianChart.Style>
+                            </lvc:CartesianChart>
                         </Grid>
                     </DockPanel>
                 </Border>
 
-                <Border Style="{StaticResource ErpWidgetCard}" MinHeight="340" Margin="0,0,0,16">
+                <Border Grid.Column="1" Style="{StaticResource ErpWidgetCard}" MinHeight="420" Margin="0,0,0,16">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Style="{StaticResource ErpSectionTitle}"
                                    Text="Activités récentes" Margin="0,0,0,12" />
@@ -336,7 +381,7 @@
                         </Grid>
                     </DockPanel>
                 </Border>
-            </UniformGrid>
+            </Grid>
 
             <!-- LIGNE 4 : Actions rapides + État serveur -->
             <Grid>

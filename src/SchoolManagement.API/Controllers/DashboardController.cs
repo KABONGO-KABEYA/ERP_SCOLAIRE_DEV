@@ -116,10 +116,12 @@ public sealed class DashboardController : ControllerBase
     public async Task<IActionResult> GetPayments(
         [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Today,
         [FromQuery] Guid? feeTypeId = null,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetPaymentsDetailAsync(schoolId, scope, feeTypeId, cancellationToken);
+        var data = await _dashboard.GetPaymentsDetailAsync(schoolId, scope, feeTypeId, fromDate, toDate, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DashboardPaymentLineDto>>.Ok(data));
     }
 
@@ -129,10 +131,12 @@ public sealed class DashboardController : ControllerBase
     public async Task<IActionResult> GetRevenueDetail(
         [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Month,
         [FromQuery] Guid? feeTypeId = null,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetRevenueDetailAsync(schoolId, scope, feeTypeId, cancellationToken);
+        var data = await _dashboard.GetRevenueDetailAsync(schoolId, scope, feeTypeId, fromDate, toDate, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<RevenuePointDto>>.Ok(data));
     }
 
@@ -142,10 +146,12 @@ public sealed class DashboardController : ControllerBase
     public async Task<IActionResult> GetExpenses(
         [FromQuery] DashboardDetailScope scope = DashboardDetailScope.Month,
         [FromQuery] Guid? destinationId = null,
+        [FromQuery] DateOnly? fromDate = null,
+        [FromQuery] DateOnly? toDate = null,
         CancellationToken cancellationToken = default)
     {
         var schoolId = RequireSchoolId();
-        var data = await _dashboard.GetExpensesDetailAsync(schoolId, scope, destinationId, cancellationToken);
+        var data = await _dashboard.GetExpensesDetailAsync(schoolId, scope, destinationId, fromDate, toDate, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<DashboardExpenseLineDto>>.Ok(data));
     }
 

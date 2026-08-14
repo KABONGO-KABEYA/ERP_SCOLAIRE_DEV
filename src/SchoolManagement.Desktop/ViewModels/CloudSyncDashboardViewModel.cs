@@ -61,7 +61,7 @@ public partial class CloudSyncDashboardViewModel : ViewModelBase
     [ObservableProperty]
     private string _connectionLabel = "Non configuré";
 
-    public ObservableCollection<CloudSyncJournalLineDto> RecentJournal { get; } = [];
+    public ObservableCollection<CloudSyncJournalRowViewModel> RecentJournal { get; } = [];
 
     [RelayCommand]
     private async Task LoadAsync()
@@ -144,7 +144,7 @@ public partial class CloudSyncDashboardViewModel : ViewModelBase
         RecentJournal.Clear();
         foreach (var line in status.RecentJournal)
         {
-            RecentJournal.Add(line);
+            RecentJournal.Add(new CloudSyncJournalRowViewModel(line));
         }
     }
 

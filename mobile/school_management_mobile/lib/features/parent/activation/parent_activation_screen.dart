@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/widgets/erp_qr_scanner.dart';
 import '../../../core/school_binding/school_activation_service.dart';
 import '../../../core/school_binding/school_already_registered_exception.dart';
 import '../../../core/school_binding/school_binding_activation_gate.dart';
@@ -134,13 +135,7 @@ class _ParentActivationScreenState extends State<ParentActivationScreen> {
             '(liaison téléphone ↔ école). Connexion Internet requise (Bootstrap).',
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 220,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: MobileScanner(onDetect: _onDetect),
-            ),
-          ),
+          ErpQrScanner(onDetect: _onDetect),
           const SizedBox(height: 16),
           TextField(
             controller: _tokenController,
