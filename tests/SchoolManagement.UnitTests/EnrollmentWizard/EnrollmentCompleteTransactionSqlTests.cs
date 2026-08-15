@@ -10,6 +10,7 @@ namespace SchoolManagement.UnitTests.EnrollmentWizard;
 /// <summary>
 /// P1 — atomicité SQL : rollback d'ensemble métier + intégration compteur P4 en TX ambiante.
 /// </summary>
+[Trait("Category", "LiveSql")]
 public sealed class EnrollmentCompleteTransactionSqlTests
 {
     private const string ConnectionString =

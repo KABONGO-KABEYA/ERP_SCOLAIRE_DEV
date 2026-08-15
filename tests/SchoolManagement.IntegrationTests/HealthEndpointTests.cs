@@ -6,6 +6,7 @@ using Xunit;
 namespace SchoolManagement.IntegrationTests;
 
 [Collection("ApiIntegration")]
+[Trait("Category", "LiveSql")]
 public class HealthEndpointTests
 {
     private readonly HttpClient _client;

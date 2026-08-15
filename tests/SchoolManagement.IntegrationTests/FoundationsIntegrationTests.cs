@@ -12,6 +12,7 @@ namespace SchoolManagement.IntegrationTests;
 /// <summary>Non-régression intégrée des fondations (health discovery + garde clé AES).</summary>
 [Collection("ApiIntegration")]
 [Trait("Category", "Foundations")]
+[Trait("Category", "LiveSql")]
 public sealed class FoundationsIntegrationTests
 {
     private readonly HttpClient _client;

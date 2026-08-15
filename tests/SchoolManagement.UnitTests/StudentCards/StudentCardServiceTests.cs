@@ -124,8 +124,12 @@ public sealed class StudentCardServiceTests
                 _studentId,
                 _yearId,
                 _templateId,
-                ExpiresAt: DateTime.UtcNow.AddDays(-1)),
+                ExpiresAt: DateTime.UtcNow.AddDays(30)),
             _userId);
+
+        var entity = await ctx.Cards.GetByIdAsync(created.Id);
+        Assert.NotNull(entity);
+        entity!.ExpiresAt = DateTime.UtcNow.AddDays(-1);
 
         var resolved = await ctx.Service.ResolveByQrAsync(
             _schoolId,

@@ -11,6 +11,7 @@ using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Domain.Entities.Students;
 using SchoolManagement.Domain.Enums;
+using SchoolManagement.Shared.Constants;
 using Xunit;
 
 namespace SchoolManagement.UnitTests;
@@ -164,6 +165,11 @@ public class GradeServiceTests
                 Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
+        var currentUser = Substitute.For<ICurrentUserService>();
+        currentUser
+            .HasPermission(Permissions.GradesRecalculate)
+            .Returns(true);
+
         var service = new GradeService(
             evaluationRepository,
             gradeRepository,
@@ -185,7 +191,7 @@ public class GradeServiceTests
             Substitute.For<IRepository<SchoolManagement.Domain.Entities.Deliberation.ResultMentionDefinition>>(),
             Substitute.For<IRepository<SchoolManagement.Domain.Entities.Deliberation.PedagogicalBonusPoint>>(),
             Substitute.For<SchoolManagement.Application.Auth.Interfaces.IPasswordHasher>(),
-            Substitute.For<ICurrentUserService>(),
+            currentUser,
             unitOfWork,
             resultCalculation,
             resultValidation,

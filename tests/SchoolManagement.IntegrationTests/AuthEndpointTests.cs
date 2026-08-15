@@ -9,6 +9,7 @@ using Xunit;
 namespace SchoolManagement.IntegrationTests;
 
 [Collection("ApiIntegration")]
+[Trait("Category", "LiveSql")]
 public class AuthEndpointTests
 {
     private readonly HttpClient _client;

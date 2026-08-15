@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore SchoolManagement.sln
+
+      - name: Build
+        run: dotnet build SchoolManagement.sln --no-restore -c Release
+
+      - name: Test (exclude LiveSql)
+        run: >
+          dotnet test SchoolManagement.sln
+          --no-build
+          -c Release
+          --filter "Category!=LiveSql"
+          --logger "trx;LogFileName=ci.trx"
+          --results-directory TestResults

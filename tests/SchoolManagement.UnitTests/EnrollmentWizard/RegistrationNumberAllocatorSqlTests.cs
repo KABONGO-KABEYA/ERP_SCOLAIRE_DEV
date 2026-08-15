@@ -11,6 +11,7 @@ namespace SchoolManagement.UnitTests.EnrollmentWizard;
 /// Tests d'allocation contre SQL Server (verrous UPDLOCK).
 /// Skip si la base Dev n'est pas joignable.
 /// </summary>
+[Trait("Category", "LiveSql")]
 public sealed class RegistrationNumberAllocatorSqlTests
 {
     private const string ConnectionString =

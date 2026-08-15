@@ -1,0 +1,95 @@
+name: Desktop Setup
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-setup:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)([.-][0-9A-Za-z.-]+)?$') {
+            throw "Tag SemVer attendu (vX.Y.Z[...]): $tag"
+          }
+          $v = $tag.Substring(1)
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "VERSION=$v"
+
+      - name: Restore
+        run: dotnet restore SchoolManagement.sln
+
+      - name: Build
+        run: dotnet build SchoolManagement.sln --no-restore -c Release
+
+      - name: Test (exclude LiveSql)
+        run: >
+          dotnet test SchoolManagement.sln
+          --no-build
+          -c Release
+          --filter "Category!=LiveSql"
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build Desktop Setup package
+        shell: pwsh
+        run: |
+          .\scripts\build-setup.ps1 `
+            -Configuration Release `
+            -Version '${{ steps.ver.outputs.version }}' `
+            -OutputRoot 'dist\setup' `
+            -TryInnoSetup
+
+      - name: Verify artifact + SHA256 + size
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $exe = Join-Path $PWD "dist\inno\DesktopSetup-$v.exe"
+          if (-not (Test-Path $exe)) { throw "Manquant: $exe" }
+          $len = (Get-Item $exe).Length
+          if ($len -le 0) { throw "Taille nulle: $exe" }
+
+          $deskDll = Join-Path $PWD 'dist\setup\payload\desktop\SchoolManagement.Desktop.dll'
+          if (-not (Test-Path $deskDll)) { throw "Desktop DLL introuvable: $deskDll" }
+          $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($deskDll)
+          $product = $info.ProductVersion
+          if ($product -match '\+') { $product = $product.Split('+')[0] }
+          $product = $product.Trim()
+          if ($product -ne $v) {
+            throw "Version Desktop embarquee '$product' != tag '$v'"
+          }
+
+          $sha = (Get-FileHash -Algorithm SHA256 -Path $exe).Hash.ToLowerInvariant()
+          Set-Content -Path (Join-Path $PWD "dist\inno\DesktopSetup-$v.sha256") -Value "$sha  DesktopSetup-$v.exe" -Encoding ASCII
+          Set-Content -Path (Join-Path $PWD "dist\inno\DesktopSetup-$v.size.txt") -Value $len -Encoding ASCII
+          Write-Host "OK $exe"
+          Write-Host "SHA256=$sha"
+          Write-Host "SIZE=$len"
+          Write-Host "DESKTOP_PRODUCT_VERSION=$product"
+
+      - name: Upload GitHub Actions Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DesktopSetup-${{ steps.ver.outputs.version }}
+          path: |
+            dist/inno/DesktopSetup-${{ steps.ver.outputs.version }}.exe
+            dist/inno/DesktopSetup-${{ steps.ver.outputs.version }}.sha256
+            dist/inno/DesktopSetup-${{ steps.ver.outputs.version }}.size.txt
+          if-no-files-found: error

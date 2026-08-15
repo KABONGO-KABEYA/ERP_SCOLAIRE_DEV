@@ -16,6 +16,7 @@ using Xunit.Abstractions;
 /// </summary>
 [Collection("ApiIntegration")]
 [Trait("Category", "MultiTenant")]
+[Trait("Category", "LiveSql")]
 public sealed class CrossTenantIsolationTests
 {
     private readonly ApiWebApplicationFactory _factory;

@@ -9,6 +9,7 @@ namespace SchoolManagement.IntegrationTests;
 
 [Collection("ApiIntegration")]
 [Trait("Category", "Foundations")]
+[Trait("Category", "LiveSql")]
 public class HealthDiscoveryEndpointTests
 {
     private readonly HttpClient _client;
@@ -30,6 +31,8 @@ public class HealthDiscoveryEndpointTests
 
         root.GetProperty("status").GetString().Should().Be("ok");
         root.GetProperty("protocolVersion").GetInt32().Should().Be(ConnectionProtocolConstants.ProtocolVersion);
+        root.TryGetProperty("schemaVersion", out var schema).Should().BeTrue();
+        schema.GetInt32().Should().BeGreaterThanOrEqualTo(1);
         root.GetProperty("apiVersion").GetString().Should().Be(ConnectionProtocolConstants.ApiVersion);
         root.TryGetProperty("serverSignature", out var sig).Should().BeTrue();
         sig.ValueKind.Should().Be(JsonValueKind.Null);
