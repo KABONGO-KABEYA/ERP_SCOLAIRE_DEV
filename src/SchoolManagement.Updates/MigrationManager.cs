@@ -1,24 +1,42 @@
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
 namespace SchoolManagement.Updates;
 
 /// <summary>
-/// Applique des scripts SQL numérotés (MigrationN_N+1.sql) dans une transaction.
+/// Moteur officiel des évolutions versionnées du schéma SQL école.
+/// Reçoit uniquement un package local déjà vérifié — aucun téléchargement.
+/// Non branché au démarrage de l'API (Lot 2B-1).
 /// </summary>
 public sealed class MigrationManager
 {
+    /// <summary>Baseline officielle : bases actuelles (initialiseurs) = 1.</summary>
+    public const int BaselineSchemaVersion = 1;
+
+    internal const string XactAbortSql = "SET XACT_ABORT ON;";
+
+    private static readonly Regex GoSplitter = new(
+        @"^\s*GO\s*$",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly string _connectionString;
-    private readonly string _migrationsDirectory;
     private readonly Action<string>? _log;
 
-    public MigrationManager(string connectionString, string migrationsDirectory, Action<string>? log = null)
+    public MigrationManager(string connectionString, Action<string>? log = null)
     {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Chaîne de connexion SQL requise.", nameof(connectionString));
+        }
+
         _connectionString = connectionString;
-        _migrationsDirectory = migrationsDirectory;
         _log = log;
     }
 
-    public async Task EnsureMetaTableAsync(CancellationToken cancellationToken)
+    public static string FileNameFor(int fromVersion, int toVersion) =>
+        $"Migration{fromVersion}_{toVersion}.sql";
+
+    public async Task EnsureMetaTableAsync(CancellationToken cancellationToken = default)
     {
         const string sql = """
             IF OBJECT_ID(N'dbo.AppSchemaVersion', N'U') IS NULL
@@ -29,7 +47,7 @@ public sealed class MigrationManager
                     SchemaVersion INT NOT NULL,
                     UpdatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_AppSchemaVersion_UpdatedAtUtc DEFAULT SYSUTCDATETIME()
                 );
-                INSERT INTO dbo.AppSchemaVersion (Id, SchemaVersion) VALUES (1, 0);
+                INSERT INTO dbo.AppSchemaVersion (Id, SchemaVersion) VALUES (1, 1);
             END
             """;
 
@@ -39,81 +57,150 @@ public sealed class MigrationManager
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken)
+    public async Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
     {
         await EnsureMetaTableAsync(cancellationToken);
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var cmd = new SqlCommand("SELECT SchemaVersion FROM dbo.AppSchemaVersion WHERE Id = 1;", connection);
+        await using var cmd = new SqlCommand(
+            "SELECT SchemaVersion FROM dbo.AppSchemaVersion WHERE Id = 1;",
+            connection);
         var result = await cmd.ExecuteScalarAsync(cancellationToken);
         return result is int i ? i : Convert.ToInt32(result);
     }
 
-    public async Task ApplyPendingAsync(int targetSchemaVersion, CancellationToken cancellationToken)
+    /// <summary>
+    /// Applique un package local (manifest + MigrationN_N+1.sql).
+    /// Cible &lt; version actuelle → refus. Chaîne incomplète → refus avant toute exécution.
+    /// </summary>
+    public async Task<MigrationApplyResult> ApplyPackageAsync(
+        string packageDirectory,
+        CancellationToken cancellationToken = default)
     {
+        var package = MigrationPackage.Load(packageDirectory);
         var current = await GetSchemaVersionAsync(cancellationToken);
-        if (current >= targetSchemaVersion)
+        var manifest = package.Manifest;
+
+        if (current < BaselineSchemaVersion)
         {
-            return;
+            throw new MigrationException(
+                $"AppSchemaVersion={current} est inférieur à la baseline {BaselineSchemaVersion}.");
         }
 
-        for (var from = current; from < targetSchemaVersion; from++)
+        if (current > manifest.ToSchemaVersion)
+        {
+            throw new MigrationException(
+                $"Cible {manifest.ToSchemaVersion} inférieure à la version actuelle {current}.");
+        }
+
+        if (current < manifest.FromSchemaVersion)
+        {
+            throw new MigrationException(
+                $"Package fromSchemaVersion={manifest.FromSchemaVersion} trop élevé pour la version actuelle {current}.");
+        }
+
+        if (current == manifest.ToSchemaVersion)
+        {
+            _log?.Invoke($"Schéma déjà à {current} — aucune migration.");
+            return new MigrationApplyResult(current, current, Array.Empty<string>());
+        }
+
+        var applied = new List<string>();
+        for (var from = current; from < manifest.ToSchemaVersion; from++)
         {
             var to = from + 1;
-            var file = Path.Combine(_migrationsDirectory, $"Migration{from}_{to}.sql");
-            if (!File.Exists(file))
+            var fileName = FileNameFor(from, to);
+            var path = package.GetMigrationPath(fileName);
+            if (!File.Exists(path))
             {
-                throw new FileNotFoundException(
-                    $"Migration manquante pour le schéma {from} → {to}.", file);
+                throw new MigrationException($"Migration manquante : {fileName}");
             }
 
-            var script = await File.ReadAllTextAsync(file, cancellationToken);
-            await ExecuteInTransactionAsync(script, to, cancellationToken);
+            var script = await File.ReadAllTextAsync(path, cancellationToken);
+            try
+            {
+                await ExecuteInTransactionAsync(script, to, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not MigrationException)
+            {
+                throw new MigrationException(
+                    $"Échec migration {from} → {to}. AppSchemaVersion reste {from}.",
+                    ex);
+            }
+
+            applied.Add(fileName);
             _log?.Invoke($"Migration schéma {from} → {to} appliquée.");
         }
+
+        var now = await GetSchemaVersionAsync(cancellationToken);
+        return new MigrationApplyResult(current, now, applied);
     }
 
-    private async Task ExecuteInTransactionAsync(string script, int newVersion, CancellationToken cancellationToken)
+    internal static IReadOnlyList<string> SplitBatches(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            return Array.Empty<string>();
+        }
+
+        return GoSplitter.Split(script)
+            .Select(b => b.Trim())
+            .Where(b => b.Length > 0)
+            .ToList();
+    }
+
+    private async Task ExecuteInTransactionAsync(
+        string script,
+        int newVersion,
+        CancellationToken cancellationToken)
     {
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var tx = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
         try
         {
+            await using (var xact = new SqlCommand(XactAbortSql, connection, tx) { CommandTimeout = 120 })
+            {
+                await xact.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             foreach (var batch in SplitBatches(script))
             {
-                if (string.IsNullOrWhiteSpace(batch))
-                {
-                    continue;
-                }
-
                 await using var cmd = new SqlCommand(batch, connection, tx) { CommandTimeout = 120 };
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
 
             await using (var versionCmd = new SqlCommand(
-                             "UPDATE dbo.AppSchemaVersion SET SchemaVersion = @v, UpdatedAtUtc = SYSUTCDATETIME() WHERE Id = 1;",
+                             """
+                             UPDATE dbo.AppSchemaVersion
+                             SET SchemaVersion = @v, UpdatedAtUtc = SYSUTCDATETIME()
+                             WHERE Id = 1;
+                             """,
                              connection,
                              tx))
             {
                 versionCmd.Parameters.AddWithValue("@v", newVersion);
-                await versionCmd.ExecuteNonQueryAsync(cancellationToken);
+                var updated = await versionCmd.ExecuteNonQueryAsync(cancellationToken);
+                if (updated != 1)
+                {
+                    throw new MigrationException("Impossible de mettre à jour AppSchemaVersion (ligne Id=1 absente).");
+                }
             }
 
             await tx.CommitAsync(cancellationToken);
         }
         catch
         {
-            await tx.RollbackAsync(cancellationToken);
+            try
+            {
+                await tx.RollbackAsync(cancellationToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _log?.Invoke("Rollback migration : " + rollbackEx.Message);
+            }
+
             throw;
         }
-    }
-
-    private static IEnumerable<string> SplitBatches(string script)
-    {
-        return System.Text.RegularExpressions.Regex.Split(
-            script,
-            @"^\s*GO\s*$",
-            System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 }

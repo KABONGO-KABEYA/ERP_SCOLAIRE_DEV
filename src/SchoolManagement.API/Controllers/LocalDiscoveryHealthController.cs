@@ -36,6 +36,7 @@ public sealed class LocalDiscoveryHealthController : ControllerBase
             version = id.SoftwareVersion,
             apiVersion = id.ApiVersion,
             protocolVersion = id.ProtocolVersion,
+            schemaVersion = id.SchemaVersion,
             identity = new
             {
                 serverInstanceId = id.ServerInstanceId.ToString("D"),

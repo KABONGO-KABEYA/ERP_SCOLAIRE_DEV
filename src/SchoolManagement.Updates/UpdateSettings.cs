@@ -12,7 +12,11 @@ public sealed class UpdateSettings
     public string? LastUpdateUtc { get; set; }
     public string? LastFoundVersion { get; set; }
     public string? SnoozeUntilUtc { get; set; }
-    public string CurrentVersion { get; set; } = "1.0.0";
+    /// <summary>
+    /// Copie de travail écrasée au démarrage par <see cref="AppVersionInfo"/> (assembly).
+    /// Ne pas la traiter comme source de vérité.
+    /// </summary>
+    public string CurrentVersion { get; set; } = "0.0.0";
     public int CheckIntervalHours { get; set; } = 6;
     public string CheckEndpoint { get; set; } = "/api/v1/update/check";
     public List<string> AllowedHosts { get; set; } = ["localhost", "127.0.0.1", "169.58.93.203"];

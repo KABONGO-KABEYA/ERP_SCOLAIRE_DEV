@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using SchoolManagement.Application.Configuration.Encryption;
 using SchoolManagement.Application.ServerIdentity;
 using SchoolManagement.Infrastructure.Persistence;
+using System.Reflection;
 
 namespace SchoolManagement.Infrastructure.ServerIdentity;
 
@@ -109,9 +110,8 @@ public sealed class ServerIdentityProvider : IServerIdentityProvider
 
         var role = _configuration["Deployment:Role"] ?? "Local";
         var serverRole = role.Equals("Cloud", StringComparison.OrdinalIgnoreCase) ? "cloud" : "local";
-        var softwareVersion = _configuration["App:Version"]
-                              ?? typeof(ServerIdentityProvider).Assembly.GetName().Version?.ToString(3)
-                              ?? "1.0.0";
+        var softwareVersion = ReadEntrySoftwareVersion(_configuration);
+        var schemaVersion = await ReadSchemaVersionAtStartupAsync(cancellationToken);
 
         var snapshot = new ServerIdentitySnapshot(
             file.ServerInstanceId,
@@ -123,7 +123,8 @@ public sealed class ServerIdentityProvider : IServerIdentityProvider
             softwareVersion,
             ConnectionProtocolConstants.ApiVersion,
             ConnectionProtocolConstants.ProtocolVersion,
-            serverRole);
+            serverRole,
+            schemaVersion);
 
         lock (_gate)
         {
@@ -149,7 +150,49 @@ public sealed class ServerIdentityProvider : IServerIdentityProvider
             "1.0.0",
             ConnectionProtocolConstants.ApiVersion,
             ConnectionProtocolConstants.ProtocolVersion,
-            "local");
+            "local",
+            1);
+
+    private static string ReadEntrySoftwareVersion(IConfiguration configuration)
+    {
+        var informational = System.Reflection.Assembly.GetEntryAssembly()
+            ?.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            var plus = informational.IndexOf('+', StringComparison.Ordinal);
+            return plus < 0 ? informational : informational[..plus];
+        }
+
+        return configuration["App:Version"]
+               ?? typeof(ServerIdentityProvider).Assembly.GetName().Version?.ToString(3)
+               ?? "1.0.0";
+    }
+
+    /// <summary>Lecture unique au démarrage — le health ne requête pas SQL.</summary>
+    private async Task<int> ReadSchemaVersionAtStartupAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+            await db.Database.OpenConnectionAsync(cancellationToken);
+            await using var cmd = db.Database.GetDbConnection().CreateCommand();
+            cmd.CommandText = """
+                IF OBJECT_ID(N'dbo.AppSchemaVersion', N'U') IS NULL
+                    SELECT 1
+                ELSE
+                    SELECT SchemaVersion FROM dbo.AppSchemaVersion WHERE Id = 1;
+                """;
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return result is int i ? i : Convert.ToInt32(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "schemaVersion snapshot : lecture AppSchemaVersion impossible, défaut 1.");
+            return 1;
+        }
+    }
 }
 
 public sealed class ServerIdentityInitializationHostedService : IHostedService

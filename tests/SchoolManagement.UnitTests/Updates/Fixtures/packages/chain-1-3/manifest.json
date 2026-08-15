@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 3,
+  "fromSchemaVersion": 1,
+  "toSchemaVersion": 3,
+  "migrations": [
+    "Migration1_2.sql",
+    "Migration2_3.sql"
+  ]
+}

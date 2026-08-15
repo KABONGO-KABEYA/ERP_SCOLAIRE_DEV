@@ -1,0 +1,8 @@
+IF COL_LENGTH(N'dbo.Lot2B1_Probe', N'FailCol') IS NULL
+BEGIN
+    ALTER TABLE dbo.Lot2B1_Probe ADD FailCol INT NULL;
+END
+GO
+
+SELECT 1 / 0;
+GO

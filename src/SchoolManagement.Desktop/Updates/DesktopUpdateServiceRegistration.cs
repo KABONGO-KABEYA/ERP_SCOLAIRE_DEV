@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SchoolManagement.Updates;
@@ -22,12 +23,9 @@ public static class DesktopUpdateServiceRegistration
         var historyStore = new UpdateHistoryStore(dataDir);
         var settings = settingsStore.Load();
 
-        var configuredVersion = configuration["Updates:CurrentVersion"];
-        if (!string.IsNullOrWhiteSpace(configuredVersion))
-        {
-            settings.CurrentVersion = configuredVersion.Trim();
-            settingsStore.Save(settings);
-        }
+        var desktopAssembly = Assembly.GetEntryAssembly() ?? typeof(DesktopUpdateServiceRegistration).Assembly;
+        var resolvedVersion = AppVersionInfo.ResolveFromAssembly(desktopAssembly, AppContext.BaseDirectory);
+        AppVersionInfo.ApplyToSettings(settings, resolvedVersion);
 
         var allowedHosts = configuration.GetSection("Updates:AllowedHosts").Get<string[]>()
                            ?? settings.AllowedHosts.ToArray();
@@ -74,10 +72,7 @@ public static class DesktopUpdateServiceRegistration
             client.BaseAddress = new Uri(apiBase);
             client.Timeout = TimeSpan.FromMinutes(30);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        });
+        }).ConfigurePrimaryHttpMessageHandler(UpdateTlsPolicy.CreateHandler);
 
         return services;
     }

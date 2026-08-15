@@ -11,4 +11,5 @@ public sealed record ServerIdentitySnapshot(
     string SoftwareVersion,
     string ApiVersion,
     int ProtocolVersion,
-    string ServerRole);
+    string ServerRole,
+    int SchemaVersion);

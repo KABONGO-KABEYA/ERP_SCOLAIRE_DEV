@@ -57,7 +57,8 @@ public sealed class SchoolEstablishmentServiceTests
             "1.0",
             "v1",
             2,
-            "Local"));
+            "Local",
+            1));
 
         return new SchoolEstablishmentService(
             db,

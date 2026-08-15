@@ -7,6 +7,9 @@
     <RootNamespace>SchoolManagement.Desktop</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <StartupObject>SchoolManagement.Desktop.App</StartupObject>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -53,6 +56,9 @@
 
   <ItemGroup>
     <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="version.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -342,8 +342,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Patches de schéma idempotents : aussi en Production (Docker Cloud),
-// sinon la BD cloud reste en retard (ex. DefaultFeeTypeId) → HTTP 500.
+// Schéma historique : patches idempotents *SchemaInitializer au démarrage
+// (y compris Production / Docker Cloud). Encore REQUIS pour les bases actuelles.
+// Lot 2B-1 : ne PLUS ajouter d'initializer pour les évolutions futures —
+// utiliser MigrationN_N+1.sql + MigrationManager (non branché ici).
 {
     using var scope = app.Services.CreateScope();
     var brandingSchema = new DocumentBrandingSchemaInitializer(

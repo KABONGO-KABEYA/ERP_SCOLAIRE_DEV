@@ -142,6 +142,17 @@ public sealed class UpdateManager
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(manifest.Sha256))
+        {
+            _historyStore.Append(new UpdateHistoryEntry
+            {
+                Result = UpdateHistoryResult.HashInvalid,
+                VersionFound = manifest.LatestVersion,
+                Detail = "SHA256 manquant : téléchargement refusé."
+            });
+            throw new InvalidOperationException("SHA256 manquant : le téléchargement est refusé.");
+        }
+
         if (string.IsNullOrWhiteSpace(manifest.DownloadUrl))
         {
             throw new InvalidOperationException("Aucune URL de téléchargement.");

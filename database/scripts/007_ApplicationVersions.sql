@@ -29,6 +29,7 @@ BEGIN
         SchemaVersion INT NOT NULL,
         UpdatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_AppSchemaVersion_UpdatedAtUtc DEFAULT SYSUTCDATETIME()
     );
+    -- Baseline officielle = 1 (Lot 2B-1).
     INSERT INTO dbo.AppSchemaVersion (Id, SchemaVersion) VALUES (1, 1);
 END
 GO

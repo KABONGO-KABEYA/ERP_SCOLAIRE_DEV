@@ -46,7 +46,7 @@ public sealed class UpdateApiService
         }
 
         using var response = await _httpClient.GetAsync(url, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent || !response.IsSuccessStatusCode)
         {
             return null;
         }

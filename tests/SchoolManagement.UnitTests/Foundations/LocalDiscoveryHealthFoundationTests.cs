@@ -74,6 +74,7 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var root = doc.RootElement;
 
         root.GetProperty("protocolVersion").GetInt32().Should().Be(ConnectionProtocolConstants.ProtocolVersion);
+        root.GetProperty("schemaVersion").GetInt32().Should().Be(1);
         root.GetProperty("apiVersion").GetString().Should().Be(ConnectionProtocolConstants.ApiVersion);
         root.TryGetProperty("serverSignature", out var sig).Should().BeTrue();
         sig.ValueKind.Should().Be(JsonValueKind.Null);
@@ -81,7 +82,19 @@ public sealed class LocalDiscoveryHealthFoundationTests
             .Should().StartWith("sha256:");
     }
 
-    private static ServerIdentitySnapshot CreateSnapshot(Guid? schoolId, int keyVersion = 1) =>
+    [Fact]
+    public void Get_Emits_Snapshot_SchemaVersion_Without_Sql_Per_Request()
+    {
+        var provider = Substitute.For<IServerIdentityProvider>();
+        provider.Current.Returns(CreateSnapshot(schoolId: null, schemaVersion: 7));
+
+        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var json = JsonSerializer.Serialize(result!.Value);
+        using var doc = JsonDocument.Parse(json);
+        doc.RootElement.GetProperty("schemaVersion").GetInt32().Should().Be(7);
+    }
+
+    private static ServerIdentitySnapshot CreateSnapshot(Guid? schoolId, int keyVersion = 1, int schemaVersion = 1) =>
         new(
             Guid.NewGuid(),
             schoolId,
@@ -92,5 +105,6 @@ public sealed class LocalDiscoveryHealthFoundationTests
             "1.0.0",
             ConnectionProtocolConstants.ApiVersion,
             ConnectionProtocolConstants.ProtocolVersion,
-            "local");
+            "local",
+            schemaVersion);
 }

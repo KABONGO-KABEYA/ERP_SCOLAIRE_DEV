@@ -49,3 +49,7 @@ $env:ASPNETCORE_ENVIRONMENT='Production'
 | `database/scripts/004_PedagogicalStructure.sql` | Structure pédagogique RDC + locaux |
 
 Ordre d'exécution : `001` → `002` → `003` → `004`
+
+## Migrations versionnées N→N+1 (Lot 2B-1)
+
+Voir [`app/README.md`](app/README.md). Baseline `AppSchemaVersion = 1`. Distinct des migrations EF ci-dessus.

@@ -6,4 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SchoolManagement.UnitTests" />
+    <InternalsVisibleTo Include="SchoolManagement.UpdateAgent.Tests" />
+  </ItemGroup>
 </Project>

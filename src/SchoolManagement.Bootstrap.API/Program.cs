@@ -36,6 +36,8 @@ builder.Services.AddSingleton<
     StaticSharedKeyBootstrapRelayOutboundAuth>();
 builder.Services.AddScoped<BootstrapOrchestrator>();
 builder.Services.AddScoped<EstablishmentService>();
+builder.Services.AddScoped<IUpdateReleaseCatalog, UpdateReleaseCatalog>();
+builder.Services.AddScoped<IUpdateAgentCredentialService, UpdateAgentCredentialService>();
 builder.Services.AddHostedService<LegacyEnvSchoolRegistryMigrator>();
 builder.Services.AddHttpClient("school-relay");
 
