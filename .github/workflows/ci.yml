@@ -33,6 +33,6 @@ jobs:
           dotnet test SchoolManagement.sln
           --no-build
           -c Release
-          --filter "Category!=LiveSql"
+          --filter "Category!=LiveSql&Category!=Integration"
           --logger "trx;LogFileName=ci.trx"
           --results-directory TestResults

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using SchoolManagement.UpdateAgent;
 using SchoolManagement.UpdateAgent.Tests.Support;
 using SchoolManagement.Updates;
 using Xunit;
@@ -275,9 +276,16 @@ public sealed class DeployOrchestratorTests
         state.BackupFilePath = Path.Combine(ws.Paths.Backups, "keep.bak");
         File.WriteAllBytes(state.BackupFilePath, "bak"u8.ToArray());
         state.BackupBytes = 3;
-        var result = await DeployHarness.Create(ws, db, new FakeApiService(), new FakeHealth(), new FakeDisk())
-            .RunAsync(state, cred, CancellationToken.None);
-        result.LastResult.Should().Be(AgentResults.Completed);
+        var orchestrator = DeployHarness.Create(ws, db, new FakeApiService(), new FakeHealth(), new FakeDisk());
+        var result = await orchestrator.RunAsync(state, cred, CancellationToken.None);
+        var persisted = new AgentStateStore(ws.Paths).Load();
+        result.LastResult.Should().Be(
+            AgentResults.Completed,
+            "LastResult={0}; LastError={1}; Phase={2}; PersistedPhase={3}",
+            result.LastResult,
+            result.LastError ?? "(null)",
+            result.Phase,
+            persisted.Phase);
         db.BackupCalls.Should().Be(0);
         db.ApplyCalls.Should().Be(0);
     }

@@ -16,12 +16,9 @@ public sealed class ScmDeleteCreateCycleTests
     [Trait("Category", "Integration")]
     public async Task Delete_waits_until_absent_then_create_succeeds()
     {
-        if (!IsAdministrator())
-        {
-            throw new InvalidOperationException(
-                "Ce test SCM exige une session administrateur. " +
-                "Exécutez scripts/_test-reinstall-locks.ps1 ou lancez dotnet test en administrateur.");
-        }
+        SkipUnlessPrerequisite(
+            IsAdministrator(),
+            "Prérequis absent : session administrateur. Exécutez scripts/_test-reinstall-locks.ps1 ou lancez dotnet test en administrateur.");
 
         var logs = new List<string>();
         void Log(string m) => logs.Add(m);
@@ -82,6 +79,14 @@ public sealed class ScmDeleteCreateCycleTests
             throw new InvalidOperationException("Create immédiat 1072 — WaitUntilAbsent n'a pas suffi.\n" + output);
 
         throw new InvalidOperationException($"sc create {TestServiceName} → {code}\n{output}");
+    }
+
+    private static void SkipUnlessPrerequisite(bool present, string reason)
+    {
+        if (!present)
+        {
+            throw new InvalidOperationException("$XunitDynamicSkip$" + reason);
+        }
     }
 
     private static bool IsAdministrator()

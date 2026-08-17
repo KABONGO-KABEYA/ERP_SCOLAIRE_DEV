@@ -26,22 +26,16 @@ public sealed class ReinstallIntegrationTests
     [Trait("Category", "Integration")]
     public async Task ReleaseServerPayloadLocks_replaces_locked_dll_and_restarts_service()
     {
-        if (!IsRunningAsAdministrator())
-        {
-            throw new InvalidOperationException(
-                "Ce test d'intégration exige une session administrateur. " +
-                "Exécutez scripts/_test-reinstall-locks.ps1 (Run as administrator).");
-        }
-
-        if (!Directory.Exists(InstallApiDir))
-            throw new InvalidOperationException($"Dossier API absent ({InstallApiDir}).");
-
-        if (ServiceController.GetServices().All(s =>
-                !s.ServiceName.Equals(InstallerEngine.ServiceName, StringComparison.OrdinalIgnoreCase)))
-        {
-            throw new InvalidOperationException(
-                "Prérequis : service ErpScolaireApi déjà installé. Ce test ne le crée pas.");
-        }
+        SkipUnlessPrerequisite(
+            IsRunningAsAdministrator(),
+            "Prérequis absent : session administrateur. Exécutez scripts/_test-reinstall-locks.ps1 (Run as administrator).");
+        SkipUnlessPrerequisite(
+            Directory.Exists(InstallApiDir),
+            $"Prérequis absent : dossier API ({InstallApiDir}).");
+        SkipUnlessPrerequisite(
+            ServiceController.GetServices().Any(s =>
+                s.ServiceName.Equals(InstallerEngine.ServiceName, StringComparison.OrdinalIgnoreCase)),
+            "Prérequis absent : service ErpScolaireApi déjà installé. Ce test ne le crée pas.");
 
         var originalEnvironment = ReinstallTestSqlSupport.ReadServiceEnvironment();
         var originalConnection = ReinstallTestSqlSupport.ParseDefaultConnection(originalEnvironment);
@@ -229,6 +223,14 @@ public sealed class ReinstallIntegrationTests
 
         throw new InvalidOperationException(
             "L'API n'a pas renvoyé HTTP 200 sur /api/health après redémarrage.");
+    }
+
+    private static void SkipUnlessPrerequisite(bool present, string reason)
+    {
+        if (!present)
+        {
+            throw new InvalidOperationException("$XunitDynamicSkip$" + reason);
+        }
     }
 
     private static bool IsRunningAsAdministrator()
