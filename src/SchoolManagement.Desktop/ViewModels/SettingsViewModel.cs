@@ -902,18 +902,16 @@ public partial class SettingsViewModel : ViewModelBase
         StatusMessage = null;
         try
         {
-            if (SelectedPedagogicalClass.IsEnabled)
-            {
-                await _schoolApiService.BulkUpdatePedagogicalClassesAsync(
-                    new BulkUpdatePedagogicalClassesRequest(
-                    [
-                        new BulkPedagogicalClassItem(
-                            SelectedPedagogicalClass.Id,
-                            SelectedPedagogicalClass.IsEnabled,
-                            SelectedPedagogicalClass.MinAge,
-                            SelectedPedagogicalClass.MaxAge)
-                    ]));
-            }
+            await _schoolApiService.BulkUpdatePedagogicalClassesAsync(
+                new BulkUpdatePedagogicalClassesRequest(
+                [
+                    new BulkPedagogicalClassItem(
+                        SelectedPedagogicalClass.Id,
+                        true,
+                        SelectedPedagogicalClass.MinAge,
+                        SelectedPedagogicalClass.MaxAge)
+                ]));
+            SelectedPedagogicalClass.IsEnabled = true;
 
             int? capacity = int.TryParse(LocalCapacityText, out var cap) ? cap : null;
             await _schoolApiService.CreateClassLocalAsync(new CreateClassLocalRequest(

@@ -39,14 +39,38 @@ public sealed class PedagogicalPeriodService : IPedagogicalPeriodService
         return await BuildStructureDtoAsync(year, cancellationToken);
     }
 
-    public async Task<PedagogicalPeriodStructureDto> CreateDefaultStructureAsync(
+    public Task<PedagogicalPeriodStructureDto> CreateDefaultStructureAsync(
         Guid schoolId,
         CreatePedagogicalStructureRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        CreateOrReplaceDefaultStructureCoreAsync(
+            schoolId,
+            request,
+            requireManagePermission: true,
+            cancellationToken);
+
+    public Task<PedagogicalPeriodStructureDto> SeedDefaultStructureForNewYearAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        CancellationToken cancellationToken = default) =>
+        CreateOrReplaceDefaultStructureCoreAsync(
+            schoolId,
+            new CreatePedagogicalStructureRequest(academicYearId, ReplaceExisting: false),
+            requireManagePermission: false,
+            cancellationToken);
+
+    private async Task<PedagogicalPeriodStructureDto> CreateOrReplaceDefaultStructureCoreAsync(
+        Guid schoolId,
+        CreatePedagogicalStructureRequest request,
+        bool requireManagePermission,
+        CancellationToken cancellationToken)
     {
         var year = await GetYearOrThrowAsync(schoolId, request.AcademicYearId, cancellationToken);
 
-        EnsureCanManagePedagogicalPeriods();
+        if (requireManagePermission)
+        {
+            EnsureCanManagePedagogicalPeriods();
+        }
 
         var existingMains = await _mainPeriodRepository.FindAsync(
             m => m.SchoolId == schoolId && m.AcademicYearId == year.Id,

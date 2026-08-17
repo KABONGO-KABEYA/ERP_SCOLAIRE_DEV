@@ -7,6 +7,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SchoolManagement.Application.CloudSync;
 using SchoolManagement.Application.CloudSync.DTOs;
 using SchoolManagement.Application.Configuration;
@@ -121,6 +122,10 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 .Take(Math.Clamp(maxUnits, 1, 500))
                 .ToListAsync(cancellationToken);
 
+            await using var remote = open.Remote!;
+            remote.SuppressCloudSyncEnqueue = true;
+            await EnsureRemoteCurriculumSchemaAsync(remote, cancellationToken);
+
             if (units.Count == 0)
             {
                 var msg = criticalOnly
@@ -135,9 +140,6 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 WriteState(success: true, msg);
                 return new CloudSyncRunResultDto(true, true, msg, 0, 0, 0, 0, (int)sw.ElapsedMilliseconds);
             }
-
-            await using var remote = open.Remote!;
-            remote.SuppressCloudSyncEnqueue = true;
 
             var loop = await ExecuteFinanceGatedUnitLoopAsync(
                 units,
@@ -714,6 +716,27 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     }
 
     /// <summary>
+    /// Aligne le schéma pédagogique cloud (ex. StudyOptions.HumanitiesSection) avant l'upsert.
+    /// Idempotent : IF NOT EXISTS uniquement.
+    /// </summary>
+    private async Task EnsureRemoteCurriculumSchemaAsync(
+        SchoolDbContext remote,
+        CancellationToken cancellationToken)
+    {
+        var cs = remote.Database.GetConnectionString();
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            return;
+        }
+
+        var schema = new CurriculumSchemaInitializer(
+            cs,
+            NullLogger<CurriculumSchemaInitializer>.Instance);
+        await schema.EnsureHumanitiesColumnsAsync(cancellationToken);
+        _logger.LogInformation("Schéma curriculum cloud vérifié.");
+    }
+
+    /// <summary>
     /// Pousse le référentiel finance Local → Cloud avant les unités paiement.
     /// Évite les FK manquantes (destinations, retenues, clés de répartition…).
     /// </summary>
@@ -788,7 +811,15 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             var batch = rows.Skip(offset).Take(batchSize);
             foreach (var row in batch)
             {
-                UpsertScalars(remote, row, existing.Contains(row.Id));
+                await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, row, cancellationToken);
+                var existsById = existing.Contains(row.Id);
+                if (!existsById
+                    && await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, row, cancellationToken))
+                {
+                    continue;
+                }
+
+                UpsertScalars(remote, row, existsById);
             }
 
             await remote.SaveChangesAsync(cancellationToken);
@@ -1241,6 +1272,13 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         // Ne pas rappeler EnsureParent ici : EnsureParent ouvre un nouveau DbContext /
         // connexion qui se bloque sur les verrous des items précédents de la même TX
         // (ex. Payments upserté → PaymentLines.EnsureParent(Payment) timeout 120s).
+        await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, localEntity, cancellationToken);
+        if (!remoteExists
+            && await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, localEntity, cancellationToken))
+        {
+            return;
+        }
+
         UpsertScalars(remote, localEntity, remoteExists);
     }
 
@@ -1436,6 +1474,12 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         if (localParent is RevenueAllocationDestination)
         {
             // School déjà géré ci-dessus.
+        }
+
+        await CloudSyncNaturalKey.RemapForeignKeysAsync(local, parentCtx, localParent, cancellationToken);
+        if (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(parentCtx, localParent, cancellationToken))
+        {
+            return;
         }
 
         if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency or CurrencyDefinition or Branch)

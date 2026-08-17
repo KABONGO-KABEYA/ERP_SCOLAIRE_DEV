@@ -210,6 +210,8 @@ public sealed class CloudDatabaseSyncService : ICloudDatabaseSyncService
         var changed = 0;
         foreach (var localRow in localRows)
         {
+            await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, localRow, cancellationToken);
+
             if (remoteMap.TryGetValue(localRow.Id, out var remoteRow))
             {
                 var localStamp = localRow.UpdatedAt ?? localRow.CreatedAt;
@@ -220,6 +222,10 @@ public sealed class CloudDatabaseSyncService : ICloudDatabaseSyncService
                 }
 
                 remote.Set<TEntity>().Update(localRow);
+            }
+            else if (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, localRow, cancellationToken))
+            {
+                continue;
             }
             else
             {

@@ -65,6 +65,7 @@ public sealed class CourseAssignmentSchemaInitializer
             IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CourseAssignments') AND name = 'PedagogicalClassId')
                AND EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
                AND EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ClassRooms')
+               AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'PedagogicalClassId')
             BEGIN
                 UPDATE ca
                 SET ca.PedagogicalClassId = cr.PedagogicalClassId

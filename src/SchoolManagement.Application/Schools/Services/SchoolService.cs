@@ -2,7 +2,6 @@ namespace SchoolManagement.Application.Schools.Services;
 
 using Mapster;
 using SchoolManagement.Application.Common.Interfaces;
-using SchoolManagement.Application.PedagogicalPeriods.DTOs;
 using SchoolManagement.Application.PedagogicalPeriods.Interfaces;
 using SchoolManagement.Application.Schools;
 using SchoolManagement.Application.Schools.DTOs;
@@ -166,10 +165,10 @@ public sealed class SchoolService : ISchoolService
                 cancellationToken);
         }
 
-        // Étape 1 du calendrier : générer automatiquement la structure des périodes.
-        await _pedagogicalPeriodService.CreateDefaultStructureAsync(
+        // Seed calendrier d'une année nouvelle : pas une gestion métier des périodes.
+        await _pedagogicalPeriodService.SeedDefaultStructureForNewYearAsync(
             schoolId,
-            new CreatePedagogicalStructureRequest(academicYear.Id, ReplaceExisting: false),
+            academicYear.Id,
             cancellationToken);
 
         return academicYear.Adapt<AcademicYearDto>();

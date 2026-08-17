@@ -341,22 +341,32 @@ public sealed class RevenueAllocationSchemaInitializer
             CREATE INDEX [IX_FinRepartitionRecette_Dest_Currency] ON [FinRepartitionRecette] ([SchoolId], [DestinationId], [CurrencyId]);
         """,
         """
-        -- Backfill devise depuis le paiement (frais) puis enum historique.
+        -- Backfill devise depuis le paiement (frais) — EXEC pour éviter erreur de compilation si colonnes absentes (001 seul).
         IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
            AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NOT NULL
            AND OBJECT_ID(N'Payments', N'U') IS NOT NULL
+           AND COL_LENGTH(N'Payments', N'FeeCurrencyId') IS NOT NULL
         BEGIN
-            UPDATE e
-            SET e.[CurrencyId] = p.[FeeCurrencyId]
-            FROM [FinRepartitionRecette] e
-            INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
-            WHERE e.[CurrencyId] IS NULL AND p.[FeeCurrencyId] IS NOT NULL;
-
-            UPDATE e
-            SET e.[CurrencyId] = p.[PaymentCurrencyId]
-            FROM [FinRepartitionRecette] e
-            INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
-            WHERE e.[CurrencyId] IS NULL AND p.[PaymentCurrencyId] IS NOT NULL;
+            EXEC(N'
+                UPDATE e
+                SET e.[CurrencyId] = p.[FeeCurrencyId]
+                FROM [FinRepartitionRecette] e
+                INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
+                WHERE e.[CurrencyId] IS NULL AND p.[FeeCurrencyId] IS NOT NULL;
+            ');
+        END
+        IF OBJECT_ID(N'FinRepartitionRecette', N'U') IS NOT NULL
+           AND COL_LENGTH(N'FinRepartitionRecette', N'CurrencyId') IS NOT NULL
+           AND OBJECT_ID(N'Payments', N'U') IS NOT NULL
+           AND COL_LENGTH(N'Payments', N'PaymentCurrencyId') IS NOT NULL
+        BEGIN
+            EXEC(N'
+                UPDATE e
+                SET e.[CurrencyId] = p.[PaymentCurrencyId]
+                FROM [FinRepartitionRecette] e
+                INNER JOIN [Payments] p ON p.[Id] = e.[PaymentId]
+                WHERE e.[CurrencyId] IS NULL AND p.[PaymentCurrencyId] IS NOT NULL;
+            ');
         END
         """,
         """

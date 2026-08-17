@@ -63,7 +63,58 @@ public sealed class CurriculumSchemaInitializer
                     WHERE [ClassRoomId] IS NULL AND [IsDeleted] = 0;
             END
 
+            -- Migration EF AddPedagogicalStructure : absente de 001_InitialCreate_EF.sql (install vierge Setup).
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
+            BEGIN
+                CREATE TABLE [PedagogicalClasses] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [SchoolId] uniqueidentifier NOT NULL,
+                    [TemplateCode] nvarchar(50) NOT NULL,
+                    [Program] int NOT NULL,
+                    [LevelOrder] int NOT NULL,
+                    [DisplayName] nvarchar(200) NOT NULL,
+                    [HumanitiesSection] nvarchar(100) NULL,
+                    [StudyOption] nvarchar(100) NULL,
+                    [MinAge] int NULL,
+                    [MaxAge] int NULL,
+                    [IsEnabled] bit NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [CreatedBy] uniqueidentifier NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [UpdatedBy] uniqueidentifier NULL,
+                    [IsDeleted] bit NOT NULL DEFAULT 0,
+                    [DeletedAt] datetime2 NULL,
+                    [DeletedBy] uniqueidentifier NULL,
+                    CONSTRAINT [PK_PedagogicalClasses] PRIMARY KEY ([Id]),
+                    CONSTRAINT [FK_PedagogicalClasses_Schools_SchoolId] FOREIGN KEY ([SchoolId]) REFERENCES [Schools] ([Id]) ON DELETE NO ACTION
+                );
+                CREATE INDEX [IX_PedagogicalClasses_IsDeleted] ON [PedagogicalClasses] ([IsDeleted]);
+                CREATE INDEX [IX_PedagogicalClasses_SchoolId_IsEnabled] ON [PedagogicalClasses] ([SchoolId], [IsEnabled]);
+                CREATE UNIQUE INDEX [IX_PedagogicalClasses_SchoolId_TemplateCode] ON [PedagogicalClasses] ([SchoolId], [TemplateCode]);
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ClassRooms')
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'PedagogicalClassId')
+                    ALTER TABLE [ClassRooms] ADD [PedagogicalClassId] uniqueidentifier NULL;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'IsActive')
+                    ALTER TABLE [ClassRooms] ADD [IsActive] bit NOT NULL CONSTRAINT [DF_ClassRooms_IsActive] DEFAULT 0;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'Observations')
+                    ALTER TABLE [ClassRooms] ADD [Observations] nvarchar(500) NULL;
+
+                IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ClassRooms_PedagogicalClasses_PedagogicalClassId')
+                   AND EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
+                   AND EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ClassRooms') AND name = 'PedagogicalClassId')
+                BEGIN
+                    ALTER TABLE [ClassRooms] ADD CONSTRAINT [FK_ClassRooms_PedagogicalClasses_PedagogicalClassId]
+                        FOREIGN KEY ([PedagogicalClassId]) REFERENCES [PedagogicalClasses] ([Id]) ON DELETE NO ACTION;
+                END
+            END
+
             IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClassCourses')
+               AND EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
             BEGIN
                 CREATE TABLE [PedagogicalClassCourses] (
                     [Id] uniqueidentifier NOT NULL,
@@ -123,6 +174,45 @@ public sealed class CurriculumSchemaInitializer
             """;
 
         await command.ExecuteNonQueryAsync(cancellationToken);
-        _logger.LogInformation("Schéma curriculum (Branches, BranchId, PedagogicalClassCourses) vérifié.");
+        await EnsureHumanitiesColumnsAsync(connection, cancellationToken);
+        _logger.LogInformation("Schéma curriculum (Branches, StudyOptions.HumanitiesSection, PedagogicalClassCourses) vérifié.");
+    }
+
+    /// <summary>
+    /// Colonne absente des installs 001_InitialCreate (locaux Humanité + sync cloud).
+    /// Sûr à exécuter sur la base locale et sur le SQL cloud (IF NOT EXISTS).
+    /// </summary>
+    public async Task EnsureHumanitiesColumnsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await EnsureHumanitiesColumnsAsync(connection, cancellationToken);
+    }
+
+    private static async Task EnsureHumanitiesColumnsAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudyOptions')
+               AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudyOptions') AND name = 'HumanitiesSection')
+            BEGIN
+                ALTER TABLE [StudyOptions] ADD [HumanitiesSection] nvarchar(100) NULL;
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
+               AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PedagogicalClasses') AND name = 'HumanitiesSection')
+            BEGIN
+                ALTER TABLE [PedagogicalClasses] ADD [HumanitiesSection] nvarchar(100) NULL;
+            END
+
+            IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'PedagogicalClasses')
+               AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PedagogicalClasses') AND name = 'StudyOption')
+            BEGIN
+                ALTER TABLE [PedagogicalClasses] ADD [StudyOption] nvarchar(100) NULL;
+            END
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 }

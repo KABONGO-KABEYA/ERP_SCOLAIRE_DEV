@@ -109,12 +109,17 @@ if (-not $SkipBuild) {
   }
 }
 
-# Copier script SQL virgin dans le payload
-$sqlSrc = Join-Path $root 'database\scripts\010_Purge_Production_Virgin.sql'
+# Scripts SQL du payload Setup : baseline obligatoire + purge optionnelle (réinstall).
 $sqlOut = Join-Path $payload 'sql'
 New-Item -ItemType Directory -Force -Path $sqlOut | Out-Null
-if (Test-Path $sqlSrc) {
-  Copy-Item $sqlSrc (Join-Path $sqlOut '010_Purge_Production_Virgin.sql') -Force
+$baselineSrc = Join-Path $root 'database\scripts\001_InitialCreate_EF.sql'
+if (-not (Test-Path $baselineSrc)) {
+  throw "Baseline SQL introuvable : $baselineSrc"
+}
+Copy-Item $baselineSrc (Join-Path $sqlOut '001_InitialCreate_EF.sql') -Force
+$sqlVirginSrc = Join-Path $root 'database\scripts\010_Purge_Production_Virgin.sql'
+if (Test-Path $sqlVirginSrc) {
+  Copy-Item $sqlVirginSrc (Join-Path $sqlOut '010_Purge_Production_Virgin.sql') -Force
 }
 
 Write-Host '==> Build Setup wizard...' -ForegroundColor Cyan

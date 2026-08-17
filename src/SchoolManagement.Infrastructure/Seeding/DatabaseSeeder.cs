@@ -137,6 +137,15 @@ public sealed class DatabaseSeeder
             "manage" => PermissionAction.Update,
             "full" => PermissionAction.Approve,
             "superadmin" => PermissionAction.Approve,
+            "cancel" => PermissionAction.Update,
+            "assign" => PermissionAction.Update,
+            "paid-mutation" => PermissionAction.Update,
+            "delete-with-grades" => PermissionAction.Delete,
+            "recalculate" => PermissionAction.Update,
+            "publish" => PermissionAction.Approve,
+            "unpublish" => PermissionAction.Update,
+            "delegate" => PermissionAction.Update,
+            "class" => PermissionAction.Read,
             _ => throw new ArgumentException($"Action de permission inconnue : '{actionToken}'.")
         };
 

@@ -8,7 +8,7 @@ namespace SchoolManagement.Setup;
 public partial class MainWindow : Window
 {
     private int _step; // 1..5
-    private bool _busy;
+    private readonly InstallSessionState _installSession = new();
     private bool _sqlOk;
     private bool _cloudOk;
     private bool _storageOk;
@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         Step4.Visibility = step == 4 ? Visibility.Visible : Visibility.Collapsed;
         Step5.Visibility = step == 5 ? Visibility.Visible : Visibility.Collapsed;
 
-        BtnBack.IsEnabled = step > 1 && !_busy;
+        BtnBack.IsEnabled = step > 1 && !_installSession.IsBusy && !_installSession.IsCompleted;
 
         TxtStepTitle.Text = step switch
         {
@@ -66,7 +66,7 @@ public partial class MainWindow : Window
             PnlClientUrl.Visibility = IsServer ? Visibility.Collapsed : Visibility.Visible;
             ChkVirgin.Visibility = IsServer ? Visibility.Visible : Visibility.Collapsed;
             TxtRecap.Text = BuildRecap();
-            BtnNext.Content = "Terminer";
+            BtnNext.Content = _installSession.PrimaryButtonLabel(step, IsServer);
         }
         else
         {
@@ -74,6 +74,12 @@ public partial class MainWindow : Window
         }
 
         UpdateAuthUi();
+    }
+
+    private void RefreshNextButton()
+    {
+        if (_step == 5)
+            BtnNext.Content = _installSession.PrimaryButtonLabel(_step, IsServer);
     }
 
     private string BuildRecap()
@@ -118,7 +124,7 @@ public partial class MainWindow : Window
 
     private async void BtnBack_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_installSession.IsBusy || _installSession.IsCompleted) return;
         if (!IsServer)
         {
             ShowStep(1);
@@ -131,7 +137,13 @@ public partial class MainWindow : Window
 
     private async void BtnNext_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_installSession.IsBusy) return;
+
+        if (_step == 5 && _installSession.IsCompleted)
+        {
+            Close();
+            return;
+        }
 
         if (_step == 1)
         {
@@ -227,7 +239,7 @@ public partial class MainWindow : Window
 
     private async void BtnTestSql_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_installSession.IsBusy || _installSession.IsCompleted) return;
         SetBusy(true);
         _sqlOk = false;
         TxtSqlStatus.Text = "Test…";
@@ -256,7 +268,7 @@ public partial class MainWindow : Window
 
     private async void BtnTestCloud_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_installSession.IsBusy || _installSession.IsCompleted) return;
         SetBusy(true);
         _cloudOk = false;
         TxtCloudStatus.Text = "Test…";
@@ -285,7 +297,7 @@ public partial class MainWindow : Window
 
     private async void BtnTestStorage_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_installSession.IsBusy || _installSession.IsCompleted) return;
         SetBusy(true);
         _storageOk = false;
         TxtStorageStatus.Text = "Test…";
@@ -318,6 +330,9 @@ public partial class MainWindow : Window
 
     private async Task RunInstallAsync()
     {
+        if (!_installSession.CanStartInstall)
+            return;
+
         var opt = BuildOptions();
         if (IsServer)
         {
@@ -342,9 +357,12 @@ public partial class MainWindow : Window
         {
             var engine = new InstallerEngine(Log);
             await engine.InstallAsync(opt);
+            _installSession.MarkCompleted();
+            Log("Installation réussie — fermeture de l'assistant.");
             MessageBox.Show(
-                "Installation terminée.\n\nAu premier lancement Desktop, un assistant vous demandera les informations de l'établissement.",
+                "Installation terminée avec succès.\n\nAu premier lancement Desktop, un assistant vous demandera les informations de l'établissement.",
                 "ERP Scolaire", MessageBoxButton.OK, MessageBoxImage.Information);
+            Close();
         }
         catch (Exception ex)
         {
@@ -354,14 +372,15 @@ public partial class MainWindow : Window
         finally
         {
             SetBusy(false);
+            RefreshNextButton();
         }
     }
 
     private void SetBusy(bool busy)
     {
-        _busy = busy;
-        BtnNext.IsEnabled = !busy;
-        BtnBack.IsEnabled = !busy && _step > 1;
+        _installSession.SetBusy(busy);
+        BtnNext.IsEnabled = !busy || _installSession.IsCompleted;
+        BtnBack.IsEnabled = !busy && _step > 1 && !_installSession.IsCompleted;
     }
 
     private void Log(string message)

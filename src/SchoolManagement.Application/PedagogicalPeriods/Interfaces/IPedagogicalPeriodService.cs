@@ -15,6 +15,16 @@ public interface IPedagogicalPeriodService
         CreatePedagogicalStructureRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Seed de la structure pédagogique par défaut d'une année nouvelle
+    /// (création d'année / configuration initiale). Ce n'est pas une opération
+    /// de gestion métier : n'exige pas <c>pedagogical-periods.manage</c>.
+    /// </summary>
+    Task<PedagogicalPeriodStructureDto> SeedDefaultStructureForNewYearAsync(
+        Guid schoolId,
+        Guid academicYearId,
+        CancellationToken cancellationToken = default);
+
     Task<PedagogicalSubPeriodDto> OpenSubPeriodAsync(
         Guid schoolId,
         Guid subPeriodId,

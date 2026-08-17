@@ -408,6 +408,12 @@ var app = builder.Build();
         scope.ServiceProvider.GetRequiredService<ILogger<SchoolFeeSchemaInitializer>>());
     await schoolFeeSchema.EnsureCreatedAsync();
 
+    // FinDevise requis avant répartition recettes / comptabilité / paiements (FK CurrencyId).
+    var currencySchema = new CurrencySchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<CurrencySchemaInitializer>>());
+    await currencySchema.EnsureCreatedAsync();
+
     var revenueAllocationSchema = new RevenueAllocationSchemaInitializer(
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<RevenueAllocationSchemaInitializer>>());
@@ -442,11 +448,6 @@ var app = builder.Build();
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<PaymentCashRegisterSchemaInitializer>>());
     await paymentCashRegisterSchema.EnsureCreatedAsync();
-
-    var currencySchema = new CurrencySchemaInitializer(
-        sqlConnectionString,
-        scope.ServiceProvider.GetRequiredService<ILogger<CurrencySchemaInitializer>>());
-    await currencySchema.EnsureCreatedAsync();
 
     var studentCardSchema = new StudentCardSchemaInitializer(
         sqlConnectionString,

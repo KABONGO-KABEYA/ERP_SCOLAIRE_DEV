@@ -143,19 +143,32 @@ public sealed class InstallerEngine
         File.Delete(probe);
     }
 
-    public async Task EnsureDatabaseExistsAsync(InstallOptions opt, CancellationToken ct = default)
+    /// <returns><c>true</c> si la base vient d'être créée ; <c>false</c> si elle existait déjà.</returns>
+    public async Task<bool> EnsureDatabaseExistsAsync(InstallOptions opt, CancellationToken ct = default)
     {
+        _log("[DB] Création/vérification de la base...");
         var cs = BuildSqlConnectionString(opt, "master");
         await using var cn = new SqlConnection(cs);
         await cn.OpenAsync(ct);
-        await using var cmd = cn.CreateCommand();
-        cmd.CommandText = $@"
-IF DB_ID(N'{EscapeSql(opt.Database)}') IS NULL
-BEGIN
-  CREATE DATABASE [{opt.Database.Replace("]", "]]")}];
-END";
-        await cmd.ExecuteNonQueryAsync(ct);
-        _log($"Base SQL prête : {opt.Database}");
+        await using (var check = cn.CreateCommand())
+        {
+            check.CommandText = $"SELECT CASE WHEN DB_ID(N'{EscapeSql(opt.Database)}') IS NULL THEN 0 ELSE 1 END";
+            var exists = Convert.ToInt32(await check.ExecuteScalarAsync(ct)) == 1;
+            if (exists)
+            {
+                _log($"Base SQL déjà présente : {opt.Database}");
+                return false;
+            }
+        }
+
+        await using (var cmd = cn.CreateCommand())
+        {
+            cmd.CommandText = $"CREATE DATABASE [{opt.Database.Replace("]", "]]")}];";
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        _log($"Base SQL créée : {opt.Database}");
+        return true;
     }
 
     /// <summary>
@@ -219,13 +232,16 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         var apiDir = Path.Combine(opt.InstallRoot, "Api");
         var desktopDir = Path.Combine(opt.InstallRoot, "Desktop");
+
+        await WindowsServiceLifecycle.ReleaseServerPayloadLocksAsync(_log, ct);
+
         CopyDirectory(Path.Combine(payload, "api"), apiDir, overwrite: true);
         CopyDirectory(Path.Combine(payload, "desktop"), desktopDir, overwrite: true);
         UnblockFiles(apiDir);
         UnblockFiles(desktopDir);
         _log("Fichiers copiés.");
 
-        await EnsureDatabaseExistsAsync(opt, ct);
+        var databaseCreated = await EnsureDatabaseExistsAsync(opt, ct);
         if (opt.UseWindowsAuth)
             await EnsureSystemSqlAccessAsync(opt, ct);
         WriteServeurDonnees(apiDir, opt);
@@ -242,28 +258,37 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
             OpenFirewallPort(ApiPortAlt, "ERP Scolaire API Alt");
         }
 
-        // Pré-contrôle API (migrations + seed système)
+        await ApplyDatabaseBaselineAsync(opt, ct);
+
+        // Pré-contrôle API (SchemaInitializers + seed système) — après baseline Schools.
         if (opt.StartAfterInstall)
             await EnsureApiCanStartAsync(apiDir, opt, storageRoot, ct);
 
-        if (opt.ApplyVirginDatabase)
+        // 010 : uniquement réinstall sur une base déjà existante, jamais sur CREATE DATABASE.
+        if (opt.ApplyVirginDatabase && !databaseCreated)
             await ApplyVirginPurgeAsync(opt, ct);
 
-        InstallOrUpdateService(apiDir, opt, storageRoot);
+        await InstallOrUpdateServiceAsync(apiDir, opt, storageRoot, ct);
         if (opt.StartAfterInstall)
         {
-            StartService();
+            StartService(apiDir);
             await WaitForHealthAsync("http://127.0.0.1:5096/api/health", TimeSpan.FromSeconds(90), ct);
+            _log("[SERVICE] Health API 200.");
             _log("API répond sur http://127.0.0.1:5096");
             await RunFinalVerificationAsync(opt, storageRoot, ct);
             TryStart(Path.Combine(desktopDir, "SchoolManagement.Desktop.exe"));
         }
+
+        _log("Installation serveur terminée avec succès.");
     }
 
     private async Task InstallClientAsync(InstallOptions opt, string payload, CancellationToken ct)
     {
         _log("Mode CLIENT — déploiement Desktop uniquement…");
         var desktopDir = Path.Combine(opt.InstallRoot, "Desktop");
+
+        await WindowsServiceLifecycle.ReleaseClientPayloadLocksAsync(_log, ct);
+
         CopyDirectory(Path.Combine(payload, "desktop"), desktopDir, overwrite: true);
         UnblockFiles(desktopDir);
 
@@ -452,7 +477,7 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         _log("Pré-contrôle OK.");
     }
 
-    private void InstallOrUpdateService(string apiDir, InstallOptions opt, string storageRoot)
+    private async Task InstallOrUpdateServiceAsync(string apiDir, InstallOptions opt, string storageRoot, CancellationToken ct)
     {
         var exe = Path.Combine(apiDir, "SchoolManagement.API.exe");
         if (!File.Exists(exe))
@@ -462,42 +487,26 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         try
         {
-            var existing = ServiceController.GetServices()
-                .FirstOrDefault(s => s.ServiceName.Equals(ServiceName, StringComparison.OrdinalIgnoreCase));
-            if (existing != null)
-            {
-                _log("Service existant — arrêt / suppression…");
-                using (existing)
-                {
-                    if (existing.Status != ServiceControllerStatus.Stopped)
-                    {
-                        try
-                        {
-                            existing.Stop();
-                            existing.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                        }
-                        catch (Exception ex)
-                        {
-                            _log($"Arrêt service: {ex.Message}");
-                        }
-                    }
-                }
+            var registration = WindowsServiceLifecycle.ProbeRegistration(ServiceName);
+            _log($"[SERVICE] État SCM avant recréation : {registration}.");
 
-                RunProcess("sc.exe", $"delete {ServiceName}", throwOnError: false);
-                Thread.Sleep(2000);
+            if (registration != ServiceRegistrationState.Absent)
+            {
+                await WindowsServiceLifecycle.StopServiceAndWaitAsync(ServiceName, _log, ct);
+                await WindowsServiceLifecycle.DeleteServiceAndWaitAsync(ServiceName, _log, ct);
+            }
+            else
+            {
+                _log("[SERVICE] Aucun service existant — première installation.");
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not InvalidOperationException and not System.TimeoutException)
         {
-            _log($"Info service: {ex.Message}");
+            throw new InvalidOperationException($"Échec préparation service {ServiceName}.", ex);
         }
 
-        // sc.exe exige un espace après '='. Chemins avec espaces : tout le binPath entre guillemets.
-        _log("Création du service Windows ErpScolaireApi…");
-        var createArgs =
-            $"create {ServiceName} binPath= \"{exe}\" start= auto DisplayName= \"ERP Scolaire API\" obj= LocalSystem";
-        var createOut = RunProcess("sc.exe", createArgs, throwOnError: true);
-        _log(createOut.Trim());
+        await CreateServiceUntilRegisteredAsync(exe, ct);
+        EnsureQuotedBinaryPathName(exe);
 
         var cs = BuildSqlConnectionString(opt, opt.Database);
         var regPath = $@"SYSTEM\CurrentControlSet\Services\{ServiceName}";
@@ -521,37 +530,304 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         RunProcess("sc.exe", $"failure {ServiceName} reset= 86400 actions= restart/5000/restart/5000/restart/5000", throwOnError: false);
         RunProcess("sc.exe", $"config {ServiceName} start= auto", throwOnError: false);
-        _log("Service Windows configuré.");
+        _log("[SERVICE] Service créé.");
     }
 
-    private void StartService()
+    private async Task CreateServiceUntilRegisteredAsync(string exe, CancellationToken ct)
+    {
+        var createArgs = BuildScCreateArgs(exe);
+        for (var attempt = 1; attempt <= WindowsServiceLifecycle.MaxCreateAttempts; attempt++)
+        {
+            if (WindowsServiceLifecycle.ServiceRegistryKeyExists(ServiceName))
+            {
+                _log("[SERVICE] Clé registre encore présente — attente de disparition avant create...");
+                var previousForbid = WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait;
+                WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait = true;
+                try
+                {
+                    await WindowsServiceLifecycle.WaitUntilServiceAbsentAsync(
+                        ServiceName,
+                        _log,
+                        ct,
+                        exists: WindowsServiceLifecycle.ServiceRegistryKeyExists);
+                }
+                finally
+                {
+                    WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait = previousForbid;
+                }
+            }
+
+            _log($"[SERVICE] Création {ServiceName} (tentative {attempt}/{WindowsServiceLifecycle.MaxCreateAttempts})...");
+            _log($"sc.exe {createArgs}");
+            var (exitCode, output) = WindowsServiceLifecycle.RunSc(createArgs);
+            if (!string.IsNullOrWhiteSpace(output))
+                _log(output);
+
+            if (exitCode == 0)
+                return;
+
+            if (WindowsServiceLifecycle.IsMarkedForDeleteError(exitCode, output))
+            {
+                _log("[SERVICE] DeleteService = 1072 : service déjà marqué pour suppression.");
+                var previousForbid = WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait;
+                WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait = true;
+                try
+                {
+                    await WindowsServiceLifecycle.WaitUntilServiceAbsentAsync(
+                        ServiceName,
+                        _log,
+                        ct,
+                        exists: WindowsServiceLifecycle.ServiceRegistryKeyExists,
+                        alreadyMarkedBeforeThisCall: true);
+                }
+                finally
+                {
+                    WindowsServiceLifecycle.ForbidServiceControllerDuringDeleteWait = previousForbid;
+                }
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"sc.exe {createArgs} → code {exitCode}{Environment.NewLine}{output}");
+        }
+
+        throw new InvalidOperationException(
+            $"Impossible de créer {ServiceName} après {WindowsServiceLifecycle.MaxCreateAttempts} tentatives (ERROR_SERVICE_MARKED_FOR_DELETE / 1072).");
+    }
+
+    /// <summary>
+    /// Construit les arguments <c>sc create</c> pour que BINARY_PATH_NAME conserve les guillemets
+    /// lorsque le chemin contient des espaces (ex. Program Files\ERP Scolaire).
+    /// </summary>
+    internal static string BuildScCreateArgs(string exeFullPath)
+    {
+        // Résultat sc : binPath= "\"C:\Program Files\ERP Scolaire\Api\SchoolManagement.API.exe\""
+        return $"create {ServiceName} binPath= \"\\\"{exeFullPath}\\\"\" start= auto DisplayName= \"ERP Scolaire API\" obj= LocalSystem";
+    }
+
+    private void EnsureQuotedBinaryPathName(string exeFullPath)
+    {
+        var qc = RunProcess("sc.exe", $"qc {ServiceName}", throwOnError: false);
+        _log(qc.Trim());
+        var binaryPath = ParseScQcBinaryPathName(qc);
+        var expectedQuoted = $"\"{exeFullPath}\"";
+
+        if (string.Equals(binaryPath, expectedQuoted, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Filet de sécurité : forcer ImagePath quoté dans le registre puis re-vérifier.
+        if (exeFullPath.Contains(' ', StringComparison.Ordinal) ||
+            !string.Equals(binaryPath?.Trim('"'), exeFullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _log("BINARY_PATH_NAME incorrect après sc create — correction registre ImagePath…");
+            var regPath = $@"SYSTEM\CurrentControlSet\Services\{ServiceName}";
+            using (var key = Registry.LocalMachine.OpenSubKey(regPath, writable: true))
+            {
+                if (key == null)
+                    throw new InvalidOperationException("Clé registre service introuvable pour corriger ImagePath.");
+                key.SetValue("ImagePath", expectedQuoted, RegistryValueKind.ExpandString);
+            }
+
+            qc = RunProcess("sc.exe", $"qc {ServiceName}", throwOnError: false);
+            _log(qc.Trim());
+            binaryPath = ParseScQcBinaryPathName(qc);
+        }
+
+        if (!string.Equals(binaryPath, expectedQuoted, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Le BINARY_PATH_NAME du service n'est pas correctement quoté (chemins avec espaces).\n" +
+                $"Attendu : {expectedQuoted}\n" +
+                $"Obtenu  : {binaryPath ?? "(vide)"}\n\n" +
+                qc);
+        }
+
+        _log($"BINARY_PATH_NAME OK : {binaryPath}");
+    }
+
+    internal static string? ParseScQcBinaryPathName(string scQcOutput)
+    {
+        foreach (var raw in scQcOutput.Split('\n'))
+        {
+            var line = raw.Trim();
+            // BINARY_PATH_NAME   : "C:\Program Files\..."
+            const string marker = "BINARY_PATH_NAME";
+            var idx = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) continue;
+            var colon = line.IndexOf(':', idx + marker.Length);
+            if (colon < 0) continue;
+            return line[(colon + 1)..].Trim();
+        }
+
+        return null;
+    }
+
+    private void StartService(string apiDir)
     {
         using var sc = new ServiceController(ServiceName);
+        sc.Refresh();
+        _log($"[SERVICE] Démarrage {ServiceName} (état initial : {sc.Status})...");
+
         if (sc.Status == ServiceControllerStatus.Running)
         {
-            _log("Service déjà démarré.");
+            _log("[SERVICE] Service RUNNING.");
             return;
         }
 
         try
         {
             sc.Start();
-            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60));
-            _log("Service démarré.");
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+            ServiceControllerStatus? lastLogged = null;
+            while (DateTime.UtcNow < deadline)
+            {
+                sc.Refresh();
+                if (sc.Status == ServiceControllerStatus.Running)
+                {
+                    _log("[SERVICE] Service RUNNING.");
+                    return;
+                }
+
+                if (lastLogged != sc.Status)
+                {
+                    _log($"[SERVICE] En attente de Running... (actuel : {sc.Status})");
+                    lastLogged = sc.Status;
+                }
+
+                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(2));
+            }
+
+            sc.Refresh();
+            if (sc.Status != ServiceControllerStatus.Running)
+                throw new System.TimeoutException(
+                    $"Le service {ServiceName} n'est pas Running après 60s (état : {sc.Status}).");
         }
         catch (Exception ex)
         {
-            var hint = ReadServiceFailureHint();
-            throw new InvalidOperationException(
-                "Impossible de démarrer le service ErpScolaireApi.\n" +
-                ex.Message +
-                (string.IsNullOrWhiteSpace(hint) ? "" : "\n\nDétail:\n" + hint) +
-                "\n\nVérifiez les logs dans le dossier Api\\logs\\ après un nouvel essai.",
-                ex);
+            throw new InvalidOperationException(BuildServiceStartFailureMessage(ex, apiDir), ex);
         }
     }
 
-    private static string ReadServiceFailureHint()
+    private string BuildServiceStartFailureMessage(Exception ex, string apiDir)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Impossible de démarrer le service ErpScolaireApi.");
+        sb.AppendLine(ex.Message);
+
+        for (var inner = ex.InnerException; inner != null; inner = inner.InnerException)
+        {
+            sb.AppendLine($"InnerException: {inner.GetType().Name}: {inner.Message}");
+            if (inner is System.ComponentModel.Win32Exception win32)
+                sb.AppendLine($"Win32 NativeErrorCode: {win32.NativeErrorCode}");
+        }
+
+        if (ex is System.ComponentModel.Win32Exception directWin32)
+            sb.AppendLine($"Win32 NativeErrorCode: {directWin32.NativeErrorCode}");
+
+        try
+        {
+            using var statusSc = new ServiceController(ServiceName);
+            sb.AppendLine($"État service après échec: {statusSc.Status}");
+        }
+        catch (Exception statusEx)
+        {
+            sb.AppendLine($"État service: indisponible ({statusEx.Message})");
+        }
+
+        try
+        {
+            var qc = RunProcess("sc.exe", $"qc {ServiceName}", throwOnError: false);
+            var binaryPath = ParseScQcBinaryPathName(qc);
+            sb.AppendLine($"BINARY_PATH_NAME: {binaryPath ?? "(introuvable)"}");
+            if (!string.IsNullOrWhiteSpace(qc))
+            {
+                sb.AppendLine("--- sc.exe qc ---");
+                sb.AppendLine(qc.Trim());
+            }
+        }
+        catch (Exception qcEx)
+        {
+            sb.AppendLine($"sc.exe qc: {qcEx.Message}");
+        }
+
+        var scmHint = ReadServiceControlManagerEvents();
+        if (!string.IsNullOrWhiteSpace(scmHint))
+        {
+            sb.AppendLine("--- Service Control Manager (récent) ---");
+            sb.AppendLine(scmHint);
+        }
+
+        var appHint = ReadApplicationFailureHint();
+        if (!string.IsNullOrWhiteSpace(appHint))
+        {
+            sb.AppendLine("--- Journal Application (récent) ---");
+            sb.AppendLine(appHint);
+        }
+
+        var logTail = ReadApiLogTails(apiDir);
+        if (!string.IsNullOrWhiteSpace(logTail))
+        {
+            sb.AppendLine("--- Api\\logs ---");
+            sb.AppendLine(logTail);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string ReadApiLogTails(string apiDir)
+    {
+        try
+        {
+            var logsDir = Path.Combine(apiDir, "logs");
+            if (!Directory.Exists(logsDir))
+                return "(dossier Api\\logs absent)";
+
+            var files = new[]
+                {
+                    "preflight-err.log",
+                    "preflight-out.log",
+                }
+                .Select(n => Path.Combine(logsDir, n))
+                .Concat(Directory.GetFiles(logsDir, "api-*.log")
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .Take(2))
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (files.Count == 0)
+                return "(aucun preflight-*.log / api-*.log)";
+
+            var sb = new StringBuilder();
+            foreach (var file in files)
+            {
+                sb.AppendLine($"[{Path.GetFileName(file)}]");
+                try
+                {
+                    var text = File.ReadAllText(file);
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        sb.AppendLine("(vide)");
+                        continue;
+                    }
+
+                    sb.AppendLine(text.Length > 1500 ? text[^1500..] : text);
+                }
+                catch (Exception ex)
+                {
+                    sb.AppendLine($"(lecture impossible: {ex.Message})");
+                }
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+        catch (Exception ex)
+        {
+            return $"(logs: {ex.Message})";
+        }
+    }
+
+    private static string ReadServiceControlManagerEvents()
     {
         try
         {
@@ -559,7 +835,45 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
             {
                 FileName = "wevtutil.exe",
                 Arguments =
-                    "qe Application /c:8 /rd:true /f:text /q:\"*[System[(Level=1 or Level=2) and TimeCreated[timediff(@SystemTime) <= 600000]]]\"",
+                    "qe System /c:12 /rd:true /f:text /q:\"*[System[Provider[@Name='Service Control Manager'] and TimeCreated[timediff(@SystemTime) <= 600000]]]\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            using var p = Process.Start(psi);
+            if (p == null) return "";
+            var output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(15_000);
+            if (string.IsNullOrWhiteSpace(output)) return "";
+
+            var lines = output.Split('\n')
+                .Select(l => l.TrimEnd())
+                .Where(l => l.Contains("ErpScolaire", StringComparison.OrdinalIgnoreCase)
+                            || l.Contains("ERP Scolaire", StringComparison.OrdinalIgnoreCase)
+                            || l.Contains("SchoolManagement", StringComparison.OrdinalIgnoreCase)
+                            || l.Contains("7000", StringComparison.Ordinal)
+                            || l.Contains("7009", StringComparison.Ordinal)
+                            || l.Contains("7023", StringComparison.Ordinal)
+                            || l.Contains("7024", StringComparison.Ordinal))
+                .Take(40);
+            return string.Join(Environment.NewLine, lines);
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string ReadApplicationFailureHint()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "wevtutil.exe",
+                Arguments =
+                    "qe Application /c:12 /rd:true /f:text /q:\"*[System[(Level=1 or Level=2) and TimeCreated[timediff(@SystemTime) <= 600000]]]\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -576,9 +890,9 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
                 .Where(l => l.Contains("ErpScolaire", StringComparison.OrdinalIgnoreCase)
                             || l.Contains("SchoolManagement", StringComparison.OrdinalIgnoreCase)
                             || l.Contains(".NET Runtime", StringComparison.OrdinalIgnoreCase)
-                            || l.Contains("Service Control Manager", StringComparison.OrdinalIgnoreCase)
+                            || l.Contains("Application Error", StringComparison.OrdinalIgnoreCase)
                             || l.Contains("cannot start", StringComparison.OrdinalIgnoreCase))
-                .Take(25);
+                .Take(30);
             return string.Join(Environment.NewLine, lines);
         }
         catch
@@ -611,21 +925,35 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         if (opt.CreateNetworkShare)
         {
-            try
+            if (!NetworkShareCommands.TryResolveLocalPath(root, out var localSharePath, out var resolveError))
             {
-                RunProcess("net.exe", $"share {opt.ShareName} /delete /y", throwOnError: false);
-                var shareOut = RunProcess(
-                    "net.exe",
-                    $"share {opt.ShareName}=\"{root}\" /GRANT:Everyone,FULL",
-                    throwOnError: false);
-                if (!string.IsNullOrWhiteSpace(shareOut))
-                    _log(shareOut.Trim());
-                _log($"Partage réseau : \\\\{Environment.MachineName}\\{opt.ShareName}");
+                throw new InvalidOperationException(
+                    "Impossible de créer le partage réseau : chemin local introuvable." +
+                    Environment.NewLine + resolveError +
+                    Environment.NewLine + $"Dossier configuré : {root}");
             }
-            catch (Exception ex)
+
+            var deleteArgs = NetworkShareCommands.BuildDeleteArguments(opt.ShareName);
+            var (deleteCode, deleteOut) = RunProcessEx("net.exe", deleteArgs);
+            if (deleteCode != 0 && !string.IsNullOrWhiteSpace(deleteOut))
+                _log($"net.exe {deleteArgs} → code {deleteCode} (info) : {deleteOut.Trim()}");
+
+            var createArgs = NetworkShareCommands.BuildCreateArguments(opt.ShareName, localSharePath);
+            _log($"net.exe {createArgs}");
+            var (createCode, createOut) = RunProcessEx("net.exe", createArgs);
+            if (createCode != 0)
             {
-                _log($"Partage réseau non créé : {ex.Message}");
+                throw new InvalidOperationException(
+                    "Échec net share (création du partage)." + Environment.NewLine +
+                    $"Commande : net.exe {createArgs}" + Environment.NewLine +
+                    $"Chemin local : {localSharePath}" + Environment.NewLine +
+                    $"Code retour : {createCode}" + Environment.NewLine +
+                    createOut);
             }
+
+            if (!string.IsNullOrWhiteSpace(createOut))
+                _log(createOut.Trim());
+            _log($"Partage réseau : {NetworkShareCommands.BuildUncAccessPath(opt.ShareName)} (local : {localSharePath})");
         }
 
         return root;
@@ -649,6 +977,190 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         sb.AppendLine($"MOTDEPASSE={encrypted}");
         File.WriteAllText(Path.Combine(apiDir, "ServeurDonneesCloud.txt"), sb.ToString(), Encoding.UTF8);
         _log("ServeurDonneesCloud.txt écrit (ACTIF=1, mot de passe DPAPI).");
+    }
+
+    private const string BaselineSqlFileName = "001_InitialCreate_EF.sql";
+    private const string InitialCreateMigrationId = "20260706114538_InitialCreate";
+
+    /// <summary>
+    /// Pose le schéma cœur (dont dbo.Schools) via 001_InitialCreate_EF.sql.
+    /// Idempotent grâce à __EFMigrationsHistory. N'applique pas les évolutions N→N+1.
+    /// TODO(lot séparé) : RegistrationNumberCounters (EF 20260812220000) n'est pas dans 001.
+    /// TODO(lot séparé) : PedagogicalClasses (EF AddPedagogicalStructure) n'est pas dans 001 ;
+    /// provisionné par CurriculumSchemaInitializer au boot API.
+    /// </summary>
+    private async Task ApplyDatabaseBaselineAsync(InstallOptions opt, CancellationToken ct)
+    {
+        _log("[DB] Application de la baseline SQL...");
+        _log($"[DB] Baseline : {BaselineSqlFileName}");
+
+        var scriptPath = FindBaselineSqlScript();
+        string sql;
+        try
+        {
+            sql = await File.ReadAllTextAsync(scriptPath, ct);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"[DB] Impossible de lire le script baseline '{BaselineSqlFileName}'.{Environment.NewLine}{ex.Message}",
+                ex);
+        }
+
+        var cs = BuildSqlConnectionString(opt, opt.Database);
+        await using var cn = new SqlConnection(cs);
+        try
+        {
+            await cn.OpenAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            throw WrapBaselineSqlError(ex, "ouverture de la connexion (base cible)", 0);
+        }
+
+        var batches = SplitSqlBatches(sql);
+        var batchIndex = 0;
+        foreach (var batch in batches)
+        {
+            batchIndex++;
+            try
+            {
+                await using var cmd = cn.CreateCommand();
+                cmd.CommandTimeout = 180;
+                // Index filtrés / vues de 001 exigent QUOTED_IDENTIFIER ON (sqlcmd le coupe par défaut).
+                cmd.CommandText = "SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON;" + Environment.NewLine + batch;
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    await using var rollback = cn.CreateCommand();
+                    rollback.CommandText = "IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;";
+                    await rollback.ExecuteNonQueryAsync(ct);
+                }
+                catch
+                {
+                    // ignore rollback secondary failure
+                }
+
+                throw WrapBaselineSqlError(ex, $"lot SQL {batchIndex}/{batches.Count}", batchIndex);
+            }
+        }
+
+        _log("[DB] Baseline SQL appliquée avec succès.");
+        _log("[DB] Vérification de la table Schools...");
+        await VerifyDatabaseBaselineAsync(cn, ct);
+        _log("[DB] Vérification de la baseline terminée.");
+    }
+
+    private async Task VerifyDatabaseBaselineAsync(SqlConnection cn, CancellationToken ct)
+    {
+        async Task<int> ScalarAsync(string commandText)
+        {
+            await using var cmd = cn.CreateCommand();
+            cmd.CommandText = commandText;
+            var value = await cmd.ExecuteScalarAsync(ct);
+            return value is null or DBNull ? 0 : Convert.ToInt32(value);
+        }
+
+        if (await ScalarAsync("SELECT CASE WHEN OBJECT_ID(N'dbo.Schools', N'U') IS NULL THEN 0 ELSE 1 END") != 1)
+        {
+            throw new InvalidOperationException(
+                "[DB] Vérification baseline échouée : la table dbo.Schools est absente après 001_InitialCreate_EF.sql. Installation arrêtée.");
+        }
+
+        if (await ScalarAsync("SELECT CASE WHEN OBJECT_ID(N'dbo.__EFMigrationsHistory', N'U') IS NULL THEN 0 ELSE 1 END") != 1)
+        {
+            throw new InvalidOperationException(
+                "[DB] Vérification baseline échouée : dbo.__EFMigrationsHistory est absente. Installation arrêtée.");
+        }
+
+        if (await ScalarAsync(
+                $"SELECT COUNT(1) FROM [__EFMigrationsHistory] WHERE [MigrationId] = N'{EscapeSql(InitialCreateMigrationId)}'") < 1)
+        {
+            throw new InvalidOperationException(
+                $"[DB] Vérification baseline échouée : la migration {InitialCreateMigrationId} est absente de __EFMigrationsHistory. Installation arrêtée.");
+        }
+    }
+
+    private static List<string> SplitSqlBatches(string sql)
+    {
+        var raw = System.Text.RegularExpressions.Regex.Split(
+            sql,
+            @"^\s*GO\s*$",
+            System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        var batches = new List<string>();
+        foreach (var batch in raw)
+        {
+            var text = batch.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text,
+                @"^\s*USE\s+\[[^\]]+\]\s*;?\s*",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
+            text = text.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            batches.Add(text);
+        }
+
+        return batches;
+    }
+
+    private static Exception WrapBaselineSqlError(Exception ex, string step, int batchIndex)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("[DB] Échec de la baseline SQL.");
+        sb.AppendLine($"Script : {BaselineSqlFileName}");
+        sb.AppendLine($"Étape : {step}");
+        if (ex is SqlException sql)
+        {
+            sb.AppendLine($"Erreur SQL n° {sql.Number} (état {sql.State}, classe {sql.Class})");
+            sb.AppendLine(sql.Message);
+            if (sql.Errors is { Count: > 0 })
+            {
+                foreach (SqlError err in sql.Errors)
+                {
+                    if (!string.Equals(err.Message, sql.Message, StringComparison.Ordinal))
+                        sb.AppendLine($"  [{err.Number}] {err.Message}");
+                }
+            }
+        }
+        else
+        {
+            sb.AppendLine(ex.Message);
+        }
+
+        if (batchIndex > 0)
+            sb.AppendLine($"Lot : {batchIndex}");
+
+        return new InvalidOperationException(sb.ToString().TrimEnd(), ex);
+    }
+
+    private static string FindBaselineSqlScript()
+    {
+        var payload = FindPayloadRoot();
+        var candidates = new[]
+        {
+            Path.Combine(payload, "sql", BaselineSqlFileName),
+            Path.Combine(AppContext.BaseDirectory, "sql", BaselineSqlFileName),
+            Path.Combine(AppContext.BaseDirectory, "payload", "sql", BaselineSqlFileName),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "database", "scripts", BaselineSqlFileName)),
+        };
+        foreach (var c in candidates)
+        {
+            if (File.Exists(c))
+                return c;
+        }
+
+        throw new FileNotFoundException(
+            $"Script {BaselineSqlFileName} introuvable dans payload/sql/. Relancez scripts/build-setup.ps1.");
     }
 
     private async Task ApplyVirginPurgeAsync(InstallOptions opt, CancellationToken ct)
@@ -824,23 +1336,8 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         File.WriteAllText(Path.Combine(appDir, "ServeurFichiers.txt"), sb.ToString(), Encoding.UTF8);
     }
 
-    private static void WriteServeurDonnees(string apiDir, InstallOptions opt)
-    {
-        var auth = opt.UseWindowsAuth ? "WINDOWS" : "SQL";
-        var sb = new StringBuilder();
-        sb.AppendLine("#######################################################");
-        sb.AppendLine("# ERP SCOLAIRE RDC - genere par Setup");
-        sb.AppendLine("#######################################################");
-        sb.AppendLine($"SERVEUR={opt.SqlServer}");
-        sb.AppendLine("PORT=1433");
-        sb.AppendLine($"BASE={opt.Database}");
-        sb.AppendLine($"AUTHENTIFICATION={auth}");
-        sb.AppendLine($"UTILISATEUR={opt.SqlUser}");
-        // Mot de passe : laisser vide en Windows auth ; SQL auth en clair uniquement
-        // pour bootstrap (DPAPI sera appliqué au 1er enregistrement Desktop/config).
-        sb.AppendLine(opt.UseWindowsAuth ? "MOTDEPASSE=" : $"MOTDEPASSE={opt.SqlPassword}");
-        File.WriteAllText(Path.Combine(apiDir, "ServeurDonnees.txt"), sb.ToString(), Encoding.UTF8);
-    }
+    private static void WriteServeurDonnees(string appDir, InstallOptions opt) =>
+        ServeurDonneesFileWriter.Write(appDir, opt);
 
     private static void WriteApiAppsettings(string apiDir, InstallOptions opt)
     {
@@ -1055,6 +1552,24 @@ s.Save
         if (throwOnError && p.ExitCode != 0)
             throw new InvalidOperationException($"{fileName} {args} → code {p.ExitCode}\n{combined}");
         return combined;
+    }
+
+    private static (int ExitCode, string Output) RunProcessEx(string fileName, string args)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = fileName,
+            Arguments = args,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException($"Impossible de lancer {fileName}");
+        var stdout = p.StandardOutput.ReadToEnd();
+        var stderr = p.StandardError.ReadToEnd();
+        p.WaitForExit(120_000);
+        return (p.ExitCode, (stdout + Environment.NewLine + stderr).Trim());
     }
 
     private static string NormalizeUrl(string url)

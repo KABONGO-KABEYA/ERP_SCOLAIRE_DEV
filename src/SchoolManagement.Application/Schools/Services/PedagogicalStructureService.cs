@@ -275,7 +275,9 @@ public sealed class PedagogicalStructureService : IPedagogicalStructureService
         var pedagogicalClass = await GetClassOrThrowAsync(schoolId, request.PedagogicalClassId, cancellationToken);
         if (!pedagogicalClass.IsEnabled)
         {
-            throw new DomainException("Activez d'abord cette classe pédagogique avant d'ajouter des locaux.");
+            pedagogicalClass.IsEnabled = true;
+            await _pedagogicalClassRepository.UpdateAsync(pedagogicalClass, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         var year = (await _yearRepository.FindAsync(

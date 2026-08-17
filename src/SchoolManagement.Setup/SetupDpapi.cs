@@ -16,4 +16,8 @@ internal static class SetupDpapi
             Encoding.UTF8.GetBytes(plainText), Entropy, DataProtectionScope.LocalMachine);
         return EncryptedPrefix + Convert.ToBase64String(protectedBytes);
     }
+
+    /// <summary>Valeur MOTDEPASSE pour ServeurDonnees.txt (vide en Windows auth, ENC:… en SQL auth).</summary>
+    internal static string FormatMotDePasseForServeurDonnees(bool useWindowsAuth, string plainSqlPassword) =>
+        useWindowsAuth ? string.Empty : Encrypt(plainSqlPassword);
 }
