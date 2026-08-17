@@ -12,6 +12,7 @@
 | Frais scolaires | [etat-implementation.md §6](etat-implementation.md#6-frais-scolaires) | ✅ Desktop + API |
 | Académique | — | ✅ Desktop + API |
 | Notes | [notes-handoff.md](notes-handoff.md) | ✅ Base existante — branche `feature/notes` |
+| Présence | [attendances-handoff.md](attendances-handoff.md) | 🚧 Schéma BDD — branche `feature/attendances` |
 | Financier | — | ✅ Desktop + API + Mobile parent |
 | Documents | — | ✅ Desktop + API |
 | Statistiques | — | ✅ Desktop + API + Mobile direction |

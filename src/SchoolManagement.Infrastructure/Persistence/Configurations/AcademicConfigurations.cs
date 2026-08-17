@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SchoolManagement.Domain.Entities.Academic;
+using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Infrastructure.Persistence.Configurations;
 
@@ -54,10 +55,16 @@ public class StudentAttendanceConfiguration : AuditableEntityConfiguration<Stude
     {
         base.Configure(builder);
         builder.ToTable("StudentAttendances");
+        builder.Property(a => a.Presence).HasConversion<int>();
+        builder.HasOne(a => a.Enrollment).WithMany(e => e.Attendances).HasForeignKey(a => a.EnrollmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.Student).WithMany().HasForeignKey(a => a.StudentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(a => a.ClassRoom).WithMany().HasForeignKey(a => a.ClassRoomId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => new { a.EnrollmentId, a.AttendanceDate });
         builder.HasIndex(a => new { a.SchoolId, a.StudentId, a.AttendanceDate });
         builder.HasIndex(a => new { a.ClassRoomId, a.AttendanceDate });
+        builder.HasIndex(a => new { a.EnrollmentId, a.AttendanceDate, a.CourseAssignmentId })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
 
