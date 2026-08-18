@@ -7,7 +7,10 @@ using System.ServiceProcess;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
+using SchoolManagement.Infrastructure.Persistence;
 
 namespace SchoolManagement.Setup;
 
@@ -260,9 +263,11 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         await ApplyDatabaseBaselineAsync(opt, ct);
 
-        // Pré-contrôle API (SchemaInitializers + seed système) — après baseline Schools.
-        if (opt.StartAfterInstall)
-            await EnsureApiCanStartAsync(apiDir, opt, storageRoot, ct);
+        // Pré-contrôle API obligatoire : exécute les SchemaInitializers du démarrage API
+        // (mécanisme officiel d'évolution), même si StartAfterInstall = false.
+        // Database.Migrate() n'est pas utilisé.
+        await EnsureApiCanStartAsync(apiDir, opt, storageRoot, ct);
+        await ApplyPostBaselineSchemaUpgradesAsync(opt, ct);
 
         // 010 : uniquement réinstall sur une base déjà existante, jamais sur CREATE DATABASE.
         if (opt.ApplyVirginDatabase && !databaseCreated)
@@ -984,10 +989,9 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
     /// <summary>
     /// Pose le schéma cœur (dont dbo.Schools) via 001_InitialCreate_EF.sql.
-    /// Idempotent grâce à __EFMigrationsHistory. N'applique pas les évolutions N→N+1.
-    /// TODO(lot séparé) : RegistrationNumberCounters (EF 20260812220000) n'est pas dans 001.
-    /// TODO(lot séparé) : PedagogicalClasses (EF AddPedagogicalStructure) n'est pas dans 001 ;
-    /// provisionné par CurriculumSchemaInitializer au boot API.
+    /// Cette baseline est une snapshot historique immuable de InitialCreate.
+    /// Les évolutions suivantes passent par les SchemaInitializers (API + ApplyCriticalSchemaUpgradesAsync),
+    /// jamais par Database.Migrate().
     /// </summary>
     private async Task ApplyDatabaseBaselineAsync(InstallOptions opt, CancellationToken ct)
     {
@@ -1052,6 +1056,69 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         _log("[DB] Vérification de la table Schools...");
         await VerifyDatabaseBaselineAsync(cn, ct);
         _log("[DB] Vérification de la baseline terminée.");
+    }
+
+    internal static SchoolDbContext CreateMigrationDbContext(string connectionString)
+    {
+        var options = new DbContextOptionsBuilder<SchoolDbContext>()
+            .UseSqlServer(connectionString, sql =>
+            {
+                sql.CommandTimeout(180);
+                sql.EnableRetryOnFailure(maxRetryCount: 3);
+            })
+            .Options;
+
+        return new SchoolDbContext(options)
+        {
+            IgnoreSchoolScope = true,
+            SuppressCloudSyncEnqueue = true
+        };
+    }
+
+    /// <summary>
+    /// Interdit. Le déploiement officiel est baseline + SchemaInitializers.
+    /// Les migrations EF ne doivent pas être exécutées par le Setup.
+    /// </summary>
+    [Obsolete("Database.Migrate() est interdit dans le chemin Setup/API. Utiliser les SchemaInitializers.")]
+    internal static Task<IReadOnlyList<string>> ApplyPendingEfMigrationsAsync(
+        string connectionString,
+        Action<string>? log = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = connectionString;
+        _ = log;
+        _ = cancellationToken;
+        throw new InvalidOperationException(
+            "Database.Migrate() est interdit dans le chemin Setup/API actuel. " +
+            "Le schéma évolue uniquement via 001_InitialCreate_EF.sql (baseline) " +
+            "et les SchemaInitializers (voir SchemaDeploymentCoverage).");
+    }
+
+    internal static async Task ApplyCriticalSchemaUpgradesAsync(
+        string connectionString,
+        Action<string>? log = null,
+        CancellationToken cancellationToken = default)
+    {
+        var registrationSchema = new RegistrationNumberCounterSchemaInitializer(
+            connectionString,
+            NullLogger<RegistrationNumberCounterSchemaInitializer>.Instance);
+        await registrationSchema.EnsureCreatedAsync(cancellationToken);
+
+        var userRoleAssignmentSchema = new UserRoleAssignmentSchemaInitializer(
+            connectionString,
+            NullLogger<UserRoleAssignmentSchemaInitializer>.Instance);
+        await userRoleAssignmentSchema.EnsureUpdatedAsync(cancellationToken);
+
+        log?.Invoke("[DB] Initializers critiques post-baseline appliqués.");
+    }
+
+    private async Task ApplyPostBaselineSchemaUpgradesAsync(InstallOptions opt, CancellationToken ct)
+    {
+        _log("[DB] Application des compléments de schéma post-baseline...");
+        var connectionString = BuildSqlConnectionString(opt, opt.Database);
+        await ApplyCriticalSchemaUpgradesAsync(connectionString, _log, ct);
+
+        _log("[DB] Compléments de schéma post-baseline appliqués.");
     }
 
     private async Task VerifyDatabaseBaselineAsync(SqlConnection cn, CancellationToken ct)

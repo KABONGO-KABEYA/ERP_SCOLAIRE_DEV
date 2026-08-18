@@ -168,8 +168,11 @@ public sealed class ReportService : IReportService
         var pedagogicalMap = await SchoolConfigurationGuards.BuildPedagogicalMapAsync(_pedagogicalClassRepository, schoolId, cancellationToken);
         classes = classes.Where(c => ClassRoomAvailability.IsSelectable(c, pedagogicalMap)).ToList();
         var classMap = classes.ToDictionary(c => c.Id);
+        var classIds = classMap.Keys.ToHashSet();
 
-        var results = await _periodResultRepository.FindAsync(r => r.SchoolId == schoolId, cancellationToken);
+        var results = classIds.Count == 0
+            ? []
+            : await _periodResultRepository.FindAsync(r => classIds.Contains(r.ClassRoomId), cancellationToken);
         if (academicPeriodId.HasValue)
         {
             results = results.Where(r => r.AcademicPeriodId == academicPeriodId.Value).ToList();

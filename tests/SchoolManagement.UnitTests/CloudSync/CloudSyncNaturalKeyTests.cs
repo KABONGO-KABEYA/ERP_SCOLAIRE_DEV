@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Security;
+using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Infrastructure.CloudSync;
 using SchoolManagement.Infrastructure.Persistence;
 using Xunit;
@@ -121,6 +122,85 @@ public sealed class CloudSyncNaturalKeyTests
             local, remote, localId, CancellationToken.None);
 
         mapped.Should().Be(cloudId);
+    }
+
+    [Fact]
+    public async Task ExistsByNaturalKey_skips_Branch_when_same_school_and_code_exist_on_cloud()
+    {
+        var schoolId = Guid.NewGuid();
+        await using var remote = CreateContext();
+        remote.Set<Branch>().Add(new Branch
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            Code = "HUM",
+            Name = "Humanites"
+        });
+        await remote.SaveChangesAsync();
+
+        var local = new Branch
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            Code = "HUM",
+            Name = "Humanites"
+        };
+
+        (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ExistsByNaturalKey_does_not_mix_Course_between_schools()
+    {
+        var schoolA = Guid.NewGuid();
+        var schoolB = Guid.NewGuid();
+        await using var remote = CreateContext();
+        remote.Set<Course>().Add(new Course
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolA,
+            Code = "HUM-GEO",
+            Name = "Geographie"
+        });
+        await remote.SaveChangesAsync();
+
+        var local = new Course
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolB,
+            Code = "HUM-GEO",
+            Name = "Geographie"
+        };
+
+        (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExistsByNaturalKey_skips_Course_when_same_school_and_code_exist_on_cloud()
+    {
+        var schoolId = Guid.NewGuid();
+        await using var remote = CreateContext();
+        remote.Set<Course>().Add(new Course
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            Code = "HUM-GEO",
+            Name = "Geographie"
+        });
+        await remote.SaveChangesAsync();
+
+        var local = new Course
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            Code = "HUM-GEO",
+            Name = "Geographie"
+        };
+
+        (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))
+            .Should().BeTrue();
     }
 
     private static SchoolDbContext CreateContext()

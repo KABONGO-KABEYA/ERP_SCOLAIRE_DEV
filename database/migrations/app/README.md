@@ -1,56 +1,28 @@
-# Migrations versionnées du schéma école (Lot 2B-1)
+# Schéma école — contrat de déploiement
 
-**Baseline officielle : `AppSchemaVersion = 1`.**
-
-Les bases actuelles (API `ApplicationUpdateSchemaInitializer`, script `007_ApplicationVersions.sql`) créent déjà cette valeur. `MigrationManager` utilise la même baseline.
-
-## Moteur
-
-`SchoolManagement.Updates.MigrationManager` applique un **package local** :
-
-```
-MigrationPackage/
-├── manifest.json
-├── Migration1_2.sql
-├── Migration2_3.sql
-└── …
-```
-
-Le moteur **ne télécharge jamais** de SQL. Le futur Update Agent télécharge et vérifie le package (SHA), puis passe le chemin local.
-
-## Manifest
-
-```json
-{
-  "schemaVersion": 3,
-  "fromSchemaVersion": 1,
-  "toSchemaVersion": 3,
-  "migrations": [
-    "Migration1_2.sql",
-    "Migration2_3.sql"
-  ]
-}
-```
-
-`schemaVersion` = `toSchemaVersion`. Chaîne stricte `MigrationN_N+1.sql` sans rupture.
-
-Package actuel (ce dossier) : **1 → 1**, aucune migration — le schéma vivant est encore posé par les *SchemaInitializers* au démarrage de l’API.
-
-Lot 2B-2 : une release packagée ajoute `releaseVersion` et `files[].sha256`. Voir [`docs/release-package-contract.md`](../../docs/release-package-contract.md). `scripts/pack-release-artifacts.ps1` produit les zips.
-
-## Historique vs futur
+## Mécanisme officiel (actuel)
 
 | Mécanisme | Rôle |
 |-----------|------|
-| `*SchemaInitializer` au start API | **Historique**, encore requis. **Ne plus en ajouter** pour les versions futures. |
-| `MigrationManager` + ce dossier | **Officiel** pour les évolutions N→N+1 à venir. **Pas encore** branché au démarrage API. |
-| Migrations EF `Infrastructure/Persistence/Migrations` | Outil de dev ; l’API n’appelle pas `Database.Migrate()`. |
+| `database/scripts/001_InitialCreate_EF.sql` | **Baseline historique immuable** (`20260706114538_InitialCreate`). Ne pas la régénérer à chaque version. |
+| `*SchemaInitializer` (Setup + démarrage API) | **Évolution officielle du schéma.** Idempotent (`IF NOT EXISTS`). Toute nouvelle évolution SQL doit avoir un initializer, ou une exclusion dans `SchemaDeploymentCoverage`. |
+| Migrations EF `Infrastructure/Persistence/Migrations` | **Artefacts de modèle / historique de développement.** Non exécutées par le Setup ni par l’API. |
+| `Database.Migrate()` | **Interdit** dans le chemin Setup/API actuel. |
+
+`__EFMigrationsHistory` après une installation Setup contient uniquement `InitialCreate`. Ce n’est pas une preuve que le schéma s’arrête à cette migration : les SchemaInitializers complètent le schéma sans inscrire les migrations EF.
+
+Couverture obligatoire : `SchoolManagement.Infrastructure.Persistence.SchemaDeploymentCoverage`.
+Le test `SchemaDeploymentCoverageTests` échoue si une migration EF post-baseline n’y figure pas.
+
+## MigrationManager (Lot 2B-1, non branché)
+
+`SchoolManagement.Updates.MigrationManager` peut appliquer un package local `MigrationN_N+1.sql`. **Il n’est pas branché** au démarrage API. Tant qu’il ne l’est pas, les SchemaInitializers restent le seul mécanisme officiel d’évolution.
 
 ## Permissions SQL (moteur uniquement — pas de GRANT ici)
 
 Opérations : `SELECT`/`UPDATE` `dbo.AppSchemaVersion` ; `CREATE TABLE` de cette table si absente ; DDL des scripts `MigrationN_N+1` dans `dbo`.
 
-Ne pas accorder `db_owner`, `db_ddladmin`, `sysadmin` dans ce lot. Compte Windows / GRANT du futur agent : lot ultérieur.
+Ne pas accorder `db_owner`, `db_ddladmin`, `sysadmin` dans ce lot.
 
 ## Séquence agent (non implémentée ici)
 

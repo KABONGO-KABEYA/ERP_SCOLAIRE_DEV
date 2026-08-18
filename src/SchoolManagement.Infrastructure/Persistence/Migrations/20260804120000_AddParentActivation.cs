@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260804120000_AddParentActivation")]
 public partial class AddParentActivation : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

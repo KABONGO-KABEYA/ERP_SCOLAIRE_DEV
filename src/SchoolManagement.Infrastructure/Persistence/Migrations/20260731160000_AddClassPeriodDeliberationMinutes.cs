@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260731160000_AddClassPeriodDeliberationMinutes")]
 public partial class AddClassPeriodDeliberationMinutes : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

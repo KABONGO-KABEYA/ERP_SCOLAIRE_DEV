@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Security;
+using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Infrastructure.Persistence;
 
 namespace SchoolManagement.Infrastructure.CloudSync;
@@ -50,6 +51,10 @@ internal static class CloudSyncNaturalKey
                 exception.PermissionId = await MapByGlobalCodeAsync<Permission>(
                     local, remote, exception.PermissionId, cancellationToken);
                 break;
+            case Course course when course.BranchId is Guid branchId:
+                course.BranchId = await MapBranchIdAsync(
+                    local, remote, course.SchoolId, branchId, cancellationToken);
+                break;
         }
     }
 
@@ -72,6 +77,23 @@ internal static class CloudSyncNaturalKey
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .AnyAsync(x => x.Code == currency.Code && x.Id != currency.Id, cancellationToken),
+            Branch branch => await remote.Set<Branch>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.SchoolId == branch.SchoolId
+                         && x.Code == branch.Code
+                         && x.Id != branch.Id,
+                    cancellationToken),
+            Course course => await remote.Set<Course>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.SchoolId == course.SchoolId
+                         && x.Code == course.Code
+                         && x.ClassRoomId == course.ClassRoomId
+                         && x.Id != course.Id,
+                    cancellationToken),
             SecurityFunction function => await remote.Set<SecurityFunction>()
                 .IgnoreQueryFilters()
                 .AsNoTracking()
@@ -239,6 +261,37 @@ internal static class CloudSyncNaturalKey
             .AsNoTracking()
             .Where(a => a.PageId == remotePageId && a.Code == localAction.Code)
             .Select(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return remoteId == Guid.Empty ? localId : remoteId;
+    }
+
+    private static async Task<Guid> MapBranchIdAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid schoolId,
+        Guid localId,
+        CancellationToken cancellationToken)
+    {
+        if (await ExistsRemoteIdAsync<Branch>(remote, localId, cancellationToken))
+        {
+            return localId;
+        }
+
+        var localBranch = await local.Set<Branch>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == localId, cancellationToken);
+        if (localBranch is null)
+        {
+            return localId;
+        }
+
+        var remoteId = await remote.Set<Branch>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(b => b.SchoolId == schoolId && b.Code == localBranch.Code)
+            .Select(b => b.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
         return remoteId == Guid.Empty ? localId : remoteId;

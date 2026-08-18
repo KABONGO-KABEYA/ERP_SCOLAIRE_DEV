@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -9,6 +10,8 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 /// UNIQUE(UserId, RoleId) WHERE IsDeleted = 0.
 /// Permet de réactiver une ligne soft-deleted sans SQL 2601.
 /// </summary>
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260812210000_FilterUserRoleAssignmentsUniqueIndex")]
 public partial class FilterUserRoleAssignmentsUniqueIndex : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

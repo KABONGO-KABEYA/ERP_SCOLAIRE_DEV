@@ -1,9 +1,12 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260723153000_WidenCourseAndBranchCode")]
 public partial class WidenCourseAndBranchCode : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

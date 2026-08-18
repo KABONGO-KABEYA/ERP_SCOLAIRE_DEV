@@ -1,4 +1,5 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -8,6 +9,8 @@ namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 /// <summary>
 /// P4 — table compteur matricules + initialisation depuis Students (soft-deleted inclus).
 /// </summary>
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260812220000_AddRegistrationNumberCounters")]
 public partial class AddRegistrationNumberCounters : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

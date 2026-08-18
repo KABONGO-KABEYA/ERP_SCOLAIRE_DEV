@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +6,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SchoolManagement.Infrastructure.Persistence.Migrations;
 
 /// <summary>Isolation multi-tenant : SchoolId sur périodes, sync, audit, caisse.</summary>
+[DbContext(typeof(SchoolDbContext))]
+[Migration("20260805103000_StrictSchoolTenantIsolation")]
 public partial class StrictSchoolTenantIsolation : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

@@ -107,9 +107,9 @@ Hors 2A-1 : processus Update Agent, fichier DPAPI école, heartbeat, rebind.
 
 **Baseline : `AppSchemaVersion = 1`.** Même valeur côté `MigrationManager` et initialiseurs API.
 
-Moteur officiel des **futures** évolutions : `MigrationManager.ApplyPackageAsync` sur un **dossier local** (manifest + `MigrationN_N+1.sql`). Aucun téléchargement SQL. `SET XACT_ABORT ON` ; une transaction par pas ; bump de version uniquement après succès.
+Cible Lot 2B (non branchée au Setup/API actuel) : `MigrationManager.ApplyPackageAsync` sur un **dossier local** (manifest + `MigrationN_N+1.sql`). Aucun téléchargement SQL. `SET XACT_ABORT ON` ; une transaction par pas ; bump de version uniquement après succès. Tant qu’il n’est pas branché, il ne remplace pas les SchemaInitializers.
 
-Les `*SchemaInitializer` au démarrage de l’API restent **historiques et actifs**. Ne plus en ajouter pour les versions suivantes. `MigrationManager` n’est **pas** appelé au start API dans ce lot.
+Contrat actuel (Setup + API école) : **`001_InitialCreate_EF.sql`** = baseline historique immuable ; **`*SchemaInitializer`** = mécanisme officiel d’évolution du schéma (idempotent, Setup et démarrage API) ; **migrations EF** = artefacts de modèle, non exécutées automatiquement ; **`Database.Migrate()`** = interdit dans le chemin Setup/API. Toute nouvelle évolution SQL doit avoir une couverture `SchemaDeploymentCoverage` (Complete / Partial / Excluded). `MigrationManager` n’est **pas** branché au start API dans ce lot.
 
 Package : `database/migrations/app/` (aujourd’hui 1→1, liste vide). Contrat agent 2B-4B : Stop API → Backup COPY_ONLY+VERIFYONLY → `MigrationManager.ApplyPackageAsync` (package local) → swap → health. Restore SQL uniquement si le schéma a avancé et que la nouvelle API échoue, depuis le `.bak` whitelisté de l’état.
 

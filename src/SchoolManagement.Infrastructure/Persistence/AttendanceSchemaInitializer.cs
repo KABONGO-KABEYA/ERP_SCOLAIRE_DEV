@@ -67,6 +67,9 @@ public sealed class AttendanceSchemaInitializer
 
         _logger.LogInformation(
             "Schéma présences vérifié (StudentAttendances.SchoolId, TeacherAttendances.SchoolId).");
+        // Les index baseline IX_TeacherAttendances_TeacherId_AttendanceDate (UNIQUE)
+        // et IX_StudentAttendances_StudentId_AttendanceDate (non UNIQUE) restent globaux :
+        // TeacherId/StudentId sont des PK GUID, pas une clé métier partagée (contrairement à Courses.Code).
     }
 
     private static async Task EnsureColumnAsync(

@@ -342,10 +342,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Schéma historique : patches idempotents *SchemaInitializer au démarrage
-// (y compris Production / Docker Cloud). Encore REQUIS pour les bases actuelles.
-// Lot 2B-1 : ne PLUS ajouter d'initializer pour les évolutions futures —
-// utiliser MigrationN_N+1.sql + MigrationManager (non branché ici).
+// Contrat schéma (officiel) :
+// - 001_InitialCreate_EF.sql = baseline historique immuable ;
+// - SchemaInitializers = mécanisme officiel d'évolution (idempotent, Setup + démarrage API) ;
+// - Migrations EF = artefacts de modèle — Database.Migrate() est interdit ici.
 {
     using var scope = app.Services.CreateScope();
     var brandingSchema = new DocumentBrandingSchemaInitializer(
@@ -524,6 +524,16 @@ var app = builder.Build();
         sqlConnectionString,
         scope.ServiceProvider.GetRequiredService<ILogger<SecurityEnginePhase0SchemaInitializer>>());
     await securityPhase0Schema.EnsureCreatedAsync();
+
+    var registrationNumberCounterSchema = new RegistrationNumberCounterSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<RegistrationNumberCounterSchemaInitializer>>());
+    await registrationNumberCounterSchema.EnsureCreatedAsync();
+
+    var userRoleAssignmentSchema = new UserRoleAssignmentSchemaInitializer(
+        sqlConnectionString,
+        scope.ServiceProvider.GetRequiredService<ILogger<UserRoleAssignmentSchemaInitializer>>());
+    await userRoleAssignmentSchema.EnsureUpdatedAsync();
 
     // Seed système (permissions + admin) : Development toujours ; Production seulement si SEED_DATABASE=true|1
     // Seed démo : Development uniquement (jamais Production, sauf ALLOW_DEMO_SEED=true explicite).

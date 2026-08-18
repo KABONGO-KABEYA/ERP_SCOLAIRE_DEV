@@ -118,9 +118,9 @@ Design-time : `DesignTimeDbContextFactory` lit **`ServeurDonnees.txt`**.
 
 ### Point critique
 
-**`Database.Migrate()` n’est pas appelé** au démarrage API.
+**`Database.Migrate()` est interdit** dans le chemin Setup/API actuel.
 
-Le schéma évolue surtout via des **`*SchemaInitializer.EnsureCreatedAsync()`** (SQL idempotent au boot) dans `Program.cs` (branding, fees, notifications, délibération, etc.).
+Contrat : `001_InitialCreate_EF.sql` (baseline historique immuable) + `*SchemaInitializer` (mécanisme officiel d’évolution, idempotent au boot API et au Setup). Les migrations EF post-`InitialCreate` sont des artefacts de modèle ; elles doivent figurer dans `SchemaDeploymentCoverage`.
 
 Conséquence pour la séparation Prod/Dev :
 

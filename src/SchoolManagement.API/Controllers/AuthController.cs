@@ -24,8 +24,15 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var result = await _authService.LoginAsync(request, ip, cancellationToken);
-        return Ok(ApiResponse<AuthResponse>.Ok(result, "Connexion réussie."));
+        try
+        {
+            var result = await _authService.LoginAsync(request, ip, cancellationToken);
+            return Ok(ApiResponse<AuthResponse>.Ok(result, "Connexion réussie."));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ApiResponse<AuthResponse>.Fail(ex.Message));
+        }
     }
 
     [HttpPost("refresh")]
@@ -34,8 +41,15 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var result = await _authService.RefreshTokenAsync(request, ip, cancellationToken);
-        return Ok(ApiResponse<AuthResponse>.Ok(result));
+        try
+        {
+            var result = await _authService.RefreshTokenAsync(request, ip, cancellationToken);
+            return Ok(ApiResponse<AuthResponse>.Ok(result));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ApiResponse<AuthResponse>.Fail(ex.Message));
+        }
     }
 
     [HttpPost("logout")]

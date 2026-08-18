@@ -15,6 +15,12 @@ public sealed class CurriculumSchemaInitializer
         _logger = logger;
     }
 
+    /// <summary>
+    /// Idempotent. Utilisé au démarrage API, au Setup, et par le drain Cloud
+    /// (<c>EnsureRemoteCurriculumSchemaAsync</c>) : DROP <c>IX_Courses_Code</c>,
+    /// unique tenant <c>IX_Courses_SchoolId_Code_ClassRoomId</c>, tables/colonnes pédagogiques.
+    /// Aucune donnée n'est supprimée.
+    /// </summary>
     public async Task EnsureUpdatedAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = new SqlConnection(_connectionString);
@@ -56,7 +62,27 @@ public sealed class CurriculumSchemaInitializer
                     FOREIGN KEY ([BranchId]) REFERENCES [Branches] ([Id]) ON DELETE SET NULL;
             END
 
-            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId')
+            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_Code' AND object_id = OBJECT_ID('Courses'))
+            BEGIN
+                DROP INDEX [IX_Courses_Code] ON [Courses];
+            END
+
+            IF EXISTS (
+                SELECT 1 FROM sys.indexes
+                WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId'
+                  AND object_id = OBJECT_ID('Courses')
+                  AND (
+                      is_unique = 0
+                      OR has_filter = 0
+                      OR filter_definition NOT LIKE '%ClassRoomId%IS NULL%'
+                      OR filter_definition NOT LIKE '%IsDeleted%'
+                  )
+            )
+            BEGIN
+                DROP INDEX [IX_Courses_SchoolId_Code_ClassRoomId] ON [Courses];
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId' AND object_id = OBJECT_ID('Courses'))
             BEGIN
                 CREATE UNIQUE INDEX [IX_Courses_SchoolId_Code_ClassRoomId]
                     ON [Courses] ([SchoolId], [Code], [ClassRoomId])
@@ -142,34 +168,6 @@ public sealed class CurriculumSchemaInitializer
             IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('PedagogicalClassCourses') AND name = 'MaxScore')
             BEGIN
                 ALTER TABLE [PedagogicalClassCourses] ADD [MaxScore] int NOT NULL CONSTRAINT [DF_PedagogicalClassCourses_MaxScore] DEFAULT 20;
-            END
-
-            IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Courses_Schools_SchoolId')
-            BEGIN
-                ALTER TABLE [Courses] DROP CONSTRAINT [FK_Courses_Schools_SchoolId];
-            END
-
-            IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Courses_ClassRooms_ClassRoomId')
-            BEGIN
-                ALTER TABLE [Courses] DROP CONSTRAINT [FK_Courses_ClassRooms_ClassRoomId];
-            END
-
-            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code_ClassRoomId')
-            BEGIN
-                DROP INDEX [IX_Courses_SchoolId_Code_ClassRoomId] ON [Courses];
-            END
-
-            IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_SchoolId_Code')
-            BEGIN
-                DROP INDEX [IX_Courses_SchoolId_Code] ON [Courses];
-            END
-
-            SET QUOTED_IDENTIFIER ON;
-            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Courses_Code')
-            BEGIN
-                CREATE UNIQUE INDEX [IX_Courses_Code]
-                    ON [Courses] ([Code])
-                    WHERE [IsDeleted] = 0;
             END
             """;
 

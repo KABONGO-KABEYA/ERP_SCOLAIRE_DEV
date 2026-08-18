@@ -716,8 +716,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     }
 
     /// <summary>
-    /// Aligne le schéma pédagogique cloud (ex. StudyOptions.HumanitiesSection) avant l'upsert.
-    /// Idempotent : IF NOT EXISTS uniquement.
+    /// Aligne le schéma pédagogique cloud avant l'upsert (Branches, index Courses tenant-scoped, Humanités).
+    /// Idempotent : DROP INDEX / CREATE INDEX / ALTER COLUMN uniquement si nécessaire. Aucune donnée n'est supprimée.
     /// </summary>
     private async Task EnsureRemoteCurriculumSchemaAsync(
         SchoolDbContext remote,
@@ -732,8 +732,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var schema = new CurriculumSchemaInitializer(
             cs,
             NullLogger<CurriculumSchemaInitializer>.Instance);
-        await schema.EnsureHumanitiesColumnsAsync(cancellationToken);
-        _logger.LogInformation("Schéma curriculum cloud vérifié.");
+        await schema.EnsureUpdatedAsync(cancellationToken);
+        _logger.LogInformation("Schéma curriculum cloud vérifié (index Courses tenant-scoped inclus).");
     }
 
     /// <summary>
@@ -970,15 +970,16 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 return new UnitOutcome(true, 0, 0, null, tables, OrphanedSoftDeleted: true);
             }
 
+            var failureCategory = ClassifyUnitFailure(ex);
             var retryPending = control?.RetryPendingOnDependencyError == true
                                && !dead
-                               && IsLikelyTransientDependencyError(ex);
+                               && failureCategory == SyncUnitFailureCategory.Transient;
             unit.Status = dead
                 ? SyncOutboxStatus.DeadLetter
                 : retryPending
                     ? SyncOutboxStatus.Pending
                     : SyncOutboxStatus.Failed;
-            unit.LastError = Truncate(errorText, 2000);
+            unit.LastError = Truncate($"[{failureCategory}] {errorText}", 2000);
             foreach (var item in items)
             {
                 item.Status = unit.Status;
@@ -1128,13 +1129,28 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             .AsNoTracking()
             .CountAsync(e => e.Id == entityId, cancellationToken);
 
-    private static bool IsLikelyTransientDependencyError(Exception ex)
+    internal enum SyncUnitFailureCategory
+    {
+        Transient,
+        Structural,
+        Business,
+        Data,
+        MultiTenant,
+        Unknown
+    }
+
+    internal static SyncUnitFailureCategory ClassifyUnitFailure(Exception ex)
     {
         for (var current = ex; current is not null; current = current.InnerException)
         {
             if (current is SqlException sql && (sql.Number == -2 || sql.Number == 1205))
             {
-                return true;
+                return SyncUnitFailureCategory.Transient;
+            }
+
+            if (current is SqlException connectivity && (connectivity.Number == 53 || connectivity.Number == 40 || connectivity.Number == 19))
+            {
+                return SyncUnitFailureCategory.Transient;
             }
 
             if (current is DbException)
@@ -1143,23 +1159,47 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 if (msg.Contains("timeout", StringComparison.OrdinalIgnoreCase)
                     || msg.Contains("time-out", StringComparison.OrdinalIgnoreCase))
                 {
-                    return true;
+                    return SyncUnitFailureCategory.Transient;
                 }
             }
 
             var text = current.Message;
+            if (text.Contains("IX_Courses_Code", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("SchoolId", StringComparison.OrdinalIgnoreCase) && text.Contains("Code", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("multi-tenant", StringComparison.OrdinalIgnoreCase))
+            {
+                return SyncUnitFailureCategory.MultiTenant;
+            }
+
             if (text.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)
                 || text.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase)
                 || text.Contains("The INSERT statement conflicted", StringComparison.OrdinalIgnoreCase)
                 || text.Contains("The UPDATE statement conflicted", StringComparison.OrdinalIgnoreCase)
                 || text.Contains("Could not insert", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("parent row", StringComparison.OrdinalIgnoreCase))
+                || text.Contains("parent row", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("UNIQUE KEY", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("Nom d'objet", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("invalid object name", StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                return SyncUnitFailureCategory.Structural;
+            }
+
+            if (text.Contains("validation", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                return SyncUnitFailureCategory.Business;
+            }
+
+            if (text.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("cannot be null", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("conversion failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return SyncUnitFailureCategory.Data;
             }
         }
 
-        return false;
+        return SyncUnitFailureCategory.Unknown;
     }
 
     private static async Task PrefetchParentsForItemAsync(
