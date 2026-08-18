@@ -80,6 +80,88 @@ function Invoke-DotnetPublish {
   }
 }
 
+# Fichiers runtime locaux (machine de build) : le Setup les ecrit a l'installation.
+# dotnet publish les recopie via CopyToOutputDirectory — ils ne doivent jamais partir dans le payload.
+$script:PayloadRuntimeConfigFiles = @(
+  'ServeurDonneesCloud.txt',
+  'ServeurFichiers.txt',
+  'ServeurDonnees.txt',
+  'appsettings.Development.json',
+  'appsettings.Local.json',
+  'secrets.json'
+)
+
+function Remove-InstallerPayloadRuntimeConfig {
+  param([Parameter(Mandatory = $true)][string]$PayloadRoot)
+
+  if (-not (Test-Path $PayloadRoot)) {
+    throw "Payload introuvable pour sanitisation : $PayloadRoot"
+  }
+
+  $removed = New-Object System.Collections.Generic.List[string]
+  foreach ($app in @('api', 'desktop')) {
+    $dir = Join-Path $PayloadRoot $app
+    if (-not (Test-Path $dir)) { continue }
+
+    Get-ChildItem -LiteralPath $dir -File -Force | Where-Object {
+      ($script:PayloadRuntimeConfigFiles -contains $_.Name) -or
+      ($_.Name -like 'appsettings.Development*.json')
+    } | ForEach-Object {
+      Remove-Item -LiteralPath $_.FullName -Force
+      $removed.Add("$app/$($_.Name)")
+    }
+
+    $logs = Join-Path $dir 'logs'
+    if (Test-Path $logs) {
+      Remove-Item -LiteralPath $logs -Recurse -Force
+      $removed.Add("$app/logs/")
+    }
+  }
+
+  if ($removed.Count -gt 0) {
+    Write-Host ('  Payload : configuration runtime locale retiree ({0})' -f ($removed -join ', ')) -ForegroundColor DarkGray
+  }
+
+  foreach ($app in @('api', 'desktop')) {
+    $dir = Join-Path $PayloadRoot $app
+    if (-not (Test-Path $dir)) { continue }
+    foreach ($name in $script:PayloadRuntimeConfigFiles) {
+      $path = Join-Path $dir $name
+      if (Test-Path $path) {
+        throw "Le payload contient encore $app/$name : build refuse."
+      }
+    }
+  }
+
+  $danger = @(
+    'MOTDEPASSE=',
+    'HEROS_SQL19',
+    'Desktop-ct9vndv',
+    'SchoolManagementRDC_Development',
+    'CHRISTIAN KABONGO'
+  )
+  $hits = New-Object System.Collections.Generic.List[string]
+  foreach ($app in @('api', 'desktop')) {
+    $dir = Join-Path $PayloadRoot $app
+    if (-not (Test-Path $dir)) { continue }
+    Get-ChildItem -LiteralPath $dir -File -Force | Where-Object {
+      $_.Extension -in '.txt', '.json', '.config' -and
+      $_.Name -notmatch '\.(deps|runtimeconfig)\.json$'
+    } | ForEach-Object {
+      $text = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
+      if ([string]::IsNullOrWhiteSpace($text)) { return }
+      foreach ($token in $danger) {
+        if ($text.IndexOf($token, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+          $hits.Add("$app/$($_.Name) ($token)")
+        }
+      }
+    }
+  }
+  if ($hits.Count -gt 0) {
+    throw ("Le payload contient encore une configuration locale/secrete : " + ($hits -join '; '))
+  }
+}
+
 if (-not $SkipBuild) {
   if (Test-Path $dist) {
     Remove-Item $dist -Recurse -Force
@@ -108,6 +190,8 @@ if (-not $SkipBuild) {
     }
   }
 }
+
+Remove-InstallerPayloadRuntimeConfig -PayloadRoot $payload
 
 # Scripts SQL du payload Setup : baseline obligatoire + purge optionnelle (réinstall).
 $sqlOut = Join-Path $payload 'sql'
