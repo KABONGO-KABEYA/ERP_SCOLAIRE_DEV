@@ -1,4 +1,5 @@
 using SchoolManagement.Domain.Common;
+using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Enums;
 
@@ -144,6 +145,8 @@ public class Enrollment : AuditableEntity, IAggregateRoot
     public Entities.Settings.FeePricingCategory FeePricingCategory { get; set; } = null!;
 
     public ICollection<Evaluation> Evaluations { get; set; } = [];
+
+    public ICollection<StudentAttendance> Attendances { get; set; } = [];
 }
 
 /// <summary>Historique des attributions de catégorie tarifaire sur une inscription.</summary>
