@@ -277,7 +277,9 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         if (opt.StartAfterInstall)
         {
             StartService(apiDir);
-            await WaitForHealthAsync("http://127.0.0.1:5096/api/health", TimeSpan.FromSeconds(90), ct);
+            await WaitForHealthAsync(
+                ["http://127.0.0.1:5096/api/health", "http://127.0.0.1:5096/api/v1/health"],
+                ct);
             _log("[SERVICE] Health API 200.");
             _log("API répond sur http://127.0.0.1:5096");
             await RunFinalVerificationAsync(opt, storageRoot, ct);
@@ -376,8 +378,8 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
     }
 
     /// <summary>
-    /// Lance l'API en console quelques secondes pour détecter Smart App Control / erreurs fatales
-    /// avant d'enregistrer le démarrage du service Windows.
+    /// Lance l'API en console jusqu'au health (SchemaInitializers + SecurityEngine Phase 0)
+    /// pour détecter Smart App Control / erreurs fatales avant le service Windows.
     /// </summary>
     private async Task EnsureApiCanStartAsync(string apiDir, InstallOptions opt, string storageRoot, CancellationToken ct)
     {
@@ -388,7 +390,8 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         try { File.Delete(outLog); } catch { /* ignore */ }
         try { File.Delete(errLog); } catch { /* ignore */ }
 
-        _log("Pré-contrôle : démarrage test de l'API…");
+        var timeout = ApiStartupWait.ResolveTimeout();
+        _log($"Pré-contrôle : démarrage test de l'API (attente max {ApiStartupWait.Format(timeout)})…");
         var psi = new ProcessStartInfo
         {
             FileName = exe,
@@ -412,29 +415,16 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         var stdoutTask = p.StandardOutput.ReadToEndAsync(ct);
         var stderrTask = p.StandardError.ReadToEndAsync(ct);
 
-        // Attendre health ou sortie anticipée
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-        var until = DateTime.UtcNow + TimeSpan.FromSeconds(25);
-        var healthy = false;
-        while (DateTime.UtcNow < until && !p.HasExited)
-        {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                using var resp = await http.GetAsync("http://127.0.0.1:5096/api/health", ct);
-                if (resp.IsSuccessStatusCode)
-                {
-                    healthy = true;
-                    break;
-                }
-            }
-            catch
-            {
-                // retry
-            }
-
-            await Task.Delay(800, ct);
-        }
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        var wait = await ApiStartupWait.WaitAsync(
+            ct2 => ApiStartupWait.ProbeUrlsAsync(
+                http,
+                ["http://127.0.0.1:5096/api/health", "http://127.0.0.1:5096/api/v1/health"],
+                ct2),
+            () => !p.HasExited,
+            _log,
+            timeout,
+            cancellationToken: ct);
 
         var stdout = "";
         var stderr = "";
@@ -470,14 +460,14 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
                 "Sans cela, le service ErpScolaireApi ne peut pas démarrer.");
         }
 
-        if (!healthy && p.ExitCode != 0)
+        if (!wait.Healthy)
         {
             var tail = combined.Length > 1200 ? combined[^1200..] : combined;
             throw new InvalidOperationException(
-                "L'API refuse de démarrer (pré-contrôle).\n\n" + tail);
+                "L'API n'est pas prête (pré-contrôle).\n" +
+                wait.Reason + "\n\n" + tail);
         }
 
-        // Laisser le port se libérer
         await Task.Delay(1500, ct);
         _log("Pré-contrôle OK.");
     }
@@ -682,8 +672,10 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         try
         {
             sc.Start();
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+            var timeout = ApiStartupWait.ResolveTimeout();
+            var deadline = DateTime.UtcNow + timeout;
             ServiceControllerStatus? lastLogged = null;
+            var lastProgress = DateTime.UtcNow;
             while (DateTime.UtcNow < deadline)
             {
                 sc.Refresh();
@@ -698,14 +690,19 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
                     _log($"[SERVICE] En attente de Running... (actuel : {sc.Status})");
                     lastLogged = sc.Status;
                 }
+                else if (DateTime.UtcNow - lastProgress >= TimeSpan.FromSeconds(ApiStartupWait.DefaultProgressLogSeconds))
+                {
+                    lastProgress = DateTime.UtcNow;
+                    _log($"[SERVICE] Toujours en démarrage ({sc.Status}) — initialisation API possible lente.");
+                }
 
-                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(2));
+                Thread.Sleep(2000);
             }
 
             sc.Refresh();
             if (sc.Status != ServiceControllerStatus.Running)
                 throw new System.TimeoutException(
-                    $"Le service {ServiceName} n'est pas Running après 60s (état : {sc.Status}).");
+                    $"Le service {ServiceName} n'est pas Running après {ApiStartupWait.Format(timeout)} (état : {sc.Status}).");
         }
         catch (Exception ex)
         {
@@ -1516,27 +1513,31 @@ s.Save
         try { File.Delete(vbs); } catch { /* ignore */ }
     }
 
-    private static async Task WaitForHealthAsync(string url, TimeSpan timeout, CancellationToken ct)
+    private async Task WaitForHealthAsync(IReadOnlyList<string> urls, CancellationToken ct)
     {
+        var timeout = ApiStartupWait.ResolveTimeout();
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-        var until = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < until)
-        {
-            ct.ThrowIfCancellationRequested();
-            try
+        var wait = await ApiStartupWait.WaitAsync(
+            ct2 => ApiStartupWait.ProbeUrlsAsync(http, urls, ct2),
+            () =>
             {
-                using var resp = await http.GetAsync(url, ct);
-                if (resp.IsSuccessStatusCode) return;
-            }
-            catch
-            {
-                // retry
-            }
+                try
+                {
+                    using var sc = new ServiceController(ServiceName);
+                    sc.Refresh();
+                    return sc.Status is ServiceControllerStatus.Running or ServiceControllerStatus.StartPending;
+                }
+                catch
+                {
+                    return true;
+                }
+            },
+            _log,
+            timeout,
+            cancellationToken: ct);
 
-            await Task.Delay(2000, ct);
-        }
-
-        throw new System.TimeoutException("L'API n'a pas répondu à temps après le démarrage du service.");
+        if (!wait.Healthy)
+            throw new System.TimeoutException(wait.Reason);
     }
 
     private static void TryStart(string exe)
