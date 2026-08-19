@@ -96,7 +96,11 @@ public sealed class SchoolEstablishmentService : ISchoolEstablishmentService
                 cancellationToken);
             MarkSynced(next);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or BootstrapRegistryClientException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is InvalidOperationException
+                                      or BootstrapRegistryClientException
+                                      or HttpRequestException
+                                      or TaskCanceledException
+                                      or System.IO.FileNotFoundException)
         {
             // École / nouveau credential locaux conservés — sync pending + retry admin.
             MarkFailed(next, ex);
@@ -132,7 +136,11 @@ public sealed class SchoolEstablishmentService : ISchoolEstablishmentService
                 Message: "Registre Bootstrap synchronisé.",
                 Qr: qr);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or BootstrapRegistryClientException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is InvalidOperationException
+                                      or BootstrapRegistryClientException
+                                      or HttpRequestException
+                                      or TaskCanceledException
+                                      or System.IO.FileNotFoundException)
         {
             MarkFailed(active, ex);
             await _db.SaveChangesAsync(cancellationToken);
@@ -156,7 +164,11 @@ public sealed class SchoolEstablishmentService : ISchoolEstablishmentService
             await PublishUpsertCoreAsync(credential, schoolName, cancellationToken);
             MarkSynced(credential);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or BootstrapRegistryClientException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is InvalidOperationException
+                                      or BootstrapRegistryClientException
+                                      or HttpRequestException
+                                      or TaskCanceledException
+                                      or System.IO.FileNotFoundException)
         {
             MarkFailed(credential, ex);
             _logger.LogWarning(
@@ -295,6 +307,7 @@ public sealed class SchoolEstablishmentService : ISchoolEstablishmentService
         {
             BootstrapRegistryClientException b => b.Message,
             InvalidOperationException i => i.Message,
+            System.IO.FileNotFoundException f => f.Message,
             TaskCanceledException => "Délai dépassé lors de l'appel Bootstrap.",
             HttpRequestException => "Bootstrap injoignable.",
             _ => "Échec de synchronisation Bootstrap.",

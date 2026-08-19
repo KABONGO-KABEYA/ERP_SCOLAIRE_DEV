@@ -1,5 +1,5 @@
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -41,7 +41,7 @@ public sealed class BootstrapSchoolRegistryClient : IBootstrapSchoolRegistryClie
         var baseUrl = RequireBaseUrl();
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/registry/schools/upsert");
         ApplyRelayKey(request);
-        request.Content = JsonContent.Create(new
+        request.Content = CreateJsonContent(new
         {
             schoolId = payload.SchoolId,
             schoolName = payload.SchoolName,
@@ -58,7 +58,7 @@ public sealed class BootstrapSchoolRegistryClient : IBootstrapSchoolRegistryClie
                 secretHash = payload.Credential.SecretHash,
                 tokenType = payload.Credential.TokenType,
             },
-        }, options: JsonOptions);
+        });
 
         using var response = await _http.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, "upsert", payload.SchoolId, cancellationToken);
@@ -75,7 +75,7 @@ public sealed class BootstrapSchoolRegistryClient : IBootstrapSchoolRegistryClie
             HttpMethod.Post,
             $"{baseUrl}/registry/schools/{schoolId:D}/credentials/rotate");
         ApplyRelayKey(request);
-        request.Content = JsonContent.Create(new
+        request.Content = CreateJsonContent(new
         {
             reason,
             credential = new
@@ -85,7 +85,7 @@ public sealed class BootstrapSchoolRegistryClient : IBootstrapSchoolRegistryClie
                 secretHash = credential.SecretHash,
                 tokenType = credential.TokenType,
             },
-        }, options: JsonOptions);
+        });
 
         using var response = await _http.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, "rotate", schoolId, cancellationToken);
@@ -148,6 +148,17 @@ public sealed class BootstrapSchoolRegistryClient : IBootstrapSchoolRegistryClie
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
+
+    private static HttpContent CreateJsonContent<T>(T value)
+    {
+        var json = JsonSerializer.Serialize(value, JsonOptions);
+        var content = new StringContent(json);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json")
+        {
+            CharSet = "utf-8"
+        };
+        return content;
+    }
 
     private static string Truncate(string? value, int max) =>
         string.IsNullOrEmpty(value) ? string.Empty
