@@ -73,7 +73,8 @@ class _ErpQrScannerState extends State<ErpQrScanner> with WidgetsBindingObserver
         facing: CameraFacing.back,
         // Contournement connu sur certains appareils (TECNO, Samsung A23…).
         cameraResolution: const Size(640, 480),
-        useNewCameraSelector: true,
+        // Certains appareils TECNO plantent avec le nouveau sélecteur caméra.
+        useNewCameraSelector: false,
       );
 
   Future<void> _prepareScanner() async {
@@ -225,7 +226,7 @@ class _ErpQrScannerState extends State<ErpQrScanner> with WidgetsBindingObserver
         if (nativeMessage != null && nativeMessage.isNotEmpty) {
           return 'Scanner indisponible : $nativeMessage';
         }
-        return 'Impossible d\'afficher le scanner QR. Utilisez « Photo du QR » '
+        return 'Impossible d\'afficher le scanner QR. Réessayez dans un instant '
             'ou collez le token ci-dessous.';
       case MobileScannerErrorCode.controllerAlreadyInitialized:
       case MobileScannerErrorCode.controllerUninitialized:
@@ -313,22 +314,6 @@ class _ErpQrScannerState extends State<ErpQrScanner> with WidgetsBindingObserver
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
-                OutlinedButton.icon(
-                  onPressed: _analyzingGallery ? null : _scanFromGallery,
-                  icon: _analyzingGallery
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.photo_library_outlined, size: 16),
-                  label: const Text('Photo du QR'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -397,16 +382,6 @@ class _ErpQrScannerState extends State<ErpQrScanner> with WidgetsBindingObserver
                       return _scannerError(error);
                     },
                   ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: _analyzingGallery ? null : _scanFromGallery,
-            icon: const Icon(Icons.photo_library_outlined, size: 18),
-            label: const Text('Importer une photo du QR'),
-            style: TextButton.styleFrom(foregroundColor: ErpColors.primary),
           ),
         ),
       ],

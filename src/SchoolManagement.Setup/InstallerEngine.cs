@@ -64,6 +64,10 @@ public sealed class InstallerEngine
     public const string ServiceName = "ErpScolaireApi";
     public const int ApiPort = 5096;
     public const int ApiPortAlt = 5041;
+    internal const string DefaultBootstrapRegistryBaseUrl =
+        "https://gopvetrs5vjo1v6z0fdh57ty.169.58.93.203.sslip.io";
+    internal const string DefaultBootstrapRelayApiKey =
+        "dev-bootstrap-relay-key-change-in-production";
 
     private readonly Action<string> _log;
 
@@ -1406,11 +1410,25 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
     private static void WriteApiAppsettings(string apiDir, InstallOptions opt)
     {
         var cs = BuildSqlConnectionString(opt, opt.Database);
+        var activationBaseUrl = ResolveActivationBaseUrl(opt);
+        var cloudBaseUrl = NormalizeUrl(opt.CloudApiUrl).TrimEnd('/');
         var json = new
         {
             ConnectionStrings = new { Default = cs },
             Deployment = new { Role = "Local", ReadOnly = false },
             Seed = new { IncludeDemoData = false },
+            Activation = new
+            {
+                BootstrapRelayKey = DefaultBootstrapRelayApiKey,
+                CloudBaseUrl = cloudBaseUrl,
+            },
+            Bootstrap = new
+            {
+                RegistryBaseUrl = DefaultBootstrapRegistryBaseUrl,
+                RelayApiKey = DefaultBootstrapRelayApiKey,
+                ActivationBaseUrl = activationBaseUrl,
+                CloudBaseUrl = cloudBaseUrl,
+            },
             Jwt = new
             {
                 Issuer = "SchoolManagementRDC",
@@ -1424,6 +1442,49 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
         File.WriteAllText(
             Path.Combine(apiDir, "appsettings.Production.json"),
             JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    internal static string ResolveActivationBaseUrl(InstallOptions opt)
+    {
+        var candidate = NormalizeUrl(opt.ApiBaseUrl).TrimEnd('/');
+        if (!candidate.Contains("localhost", StringComparison.OrdinalIgnoreCase) &&
+            !candidate.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+        {
+            return candidate;
+        }
+
+        var ip = TryGetPreferredLanIPv4();
+        return ip is null ? $"http://127.0.0.1:{ApiPort}" : $"http://{ip}:{ApiPort}";
+    }
+
+    private static string? TryGetPreferredLanIPv4()
+    {
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up)
+                continue;
+            if (ni.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (ni.Description.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+            {
+                if (ua.Address.AddressFamily != AddressFamily.InterNetwork)
+                    continue;
+
+                var ip = ua.Address.ToString();
+                if (ip.StartsWith("127.", StringComparison.Ordinal) ||
+                    ip.StartsWith("169.254.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return ip;
+            }
+        }
+
+        return null;
     }
 
     private static void WriteDesktopAppsettings(string desktopDir, string apiBaseUrl, string cloudUrl, bool clientMode)
