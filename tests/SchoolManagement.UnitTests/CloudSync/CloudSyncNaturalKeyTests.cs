@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Infrastructure.CloudSync;
@@ -197,6 +198,174 @@ public sealed class CloudSyncNaturalKeyTests
             SchoolId = schoolId,
             Code = "HUM-GEO",
             Name = "Geographie"
+        };
+
+        (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ExistsByNaturalKey_skips_PermissionDependency_when_same_pair_exists_on_cloud()
+    {
+        var permissionId = Guid.NewGuid();
+        var requiresId = Guid.NewGuid();
+        await using var remote = CreateContext();
+        remote.Set<PermissionDependency>().Add(new PermissionDependency
+        {
+            Id = Guid.NewGuid(),
+            PermissionId = permissionId,
+            RequiresPermissionId = requiresId,
+            IsActive = true
+        });
+        await remote.SaveChangesAsync();
+
+        var local = new PermissionDependency
+        {
+            Id = Guid.NewGuid(),
+            PermissionId = permissionId,
+            RequiresPermissionId = requiresId,
+            IsActive = true
+        };
+
+        (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RemapForeignKeys_rewrites_PermissionDependency_to_cloud_Permission_Ids()
+    {
+        var localPermissionId = Guid.NewGuid();
+        var localRequiresId = Guid.NewGuid();
+        var cloudPermissionId = Guid.NewGuid();
+        var cloudRequiresId = Guid.NewGuid();
+
+        await using var local = CreateContext();
+        await using var remote = CreateContext();
+
+        local.Set<Permission>().Add(CreatePermission(localPermissionId, "students.create"));
+        local.Set<Permission>().Add(CreatePermission(localRequiresId, "students.read"));
+        await local.SaveChangesAsync();
+
+        remote.Set<Permission>().Add(CreatePermission(cloudPermissionId, "students.create"));
+        remote.Set<Permission>().Add(CreatePermission(cloudRequiresId, "students.read"));
+        await remote.SaveChangesAsync();
+
+        var dependency = new PermissionDependency
+        {
+            Id = Guid.NewGuid(),
+            PermissionId = localPermissionId,
+            RequiresPermissionId = localRequiresId,
+            IsActive = true
+        };
+
+        await CloudSyncNaturalKey.RemapForeignKeysAsync(
+            local, remote, dependency, CancellationToken.None);
+
+        dependency.PermissionId.Should().Be(cloudPermissionId);
+        dependency.RequiresPermissionId.Should().Be(cloudRequiresId);
+    }
+
+    [Fact]
+    public async Task RemapForeignKeys_rewrites_PostalAddress_CommuneId_to_cloud_commune()
+    {
+        var localCountryId = Guid.NewGuid();
+        var cloudCountryId = Guid.NewGuid();
+        var localProvinceId = Guid.NewGuid();
+        var cloudProvinceId = Guid.NewGuid();
+        var localCityId = Guid.NewGuid();
+        var cloudCityId = Guid.NewGuid();
+        var localCommuneId = Guid.NewGuid();
+        var cloudCommuneId = Guid.NewGuid();
+
+        await using var local = CreateContext();
+        await using var remote = CreateContext();
+
+        local.Set<Country>().Add(new Country { Id = localCountryId, Code = "CD", Name = "RDC" });
+        local.Set<Province>().Add(new Province
+        {
+            Id = localProvinceId,
+            CountryId = localCountryId,
+            Code = "KN",
+            Name = "Kinshasa"
+        });
+        local.Set<City>().Add(new City
+        {
+            Id = localCityId,
+            ProvinceId = localProvinceId,
+            Code = "KIN",
+            Name = "Kinshasa"
+        });
+        local.Set<Commune>().Add(new Commune
+        {
+            Id = localCommuneId,
+            CityId = localCityId,
+            Code = "GOM",
+            Name = "Gombe"
+        });
+        await local.SaveChangesAsync();
+
+        remote.Set<Country>().Add(new Country { Id = cloudCountryId, Code = "CD", Name = "RDC" });
+        remote.Set<Province>().Add(new Province
+        {
+            Id = cloudProvinceId,
+            CountryId = cloudCountryId,
+            Code = "KN",
+            Name = "Kinshasa"
+        });
+        remote.Set<City>().Add(new City
+        {
+            Id = cloudCityId,
+            ProvinceId = cloudProvinceId,
+            Code = "KIN",
+            Name = "Kinshasa"
+        });
+        remote.Set<Commune>().Add(new Commune
+        {
+            Id = cloudCommuneId,
+            CityId = cloudCityId,
+            Code = "GOM",
+            Name = "Gombe"
+        });
+        await remote.SaveChangesAsync();
+
+        var address = new PostalAddress
+        {
+            Id = Guid.NewGuid(),
+            CountryId = localCountryId,
+            ProvinceId = localProvinceId,
+            CityId = localCityId,
+            CommuneId = localCommuneId
+        };
+
+        await CloudSyncNaturalKey.RemapForeignKeysAsync(
+            local, remote, address, CancellationToken.None);
+
+        address.CountryId.Should().Be(cloudCountryId);
+        address.ProvinceId.Should().Be(cloudProvinceId);
+        address.CityId.Should().Be(cloudCityId);
+        address.CommuneId.Should().Be(cloudCommuneId);
+    }
+
+    [Fact]
+    public async Task ExistsByNaturalKey_skips_Commune_when_same_city_and_code_exist_on_cloud()
+    {
+        var cityId = Guid.NewGuid();
+        await using var remote = CreateContext();
+        remote.Set<Commune>().Add(new Commune
+        {
+            Id = Guid.NewGuid(),
+            CityId = cityId,
+            Code = "GOM",
+            Name = "Gombe"
+        });
+        await remote.SaveChangesAsync();
+
+        var local = new Commune
+        {
+            Id = Guid.NewGuid(),
+            CityId = cityId,
+            Code = "GOM",
+            Name = "Gombe"
         };
 
         (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, local, CancellationToken.None))

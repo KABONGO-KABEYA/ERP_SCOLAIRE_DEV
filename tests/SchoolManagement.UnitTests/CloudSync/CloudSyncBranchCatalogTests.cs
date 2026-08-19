@@ -21,6 +21,22 @@ public class CloudSyncBranchCatalogTests
     }
 
     [Fact]
+    public void SyncOrder_places_geography_before_Adresse()
+    {
+        var order = CloudSyncCatalog.SyncOrder;
+        var idxPays = IndexOf(order, "Pays");
+        var idxProvince = IndexOf(order, "Province");
+        var idxVille = IndexOf(order, "Ville");
+        var idxCommune = IndexOf(order, "Commune");
+        var idxAdresse = IndexOf(order, "Adresse");
+
+        Assert.True(idxPays < idxProvince);
+        Assert.True(idxProvince < idxVille);
+        Assert.True(idxVille < idxCommune);
+        Assert.True(idxCommune < idxAdresse);
+    }
+
+    [Fact]
     public void TryGetClrType_maps_Branches_to_Branch()
     {
         Assert.True(CloudSyncCatalog.TryGetClrType("Branches", out var clr));

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
 using SchoolManagement.Infrastructure.Persistence;
@@ -50,6 +51,44 @@ internal static class CloudSyncNaturalKey
             case UserPermissionException exception:
                 exception.PermissionId = await MapByGlobalCodeAsync<Permission>(
                     local, remote, exception.PermissionId, cancellationToken);
+                break;
+            case Province province:
+                province.CountryId = await MapByGlobalCodeAsync<Country>(
+                    local, remote, province.CountryId, cancellationToken);
+                break;
+            case City city:
+                city.ProvinceId = await MapProvinceIdAsync(
+                    local, remote, city.ProvinceId, cancellationToken);
+                break;
+            case Commune commune:
+                commune.CityId = await MapCityIdAsync(
+                    local, remote, commune.CityId, cancellationToken);
+                break;
+            case PostalAddress address:
+                if (address.CountryId is Guid countryId)
+                {
+                    address.CountryId = await MapByGlobalCodeAsync<Country>(
+                        local, remote, countryId, cancellationToken);
+                }
+
+                if (address.ProvinceId is Guid provinceId)
+                {
+                    address.ProvinceId = await MapProvinceIdAsync(
+                        local, remote, provinceId, cancellationToken);
+                }
+
+                if (address.CityId is Guid cityId)
+                {
+                    address.CityId = await MapCityIdAsync(
+                        local, remote, cityId, cancellationToken);
+                }
+
+                if (address.CommuneId is Guid communeId)
+                {
+                    address.CommuneId = await MapCommuneIdAsync(
+                        local, remote, communeId, cancellationToken);
+                }
+
                 break;
             case Course course when course.BranchId is Guid branchId:
                 course.BranchId = await MapBranchIdAsync(
@@ -112,6 +151,36 @@ internal static class CloudSyncNaturalKey
                 .AnyAsync(
                     x => x.PageId == action.PageId && x.Code == action.Code && x.Id != action.Id,
                     cancellationToken),
+            PermissionDependency dependency => await remote.Set<PermissionDependency>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.PermissionId == dependency.PermissionId
+                         && x.RequiresPermissionId == dependency.RequiresPermissionId
+                         && x.Id != dependency.Id,
+                    cancellationToken),
+            Country country => await remote.Set<Country>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(x => x.Code == country.Code && x.Id != country.Id, cancellationToken),
+            Province province => await remote.Set<Province>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.CountryId == province.CountryId && x.Code == province.Code && x.Id != province.Id,
+                    cancellationToken),
+            City city => await remote.Set<City>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.ProvinceId == city.ProvinceId && x.Code == city.Code && x.Id != city.Id,
+                    cancellationToken),
+            Commune commune => await remote.Set<Commune>()
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.CityId == commune.CityId && x.Code == commune.Code && x.Id != commune.Id,
+                    cancellationToken),
             _ => false
         };
     }
@@ -167,6 +236,7 @@ internal static class CloudSyncNaturalKey
         SecurityModule module => module.Code,
         Permission permission => permission.Code,
         CurrencyDefinition currency => currency.Code,
+        Country country => country.Code,
         _ => null
     };
 
@@ -261,6 +331,102 @@ internal static class CloudSyncNaturalKey
             .AsNoTracking()
             .Where(a => a.PageId == remotePageId && a.Code == localAction.Code)
             .Select(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return remoteId == Guid.Empty ? localId : remoteId;
+    }
+
+    private static async Task<Guid> MapProvinceIdAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid localId,
+        CancellationToken cancellationToken)
+    {
+        if (await ExistsRemoteIdAsync<Province>(remote, localId, cancellationToken))
+        {
+            return localId;
+        }
+
+        var localProvince = await local.Set<Province>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == localId, cancellationToken);
+        if (localProvince is null)
+        {
+            return localId;
+        }
+
+        var remoteCountryId = await MapByGlobalCodeAsync<Country>(
+            local, remote, localProvince.CountryId, cancellationToken);
+        var remoteId = await remote.Set<Province>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(p => p.CountryId == remoteCountryId && p.Code == localProvince.Code)
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return remoteId == Guid.Empty ? localId : remoteId;
+    }
+
+    private static async Task<Guid> MapCityIdAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid localId,
+        CancellationToken cancellationToken)
+    {
+        if (await ExistsRemoteIdAsync<City>(remote, localId, cancellationToken))
+        {
+            return localId;
+        }
+
+        var localCity = await local.Set<City>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == localId, cancellationToken);
+        if (localCity is null)
+        {
+            return localId;
+        }
+
+        var remoteProvinceId = await MapProvinceIdAsync(
+            local, remote, localCity.ProvinceId, cancellationToken);
+        var remoteId = await remote.Set<City>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.ProvinceId == remoteProvinceId && c.Code == localCity.Code)
+            .Select(c => c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return remoteId == Guid.Empty ? localId : remoteId;
+    }
+
+    private static async Task<Guid> MapCommuneIdAsync(
+        SchoolDbContext local,
+        SchoolDbContext remote,
+        Guid localId,
+        CancellationToken cancellationToken)
+    {
+        if (await ExistsRemoteIdAsync<Commune>(remote, localId, cancellationToken))
+        {
+            return localId;
+        }
+
+        var localCommune = await local.Set<Commune>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == localId, cancellationToken);
+        if (localCommune is null)
+        {
+            return localId;
+        }
+
+        var remoteCityId = await MapCityIdAsync(
+            local, remote, localCommune.CityId, cancellationToken);
+        var remoteId = await remote.Set<Commune>()
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.CityId == remoteCityId && c.Code == localCommune.Code)
+            .Select(c => c.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
         return remoteId == Guid.Empty ? localId : remoteId;

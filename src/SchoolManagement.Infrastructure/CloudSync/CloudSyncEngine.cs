@@ -1394,6 +1394,21 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 // BranchId nullable : SchoolId poussé via EnsureParent(Branch) → School.
                 await EnsureParentAsync<Branch>(local, remote, course.BranchId, cancellationToken);
                 break;
+            case PostalAddress address:
+                await EnsureParentAsync<Country>(local, remote, address.CountryId, cancellationToken);
+                await EnsureParentAsync<Province>(local, remote, address.ProvinceId, cancellationToken);
+                await EnsureParentAsync<City>(local, remote, address.CityId, cancellationToken);
+                await EnsureParentAsync<Commune>(local, remote, address.CommuneId, cancellationToken);
+                break;
+            case Commune commune:
+                await EnsureParentAsync<City>(local, remote, commune.CityId, cancellationToken);
+                break;
+            case City city:
+                await EnsureParentAsync<Province>(local, remote, city.ProvinceId, cancellationToken);
+                break;
+            case Province province:
+                await EnsureParentAsync<Country>(local, remote, province.CountryId, cancellationToken);
+                break;
             case Teacher:
             case Role:
             case Section:
@@ -1522,10 +1537,49 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             return;
         }
 
-        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency or CurrencyDefinition or Branch)
+        if (localParent is WithholdingType or FeeType or Bank or FeeInstallment or FeePricingCategory or PedagogicalClass or Section or StudyOption or Permission or Role or CardTemplate or SecurityModule or SecurityFunction or SecurityPage or SecurityAction or PermissionDependency or CurrencyDefinition or Branch or Country)
         {
             UpsertScalars(parentCtx, localParent, remoteExists: false);
             await parentCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Province province)
+        {
+            await EnsureParentAsync<Country>(local, remote, province.CountryId, cancellationToken);
+            await using var provinceCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(provinceCtx, localParent, remoteExists: false);
+            await provinceCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is City city)
+        {
+            await EnsureParentAsync<Province>(local, remote, city.ProvinceId, cancellationToken);
+            await using var cityCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(cityCtx, localParent, remoteExists: false);
+            await cityCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is Commune commune)
+        {
+            await EnsureParentAsync<City>(local, remote, commune.CityId, cancellationToken);
+            await using var communeCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(communeCtx, localParent, remoteExists: false);
+            await communeCtx.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (localParent is PostalAddress address)
+        {
+            await EnsureParentAsync<Country>(local, remote, address.CountryId, cancellationToken);
+            await EnsureParentAsync<Province>(local, remote, address.ProvinceId, cancellationToken);
+            await EnsureParentAsync<City>(local, remote, address.CityId, cancellationToken);
+            await EnsureParentAsync<Commune>(local, remote, address.CommuneId, cancellationToken);
+            await using var addressCtx = new SchoolDbContext(options) { SuppressCloudSyncEnqueue = true };
+            UpsertScalars(addressCtx, localParent, remoteExists: false);
+            await addressCtx.SaveChangesAsync(cancellationToken);
             return;
         }
 
