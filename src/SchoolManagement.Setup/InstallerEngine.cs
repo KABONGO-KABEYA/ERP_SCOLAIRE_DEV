@@ -67,7 +67,7 @@ public sealed class InstallerEngine
     internal const string DefaultBootstrapRegistryBaseUrl =
         "https://gopvetrs5vjo1v6z0fdh57ty.169.58.93.203.sslip.io";
     internal const string DefaultBootstrapRelayApiKey =
-        "dev-bootstrap-relay-key-change-in-production";
+        "HdZxzs46bH7GimmUDSMJM-xogmyzGUNm0mscWT-ar2Heu6m11qBzcyvpXnLcM6QR";
 
     private readonly Action<string> _log;
 

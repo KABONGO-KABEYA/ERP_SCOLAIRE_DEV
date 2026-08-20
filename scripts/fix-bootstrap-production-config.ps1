@@ -13,7 +13,7 @@ param(
     [string]$ServiceName = 'ErpScolaireApi',
     [string]$RegistryBaseUrl = 'https://gopvetrs5vjo1v6z0fdh57ty.169.58.93.203.sslip.io',
     [string]$CloudBaseUrl = 'http://169.58.93.203:1804',
-    [string]$RelayApiKey = 'dev-bootstrap-relay-key-change-in-production',
+    [string]$RelayApiKey = 'HdZxzs46bH7GimmUDSMJM-xogmyzGUNm0mscWT-ar2Heu6m11qBzcyvpXnLcM6QR',
     [int]$ApiPort = 5096
 )
 
