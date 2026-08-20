@@ -3,12 +3,14 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../storage/erp_secure_storage.dart';
+
 /// Identifiant stable de l'installation application (DeviceId — architecture v2).
 class DeviceIdentity {
   DeviceIdentity._();
 
   static const _storageKey = 'device_id_v1';
-  static const _storage = FlutterSecureStorage();
+  static const FlutterSecureStorage _storage = ErpSecureStorage.instance;
   static String? _cached;
 
   static Future<void> ensureInitialized() async {

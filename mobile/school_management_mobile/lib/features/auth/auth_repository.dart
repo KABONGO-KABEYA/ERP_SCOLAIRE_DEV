@@ -20,10 +20,16 @@ class AuthRepository {
       baseUrl ?? ApiConfig.effectiveLocalBaseUrl,
     );
     final dio = createApiDio(url);
+    final activeSchoolId = await CachePartitionPolicy.activeSchoolId();
 
     final response = await dio.post<Map<String, dynamic>>(
       '/api/v1/auth/login',
-      data: {'userName': userName, 'password': password},
+      data: {
+        'userName': userName,
+        'password': password,
+        if (activeSchoolId != null && activeSchoolId.isNotEmpty)
+          'schoolId': activeSchoolId,
+      },
       options: Options(validateStatus: (status) => status != null && status < 500),
     );
 
@@ -43,7 +49,6 @@ class AuthRepository {
 
     final session = AuthSession.fromJson(Map<String, dynamic>.from(api.data as Map));
 
-    final activeSchoolId = await CachePartitionPolicy.activeSchoolId();
     if (!SessionSchoolCoherence.matchesLoginUser(
       activeSchoolId: activeSchoolId,
       userSchoolId: session.user.schoolId,

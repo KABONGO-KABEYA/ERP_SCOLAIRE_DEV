@@ -39,9 +39,18 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress, CancellationToken cancellationToken = default)
     {
-        var user = await _context.UserAccounts
+        // Multi-tenant (Cloud / login distant) : si SchoolId fourni (établissement lié au QR),
+        // résoudre le compte dans cette école — évite de renvoyer un homonyme d'une autre école.
+        var userQuery = _context.UserAccounts
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.UserName == request.UserName && u.IsActive && !u.IsDeleted, cancellationToken);
+            .Where(u => u.UserName == request.UserName && u.IsActive && !u.IsDeleted);
+
+        if (request.SchoolId is Guid schoolId && schoolId != Guid.Empty)
+        {
+            userQuery = userQuery.Where(u => u.SchoolId == schoolId);
+        }
+
+        var user = await userQuery.FirstOrDefaultAsync(cancellationToken);
 
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {

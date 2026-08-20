@@ -1,13 +1,14 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../cache/cache_partition_policy.dart';
+import '../storage/erp_secure_storage.dart';
 import 'mobile_role_routing.dart';
 import 'session_school_coherence.dart';
 
 class AuthStorage {
   AuthStorage._();
 
-  static const _storage = FlutterSecureStorage();
+  static const _storage = ErpSecureStorage.instance;
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userNameKey = 'user_name';

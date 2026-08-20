@@ -1,6 +1,6 @@
 namespace SchoolManagement.Application.Auth.DTOs;
 
-public sealed record LoginRequest(string UserName, string Password);
+public sealed record LoginRequest(string UserName, string Password, Guid? SchoolId = null);
 
 public sealed record RefreshTokenRequest(string RefreshToken);
 

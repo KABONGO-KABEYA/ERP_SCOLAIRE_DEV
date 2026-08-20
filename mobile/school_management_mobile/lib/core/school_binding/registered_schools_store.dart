@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../cache/cache_partition_policy.dart';
+import '../storage/erp_secure_storage.dart';
 import 'school_binding.dart';
 
 /// Persistance bas niveau : registre N écoles + pointeur actif.
@@ -11,7 +12,7 @@ import 'school_binding.dart';
 /// public (architecture v2 §4.6).
 class RegisteredSchoolsStore {
   RegisteredSchoolsStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? ErpSecureStorage.instance;
 
   static const registryKey = 'school_bindings_registry';
   static const activeSchoolIdKey = 'active_school_id';

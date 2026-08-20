@@ -2,13 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../storage/erp_secure_storage.dart';
 import 'activation_session.dart';
 
 /// Session éphémère entre start / complete (architecture v2 §4.4).
 /// Étape 2 : stockage prêt ; aucun appel depuis l'UI ou la discovery.
 class ActivationSessionStore {
   ActivationSessionStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? ErpSecureStorage.instance;
 
   static const secureStorageKey = 'activation_session';
 

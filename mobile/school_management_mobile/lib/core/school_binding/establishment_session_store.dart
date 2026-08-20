@@ -2,12 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../storage/erp_secure_storage.dart';
 import 'establishment_session.dart';
 
 /// Session établissement éphémère (jamais le secret JWT).
 class EstablishmentSessionStore {
   EstablishmentSessionStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? ErpSecureStorage.instance;
 
   static const secureStorageKey = 'establishment_session';
 
