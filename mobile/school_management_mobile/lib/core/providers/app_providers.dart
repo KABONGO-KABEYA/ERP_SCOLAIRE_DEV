@@ -15,6 +15,7 @@ import '../../features/secretary/secretary_student_repository.dart';
 import '../../features/admin/daf_student_repository.dart';
 import '../../features/admin/admin_finance_repository.dart';
 import '../../features/admin/admin_personnel_repository.dart';
+import '../../features/controller/controller_repository.dart';
 
 export '../connection/connection_mode_notifier.dart';
 export '../connection/write_policy.dart';
@@ -51,6 +52,8 @@ final adminFinanceRepositoryProvider =
     Provider((ref) => AdminFinanceRepository(ref.watch(apiClientProvider)));
 final adminPersonnelRepositoryProvider =
     Provider((ref) => AdminPersonnelRepository(ref.watch(apiClientProvider)));
+final controllerRepositoryProvider =
+    Provider((ref) => ControllerRepository(ref.watch(apiClientProvider)));
 
 final authStateProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) => AuthNotifier());

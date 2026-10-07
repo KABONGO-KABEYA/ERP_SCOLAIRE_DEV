@@ -8,6 +8,7 @@ using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Deliberation;
+using SchoolManagement.Domain.Entities.Documents;
 using SchoolManagement.Domain.Entities.Hr;
 using SchoolManagement.Domain.Entities.Notifications;
 using SchoolManagement.Domain.Entities.ParentActivation;
@@ -78,6 +79,7 @@ public class SchoolDbContext : DbContext
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<CashRegister> CashRegisters => Set<CashRegister>();
     public DbSet<AppConfiguration> AppConfigurations => Set<AppConfiguration>();
+    public DbSet<SchoolSubscription> SchoolSubscriptions => Set<SchoolSubscription>();
     public DbSet<SchoolLogo> SchoolLogos => Set<SchoolLogo>();
     public DbSet<SchoolDocumentHeader> SchoolDocumentHeaders => Set<SchoolDocumentHeader>();
     public DbSet<SchoolSignature> SchoolSignatures => Set<SchoolSignature>();
@@ -90,6 +92,7 @@ public class SchoolDbContext : DbContext
     public DbSet<Guardian> Guardians => Set<Guardian>();
     public DbSet<StudentGuardian> StudentGuardians => Set<StudentGuardian>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
+    public DbSet<ParentNotice> ParentNotices => Set<ParentNotice>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<EnrollmentPricingCategoryHistory> EnrollmentPricingCategoryHistory => Set<EnrollmentPricingCategoryHistory>();
     public DbSet<StudentStatusHistory> StudentStatusHistory => Set<StudentStatusHistory>();

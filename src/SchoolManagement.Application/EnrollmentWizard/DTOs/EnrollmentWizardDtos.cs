@@ -34,7 +34,8 @@ public sealed record GuardianInputDto(
     bool CanPickup,
     Gender? Gender = null,
     bool UsesStudentAddress = false,
-    Guid? ExistingGuardianId = null);
+    Guid? ExistingGuardianId = null,
+    bool ForceCreateNew = false);
 
 public sealed record EnrollmentScolariteDto(
     Guid SectionId,
@@ -198,9 +199,12 @@ public sealed record EnrollmentGuardianSearchResultDto(
     string? Email,
     string? Address,
     string? Profession,
-    Gender? Gender)
+    Gender? Gender,
+    string? LinkedStudentsLabel = null)
 {
     public string FullName => $"{LastName} {FirstName}".Trim();
+
+    public bool HasLinkedStudents => !string.IsNullOrWhiteSpace(LinkedStudentsLabel);
 }
 
 public sealed record EnrollmentStructureOptionsDto(

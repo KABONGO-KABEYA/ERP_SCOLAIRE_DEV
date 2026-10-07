@@ -12,6 +12,8 @@ using SchoolManagement.Desktop.Updates;
 using SchoolManagement.Desktop.ViewModels;
 using SchoolManagement.Desktop.Views;
 using SchoolManagement.LocalServerDiscovery;
+using SchoolManagement.Application.Schools;
+using SchoolManagement.Application.Schools.DTOs;
 using Serilog;
 
 namespace SchoolManagement.Desktop;
@@ -174,6 +176,16 @@ public partial class App : System.Windows.Application
         }
 
         var shellViewModel = _host.Services.GetRequiredService<ShellViewModel>();
+        var gate = await EvaluateSchoolSubscriptionAsync();
+        shellViewModel.ApplySubscription(gate.Subscription);
+
+        if (gate.Decision != SchoolSubscriptionGateDecision.Allow)
+        {
+            ShowSchoolSubscriptionBlockMessage(gate);
+            authSession.Clear();
+            return await ReturnToLoginAfterSubscriptionBlockAsync();
+        }
+
         if (!await shellViewModel.InitializeNavigationAsync())
         {
             MessageBox.Show(
@@ -196,7 +208,87 @@ public partial class App : System.Windows.Application
         EnsureMainWindowCloseEndsApplication(mainWindow);
         mainWindow.Show();
         mainWindow.Activate();
+        SubscriptionExpiryReminder.ShowOncePerDay(gate.Subscription, authSession.CurrentUser!.Id, mainWindow);
         return true;
+    }
+
+    private async Task<SchoolSubscriptionGateResult> EvaluateSchoolSubscriptionAsync()
+    {
+        try
+        {
+            var schoolApi = _host!.Services.GetRequiredService<ISchoolApiService>();
+            var subscription = await schoolApi.GetCurrentSubscriptionAsync();
+            return SchoolSubscriptionGate.FromLookup(subscription, isUnavailable: false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Impossible de vérifier l'abonnement établissement.");
+            return SchoolSubscriptionGate.FromLookup(subscription: null, isUnavailable: true);
+        }
+    }
+
+    private static void ShowSchoolSubscriptionBlockMessage(SchoolSubscriptionGateResult gate)
+    {
+        switch (gate.Decision)
+        {
+            case SchoolSubscriptionGateDecision.BlockNotConfigured:
+                MessageBox.Show(
+                    "Votre abonnement ERP Scolaire n'est pas configuré.\n\n"
+                    + "Veuillez contacter l'administration afin d'activer votre abonnement.",
+                    "ERP Scolaire",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                break;
+
+            case SchoolSubscriptionGateDecision.BlockUnavailable:
+                MessageBox.Show(
+                    "Impossible de vérifier l'abonnement ERP Scolaire pour le moment.\n\n"
+                    + "Le service n'a pas répondu. Vérifiez que l'API locale est démarrée, puis reconnectez-vous.\n\n"
+                    + "Cette situation n'indique pas que votre abonnement a expiré.",
+                    "ERP Scolaire",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                break;
+
+            default:
+                var expiration = gate.Subscription?.ExpirationDate?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—";
+                MessageBox.Show(
+                    "Votre abonnement ERP Scolaire a expiré.\n\n"
+                    + $"Date d'expiration : {expiration}\n\n"
+                    + "Veuillez renouveler votre abonnement afin de continuer à utiliser l'application.",
+                    "ERP Scolaire",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                break;
+        }
+    }
+
+    private async Task<bool> ReturnToLoginAfterSubscriptionBlockAsync()
+    {
+        if (_host is null)
+        {
+            ExitApplication();
+            return false;
+        }
+
+        CloseSecondaryWindows();
+
+        if (MainWindow is Desktop.MainWindow shellWindow)
+        {
+            shellWindow.Hide();
+        }
+
+        var loginViewModel = _host.Services.GetRequiredService<LoginViewModel>();
+        loginViewModel.PrepareForFreshLogin();
+
+        var loginWindow = _host.Services.GetRequiredService<LoginWindow>();
+        if (loginWindow.ShowDialog() != true)
+        {
+            ExitApplication();
+            return false;
+        }
+
+        return await EnterAuthenticatedSessionAsync();
     }
 
     private void EnsureMainWindowCloseEndsApplication(Desktop.MainWindow mainWindow)
@@ -254,6 +346,7 @@ public partial class App : System.Windows.Application
 
         services.AddLocalServerDiscovery(options =>
         {
+            options.FixedBaseUrl = configuration["LocalServerDiscovery:FixedBaseUrl"];
             options.RemoteBaseUrl = remoteBaseUrl;
             options.EnableSubnetScan = true;
             options.EnableBackgroundRecheck = true;
@@ -299,6 +392,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<IPedagogicalPeriodApiService, PedagogicalPeriodApiService>();
         services.AddTransient<IAcademicApiService, AcademicApiService>();
         services.AddTransient<IDocumentApiService, DocumentApiService>();
+        services.AddTransient<IParentNoticeApiService, ParentNoticeApiService>();
         services.AddTransient<IDocumentBrandingApiService, DocumentBrandingApiService>();
         services.AddTransient<ISchoolFeeApiService, SchoolFeeApiService>();
         services.AddTransient<ICourseConfigurationApiService, CourseConfigurationApiService>();
@@ -380,6 +474,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<PedagogicalPeriodsViewModel>();
         services.AddTransient<AcademicViewModel>();
         services.AddTransient<DocumentsViewModel>();
+        services.AddTransient<ParentNoticesViewModel>();
         services.AddTransient<DocumentsHubViewModel>();
         services.AddTransient<StatisticsViewModel>();
         services.AddTransient<AdministrationViewModel>();

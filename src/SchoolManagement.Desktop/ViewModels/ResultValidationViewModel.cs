@@ -219,26 +219,7 @@ public partial class ResultValidationViewModel : ViewModelBase
     [RelayCommand]
     private void ExportPdf()
     {
-        if (Rows.Count == 0)
-        {
-            StatusMessage = "Aucune donnée à exporter.";
-            return;
-        }
-
-        var dialog = new SaveFileDialog
-        {
-            Filter = "HTML (*.html)|*.html",
-            FileName = $"Validation_{ClassDisplayName}_{PeriodLabel}.html".Replace(' ', '_')
-        };
-        ErpFileDialog.PrepareSave(dialog);
-        if (ErpFileDialog.ShowSave(dialog) != true)
-        {
-            return;
-        }
-
-        var html = BuildHtmlDocument();
-        File.WriteAllText(dialog.FileName, html, Encoding.UTF8);
-        StatusMessage = "Export PDF (HTML) terminé.";
+        Print();
     }
 
     [RelayCommand]
@@ -253,16 +234,8 @@ public partial class ResultValidationViewModel : ViewModelBase
         try
         {
             var document = BuildPrintDocument();
-            var printDialog = new PrintDialog();
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            printDialog.PrintDocument(
-                ((IDocumentPaginatorSource)document).DocumentPaginator,
-                "Validation des résultats");
-            StatusMessage = "Impression envoyée.";
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, "Validation des résultats", SchoolManagement.Domain.Enums.DocumentBrandingType.ValidationResultats);
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {

@@ -5,6 +5,29 @@ using SchoolManagement.Domain.Entities.Sync;
 
 namespace SchoolManagement.Infrastructure.Persistence.Configurations;
 
+public sealed class SyncDestinationConfiguration : IEntityTypeConfiguration<SyncDestination>
+{
+    public void Configure(EntityTypeBuilder<SyncDestination> builder)
+    {
+        builder.ToTable("SyncDestination");
+        builder.HasKey(x => x.SchoolId);
+        builder.Property(x => x.SchoolId).ValueGeneratedNever();
+        builder.Property(x => x.RemoteKey).HasMaxLength(64).IsUnicode(false);
+    }
+}
+
+public sealed class SyncEntityIdentityConfiguration : IEntityTypeConfiguration<SyncEntityIdentity>
+{
+    public void Configure(EntityTypeBuilder<SyncEntityIdentity> builder)
+    {
+        builder.ToTable("SyncEntityIdentity");
+        builder.HasKey(x => new { x.RemoteKey, x.SchoolId, x.TableName, x.LocalId });
+        builder.Property(x => x.RemoteKey).HasMaxLength(64).IsUnicode(false);
+        builder.Property(x => x.TableName).HasMaxLength(64).IsUnicode(false);
+        builder.Property(x => x.LocalId).ValueGeneratedNever();
+    }
+}
+
 public class SyncOutboxUnitConfiguration : AuditableEntityConfiguration<SyncOutboxUnit>
 {
     public override void Configure(EntityTypeBuilder<SyncOutboxUnit> builder)

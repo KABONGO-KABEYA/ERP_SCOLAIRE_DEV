@@ -21,26 +21,6 @@ public sealed class StudentListPrintService : IStudentListPrintService
         }
 
         var document = StudentListDocumentBuilder.Build(title, subtitle, students);
-        var printDialog = new PrintDialog();
-        printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
-        printDialog.PrintTicket.PageOrientation = PageOrientation.Landscape;
-
-        try
-        {
-            var defaultQueue = LocalPrintServer.GetDefaultPrintQueue();
-            if (defaultQueue is not null)
-            {
-                printDialog.PrintQueue = defaultQueue;
-            }
-        }
-        catch
-        {
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-        }
-
-        printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, title);
+        SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, title, SchoolManagement.Domain.Enums.DocumentBrandingType.ListeEleves);
     }
 }

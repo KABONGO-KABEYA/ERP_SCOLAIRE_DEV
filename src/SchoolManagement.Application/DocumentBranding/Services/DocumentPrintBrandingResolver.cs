@@ -41,7 +41,7 @@ public sealed class DocumentPrintBrandingResolver : IDocumentPrintBrandingResolv
             x => x.SchoolId == schoolId && x.IsActive,
             cancellationToken);
         var header = headers.FirstOrDefault(x => DocumentBrandingTypeCodec.AppliesTo(x, documentType))
-            ?? headers.FirstOrDefault(x => DocumentBrandingTypeCodec.AppliesTo(x, DocumentBrandingType.Autre));
+            ?? (documentType == DocumentBrandingType.Recu ? headers.FirstOrDefault(x => DocumentBrandingTypeCodec.AppliesTo(x, DocumentBrandingType.Autre)) : null);
 
         var logos = await _logoRepository.FindAsync(
             x => x.SchoolId == schoolId && x.IsActive,
@@ -70,7 +70,7 @@ public sealed class DocumentPrintBrandingResolver : IDocumentPrintBrandingResolv
                 headerImagePath = primaryLogoPath;
             }
         }
-        else if (primaryLogo is not null)
+        else if (documentType == DocumentBrandingType.Recu && primaryLogo is not null)
         {
             printMode = HeaderPrintMode.LogoOnly;
             headerImagePath = primaryLogoPath;
@@ -107,7 +107,7 @@ public sealed class DocumentPrintBrandingResolver : IDocumentPrintBrandingResolv
         return new DocumentPrintBrandingDto(
             printMode,
             headerImagePath,
-            primaryLogoPath,
+            header is not null || documentType == DocumentBrandingType.Recu ? primaryLogoPath : null,
             footer,
             signatures,
             stamps,

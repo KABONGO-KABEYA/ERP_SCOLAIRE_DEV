@@ -78,7 +78,9 @@ public sealed record WithholdingResolveContext(
     /// Configurations de retenue fixe déjà liées à ce paiement (modification de montant) :
     /// à conserver même si ce n'est plus le « premier » versement de la rubrique.
     /// </summary>
-    IReadOnlySet<Guid>? PreserveFixedConfigurationIds = null);
+    IReadOnlySet<Guid>? PreserveFixedConfigurationIds = null,
+    /// <summary>Paiement recalculé ou en cours, exclu de l'historique des versements antérieurs.</summary>
+    Guid? CurrentPaymentId = null);
 
 /// <summary>Ligne de retenue calculée à l'encaissement.</summary>
 public sealed record CalculatedWithholdingLine(

@@ -6,12 +6,13 @@ namespace SchoolManagement.Desktop.Services;
 
 public sealed class DocumentBrandingPathResolver : IDocumentBrandingPathResolver
 {
+    private readonly FileStorageConfigurationManager _configurationManager;
     public DocumentBrandingPathResolver(FileStorageConfigurationManager configurationManager)
     {
-        DocumentsRoot = DocumentBrandingPathHelper.GetDocumentsRoot(configurationManager.GetAbsoluteRootPath());
+        _configurationManager = configurationManager;
     }
 
-    public string DocumentsRoot { get; }
+    public string DocumentsRoot => DocumentBrandingPathHelper.GetDocumentsRoot(_configurationManager.GetAbsoluteRootPath());
 
     public string? ResolveAbsolutePath(string? relativePath)
     {

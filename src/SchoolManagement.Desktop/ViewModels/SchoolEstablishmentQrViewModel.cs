@@ -236,18 +236,8 @@ public partial class SchoolEstablishmentQrViewModel : ViewModelBase
         try
         {
             var document = BuildPrintDocument();
-            var dialog = new PrintDialog();
-            if (dialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            document.PageHeight = dialog.PrintableAreaHeight;
-            document.PageWidth = dialog.PrintableAreaWidth;
-            document.PagePadding = new Thickness(48);
-            document.ColumnWidth = dialog.PrintableAreaWidth;
-            dialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "QR établissement");
-            StatusMessage = "Impression envoyée.";
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, "QR établissement", SchoolManagement.Domain.Enums.DocumentBrandingType.QrEtablissement);
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {

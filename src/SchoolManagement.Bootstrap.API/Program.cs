@@ -6,6 +6,15 @@ using SchoolManagement.Bootstrap.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var developmentWebOrigins = builder.Environment.IsDevelopment()
+    ? builder.Configuration.GetSection("Cors:DevelopmentWebOrigins").Get<string[]>() ?? []
+    : [];
+if (developmentWebOrigins.Length > 0)
+{
+    builder.Services.AddCors(options => options.AddPolicy("DevelopmentWeb", policy =>
+        policy.WithOrigins(developmentWebOrigins).AllowAnyHeader().AllowAnyMethod()));
+}
+
 builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection(BootstrapOptions.SectionName));
 
 var bootstrapConnection =
@@ -62,6 +71,11 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+if (developmentWebOrigins.Length > 0)
+{
+    app.UseCors("DevelopmentWeb");
 }
 
 app.MapControllers();

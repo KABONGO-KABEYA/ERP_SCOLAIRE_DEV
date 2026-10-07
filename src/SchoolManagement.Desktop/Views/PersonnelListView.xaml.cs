@@ -14,6 +14,11 @@ public partial class PersonnelListView : UserControl
         InitializeComponent();
     }
 
+    private void PersonnelGrid_OnLoadingRow(object sender, DataGridRowEventArgs e)
+    {
+        e.Row.Tag = (e.Row.GetIndex() + 1).ToString();
+    }
+
     private void PersonnelActionsButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button

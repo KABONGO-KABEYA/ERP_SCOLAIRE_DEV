@@ -7,17 +7,17 @@ namespace SchoolManagement.Setup;
 /// Attente du health API pour le Setup : distingue un process mort d'une
 /// initialisation lente (SchemaInitializers + SecurityEngine Phase 0).
 /// </summary>
-internal static class ApiStartupWait
+public static class ApiStartupWait
 {
     internal const string TimeoutEnvVar = "ERP_SETUP_API_START_TIMEOUT_SECONDS";
     internal const int DefaultTimeoutSeconds = 1200;
     internal const int MinTimeoutSeconds = 60;
     internal const int MaxTimeoutSeconds = 1800;
     internal const int DefaultPollMilliseconds = 2000;
-    internal const int DefaultProgressLogSeconds = 15;
+    public const int DefaultProgressLogSeconds = 15;
     internal const int DefaultConfirmCount = 2;
 
-    internal static TimeSpan ResolveTimeout(string? envValue = null)
+    public static TimeSpan ResolveTimeout(string? envValue = null)
     {
         var raw = envValue ?? Environment.GetEnvironmentVariable(TimeoutEnvVar);
         if (int.TryParse(raw, out var seconds) && seconds > 0)
@@ -34,7 +34,7 @@ internal static class ApiStartupWait
         return TimeSpan.FromSeconds(seconds);
     }
 
-    internal static async Task<ApiStartupWaitResult> WaitAsync(
+    public static async Task<ApiStartupWaitResult> WaitAsync(
         Func<CancellationToken, Task<bool>> probeHealthy,
         Func<bool> isProcessAlive,
         Action<string> log,
@@ -143,7 +143,7 @@ internal static class ApiStartupWait
         return urls.Count > 0;
     }
 
-    internal static string Format(TimeSpan value)
+    public static string Format(TimeSpan value)
     {
         if (value.TotalHours >= 1)
             return $"{(int)value.TotalHours}h {value.Minutes:00}m";
@@ -153,4 +153,4 @@ internal static class ApiStartupWait
     }
 }
 
-internal sealed record ApiStartupWaitResult(bool Healthy, string Reason, TimeSpan Elapsed);
+public sealed record ApiStartupWaitResult(bool Healthy, string Reason, TimeSpan Elapsed);

@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using SchoolManagement.API.Controllers;
+using SchoolManagement.API.Hosting;
 using SchoolManagement.Application.ServerIdentity;
 using Xunit;
 
@@ -17,7 +18,7 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var provider = Substitute.For<IServerIdentityProvider>();
         provider.Current.Returns(CreateSnapshot(schoolId: null));
 
-        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var result = new LocalDiscoveryHealthController(provider, ReadyReadiness()).Get() as OkObjectResult;
         result.Should().NotBeNull();
         var json = JsonSerializer.Serialize(result!.Value);
         using var doc = JsonDocument.Parse(json);
@@ -34,7 +35,7 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var provider = Substitute.For<IServerIdentityProvider>();
         provider.Current.Returns(CreateSnapshot(schoolId: schoolId, keyVersion: 1));
 
-        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var result = new LocalDiscoveryHealthController(provider, ReadyReadiness()).Get() as OkObjectResult;
         result.Should().NotBeNull();
         var json = JsonSerializer.Serialize(result!.Value);
         using var doc = JsonDocument.Parse(json);
@@ -50,7 +51,7 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var provider = Substitute.For<IServerIdentityProvider>();
         provider.Current.Returns(CreateSnapshot(schoolId: null));
 
-        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var result = new LocalDiscoveryHealthController(provider, ReadyReadiness()).Get() as OkObjectResult;
         var json = JsonSerializer.Serialize(result!.Value);
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -68,7 +69,7 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var provider = Substitute.For<IServerIdentityProvider>();
         provider.Current.Returns(CreateSnapshot(schoolId: null));
 
-        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var result = new LocalDiscoveryHealthController(provider, ReadyReadiness()).Get() as OkObjectResult;
         var json = JsonSerializer.Serialize(result!.Value);
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -88,10 +89,17 @@ public sealed class LocalDiscoveryHealthFoundationTests
         var provider = Substitute.For<IServerIdentityProvider>();
         provider.Current.Returns(CreateSnapshot(schoolId: null, schemaVersion: 7));
 
-        var result = new LocalDiscoveryHealthController(provider).Get() as OkObjectResult;
+        var result = new LocalDiscoveryHealthController(provider, ReadyReadiness()).Get() as OkObjectResult;
         var json = JsonSerializer.Serialize(result!.Value);
         using var doc = JsonDocument.Parse(json);
         doc.RootElement.GetProperty("schemaVersion").GetInt32().Should().Be(7);
+    }
+
+    private static StartupReadiness ReadyReadiness()
+    {
+        var readiness = new StartupReadiness();
+        readiness.MarkReady();
+        return readiness;
     }
 
     private static ServerIdentitySnapshot CreateSnapshot(Guid? schoolId, int keyVersion = 1, int schemaVersion = 1) =>

@@ -13,7 +13,7 @@ internal enum ServiceRegistrationState
 }
 
 /// <summary>Arrêt du service ErpScolaireApi et libération des processus API/Desktop avant remplacement du payload.</summary>
-internal static class WindowsServiceLifecycle
+public static class WindowsServiceLifecycle
 {
     internal const string ApiProcessName = "SchoolManagement.API";
     internal const string DesktopProcessName = "SchoolManagement.Desktop";
@@ -121,7 +121,7 @@ internal static class WindowsServiceLifecycle
     /// Présence de l'enregistrement : clé registre uniquement, aucun handle SCM.
     /// GetServices() après sc delete rouvre un handle et bloque la suppression.
     /// </summary>
-    internal static bool ServiceExists(string serviceName) => ServiceRegistryKeyExists(serviceName);
+    public static bool ServiceExists(string serviceName) => ServiceRegistryKeyExists(serviceName);
 
     internal static bool ServiceRegistryKeyExists(string serviceName)
     {
@@ -473,7 +473,7 @@ internal static class WindowsServiceLifecycle
     }
 
     /// <summary>Libère les verrous API + Desktop avant copie du payload serveur.</summary>
-    internal static async Task ReleaseServerPayloadLocksAsync(Action<string> log, CancellationToken ct)
+    public static async Task ReleaseServerPayloadLocksAsync(Action<string> log, CancellationToken ct)
     {
         log("[Setup] Préparation réinstallation — libération des fichiers API/Desktop…");
         await StopDesktopProcessesAsync(log, ct);
@@ -483,7 +483,7 @@ internal static class WindowsServiceLifecycle
     }
 
     /// <summary>Libère les verrous Desktop avant copie client.</summary>
-    internal static async Task ReleaseClientPayloadLocksAsync(Action<string> log, CancellationToken ct)
+    public static async Task ReleaseClientPayloadLocksAsync(Action<string> log, CancellationToken ct)
     {
         log("[Setup] Préparation — fermeture du Desktop avant remplacement…");
         await StopDesktopProcessesAsync(log, ct);

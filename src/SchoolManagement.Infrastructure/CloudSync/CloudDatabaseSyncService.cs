@@ -210,7 +210,7 @@ public sealed class CloudDatabaseSyncService : ICloudDatabaseSyncService
         var changed = 0;
         foreach (var localRow in localRows)
         {
-            await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, localRow, cancellationToken);
+            await CloudSyncNaturalKey.PrepareForCloudAsync(local, remote, localRow, cancellationToken);
 
             if (remoteMap.TryGetValue(localRow.Id, out var remoteRow))
             {

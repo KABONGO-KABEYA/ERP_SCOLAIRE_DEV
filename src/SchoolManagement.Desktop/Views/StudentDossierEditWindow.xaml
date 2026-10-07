@@ -177,6 +177,10 @@
                         <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
                             <StackPanel>
                                 <TextBlock FontWeight="SemiBold" Text="Rechercher un responsable existant" />
+                                <TextBlock Margin="0,4,0,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Un parent déjà lié à un autre élève peut être réutilisé ici."
+                                           TextWrapping="Wrap" />
                                 <erp:ErpSearchField Margin="0,10,0,0"
                                                     HorizontalAlignment="Stretch"
                                                     Placeholder="Nom, téléphone, e-mail..."
@@ -193,9 +197,13 @@
                                                 <StackPanel>
                                                     <TextBlock FontWeight="SemiBold" Text="{Binding FullName}" />
                                                     <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding Phone, StringFormat=Tél. {0}}" />
+                                                    <TextBlock Style="{StaticResource ErpBodySecondary}"
+                                                               Text="{Binding LinkedStudentsLabel}"
+                                                               TextWrapping="Wrap"
+                                                               Visibility="{Binding HasLinkedStudents, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                                     <WrapPanel Margin="0,8,0,0">
-                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsFatherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Père" Style="{StaticResource ErpSecondaryButton}" />
-                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsMotherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Mère" Style="{StaticResource ErpSecondaryButton}" />
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsFatherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Lier Père" Style="{StaticResource ErpSecondaryButton}" />
+                                                        <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsMotherCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Lier Mère" Style="{StaticResource ErpSecondaryButton}" />
                                                         <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsContact1Command, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Contact 1" Style="{StaticResource ErpSecondaryButton}" />
                                                         <Button Margin="0,0,6,6" Command="{Binding DataContext.ApplyGuardianAsContact2Command, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Content="Contact 2" Style="{StaticResource ErpSecondaryButton}" />
                                                     </WrapPanel>
@@ -209,7 +217,18 @@
 
                         <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Père" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding CreateNewFatherCommand}"
+                                            Content="Créer un nouveau"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Père" />
+                                </DockPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="{Binding FatherLinkStatus}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding FatherLinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                 <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -235,7 +254,18 @@
 
                         <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Mère" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding CreateNewMotherCommand}"
+                                            Content="Créer un nouveau"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Mère" />
+                                </DockPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="{Binding MotherLinkStatus}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding MotherLinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                 <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -261,7 +291,18 @@
 
                         <Border Margin="0,0,0,12" Style="{StaticResource ErpV2FormCard}">
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Personne à contacter 1 (facultatif)" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding CreateNewContact1Command}"
+                                            Content="Créer un nouveau"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Personne à contacter 1 (facultatif)" />
+                                </DockPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="{Binding Contact1LinkStatus}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding Contact1LinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                 <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -300,7 +341,18 @@
 
                         <Border Style="{StaticResource ErpV2FormCard}">
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Personne à contacter 2 (facultatif)" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding CreateNewContact2Command}"
+                                            Content="Créer un nouveau"
+                                            Style="{StaticResource ErpSecondaryButton}" />
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Personne à contacter 2 (facultatif)" />
+                                </DockPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="{Binding Contact2LinkStatus}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding Contact2LinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                 <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />

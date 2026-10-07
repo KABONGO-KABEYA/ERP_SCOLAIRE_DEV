@@ -14,11 +14,16 @@ namespace SchoolManagement.API.Controllers;
 public class SchoolsController : ControllerBase
 {
     private readonly ISchoolService _schoolService;
+    private readonly ISchoolSubscriptionService _subscriptionService;
     private readonly ICurrentUserService _currentUser;
 
-    public SchoolsController(ISchoolService schoolService, ICurrentUserService currentUser)
+    public SchoolsController(
+        ISchoolService schoolService,
+        ISchoolSubscriptionService subscriptionService,
+        ICurrentUserService currentUser)
     {
         _schoolService = schoolService;
+        _subscriptionService = subscriptionService;
         _currentUser = currentUser;
     }
 
@@ -30,6 +35,16 @@ public class SchoolsController : ControllerBase
         var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
         var school = await _schoolService.GetSchoolAsync(schoolId, cancellationToken);
         return school is null ? NotFound() : Ok(ApiResponse<SchoolDto>.Ok(school));
+    }
+
+    [HttpGet("current/subscription")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<SchoolSubscriptionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCurrentSubscription(CancellationToken cancellationToken)
+    {
+        var schoolId = _currentUser.SchoolId ?? throw new UnauthorizedAccessException();
+        var subscription = await _subscriptionService.GetCurrentAsync(schoolId, cancellationToken);
+        return Ok(ApiResponse<SchoolSubscriptionDto>.Ok(subscription));
     }
 
     [HttpPut("current")]

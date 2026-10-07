@@ -23,15 +23,15 @@ public static class DocumentPrintHeaderComposer
         DocumentPrintBrandingDto branding,
         Func<string?, byte[]?> loadImage)
     {
-        if (branding.PrintMode != HeaderPrintMode.FullImage)
+        if (branding.PrintMode is null)
         {
             return false;
         }
 
-        var headerBytes = loadImage(branding.HeaderImagePath) ?? loadImage(branding.PrimaryLogoPath);
+        var headerBytes = loadImage(branding.HeaderImagePath);
         if (headerBytes is null)
         {
-            return false;
+            throw new InvalidOperationException("L’image de l’en-tête sélectionné est introuvable.");
         }
 
         var left = ClampMmToPoints(branding.HeaderMarginLeftMm);
@@ -43,12 +43,9 @@ public static class DocumentPrintHeaderComposer
 
         // Pas d'AlignCenter : l'image occupe toute la largeur utile (= tableaux).
         // FitUnproportionally = étirement gauche→droite dans la bande définie.
-        container
-            .PaddingLeft(left)
-            .PaddingRight(right)
-            .Height(height)
-            .Image(headerBytes)
-            .FitUnproportionally();
+        var image = container.PaddingLeft(left).PaddingRight(right).Height(height).Image(headerBytes);
+        if (branding.PrintMode == HeaderPrintMode.LogoOnly) image.FitArea();
+        else image.FitUnproportionally();
 
         return true;
     }

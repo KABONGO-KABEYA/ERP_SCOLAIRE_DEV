@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using SchoolManagement.Domain.Common;
 using SchoolManagement.Domain.Entities.Finance;
 using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Security;
 using SchoolManagement.Domain.Entities.Settings;
+using SchoolManagement.Domain.Entities.Sync;
 using SchoolManagement.Infrastructure.Persistence;
 
 namespace SchoolManagement.Infrastructure.CloudSync;
@@ -14,6 +17,98 @@ namespace SchoolManagement.Infrastructure.CloudSync;
 /// </summary>
 internal static class CloudSyncNaturalKey
 {
+    // Les objets reçus sont des copies AsNoTracking : les identifiants locaux restent inchangés.
+    public static async Task PrepareForCloudAsync(
+        SchoolDbContext local, SchoolDbContext remote, AuditableEntity entity,
+        CancellationToken cancellationToken)
+    {
+        await RemapForeignKeysAsync(local, remote, entity, cancellationToken);
+        if (entity is ClassFeeAmount tariff)
+        {
+            var localId = tariff.Id;
+            entity.Id = await FindMappedIdAsync(local, remote, tariff.SchoolId, "ClassFeeAmounts", localId, cancellationToken)
+                ?? await ResolveTariffIdAsync(remote, tariff, cancellationToken);
+            await RememberIdentityAsync(local, remote, tariff.SchoolId, "ClassFeeAmounts", localId, entity.Id, cancellationToken);
+        }
+        else if (entity is StudentFeeBalance balance)
+        {
+            var localId = balance.Id;
+            // L'école est déduite du tarif local d'origine, même après remappage de la FK.
+            var source = await local.Set<StudentFeeBalance>().IgnoreQueryFilters().AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == localId, cancellationToken);
+            var schoolId = await local.Set<ClassFeeAmount>().IgnoreQueryFilters().AsNoTracking()
+                .Where(x => x.Id == (source == null ? balance.ClassFeeAmountId : source.ClassFeeAmountId))
+                .Select(x => (Guid?)x.SchoolId).SingleOrDefaultAsync(cancellationToken);
+            var mappedId = schoolId is Guid sid
+                ? await FindMappedIdAsync(local, remote, sid, "StudentFeeBalances", localId, cancellationToken)
+                : null;
+            var id = mappedId;
+            if (id is null && !balance.IsDeleted)
+            {
+                id = await remote.Set<StudentFeeBalance>().IgnoreQueryFilters().AsNoTracking()
+                    .Where(x => !x.IsDeleted && x.StudentId == balance.StudentId
+                        && x.ClassFeeAmountId == balance.ClassFeeAmountId)
+                    .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(cancellationToken);
+            }
+            entity.Id = id ?? localId;
+            if (schoolId is Guid school)
+                await RememberIdentityAsync(local, remote, school, "StudentFeeBalances", localId, entity.Id, cancellationToken);
+        }
+    }
+
+    internal static string RemoteKey(SchoolDbContext remote)
+    {
+        var identity = remote.Database.IsRelational()
+            ? remote.Database.GetDbConnection().DataSource.ToLowerInvariant() + "/"
+                + remote.Database.GetDbConnection().Database.ToLowerInvariant()
+            : remote.Database.ProviderName ?? "in-memory";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
+    }
+
+    private static Task<Guid?> FindMappedIdAsync(
+        SchoolDbContext local, SchoolDbContext remote, Guid schoolId, string tableName, Guid localId,
+        CancellationToken cancellationToken)
+    {
+        var key = RemoteKey(remote);
+        return local.Set<SyncEntityIdentity>().AsNoTracking()
+            .Where(x => x.RemoteKey == key && x.SchoolId == schoolId && x.TableName == tableName && x.LocalId == localId)
+            .Select(x => (Guid?)x.CloudId).SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private static async Task RememberIdentityAsync(
+        SchoolDbContext local, SchoolDbContext remote, Guid schoolId, string tableName,
+        Guid localId, Guid cloudId, CancellationToken cancellationToken)
+    {
+        if (localId == cloudId) return;
+        var key = RemoteKey(remote);
+        var mapping = await local.Set<SyncEntityIdentity>().FindAsync(
+            new object[] { key, schoolId, tableName, localId }, cancellationToken);
+        if (mapping is not null) return;
+        local.Add(new SyncEntityIdentity { RemoteKey = key, SchoolId = schoolId,
+            TableName = tableName, LocalId = localId, CloudId = cloudId });
+        await local.SaveChangesAsync(cancellationToken);
+    }
+
+    internal static async Task<Guid> ResolveTariffIdAsync(
+        SchoolDbContext remote, ClassFeeAmount tariff, CancellationToken cancellationToken)
+    {
+        // Un ancien tombstone ne doit jamais supprimer un tarif actif de remplacement.
+        if (tariff.IsDeleted)
+        {
+            return tariff.Id;
+        }
+
+        var id = await remote.Set<ClassFeeAmount>().IgnoreQueryFilters().AsNoTracking()
+            .Where(x => !x.IsDeleted && x.SchoolId == tariff.SchoolId
+                && x.AcademicYearId == tariff.AcademicYearId
+                && x.PedagogicalClassId == tariff.PedagogicalClassId
+                && x.FeePricingCategoryId == tariff.FeePricingCategoryId
+                && x.FeeTypeId == tariff.FeeTypeId
+                && x.FeeInstallmentId == tariff.FeeInstallmentId)
+            .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(cancellationToken);
+        return id ?? tariff.Id;
+    }
+
     public static async Task RemapForeignKeysAsync(
         SchoolDbContext local,
         SchoolDbContext remote,
@@ -22,6 +117,16 @@ internal static class CloudSyncNaturalKey
     {
         switch (entity)
         {
+            case StudentFeeBalance balance:
+                var tariff = await local.Set<ClassFeeAmount>().IgnoreQueryFilters().AsNoTracking()
+                    .SingleOrDefaultAsync(x => x.Id == balance.ClassFeeAmountId, cancellationToken);
+                if (tariff is not null)
+                {
+                    balance.ClassFeeAmountId = await FindMappedIdAsync(local, remote, tariff.SchoolId,
+                        "ClassFeeAmounts", tariff.Id, cancellationToken)
+                        ?? await ResolveTariffIdAsync(remote, tariff, cancellationToken);
+                }
+                break;
             case SecurityFunction function:
                 function.ModuleId = await MapByGlobalCodeAsync<SecurityModule>(
                     local, remote, function.ModuleId, cancellationToken);

@@ -702,14 +702,10 @@ public sealed class ReportService : IReportService
 
         var branding = await _brandingResolver.ResolveAsync(
             schoolId,
-            DocumentBrandingType.RapportFinancier,
+            DocumentBrandingType.RecettesRealisees,
             cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(branding.HeaderImagePath)
-            && string.IsNullOrWhiteSpace(branding.PrimaryLogoPath))
-        {
-            branding = await _brandingResolver.ResolveAsync(schoolId, DocumentBrandingType.Recu, cancellationToken);
-        }
+
 
         string? feeTypeName = null;
         if (request.FeeTypeId.HasValue)
@@ -1010,6 +1006,7 @@ public sealed class ReportService : IReportService
     {
         var result = await GetPaymentSituationReportAsync(schoolId, request, cancellationToken);
 
+        var header = await new SchoolManagement.Application.DocumentBranding.ConfiguredDocumentHeaderService(_brandingResolver, _brandingStorage).LoadAsync(schoolId, DocumentBrandingType.SituationPaiements, cancellationToken);
         var document = Document.Create(container =>
         {
             container.Page(page =>
@@ -1018,7 +1015,8 @@ public sealed class ReportService : IReportService
                 page.DefaultTextStyle(x => x.FontSize(8));
                 page.Header().Column(col =>
                 {
-                    col.Item().Text("ERP SCOLAIRE — Situation des paiements").SemiBold().FontSize(14);
+                    if (header.Image is not null) header.Compose(col.Item());
+                    col.Item().Text("Situation des paiements").SemiBold().FontSize(14);
                     col.Item().Text($"{result.FeeTypeName} · {result.AcademicYearLabel}")
                         .FontSize(10).FontColor(Colors.Grey.Darken2);
                     col.Item().Text($"{result.ScopeLabel} · {result.SituationLabel}")

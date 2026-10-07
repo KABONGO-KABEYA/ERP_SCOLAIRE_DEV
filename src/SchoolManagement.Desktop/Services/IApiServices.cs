@@ -27,6 +27,9 @@ public interface ISchoolApiService
 {
     Task<SchoolManagement.Application.Schools.DTOs.SchoolDto?> GetCurrentSchoolAsync(CancellationToken cancellationToken = default);
 
+    Task<SchoolManagement.Application.Schools.DTOs.SchoolSubscriptionDto> GetCurrentSubscriptionAsync(
+        CancellationToken cancellationToken = default);
+
     Task<SchoolManagement.Application.Schools.DTOs.SchoolDto> UpdateSchoolAsync(
         SchoolManagement.Application.Schools.DTOs.UpdateSchoolRequest request,
         CancellationToken cancellationToken = default);
@@ -951,6 +954,26 @@ public interface IDocumentApiService
     Task DeleteAsync(Guid documentId, CancellationToken cancellationToken = default);
 }
 
+public interface IParentNoticeApiService
+{
+    Task<IReadOnlyList<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>> ListAsync(
+        CancellationToken cancellationToken = default);
+    Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> GetAsync(
+        Guid id, CancellationToken cancellationToken = default);
+    Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> CreateAsync(
+        SchoolManagement.Application.ParentNotices.DTOs.SaveParentNoticeRequest request,
+        CancellationToken cancellationToken = default);
+    Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> UpdateAsync(
+        Guid id,
+        SchoolManagement.Application.ParentNotices.DTOs.SaveParentNoticeRequest request,
+        CancellationToken cancellationToken = default);
+    Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> MarkGeneratedAsync(
+        Guid id,
+        SchoolManagement.Application.ParentNotices.DTOs.GenerateParentNoticeRequest request,
+        CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+}
+
 public interface IPromoterDashboardApiService
 {
     Task<SchoolManagement.Application.Dashboard.DTOs.PromoterDashboardOverviewDto> GetOverviewAsync(
@@ -1003,6 +1026,10 @@ public interface IPromoterDashboardApiService
         CancellationToken cancellationToken = default);
 
     Task<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto> GetEnrolledStudentsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<SchoolManagement.Application.Dashboard.DTOs.FeeReceivablesBreakdownDto> GetReceivablesBreakdownAsync(
+        Guid? feeTypeId = null,
         CancellationToken cancellationToken = default);
 }
 

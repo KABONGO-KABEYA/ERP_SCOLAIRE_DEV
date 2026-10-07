@@ -388,6 +388,7 @@ public partial class ShellView : UserControl
         desktopViewKey switch
         {
             "Documents.Main" => "Gestion des documents élèves.",
+            "Documents.ParentNotices" => "Publipostage des avis financiers personnalisés aux parents.",
             "StudentCards.Main" => "Émission et suivi des cartes élèves.",
             _ => "Documents"
         };
@@ -1032,6 +1033,13 @@ public partial class ShellView : UserControl
         {
             PageTitleText.Text = "Documents élèves";
             PageSubtitleText.Text = GetDocumentsPageSubtitle("Documents.Main");
+            return;
+        }
+
+        if (shellViewModel.CurrentViewModel is ParentNoticesViewModel)
+        {
+            PageTitleText.Text = "Avis aux parents";
+            PageSubtitleText.Text = GetDocumentsPageSubtitle("Documents.ParentNotices");
             return;
         }
 

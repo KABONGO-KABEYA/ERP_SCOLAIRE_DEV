@@ -632,7 +632,10 @@ public sealed class StudentCardService : IStudentCardService
             throw new DomainException("Cette carte ne peut plus être renouvelée.");
 
         var settings = await GetOrCreateSettingsAsync(schoolId, cancellationToken);
-        var keepQr = request.KeepQrToken ?? settings.KeepQrOnRenewal;
+        // Une carte remplacée ne doit jamais rester exploitable avec le même QR.
+        // Le jeton est toujours renouvelé afin de respecter l'index unique et
+        // d'empêcher qu'une ancienne carte physique identifie encore l'élève.
+        const bool keepQr = false;
         var templateId = request.TemplateId ?? oldCard.TemplateId;
         await RequireTemplateAsync(schoolId, templateId, cancellationToken);
 
@@ -656,7 +659,7 @@ public sealed class StudentCardService : IStudentCardService
             ?? throw new DomainException("Année scolaire introuvable.");
         var allocator = await CreateAllocatorAsync(schoolId, settings, year, cancellationToken);
         var cardNumber = allocator.Next();
-        var qrToken = keepQr ? oldCard.QrToken : GenerateQrToken();
+        var qrToken = GenerateQrToken();
         var expiresAt = request.ExpiresAt
             ?? DateTime.UtcNow.AddMonths(Math.Max(1, settings.DefaultValidityMonths));
 
@@ -967,7 +970,9 @@ public sealed class StudentCardService : IStudentCardService
         var settings = await GetOrCreateSettingsAsync(schoolId, cancellationToken);
         settings.CardNumberPrefix = request.CardNumberPrefix.Trim().ToUpperInvariant();
         settings.DefaultValidityMonths = request.DefaultValidityMonths;
-        settings.KeepQrOnRenewal = request.KeepQrOnRenewal;
+        // Conservation interdite : une ancienne carte physique ne doit jamais
+        // partager le jeton d'une carte renouvelée.
+        settings.KeepQrOnRenewal = false;
         await PersistSettingsAsync(settings, userId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return MapSettings(settings);

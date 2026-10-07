@@ -88,6 +88,11 @@ public partial class ShellViewModel : ViewModelBase
             var now = DateTime.Now;
             CurrentDateLabel = now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
             CurrentTimeLabel = now.ToString("HH:mm");
+            if (SubscriptionIsValid && DateTime.UtcNow - _lastSubscriptionRefreshUtc >= TimeSpan.FromMinutes(5))
+            {
+                _lastSubscriptionRefreshUtc = DateTime.UtcNow;
+                _ = LoadSchoolNameAsync();
+            }
         };
         _clockTimer.Start();
         CurrentDateLabel = DateTime.Now.ToString("ddd d MMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
@@ -198,6 +203,15 @@ public partial class ShellViewModel : ViewModelBase
     private string _schoolName = "Établissement scolaire";
 
     [ObservableProperty]
+    private string _subscriptionStatusLabel = "";
+
+    [ObservableProperty]
+    private bool _subscriptionIsValid;
+
+    [ObservableProperty]
+    private bool _subscriptionNeedsAttention;
+
+    [ObservableProperty]
     private string _currentDateLabel = "";
 
     [ObservableProperty]
@@ -230,11 +244,41 @@ public partial class ShellViewModel : ViewModelBase
             var school = await _schoolApiService.GetCurrentSchoolAsync();
             if (school is not null && !string.IsNullOrWhiteSpace(school.Name))
                 SchoolName = school.Name;
+
+            var subscription = await _schoolApiService.GetCurrentSubscriptionAsync();
+            ApplySubscription(subscription);
         }
         catch
         {
             // affichage non bloquant
         }
+    }
+
+    [ObservableProperty] private string _subscriptionWarningMessage = "";
+    [ObservableProperty] private bool _subscriptionExpiresSoon;
+    private DateTime _lastSubscriptionRefreshUtc = DateTime.UtcNow;
+
+    public void ApplySubscription(SchoolSubscriptionDto? subscription)
+    {
+        SubscriptionWarningMessage = SchoolManagement.Desktop.Services.SubscriptionExpiryReminder.GetMessage(subscription, DateTime.UtcNow) ?? "";
+        SubscriptionExpiresSoon = SubscriptionWarningMessage.Length > 0;
+        if (subscription is null)
+        {
+            SubscriptionStatusLabel = "";
+            SubscriptionIsValid = false;
+            SubscriptionNeedsAttention = false;
+            return;
+        }
+
+        SubscriptionIsValid = subscription.IsValid;
+        SubscriptionNeedsAttention = !subscription.IsValid || SubscriptionExpiresSoon;
+        SubscriptionStatusLabel = subscription.Status switch
+        {
+            SchoolSubscriptionStatuses.Valid => "Abonnement valide",
+            SchoolSubscriptionStatuses.Expired => "Abonnement expiré",
+            SchoolSubscriptionStatuses.Unavailable => "Abonnement indéterminé",
+            _ => "Abonnement non configuré"
+        };
     }
 
     public void RefreshCurrentAcademicYear() => _ = LoadCurrentAcademicYearAsync();

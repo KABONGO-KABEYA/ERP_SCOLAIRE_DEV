@@ -10,7 +10,9 @@ import 'features/parent/notifications/parent_push_foreground_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  FlutterForegroundTask.initCommunicationPort();
+  if (!kIsWeb) {
+    FlutterForegroundTask.initCommunicationPort();
+  }
 
   // Ne jamais bloquer le splash indéfiniment (ANR TECNO / Keystore).
   await _guardedStartup(DeviceIdentity.ensureInitialized);

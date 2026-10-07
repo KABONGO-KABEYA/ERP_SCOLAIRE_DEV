@@ -552,12 +552,22 @@ public partial class ExpensePaymentsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ExportList() =>
-        StatusMessage = "Export Excel/PDF — à brancher sur le moteur d’export existant.";
+    private void ExportList() => PrintList();
 
     [RelayCommand]
-    private void PrintList() =>
-        StatusMessage = "Impression de la liste — à brancher sur le service d’impression.";
+    private void PrintList()
+    {
+        try
+        {
+            if (Payments.Count == 0) { StatusMessage = "Aucune dépense à imprimer."; return; }
+            var doc = SchoolManagement.Desktop.Printing.DocumentPreview.Table("Dépenses — liste affichée",
+                new[] { "Date", "Référence", "Libellé", "Bénéficiaire", "Compte", "Montant", "Devise", "Statut" },
+                Payments.Select(p => new[] { p.ExpenseDate.ToString("dd/MM/yyyy"), p.Reference, p.Label,
+                    p.BeneficiaryName, p.DestinationName, p.Amount.ToString("N2"), p.Currency, p.StatusLabel }));
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(doc, "Dépenses — liste affichée", SchoolManagement.Domain.Enums.DocumentBrandingType.ListeDepenses);
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
+    }
 
     private async Task SaveInternalAsync(bool keepFormOpen)
     {

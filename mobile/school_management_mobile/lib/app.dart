@@ -19,8 +19,10 @@ class SchoolManagementApp extends ConsumerWidget {
         title: 'ERP Scolaire RDC',
         debugShowCheckedModeBanner: false,
         theme: ErpTheme.light(),
-        darkTheme: ErpTheme.dark(),
-        themeMode: ThemeMode.system,
+        // Les écrans utilisent encore la palette claire explicite (textes,
+        // graphiques et fonds). Ne pas activer un thème sombre partiel selon
+        // le système : les cartes sombres rendraient ces textes illisibles.
+        themeMode: ThemeMode.light,
         routerConfig: router,
         builder: (context, child) {
           return UpdateBootstrap(

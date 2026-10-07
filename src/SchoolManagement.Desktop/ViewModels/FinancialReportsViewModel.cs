@@ -1,9 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
+using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using SchoolManagement.Application.Academic.DTOs;
+using SchoolManagement.Application.DocumentBranding.DTOs;
 using SchoolManagement.Application.Reports.DTOs;
 using SchoolManagement.Application.RevenueAllocation.DTOs;
 using SchoolManagement.Application.SchoolFees.DTOs;
@@ -12,6 +17,7 @@ using SchoolManagement.Desktop.Helpers;
 using SchoolManagement.Desktop.Models;
 using SchoolManagement.Desktop.Services;
 using SchoolManagement.Desktop.UI;
+using SchoolManagement.Domain.Enums;
 
 namespace SchoolManagement.Desktop.ViewModels;
 
@@ -32,6 +38,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
     private readonly ISchoolFeeApiService _schoolFeeApi;
     private readonly IAcademicApiService _academicApi;
     private readonly IEnrollmentWizardApiService _wizardApi;
+    private readonly IPromoterDashboardApiService _dashboardApi;
+    private readonly IDocumentBrandingApiService _brandingApi;
+    private readonly IDocumentBrandingPathResolver _brandingPathResolver;
     private bool _suppressPeriodReload;
     private bool _suppressFilterReload;
     private bool _suppressMonthReload;
@@ -46,7 +55,10 @@ public partial class FinancialReportsViewModel : ViewModelBase
         ISchoolApiService schoolApi,
         ISchoolFeeApiService schoolFeeApi,
         IAcademicApiService academicApi,
-        IEnrollmentWizardApiService wizardApi)
+        IEnrollmentWizardApiService wizardApi,
+        IPromoterDashboardApiService dashboardApi,
+        IDocumentBrandingApiService brandingApi,
+        IDocumentBrandingPathResolver brandingPathResolver)
     {
         _reportApi = reportApi;
         _allocationApi = allocationApi;
@@ -54,6 +66,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
         _schoolFeeApi = schoolFeeApi;
         _academicApi = academicApi;
         _wizardApi = wizardApi;
+        _dashboardApi = dashboardApi;
+        _brandingApi = brandingApi;
+        _brandingPathResolver = brandingPathResolver;
         PeriodOptions =
         [
             new ReportPeriodOption(RealizedReceiptsPeriodKind.Day, "Journalier"),
@@ -148,6 +163,19 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
     public ObservableCollection<WithholdingReportTypeGroupRow> WithholdingGroups { get; } = [];
 
+    public ObservableCollection<SchoolManagement.Application.Dashboard.DTOs.FeeInstallmentReceivableDto> ReceivablesByInstallment { get; } = [];
+
+    public ObservableCollection<SchoolManagement.Application.Dashboard.DTOs.FeeDestinationReceivableDto> ReceivablesByDestination { get; } = [];
+
+    public ObservableCollection<SchoolManagement.Application.Dashboard.DTOs.DashboardDebtorLineDto> ReceivableDebtors { get; } = [];
+
+    [ObservableProperty] private string _receivablesTitle = "Suivi des créances — promoteur";
+    [ObservableProperty] private string _receivablesAcademicYear = string.Empty;
+    [ObservableProperty] private string _receivablesCurrency = string.Empty;
+    [ObservableProperty] private decimal _receivablesExpected;
+    [ObservableProperty] private decimal _receivablesPaid;
+    [ObservableProperty] private decimal _receivablesRemaining;
+
     [ObservableProperty] private decimal _withholdingGrandTotal;
     [ObservableProperty] private int _withholdingPaymentCount;
 
@@ -170,10 +198,13 @@ public partial class FinancialReportsViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isInitialized;
     [ObservableProperty] private bool _isFiltersExpanded = true;
+    [ObservableProperty] private int _selectedReportTabIndex;
 
     public bool IsCustomPeriod => SelectedPeriod?.Kind == RealizedReceiptsPeriodKind.Custom;
 
     public bool IsMonthPeriod => SelectedPeriod?.Kind == RealizedReceiptsPeriodKind.Month;
+
+    public bool IsReceivablesTabSelected => SelectedReportTabIndex == 6;
 
     public string FiltersToggleLabel => IsFiltersExpanded ? "Masquer les filtres" : "Afficher les filtres";
 
@@ -195,6 +226,8 @@ public partial class FinancialReportsViewModel : ViewModelBase
     };
 
     partial void OnIsFiltersExpandedChanged(bool value) => OnPropertyChanged(nameof(FiltersToggleLabel));
+
+    partial void OnSelectedReportTabIndexChanged(int value) => OnPropertyChanged(nameof(IsReceivablesTabSelected));
 
     partial void OnSelectedPeriodChanged(ReportPeriodOption? value)
     {
@@ -373,13 +406,15 @@ public partial class FinancialReportsViewModel : ViewModelBase
             var reportTask = _reportApi.GetRealizedReceiptsAsync(BuildRequest());
             var allocationTask = _allocationApi.GetAllocationCashFlowAsync(BuildAllocationRequest());
             var withholdingTask = _allocationApi.GetWithholdingReportAsync(BuildAllocationRequest());
-            await Task.WhenAll(reportTask, allocationTask, withholdingTask);
+            var receivablesTask = _dashboardApi.GetReceivablesBreakdownAsync(FilterFeeType.Id);
+            await Task.WhenAll(reportTask, allocationTask, withholdingTask, receivablesTask);
 
             var result = await reportTask;
             ApplyPivot(result);
             ApplyDailyPivot(result);
             ApplyAllocationCashFlow(await allocationTask);
             ApplyWithholdingReport(await withholdingTask);
+            ApplyReceivables(await receivablesTask);
 
             DailyBuckets.Clear();
             foreach (var bucket in result.DailyBuckets)
@@ -635,27 +670,51 @@ public partial class FinancialReportsViewModel : ViewModelBase
 
         try
         {
-            var dialog = new Microsoft.Win32.SaveFileDialog
+            if (IsReceivablesTabSelected)
             {
-                FileName = $"recettes-realisees-{FilterFromDate:yyyyMMdd}-{FilterToDate:yyyyMMdd}.pdf",
-                Filter = "PDF|*.pdf"
-            };
-            if (ErpFileDialog.ShowSave(dialog) != true)
-            {
+                QuestPDF.Settings.License = LicenseType.Community;
+                SchoolManagement.Desktop.Printing.DocumentPreview.ShowPdf(
+                    await BuildReceivablesPdfAsync(), "Créances promoteur");
+                StatusMessage = "Aperçu des créances promoteur fermé.";
                 return;
             }
 
             var bytes = await _reportApi.ExportRealizedReceiptsPdfAsync(BuildRequest());
-            await File.WriteAllBytesAsync(dialog.FileName, bytes);
-            var printed = ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Rapport financier");
-            StatusMessage = printed
-                ? $"Export PDF enregistré et envoyé à l'impression : {dialog.FileName}"
-                : $"Export PDF enregistré : {dialog.FileName}";
+            SchoolManagement.Desktop.Printing.DocumentPreview.ShowPdf(bytes, "Recettes réalisées");
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
         }
+    }
+
+    [RelayCommand]
+    private async Task PreviewAllocationAsync()
+    {
+        if (!ValidateDates(showStatus: true)) return;
+        try
+        {
+            var bytes = await _allocationApi.ExportPdfAsync(BuildAllocationRequest());
+            SchoolManagement.Desktop.Printing.DocumentPreview.ShowPdf(bytes, "Répartition des recettes");
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
+    }
+
+    private void ApplyReceivables(SchoolManagement.Application.Dashboard.DTOs.FeeReceivablesBreakdownDto result)
+    {
+        ReceivablesByInstallment.Clear();
+        foreach (var row in result.ByInstallment) ReceivablesByInstallment.Add(row);
+        ReceivablesByDestination.Clear();
+        foreach (var row in result.ByDestination) ReceivablesByDestination.Add(row);
+        ReceivableDebtors.Clear();
+        foreach (var row in result.Debtors) ReceivableDebtors.Add(row);
+        ReceivablesTitle = $"Suivi des créances — {result.FeeTypeName}";
+        ReceivablesAcademicYear = result.AcademicYearLabel;
+        ReceivablesCurrency = result.Currency;
+        ReceivablesExpected = result.TotalExpected;
+        ReceivablesPaid = result.TotalPaid;
+        ReceivablesRemaining = result.TotalRemaining;
     }
 
     [RelayCommand]
@@ -676,7 +735,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
         {
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                FileName = $"recettes-realisees-{FilterFromDate:yyyyMMdd}-{FilterToDate:yyyyMMdd}.xlsx",
+                FileName = IsReceivablesTabSelected
+                    ? $"creances-promoteur-{DateTime.Today:yyyyMMdd}.xlsx"
+                    : $"recettes-realisees-{FilterFromDate:yyyyMMdd}-{FilterToDate:yyyyMMdd}.xlsx",
                 Filter = "Excel|*.xlsx"
             };
             if (ErpFileDialog.ShowSave(dialog) != true)
@@ -684,7 +745,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
                 return;
             }
 
-            var bytes = await _reportApi.ExportRealizedReceiptsExcelAsync(BuildRequest());
+            var bytes = IsReceivablesTabSelected
+                ? await BuildReceivablesExcelAsync()
+                : await _reportApi.ExportRealizedReceiptsExcelAsync(BuildRequest());
             await File.WriteAllBytesAsync(dialog.FileName, bytes);
             StatusMessage = $"Export Excel enregistré : {dialog.FileName}";
         }
@@ -692,6 +755,202 @@ public partial class FinancialReportsViewModel : ViewModelBase
         {
             StatusMessage = ex.Message;
         }
+    }
+
+    private async Task<byte[]> BuildReceivablesExcelAsync()
+    {
+        var school = await _schoolApi.GetCurrentSchoolAsync();
+        using var stream = new MemoryStream();
+        using (var workbook = new XLWorkbook())
+        {
+            var sheet = workbook.Worksheets.Add("Créances promoteur");
+            sheet.Column(1).Width = 30;
+            sheet.Column(2).Width = 16;
+            sheet.Column(3).Width = 16;
+            sheet.Column(4).Width = 16;
+            sheet.Column(5).Width = 16;
+            sheet.Range("A1:E1").Merge().Value = school?.Name ?? "Établissement scolaire";
+            sheet.Range("A2:E2").Merge().Value = ReceivablesTitle.ToUpperInvariant();
+            sheet.Range("A3:E3").Merge().Value = $"Année scolaire : {ReceivablesAcademicYear}   •   Devise : {ReceivablesCurrency}";
+            sheet.Range("A1:E1").Style.Font.Bold = true;
+            sheet.Range("A1:E1").Style.Font.FontSize = 16;
+            sheet.Range("A1:E1").Style.Font.FontColor = XLColor.White;
+            sheet.Range("A1:E1").Style.Fill.BackgroundColor = XLColor.FromHtml("#17365D");
+            sheet.Range("A2:E2").Style.Font.Bold = true;
+            sheet.Range("A2:E2").Style.Font.FontSize = 13;
+            sheet.Range("A2:E2").Style.Font.FontColor = XLColor.FromHtml("#17365D");
+            sheet.Range("A1:E3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            sheet.Range("A1:E3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            sheet.Row(1).Height = 28;
+            sheet.Row(2).Height = 23;
+            sheet.Row(3).Height = 20;
+
+            sheet.Range("A5:E5").Merge().Value = "SYNTHÈSE";
+            sheet.Range("A5:E5").Style.Font.Bold = true;
+            sheet.Range("A5:E5").Style.Font.FontColor = XLColor.White;
+            sheet.Range("A5:E5").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
+            sheet.Cell(6, 1).Value = "Attendu"; sheet.Cell(6, 2).Value = ReceivablesExpected;
+            sheet.Cell(6, 3).Value = "Perçu"; sheet.Cell(6, 4).Value = ReceivablesPaid;
+            sheet.Cell(6, 5).Value = "Reste"; sheet.Cell(7, 5).Value = ReceivablesRemaining;
+            sheet.Range("A6:E7").Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF2F8");
+            sheet.Range("A6:E7").Style.Font.Bold = true;
+            sheet.Range("B6:B7,D6:D7,E6:E7").Style.NumberFormat.Format = "#,##0.00";
+
+            var row = 9;
+            sheet.Range($"A{row}:E{row}").Merge().Value = "PAR TRANCHE";
+            sheet.Range($"A{row}:E{row}").Style.Font.Bold = true;
+            sheet.Range($"A{row}:E{row}").Style.Font.FontColor = XLColor.White;
+            sheet.Range($"A{row}:E{row}").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
+            row++;
+            WriteReceivableHeader(sheet, row, "Tranche", "Attendu", "Perçu", "Reste");
+            StyleReceivableHeader(sheet, row, 4);
+            row++;
+            foreach (var item in ReceivablesByInstallment)
+            {
+                sheet.Cell(row, 1).Value = item.InstallmentName;
+                sheet.Cell(row, 2).Value = item.AmountExpected;
+                sheet.Cell(row, 3).Value = item.AmountPaid;
+                sheet.Cell(row, 4).Value = item.Remaining;
+                row++;
+            }
+            StyleReceivableBody(sheet, row - ReceivablesByInstallment.Count, row - 1, 4);
+
+            row++;
+            sheet.Range($"A{row}:E{row}").Merge().Value = "PAR COMPTE DE RÉPARTITION";
+            sheet.Range($"A{row}:E{row}").Style.Font.Bold = true;
+            sheet.Range($"A{row}:E{row}").Style.Font.FontColor = XLColor.White;
+            sheet.Range($"A{row}:E{row}").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
+            row++;
+            WriteReceivableHeader(sheet, row, "Compte", "%", "Attendu", "Encaissé", "Reste");
+            StyleReceivableHeader(sheet, row, 5);
+            row++;
+            foreach (var item in ReceivablesByDestination)
+            {
+                sheet.Cell(row, 1).Value = item.DestinationName;
+                sheet.Cell(row, 2).Value = item.Percentage;
+                sheet.Cell(row, 3).Value = item.AmountExpected;
+                sheet.Cell(row, 4).Value = item.AmountCollected;
+                sheet.Cell(row, 5).Value = item.Remaining;
+                row++;
+            }
+            StyleReceivableBody(sheet, row - ReceivablesByDestination.Count, row - 1, 5);
+
+            sheet.RangeUsed()!.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            sheet.RangeUsed()!.Style.Border.OutsideBorderColor = XLColor.FromHtml("#B8C7D9");
+            sheet.RangeUsed()!.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            sheet.RangeUsed()!.Style.Border.InsideBorderColor = XLColor.FromHtml("#D9E2F3");
+            sheet.SheetView.FreezeRows(3);
+            workbook.SaveAs(stream);
+        }
+        return stream.ToArray();
+    }
+
+    private static void StyleReceivableHeader(IXLWorksheet sheet, int row, int count)
+    {
+        var range = sheet.Range(row, 1, row, count);
+        range.Style.Font.Bold = true;
+        range.Style.Font.FontColor = XLColor.White;
+        range.Style.Fill.BackgroundColor = XLColor.FromHtml("#5B9BD5");
+        range.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+    }
+
+    private static void StyleReceivableBody(IXLWorksheet sheet, int firstRow, int lastRow, int count)
+    {
+        if (lastRow < firstRow) return;
+        var range = sheet.Range(firstRow, 1, lastRow, count);
+        range.Style.NumberFormat.Format = "#,##0.00";
+        range.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        for (var row = firstRow; row <= lastRow; row++)
+        {
+            if ((row - firstRow) % 2 == 0) sheet.Range(row, 1, row, count).Style.Fill.BackgroundColor = XLColor.FromHtml("#F7FAFC");
+        }
+    }
+
+    private static void WriteReceivableHeader(IXLWorksheet sheet, int row, params string[] headers)
+    {
+        for (var i = 0; i < headers.Length; i++)
+        {
+            sheet.Cell(row, i + 1).Value = headers[i];
+            sheet.Cell(row, i + 1).Style.Font.Bold = true;
+        }
+    }
+
+    private async Task<byte[]> BuildReceivablesPdfAsync()
+    {
+        var school = await _schoolApi.GetCurrentSchoolAsync();
+        var headerImage = await LoadReceivablesHeaderImageAsync();
+        var schoolName = school?.Name ?? "Établissement scolaire";
+        return Document.Create(container => container.Page(page =>
+        {
+            page.Size(PageSizes.A4);
+            page.Margin(36);
+            page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#24364B"));
+            page.Header().Column(header =>
+            {
+                header.Spacing(5);
+                if (headerImage is not null) header.Item().MaxHeight(72).Image(headerImage).FitArea();
+                header.Item().Text(schoolName.ToUpperInvariant()).FontSize(10).Bold().FontColor("#17365D").AlignCenter();
+                header.Item().LineHorizontal(1.2f).LineColor("#2F75B5");
+            });
+            page.Content().Column(column =>
+            {
+                column.Spacing(14);
+                column.Item().PaddingTop(8).Text(ReceivablesTitle.ToUpperInvariant()).FontSize(17).Bold().FontColor("#17365D");
+                column.Item().Text($"Année scolaire : {ReceivablesAcademicYear}   •   Devise : {ReceivablesCurrency}").FontSize(10).FontColor("#5B6573");
+                column.Item().Row(row =>
+                {
+                    SummaryCard(row, "ATTENDU", ReceivablesExpected, "#D9EAF7");
+                    SummaryCard(row, "PERÇU", ReceivablesPaid, "#E2F0D9");
+                    SummaryCard(row, "RESTE À PERCEVOIR", ReceivablesRemaining, "#FCE4D6");
+                });
+                column.Item().Text("Par tranche").FontSize(13).Bold().FontColor("#17365D");
+                column.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns => { columns.RelativeColumn(2); columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn(); });
+                    table.Header(header => { PdfHeaderCell(header.Cell(), "Tranche"); PdfHeaderCell(header.Cell(), "Attendu"); PdfHeaderCell(header.Cell(), "Perçu"); PdfHeaderCell(header.Cell(), "Reste"); });
+                    foreach (var item in ReceivablesByInstallment) { PdfBodyCell(table.Cell(), item.InstallmentName); PdfBodyCell(table.Cell(), $"{item.AmountExpected:N2}", true); PdfBodyCell(table.Cell(), $"{item.AmountPaid:N2}", true); PdfBodyCell(table.Cell(), $"{item.Remaining:N2}", true, "#FFF2CC"); }
+                });
+                column.Item().Text("Par compte de répartition").FontSize(13).Bold().FontColor("#17365D");
+                column.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns => { columns.RelativeColumn(2); columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn(); });
+                    table.Header(header => { PdfHeaderCell(header.Cell(), "Compte"); PdfHeaderCell(header.Cell(), "%"); PdfHeaderCell(header.Cell(), "Attendu"); PdfHeaderCell(header.Cell(), "Encaissé"); PdfHeaderCell(header.Cell(), "Reste"); });
+                    foreach (var item in ReceivablesByDestination) { PdfBodyCell(table.Cell(), item.DestinationName); PdfBodyCell(table.Cell(), $"{item.Percentage:N1}", true); PdfBodyCell(table.Cell(), $"{item.AmountExpected:N2}", true); PdfBodyCell(table.Cell(), $"{item.AmountCollected:N2}", true); PdfBodyCell(table.Cell(), $"{item.Remaining:N2}", true, "#FFF2CC"); }
+                });
+            });
+            page.Footer().AlignCenter().Text(text => { text.Span("Document généré par ERP Administration Scolaire RDC  •  "); text.CurrentPageNumber(); text.Span(" / "); text.TotalPages(); });
+        })).GeneratePdf();
+    }
+
+    private static void SummaryCard(RowDescriptor row, string label, decimal value, string background)
+    {
+        row.RelativeItem().PaddingRight(8).Background(background).Border(1).BorderColor("#D9E2F3").Padding(9).Column(card =>
+        {
+            card.Item().Text(label).FontSize(8).Bold().FontColor("#5B6573");
+            card.Item().PaddingTop(3).Text($"{value:N2}").FontSize(13).Bold().FontColor("#17365D");
+        });
+    }
+
+    private static void PdfHeaderCell(IContainer cell, string value) => cell.Background("#2F75B5").Padding(6).Text(value).Bold().FontColor("#FFFFFF");
+
+    private static void PdfBodyCell(IContainer cell, string value, bool right = false, string? background = null)
+    {
+        var styled = cell.Padding(6).BorderBottom(0.5f).BorderColor("#D9E2F3");
+        if (background is not null) styled = styled.Background(background);
+        if (right) styled = styled.AlignRight();
+        styled.Text(value);
+    }
+
+    private async Task<byte[]?> LoadReceivablesHeaderImageAsync()
+    {
+        var configuration = await _brandingApi.GetConfigurationAsync();
+        var header = configuration.Headers.FirstOrDefault(item => item.IsActive && item.ApplicableDocumentTypes.Contains(DocumentBrandingType.RapportFinancier))
+            ?? configuration.Headers.FirstOrDefault(item => item.IsActive && item.ApplicableDocumentTypes.Contains(DocumentBrandingType.RepartitionRecettes));
+        var relativePath = header?.PrintMode == HeaderPrintMode.FullImage
+            ? header.ImagePath
+            : (configuration.Logos.FirstOrDefault(item => item.IsActive && item.IsPrimary) ?? configuration.Logos.FirstOrDefault(item => item.IsActive))?.ImagePath;
+        var path = _brandingPathResolver.ResolveAbsolutePath(relativePath);
+        return path is not null && File.Exists(path) ? await File.ReadAllBytesAsync(path) : null;
     }
 
     private bool ValidateDates(bool showStatus)

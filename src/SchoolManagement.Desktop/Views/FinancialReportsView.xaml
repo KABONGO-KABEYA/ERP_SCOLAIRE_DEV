@@ -180,6 +180,7 @@
                 CornerRadius="10">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Margin="0,0,8,0" Padding="14,6" Command="{Binding PreviewAllocationCommand}" Content="Aperçu répartition" Style="{StaticResource ErpSecondaryButton}" />
                     <Button Padding="14,6"
                             Command="{Binding ExportExcelCommand}"
                             Content="Excel"
@@ -288,7 +289,7 @@
                 BorderThickness="1"
                 CornerRadius="12"
                 Padding="8,4,8,8">
-            <TabControl Style="{StaticResource ErpTabControl}">
+            <TabControl SelectedIndex="{Binding SelectedReportTabIndex, Mode=TwoWay}" Style="{StaticResource ErpTabControl}">
                 <TabItem Header="Détail" Style="{StaticResource ErpTabItem}">
                     <DataGrid Margin="0,8,0,0"
                               AutoGenerateColumns="True"
@@ -1102,6 +1103,55 @@
                                     </ItemsControl>
                                 </StackPanel>
                             </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Créances promoteur" Style="{StaticResource ErpTabItem}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="#1E3A8A" Text="{Binding ReceivablesTitle}" />
+                            <TextBlock Margin="0,4,0,12" Foreground="#6B7280" Text="{Binding ReceivablesAcademicYear, StringFormat=Année scolaire : {0}}" />
+                            <UniformGrid Columns="3" Margin="0,0,0,14">
+                                <Border Margin="0,0,8,0" Padding="12" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8">
+                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Attendu" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesExpected, StringFormat=N2}" /></StackPanel>
+                                </Border>
+                                <Border Margin="0,0,8,0" Padding="12" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8">
+                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Perçu" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesPaid, StringFormat=N2}" /></StackPanel>
+                                </Border>
+                                <Border Padding="12" Background="#FFF7ED" BorderBrush="#FED7AA" BorderThickness="1" CornerRadius="8">
+                                    <StackPanel><TextBlock Foreground="#9A3412" Text="Reste" /><TextBlock FontSize="18" FontWeight="Bold" Foreground="#C2410C" Text="{Binding ReceivablesRemaining, StringFormat=N2}" /></StackPanel>
+                                </Border>
+                            </UniformGrid>
+                            <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Par tranche" />
+                            <DataGrid Margin="0,6,0,14" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" ItemsSource="{Binding ReceivablesByInstallment}" Style="{StaticResource ErpDataGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Tranche" Binding="{Binding InstallmentName}" Width="*" />
+                                    <DataGridTextColumn Header="Attendu" Binding="{Binding AmountExpected, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Perçu" Binding="{Binding AmountPaid, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Reste" Binding="{Binding Remaining, StringFormat=N2}" Width="130" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Par compte de répartition" />
+                            <DataGrid Margin="0,6,0,14" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" ItemsSource="{Binding ReceivablesByDestination}" Style="{StaticResource ErpDataGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Compte" Binding="{Binding DestinationName}" Width="*" />
+                                    <DataGridTextColumn Header="%" Binding="{Binding Percentage, StringFormat=N1}" Width="80" />
+                                    <DataGridTextColumn Header="Attendu" Binding="{Binding AmountExpected, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Encaissé" Binding="{Binding AmountCollected, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Reste" Binding="{Binding Remaining, StringFormat=N2}" Width="130" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Élèves débiteurs — échéances dépassées" />
+                            <DataGrid Margin="0,6,0,20" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" ItemsSource="{Binding ReceivableDebtors}" Style="{StaticResource ErpDataGrid}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Élève" Binding="{Binding StudentName}" Width="*" />
+                                    <DataGridTextColumn Header="Classe" Binding="{Binding ClassName}" Width="180" />
+                                    <DataGridTextColumn Header="Dû" Binding="{Binding AmountDue, StringFormat=N2}" Width="120" />
+                                    <DataGridTextColumn Header="Payé" Binding="{Binding AmountPaid, StringFormat=N2}" Width="120" />
+                                    <DataGridTextColumn Header="Reste" Binding="{Binding Remaining, StringFormat=N2}" Width="120" />
+                                </DataGrid.Columns>
+                            </DataGrid>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

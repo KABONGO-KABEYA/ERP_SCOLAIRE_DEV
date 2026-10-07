@@ -541,26 +541,10 @@ public partial class WithholdingConfigViewModel : ViewModelBase
     {
         try
         {
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "Document PDF (*.pdf)|*.pdf",
-                FileName = "retenues.pdf",
-                AddExtension = true,
-                DefaultExt = ".pdf"
-            };
-            ErpFileDialog.PrepareSave(dialog);
-            if (ErpFileDialog.ShowSave(dialog) != true)
-            {
-                return;
-            }
-
             IsBusy = true;
             var bytes = await _withholdingApi.ExportPdfAsync(BuildSearchRequest(pageSize: 5000));
-            await File.WriteAllBytesAsync(dialog.FileName, bytes);
-            var printed = ErpPdfPrintPrompt.AskAndPrintIfRequested(dialog.FileName, "Retenues");
-            SetStatus(
-                printed ? "Export PDF généré et envoyé à l'impression." : "Export PDF généré.",
-                FeeStatusMessageKind.Success);
+            SchoolManagement.Desktop.Printing.DocumentPreview.ShowPdf(bytes, "Retenues");
+            SetStatus("Aperçu fermé.", FeeStatusMessageKind.Success);
         }
         catch (Exception ex)
         {

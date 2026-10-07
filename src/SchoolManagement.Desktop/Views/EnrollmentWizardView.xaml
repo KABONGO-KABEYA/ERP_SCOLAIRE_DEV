@@ -580,48 +580,167 @@
                             <!-- Responsables -->
                             <StackPanel Visibility="{Binding ShowResponsablesStep, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBlock Style="{StaticResource ErpSubtitle}" Text="{Binding CurrentStepDetailName}" />
+                                <TextBlock Margin="0,0,0,8"
+                                           Style="{StaticResource ErpBodySecondary}"
+                                           Text="Vous pouvez rechercher un parent déjà enregistré (même s'il est lié à un autre élève) ou créer un nouveau responsable."
+                                           TextWrapping="Wrap" />
+
                                 <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="Responsable principal *" />
+                                        <TextBlock FontWeight="SemiBold" Text="Rechercher un responsable existant" />
                                         <WrapPanel Margin="0,12,0,0">
-                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryLastName}" />
-                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryFirstName}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone *" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryPhone}" />
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryEmail}" />
-                                            <TextBox Width="240" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Adresse" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryAddress}" />
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Profession" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryProfession}" />
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Employeur" Style="{StaticResource ErpTextBox}" Text="{Binding PrimaryEmployer}" />
+                                            <TextBox Width="320"
+                                                     Margin="0,0,12,12"
+                                                     materialDesign:HintAssist.Hint="Nom, téléphone, e-mail..."
+                                                     Style="{StaticResource ErpTextBox}"
+                                                     Text="{Binding GuardianSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button Margin="0,0,12,12"
+                                                    Command="{Binding SearchGuardiansCommand}"
+                                                    Content="Rechercher"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                        </WrapPanel>
+                                        <ItemsControl ItemsSource="{Binding GuardianSearchResults}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type dto:EnrollmentGuardianSearchResultDto}">
+                                                    <Border Margin="0,0,0,8" Padding="12" Background="{StaticResource ErpPageBackgroundBrush}" CornerRadius="10">
+                                                        <StackPanel>
+                                                            <TextBlock FontWeight="SemiBold" Text="{Binding FullName}" />
+                                                            <TextBlock Style="{StaticResource ErpBodySecondary}" Text="{Binding Phone, StringFormat=Tél. {0}}" />
+                                                            <TextBlock Style="{StaticResource ErpBodySecondary}"
+                                                                       Text="{Binding LinkedStudentsLabel}"
+                                                                       TextWrapping="Wrap"
+                                                                       Visibility="{Binding HasLinkedStudents, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                            <WrapPanel Margin="0,8,0,0">
+                                                                <Button Margin="0,0,6,6"
+                                                                        Command="{Binding DataContext.ApplyGuardianAsFatherCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Lier comme Père"
+                                                                        Style="{StaticResource ErpSecondaryButton}" />
+                                                                <Button Margin="0,0,6,6"
+                                                                        Command="{Binding DataContext.ApplyGuardianAsMotherCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Lier comme Mère"
+                                                                        Style="{StaticResource ErpSecondaryButton}" />
+                                                                <Button Margin="0,0,6,6"
+                                                                        Command="{Binding DataContext.ApplyGuardianAsContact1Command, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Contact 1"
+                                                                        Style="{StaticResource ErpSecondaryButton}" />
+                                                                <Button Margin="0,0,6,6"
+                                                                        Command="{Binding DataContext.ApplyGuardianAsContact2Command, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Contact 2"
+                                                                        Style="{StaticResource ErpSecondaryButton}" />
+                                                            </WrapPanel>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Foreground="{StaticResource ErpDangerBrush}"
+                                                   Text="Aucun responsable trouvé — créez-en un ci-dessous."
+                                                   Visibility="{Binding GuardianSearchHasNoResults, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource ErpWizardSubCard}">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right"
+                                                    Command="{Binding CreateNewFatherCommand}"
+                                                    Content="Créer un nouveau"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Père *" />
+                                        </DockPanel>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="{Binding FatherLinkStatus}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding FatherLinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom *" Style="{StaticResource ErpTextBox}" Text="{Binding FatherLastName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom *" Style="{StaticResource ErpTextBox}" Text="{Binding FatherFirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone *" Style="{StaticResource ErpTextBox}" Text="{Binding FatherPhone, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding FatherEmail, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Profession" Style="{StaticResource ErpTextBox}" Text="{Binding FatherProfession, UpdateSourceTrigger=PropertyChanged}" />
+                                            <CheckBox Margin="0,0,12,12" Content="Même adresse que l'élève" IsChecked="{Binding FatherSameAddressAsStudent}" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
+
                                 <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="Second responsable" />
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right"
+                                                    Command="{Binding CreateNewMotherCommand}"
+                                                    Content="Créer un nouveau"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Mère *" />
+                                        </DockPanel>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="{Binding MotherLinkStatus}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding MotherLinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                         <WrapPanel Margin="0,12,0,0">
-                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding SecondaryLastName}" />
-                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom" Style="{StaticResource ErpTextBox}" Text="{Binding SecondaryFirstName}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding SecondaryPhone}" />
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding SecondaryEmail}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom *" Style="{StaticResource ErpTextBox}" Text="{Binding MotherLastName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom *" Style="{StaticResource ErpTextBox}" Text="{Binding MotherFirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone *" Style="{StaticResource ErpTextBox}" Text="{Binding MotherPhone, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding MotherEmail, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Profession" Style="{StaticResource ErpTextBox}" Text="{Binding MotherProfession, UpdateSourceTrigger=PropertyChanged}" />
+                                            <CheckBox Margin="0,0,12,12" Content="Même adresse que l'élève" IsChecked="{Binding MotherSameAddressAsStudent}" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
+
                                 <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="Personne à prévenir en urgence" />
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right"
+                                                    Command="{Binding CreateNewContact1Command}"
+                                                    Content="Créer un nouveau"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Personne à contacter 1 (facultatif)" />
+                                        </DockPanel>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="{Binding Contact1LinkStatus}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding Contact1LinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                         <WrapPanel Margin="0,12,0,0">
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding EmergencyName}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding EmergencyPhone}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Lien" Style="{StaticResource ErpTextBox}" Text="{Binding EmergencyRelationship}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding Contact1LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom" Style="{StaticResource ErpTextBox}" Text="{Binding Contact1FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding Contact1Phone, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding Contact1Email, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Lien / relation" Style="{StaticResource ErpTextBox}" Text="{Binding Contact1Relationship, UpdateSourceTrigger=PropertyChanged}" />
+                                            <ComboBox Width="140" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Sexe" ItemsSource="{Binding Genders}" SelectedItem="{Binding Contact1Gender}" Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                                            <CheckBox Margin="0,0,12,12" Content="Même adresse que l'élève" IsChecked="{Binding Contact1SameAddressAsStudent}" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
+
                                 <Border Style="{StaticResource ErpWizardSubCard}">
                                     <StackPanel>
-                                        <TextBlock FontWeight="SemiBold" Text="Personne autorisée à récupérer l'élève" />
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right"
+                                                    Command="{Binding CreateNewContact2Command}"
+                                                    Content="Créer un nouveau"
+                                                    Style="{StaticResource ErpSecondaryButton}" />
+                                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Personne à contacter 2 (facultatif)" />
+                                        </DockPanel>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource ErpBodySecondary}"
+                                                   Text="{Binding Contact2LinkStatus}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding Contact2LinkStatus, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
                                         <WrapPanel Margin="0,12,0,0">
-                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding PickupName}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding PickupPhone}" />
-                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Lien" Style="{StaticResource ErpTextBox}" Text="{Binding PickupRelationship}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Nom" Style="{StaticResource ErpTextBox}" Text="{Binding Contact2LastName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Prénom" Style="{StaticResource ErpTextBox}" Text="{Binding Contact2FirstName, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="160" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Téléphone" Style="{StaticResource ErpTextBox}" Text="{Binding Contact2Phone, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="200" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Email" Style="{StaticResource ErpTextBox}" Text="{Binding Contact2Email, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox Width="180" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Lien / relation" Style="{StaticResource ErpTextBox}" Text="{Binding Contact2Relationship, UpdateSourceTrigger=PropertyChanged}" />
+                                            <ComboBox Width="140" Margin="0,0,12,12" materialDesign:HintAssist.Hint="Sexe" ItemsSource="{Binding Genders}" SelectedItem="{Binding Contact2Gender}" Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                                            <CheckBox Margin="0,0,12,12" Content="Même adresse que l'élève" IsChecked="{Binding Contact2SameAddressAsStudent}" />
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
@@ -830,6 +949,7 @@
 
                 <Grid Grid.Row="1">
                     <StackPanel Orientation="Horizontal">
+                        <Button Margin="0,0,8,0" Command="{Binding PreviewEnrollmentFormCommand}" Content="Aperçu fiche" Style="{StaticResource ErpSecondaryButton}" />
                         <Button Command="{Binding CancelWizardCommand}" Content="Annuler" Style="{StaticResource ErpDangerButton}" />
                         <Button Margin="8,0,0,0"
                                 Command="{Binding PreviousStepCommand}"

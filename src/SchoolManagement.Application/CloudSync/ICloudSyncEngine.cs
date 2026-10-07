@@ -28,6 +28,9 @@ public interface ICloudSyncEngine
 
     /// <summary>Repasse Failed / DeadLetter en Pending pour rejouer après correctif.</summary>
     Task<int> RequeueFailedUnitsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Reprise ciblée des conflits de tarifs corrigés, au démarrage après mise à jour.</summary>
+    Task<int> RequeueTariffFailuresAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>Enfilement des changements métier vers l'outbox (appelé après SaveChanges).</summary>

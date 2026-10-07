@@ -50,6 +50,7 @@ import '../features/secretary/account/change_password_screen.dart';
 import '../features/secretary/account/secretary_account_screen.dart';
 import '../features/secretary/student_dossier_screen.dart';
 import '../features/secretary/student_search_screen.dart';
+import '../features/controller/controller_home_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -405,6 +406,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
+      GoRoute(
+        path: MobileRoleRouting.controllerHome,
+        builder: (_, __) => const ControllerHomeScreen(),
+      ),
       GoRoute(path: '/secretary/account', builder: (_, __) => const SecretaryAccountScreen()),
       GoRoute(
         path: '/secretary/account/change-password',

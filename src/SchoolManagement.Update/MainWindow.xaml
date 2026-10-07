@@ -1,0 +1,33 @@
+<Window x:Class="SchoolManagement.Update.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ERP Scolaire — Mise à jour"
+        Height="620" Width="900"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Mise à jour ERP Scolaire"
+                   FontSize="22" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <TextBlock Grid.Row="1" x:Name="TxtSummary" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <TextBox Grid.Row="2" x:Name="TxtLog"
+                 IsReadOnly="True"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="BtnClose" Content="Fermer" Width="100" Margin="0,0,8,0" Click="BtnClose_Click"/>
+            <Button x:Name="BtnUpdate" Content="Lancer la mise à jour" Width="180" Click="BtnUpdate_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

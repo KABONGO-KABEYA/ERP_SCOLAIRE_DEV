@@ -16,6 +16,7 @@ public static class CloudSyncJournalElementsFormatter
             ["PedagogicalClasses"] = "Classes",
             ["Teachers"] = "Personnel",
             ["StudentDocuments"] = "Documents",
+            ["ParentNotices"] = "Avis aux parents",
             ["Guardians"] = "Responsables",
             ["PaymentLines"] = "Lignes paiement",
             ["StudentAttendances"] = "Présences élèves",

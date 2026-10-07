@@ -97,6 +97,13 @@ public sealed class PaymentService : IPaymentService
             request.AcademicYearId,
             cancellationToken);
 
+        var paymentDay = (request.PaymentDate ?? DateTime.UtcNow).Date;
+        foreach (var feeTypeId in request.Lines.Select(l => l.FeeTypeId).Distinct())
+        {
+            var gate = await GetMutationGateAsync(schoolId, request.AcademicYearId, feeTypeId, cancellationToken);
+            PaymentMutationPolicy.EnsureCreationDateAllowed(paymentDay, gate.LatestPaymentDate);
+        }
+
         var totalAmount = request.Lines.Sum(l => l.Amount);
         var receiptNumber = $"REC-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpperInvariant()}";
 

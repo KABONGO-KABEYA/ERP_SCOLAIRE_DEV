@@ -61,6 +61,7 @@ class LocalServerDiscovery {
   /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
   /// Si le Local n'est plus éligible → découverte complète.
   Future<DiscoveryResult> recheck() async {
+    if (kIsWeb) return rediscover();
     if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
       debugPrint('[Discovery] Registre vide → pas de discovery (QR établissement requis)');
       return _publish(
@@ -161,6 +162,33 @@ class LocalServerDiscovery {
     final ctx = await _loadBindingContext();
     final prefixes = await _localPrefixes();
     final lanAvailable = prefixes.isNotEmpty;
+    // A browser cannot enumerate the host network. Explicit loopback targets
+    // refer to this PC, unlike Android where they refer to the phone.
+    if (kIsWeb) {
+      final binding = await SchoolBindingGate.bindingRepository.load();
+      if (binding != null) {
+        for (final base in ApiConfig.localBaseUrlCandidates) {
+          if (!ApiConfig.isLoopbackUrl(base)) continue;
+          final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+          if (gen != _generation) return _current;
+          if (health == null ||
+              health.server.trim().toLowerCase() == 'cloud' ||
+              !SchoolDiscoveryPolicy.acceptsHealthForBinding(health, binding)) {
+            continue;
+          }
+          return _publish(await _finalizeAccepted(
+            DiscoveryResult(
+              mode: DiscoveryMode.local,
+              source: DiscoverySource.lastKnown,
+              baseUrl: ApiConfig.normalize(base),
+              health: health,
+              message: 'Serveur local — ${health.school}',
+            ),
+            _BindingDiscoveryContext(filterByBinding: true, binding: binding),
+          ));
+        }
+      }
+    }
     debugPrint(
       '[Discovery] Préfixes device: ${prefixes.isEmpty ? '(aucun)' : prefixes.join(', ')} '
       'lanAvailable=$lanAvailable',
@@ -799,6 +827,7 @@ class LocalServerDiscovery {
     final host = _hostOf(baseUrl);
     if (host != null &&
         DiscoveryConstants.isLoopbackHost(host) &&
+        !kIsWeb &&
         !ApiConfig.allowUsbLoopback) {
       return null;
     }

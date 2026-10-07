@@ -28,6 +28,7 @@ public sealed class EnrollmentPricingSchemaInitializer
         foreach (var script in Scripts)
         {
             await using var command = connection.CreateCommand();
+            command.CommandTimeout = 120;
             command.CommandText = script;
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -150,12 +151,12 @@ public sealed class EnrollmentPricingSchemaInitializer
                 [ChangedByUserId] uniqueidentifier NULL,
                 [Notes] nvarchar(500) NULL,
                 [CreatedAt] datetime2 NOT NULL,
-                [CreatedBy] nvarchar(256) NULL,
+                [CreatedBy] uniqueidentifier NULL,
                 [UpdatedAt] datetime2 NULL,
-                [UpdatedBy] nvarchar(256) NULL,
+                [UpdatedBy] uniqueidentifier NULL,
                 [IsDeleted] bit NOT NULL CONSTRAINT [DF_EnrollmentPricingCategoryHistory_IsDeleted] DEFAULT (0),
                 [DeletedAt] datetime2 NULL,
-                [DeletedBy] nvarchar(256) NULL,
+                [DeletedBy] uniqueidentifier NULL,
                 CONSTRAINT [PK_EnrollmentPricingCategoryHistory] PRIMARY KEY ([Id]),
                 CONSTRAINT [FK_EnrollmentPricingCategoryHistory_Enrollments]
                     FOREIGN KEY ([EnrollmentId]) REFERENCES [Enrollments] ([Id]) ON DELETE CASCADE,
@@ -168,6 +169,49 @@ public sealed class EnrollmentPricingSchemaInitializer
             CREATE INDEX [IX_EnrollmentPricingCategoryHistory_EnrollmentId_ChangedAt]
                 ON [EnrollmentPricingCategoryHistory] ([EnrollmentId], [ChangedAt]);
         END
-        """
+        """,
+        AuditColumnsMigrationSql
     ];
+
+    // Migration atomique et rejouable ; aucune valeur d'audit invalide n'est effacée.
+    internal const string AuditColumnsMigrationSql = """
+        SET XACT_ABORT ON;
+        SET LOCK_TIMEOUT 15000;
+        IF OBJECT_ID(N'dbo.EnrollmentPricingCategoryHistory', N'U') IS NOT NULL
+        BEGIN TRY
+            BEGIN TRANSACTION;
+            DECLARE @lockedRows bigint;
+            SELECT @lockedRows = COUNT_BIG(*)
+                FROM dbo.EnrollmentPricingCategoryHistory WITH (TABLOCKX, HOLDLOCK);
+            DECLARE @column sysname, @sql nvarchar(max);
+            DECLARE audit_columns CURSOR LOCAL FAST_FORWARD FOR
+                SELECT c.name FROM sys.columns c
+                WHERE c.object_id = OBJECT_ID(N'dbo.EnrollmentPricingCategoryHistory')
+                  AND c.name IN (N'CreatedBy', N'UpdatedBy', N'DeletedBy')
+                  AND c.system_type_id <> TYPE_ID(N'uniqueidentifier');
+            OPEN audit_columns;
+            FETCH NEXT FROM audit_columns INTO @column;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                SET @sql = N'IF EXISTS (SELECT 1 FROM dbo.EnrollmentPricingCategoryHistory WHERE '
+                    + QUOTENAME(@column) + N' IS NOT NULL AND (TRY_CONVERT(uniqueidentifier, '
+                    + QUOTENAME(@column) + N') IS NULL OR LOWER(LTRIM(RTRIM('
+                    + QUOTENAME(@column) + N'))) <> CONVERT(nvarchar(36), TRY_CONVERT(uniqueidentifier, '
+                    + QUOTENAME(@column) + N')))) '
+                    + N'THROW 51001, ''Historique tarifaire : valeur d audit non convertible dans '
+                    + @column + N'. Migration annulee, donnees conservees.'', 1; '
+                    + N'ALTER TABLE dbo.EnrollmentPricingCategoryHistory ALTER COLUMN '
+                    + QUOTENAME(@column) + N' uniqueidentifier NULL;';
+                EXEC sys.sp_executesql @sql;
+                FETCH NEXT FROM audit_columns INTO @column;
+            END;
+            CLOSE audit_columns;
+            DEALLOCATE audit_columns;
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH;
+        """;
 }

@@ -352,7 +352,8 @@ public sealed class SecurityCatalogSeeder
                 ("GESTION", "Gestion", 1,
                 [
                     ("MAIN", "Documents élèves", "Documents.Main", Permissions.SchoolsRead, 1),
-                    ("CARTES", "Cartes élèves", "StudentCards.Main", Permissions.StudentCardsRead, 2)
+                    ("AVIS_PARENTS", "Avis aux parents", "Documents.ParentNotices", Permissions.StudentsRead, 2),
+                    ("CARTES", "Cartes élèves", "StudentCards.Main", Permissions.StudentCardsRead, 3)
                 ])
             ]),
             ("STATISTICS", "Statistiques", "ChartBar", 120,
@@ -584,8 +585,11 @@ public sealed class SecurityCatalogSeeder
                     gestion.Id, "MAIN", "Documents élèves", "Documents.Main",
                     Permissions.SchoolsRead, 1, cancellationToken);
                 await UpsertDocumentsPageAsync(
+                    gestion.Id, "AVIS_PARENTS", "Avis aux parents", "Documents.ParentNotices",
+                    Permissions.StudentsRead, 2, cancellationToken);
+                await UpsertDocumentsPageAsync(
                     gestion.Id, "CARTES", "Cartes élèves", "StudentCards.Main",
-                    Permissions.StudentCardsRead, 2, cancellationToken);
+                    Permissions.StudentCardsRead, 3, cancellationToken);
             }
         }
 
@@ -839,6 +843,7 @@ public sealed class SecurityCatalogSeeder
             ("PREFET", "Préfet des études", UserRole.Direction, 70),
             ("PROMOTEUR", "Promoteur", UserRole.Direction, 80),
             ("DAF", "Directeur Administratif et Financier", UserRole.Comptable, 90),
+            ("CONTROLEUR", "Contrôleur", UserRole.Comptable, 100),
         };
 
         var allPermissions = await _context.Permissions.Where(p => p.IsActive).ToListAsync(cancellationToken);
@@ -1001,6 +1006,14 @@ public sealed class SecurityCatalogSeeder
                 Permissions.AccountingRead,
                 Permissions.RevenueAllocationRead,
                 Permissions.WithholdingsRead
+            ], cancellationToken);
+
+            await SyncRolePermissionsExactAsync(schoolId, "CONTROLEUR",
+            [
+                Permissions.SchoolsRead,
+                Permissions.StudentsRead,
+                Permissions.StudentCardsRead,
+                Permissions.PaymentsRead
             ], cancellationToken);
         }
 

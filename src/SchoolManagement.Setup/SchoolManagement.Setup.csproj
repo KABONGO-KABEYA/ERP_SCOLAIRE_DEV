@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SchoolManagement.Setup.UnitTests" />
+    <InternalsVisibleTo Include="SchoolManagement.Update" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SchoolManagement.Infrastructure\SchoolManagement.Infrastructure.csproj" />

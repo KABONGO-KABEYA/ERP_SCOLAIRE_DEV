@@ -345,7 +345,7 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         var term = search.Trim().ToLowerInvariant();
         var guardians = await _guardianRepository.FindAsync(g => g.SchoolId == schoolId, cancellationToken);
 
-        return guardians
+        var matched = guardians
             .Where(g => !g.IsDeleted)
             .Where(g =>
                 g.FirstName.ToLowerInvariant().Contains(term)
@@ -356,15 +356,54 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
             .OrderBy(g => g.LastName)
             .ThenBy(g => g.FirstName)
             .Take(25)
-            .Select(g => new EnrollmentGuardianSearchResultDto(
-                g.Id,
-                g.FirstName,
-                g.LastName,
-                g.Phone,
-                g.Email,
-                g.Address,
-                g.Profession,
-                g.Gender))
+            .ToList();
+
+        if (matched.Count == 0)
+        {
+            return [];
+        }
+
+        var guardianIds = matched.Select(g => g.Id).ToHashSet();
+        var links = (await _studentGuardianRepository.FindAsync(
+            l => guardianIds.Contains(l.GuardianId) && !l.IsDeleted,
+            cancellationToken)).ToList();
+        var studentIds = links.Select(l => l.StudentId).Distinct().ToList();
+        var students = studentIds.Count == 0
+            ? []
+            : (await _studentRepository.FindAsync(
+                s => s.SchoolId == schoolId && studentIds.Contains(s.Id) && !s.IsArchived,
+                cancellationToken)).ToList();
+        var studentMap = students.ToDictionary(s => s.Id);
+        var childrenByGuardian = links
+            .GroupBy(l => l.GuardianId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(l => studentMap.TryGetValue(l.StudentId, out var student)
+                        ? StudentDisplayName.Format(student)
+                        : null)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(3)
+                    .ToList());
+
+        return matched
+            .Select(g =>
+            {
+                childrenByGuardian.TryGetValue(g.Id, out var children);
+                var label = children is { Count: > 0 }
+                    ? $"Déjà lié : {string.Join(", ", children)}"
+                    : null;
+                return new EnrollmentGuardianSearchResultDto(
+                    g.Id,
+                    g.FirstName,
+                    g.LastName,
+                    g.Phone,
+                    g.Email,
+                    g.Address,
+                    g.Profession,
+                    g.Gender,
+                    label);
+            })
             .ToList();
     }
 
@@ -1364,13 +1403,25 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
                      !string.IsNullOrWhiteSpace(g.FirstName) || !string.IsNullOrWhiteSpace(g.LastName)))
         {
             Guardian? guardian = null;
-            if (input.ExistingGuardianId.HasValue)
+            if (input.ForceCreateNew)
+            {
+                guardian = await CreateGuardianAsync(schoolId, input, studentAddress, cancellationToken);
+            }
+            else if (input.ExistingGuardianId.HasValue)
             {
                 guardian = schoolGuardians.FirstOrDefault(g => g.Id == input.ExistingGuardianId.Value);
             }
 
-            guardian ??= FindExistingGuardian(schoolGuardians, input)
-                ?? await CreateGuardianAsync(schoolId, input, studentAddress, cancellationToken);
+            if (guardian is null && !input.ForceCreateNew)
+            {
+                guardian = FindExistingGuardian(schoolGuardians, input)
+                    ?? await CreateGuardianAsync(schoolId, input, studentAddress, cancellationToken);
+            }
+
+            if (guardian is null)
+            {
+                guardian = await CreateGuardianAsync(schoolId, input, studentAddress, cancellationToken);
+            }
 
             if (!linkedGuardianIds.Add(guardian.Id))
             {
@@ -1379,23 +1430,28 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
 
             linkedGuardians.Add(guardian);
 
-            if (!schoolGuardians.Any(g => g.Id == guardian.Id))
+            var alreadyPersisted = schoolGuardians.Any(g => g.Id == guardian.Id);
+            ApplyGuardianIdentityFields(guardian, input);
+
+            var addressInput = input.UsesStudentAddress ? studentAddress : input.ResidenceAddress;
+            guardian.AddressId = await _addressService.UpsertAsync(
+                addressInput,
+                guardian.AddressId,
+                cancellationToken);
+            guardian.Address = AddressFormatting.ToLegacyStorage(
+                addressInput,
+                countries,
+                provinces,
+                cities,
+                communes);
+
+            if (alreadyPersisted)
+            {
+                await _guardianRepository.UpdateAsync(guardian, cancellationToken);
+            }
+            else
             {
                 schoolGuardians.Add(guardian);
-            }
-            else if (!input.UsesStudentAddress)
-            {
-                guardian.AddressId = await _addressService.UpsertAsync(
-                    input.ResidenceAddress,
-                    guardian.AddressId,
-                    cancellationToken);
-                guardian.Address = AddressFormatting.ToLegacyStorage(
-                    input.ResidenceAddress,
-                    countries,
-                    provinces,
-                    cities,
-                    communes);
-                await _guardianRepository.UpdateAsync(guardian, cancellationToken);
             }
 
             var relationship = string.IsNullOrWhiteSpace(input.Relationship) ? "Responsable" : input.Relationship.Trim();
@@ -1446,6 +1502,18 @@ public sealed partial class EnrollmentWizardService : IEnrollmentWizardService
         }
 
         return $" Accès application parent créés ({created} nouveau(x) compte(s)).";
+    }
+
+    internal static void ApplyGuardianIdentityFields(Guardian guardian, GuardianInputDto input)
+    {
+        guardian.FirstName = input.FirstName.Trim();
+        guardian.LastName = input.LastName.Trim();
+        guardian.Phone = string.IsNullOrWhiteSpace(input.Phone) ? null : input.Phone.Trim();
+        guardian.Email = string.IsNullOrWhiteSpace(input.Email) ? null : input.Email.Trim();
+        guardian.Gender = input.Gender;
+        guardian.Profession = string.IsNullOrWhiteSpace(input.Employer)
+            ? (string.IsNullOrWhiteSpace(input.Profession) ? null : input.Profession.Trim())
+            : $"{input.Profession?.Trim()} — {input.Employer.Trim()}";
     }
 
     private async Task<Guardian> CreateGuardianAsync(

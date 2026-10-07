@@ -149,9 +149,16 @@ public partial class DocumentBrandingViewModel : ViewModelBase
         ValidationMessage = null;
         try
         {
+            var selectedHeaderId = SelectedHeader?.Id;
+            var selectedLogoId = SelectedLogo?.Id;
+            var selectedSignatureId = SelectedSignature?.Id;
+            var selectedStampId = SelectedStamp?.Id;
             var lookups = await _api.GetLookupsAsync();
+            var config = await _api.GetConfigurationAsync();
             DocumentTypes.Clear();
-            PrintModes.Clear();
+            // Keep existing options: clearing a bound ComboBox sends null to the enum binding.
+            foreach (var item in lookups.PrintModes)
+                if (!PrintModes.Any(mode => mode.Value == item.Value)) PrintModes.Add(item);
             HeaderDocumentTypeOptions.Clear();
             SignatureDocumentTypeOptions.Clear();
             foreach (var item in lookups.DocumentTypes)
@@ -161,9 +168,6 @@ public partial class DocumentBrandingViewModel : ViewModelBase
                 SignatureDocumentTypeOptions.Add(new HeaderDocumentTypeOptionViewModel(item.Value, item.Label));
             }
 
-            foreach (var item in lookups.PrintModes) PrintModes.Add(item);
-
-            var config = await _api.GetConfigurationAsync();
             Logos.Clear();
             foreach (var logo in config.Logos)
             {
@@ -187,6 +191,11 @@ public partial class DocumentBrandingViewModel : ViewModelBase
             {
                 Stamps.Add(new BrandingStampItemViewModel(stamp, _pathResolver));
             }
+
+            SelectedLogo = Logos.FirstOrDefault(x => x.Id == selectedLogoId);
+            SelectedHeader = Headers.FirstOrDefault(x => x.Id == selectedHeaderId);
+            SelectedSignature = Signatures.FirstOrDefault(x => x.Id == selectedSignatureId);
+            SelectedStamp = Stamps.FirstOrDefault(x => x.Id == selectedStampId);
 
             if (config.Footer is not null)
             {
@@ -342,6 +351,7 @@ public partial class DocumentBrandingViewModel : ViewModelBase
         IsBusy = true;
         try
         {
+            SchoolDocumentHeaderDto saved;
             if (SelectedHeader is null || SelectedHeader.Id == Guid.Empty)
             {
                 if (HeaderPrintMode == HeaderPrintMode.FullImage && string.IsNullOrWhiteSpace(HeaderPendingImagePath))
@@ -350,15 +360,21 @@ public partial class DocumentBrandingViewModel : ViewModelBase
                     return;
                 }
 
-                await _api.CreateHeaderAsync(request, HeaderPendingImagePath);
+                saved = await _api.CreateHeaderAsync(request, HeaderPendingImagePath);
+
             }
             else
             {
-                await _api.UpdateHeaderAsync(SelectedHeader.Id, request, HeaderPendingImagePath);
+                saved = await _api.UpdateHeaderAsync(SelectedHeader.Id, request, HeaderPendingImagePath);
+
             }
 
-            StatusMessage = "En-tête enregistré.";
             await LoadAsync();
+            if (ValidationMessage is null)
+            {
+                SelectedHeader = Headers.FirstOrDefault(x => x.Id == saved.Id);
+                StatusMessage = "En-tête enregistré.";
+            }
         }
         catch (Exception ex) { ValidationMessage = ex.Message; }
         finally { IsBusy = false; }

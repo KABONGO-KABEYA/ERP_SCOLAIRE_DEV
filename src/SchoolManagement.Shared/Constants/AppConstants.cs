@@ -28,8 +28,10 @@ public static class ApiRoutes
     public const string Teacher = $"{Base}/teacher";
     public const string Parent = $"{Base}/parent";
     public const string Documents = $"{Base}/documents";
+    public const string ParentNotices = $"{Base}/parent-notices";
     public const string DocumentBranding = $"{Base}/document-branding";
     public const string Admin = $"{Base}/admin";
+    public const string ControllerControl = $"{Base}/controller";
     public const string Security = $"{Base}/security";
     public const string Personnel = $"{Base}/personnel";
     public const string CloudSync = $"{Base}/cloud-sync";

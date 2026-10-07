@@ -175,16 +175,8 @@ public partial class GradesViewModel
         }
 
         var doc = BuildPedagogicalSheetDocument();
-        var printDialog = new PrintDialog();
-        printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
-        printDialog.PrintTicket.PageOrientation = PageOrientation.Landscape;
-        if (printDialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        printDialog.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, "Vue globale");
-        StatusMessage = "Impression envoyée.";
+        SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(doc, "Vue globale", SchoolManagement.Domain.Enums.DocumentBrandingType.FichePedagogique);
+        StatusMessage = "Aperçu fermé.";
     }
 
     private async Task EnsurePedagogicalSheetLoadedAsync(bool force = false)

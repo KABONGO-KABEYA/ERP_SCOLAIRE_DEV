@@ -116,16 +116,8 @@ public partial class IndividualResultViewModel : ViewModelBase
         try
         {
             var document = BuildPrintDocument();
-            var printDialog = new PrintDialog();
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            printDialog.PrintDocument(
-                ((IDocumentPaginatorSource)document).DocumentPaginator,
-                "Résultat individuel");
-            StatusMessage = "Impression envoyée.";
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, "Résultat individuel", SchoolManagement.Domain.Enums.DocumentBrandingType.ResultatIndividuel);
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {
@@ -136,32 +128,7 @@ public partial class IndividualResultViewModel : ViewModelBase
     [RelayCommand]
     private void ExportPdf()
     {
-        if (!HasData)
-        {
-            StatusMessage = "Aucun résultat à exporter.";
-            return;
-        }
-
-        var dialog = new SaveFileDialog
-        {
-            Filter = "HTML pour PDF (*.html)|*.html",
-            FileName = $"Resultat_{RegistrationNumber}_{StudentName}.html".Replace(' ', '_')
-        };
-        ErpFileDialog.PrepareSave(dialog);
-        if (ErpFileDialog.ShowSave(dialog) != true)
-        {
-            return;
-        }
-
-        try
-        {
-            File.WriteAllText(dialog.FileName, BuildHtmlDocument(), Encoding.UTF8);
-            StatusMessage = "Fichier HTML exporté — ouvrez-le et imprimez en PDF.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
+        Print();
     }
 
     private void ApplyDto(IndividualResultDto dto)

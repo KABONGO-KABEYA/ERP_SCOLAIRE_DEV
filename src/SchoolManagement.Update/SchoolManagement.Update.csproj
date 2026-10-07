@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SchoolManagement.Update</RootNamespace>
+    <AssemblyName>ErpScolaire.Update</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\SchoolManagement.Desktop\Assets\app.ico</ApplicationIcon>
+    <StartupObject>SchoolManagement.Update.Program</StartupObject>
+    <Version>2026.10.5</Version>
+    <FileVersion>2026.10.5.0</FileVersion>
+    <InformationalVersion>2026.10.5</InformationalVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SchoolManagement.Application\SchoolManagement.Application.csproj" />
+    <ProjectReference Include="..\SchoolManagement.Setup\SchoolManagement.Setup.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SchoolManagement.Update.UnitTests" />
+  </ItemGroup>
+</Project>

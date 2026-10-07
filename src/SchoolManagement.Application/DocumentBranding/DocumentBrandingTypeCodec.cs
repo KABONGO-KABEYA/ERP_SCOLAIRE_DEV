@@ -18,7 +18,7 @@ public static class DocumentBrandingTypeCodec
     {
         if (string.IsNullOrWhiteSpace(serialized))
         {
-            return [fallback];
+            return ExpandLegacy([fallback]);
         }
 
         var parsed = serialized
@@ -29,8 +29,16 @@ public static class DocumentBrandingTypeCodec
             .Distinct()
             .ToList();
 
-        return parsed.Count == 0 ? [fallback] : parsed;
+        return ExpandLegacy(parsed.Count == 0 ? [fallback] : parsed);
     }
+
+    private static IReadOnlyList<DocumentBrandingType> ExpandLegacy(IEnumerable<DocumentBrandingType> types) =>
+        types.SelectMany(type => type == DocumentBrandingType.RapportFinancier
+            ? new[] { DocumentBrandingType.SituationPaiements, DocumentBrandingType.RecettesRealisees,
+                DocumentBrandingType.RepartitionRecettes, DocumentBrandingType.ConfigurationRetenues, DocumentBrandingType.ListeDepenses }
+            : type == DocumentBrandingType.Lettre
+                ? new[] { DocumentBrandingType.AvisParents }
+                : new[] { type }).Distinct().ToList();
 
     public static string FormatLabels(IEnumerable<DocumentBrandingType> types) =>
         string.Join(", ", types.Select(DocumentBrandingLabels.GetDocumentTypeLabel));

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SchoolManagement.API.Hosting;
 using SchoolManagement.Application.ServerIdentity;
 
 namespace SchoolManagement.API.Controllers;
@@ -12,16 +13,21 @@ namespace SchoolManagement.API.Controllers;
 public sealed class LocalDiscoveryHealthController : ControllerBase
 {
     private readonly IServerIdentityProvider _identity;
+    private readonly StartupReadiness _readiness;
 
-    public LocalDiscoveryHealthController(IServerIdentityProvider identity)
+    public LocalDiscoveryHealthController(IServerIdentityProvider identity, StartupReadiness readiness)
     {
         _identity = identity;
+        _readiness = readiness;
     }
 
     [HttpGet]
     [Produces("application/json")]
     public IActionResult Get()
     {
+        if (!_readiness.IsReady)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { status = "starting" });
+
         var id = _identity.Current;
         var schoolDisplay = string.IsNullOrWhiteSpace(id.SchoolName) ? "École" : id.SchoolName;
 

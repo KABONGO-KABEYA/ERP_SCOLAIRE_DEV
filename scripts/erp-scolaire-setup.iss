@@ -30,7 +30,6 @@ OutputBaseFilename=DesktopSetup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=admin
-ArchitecturesInstallModes=x64compatible
 WizardStyle=modern
 
 [Languages]

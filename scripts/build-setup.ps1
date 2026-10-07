@@ -299,7 +299,8 @@ if ($TryInnoSetup) {
   $pf86 = ${env:ProgramFiles(x86)}
   $candidates = @(
     (Join-Path $pf86 'Inno Setup 6\ISCC.exe'),
-    (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+    (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
   )
   $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
@@ -328,7 +329,13 @@ if ($TryInnoSetup) {
     if (-not (Test-Path $expectedPath)) {
       throw "Inno Setup n'a pas produit $expectedPath"
     }
+
+    # Alias de distribution ecole (convention client historique).
+    $clientAlias = Join-Path $innoOut ("ERP_Scolaire_Setup_Client_$Version.exe")
+    Copy-Item -LiteralPath $expectedPath -Destination $clientAlias -Force
+
     Write-Host ("  Inno OK : {0}" -f $expectedPath) -ForegroundColor Green
+    Write-Host ("  Alias client : {0}" -f $clientAlias) -ForegroundColor Green
   } else {
     Write-Warning 'ISCC.exe introuvable - package dossier uniquement (OK pour deploiement).'
   }

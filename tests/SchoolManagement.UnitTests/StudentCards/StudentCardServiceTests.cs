@@ -84,7 +84,7 @@ public sealed class StudentCardServiceTests
     }
 
     [Fact]
-    public async Task Renew_CanKeepOrRotateQr()
+    public async Task Renew_AlwaysRotatesQr_EvenWhenLegacyOptionRequestsReuse()
     {
         var ctx = CreateContext();
         var created = await ctx.Service.CreateAsync(
@@ -98,7 +98,7 @@ public sealed class StudentCardServiceTests
             new RenewStudentCardRequest(KeepQrToken: true),
             _userId);
 
-        Assert.Equal(created.QrToken, renewedKeep.QrToken);
+        Assert.NotEqual(created.QrToken, renewedKeep.QrToken);
         Assert.Equal(2, renewedKeep.Version);
         Assert.Equal(created.Id, renewedKeep.ReplacesCardId);
 

@@ -1,3 +1,4 @@
+using SchoolManagement.Application.DocumentBranding;
 namespace SchoolManagement.Application.RevenueAllocation.Services;
 
 using ClosedXML.Excel;
@@ -44,6 +45,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
     private readonly IRevenueAllocationEngine _engine;
     private readonly IWithholdingService _withholdingService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ConfiguredDocumentHeaderService? _documentHeaders;
 
     public RevenueAllocationService(
         IRepository<RevenueAllocationDestination> destinationRepository,
@@ -66,7 +68,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         ICurrencyService currencyService,
         IRevenueAllocationEngine engine,
         IWithholdingService withholdingService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork, ConfiguredDocumentHeaderService? documentHeaders = null)
     {
         _destinationRepository = destinationRepository;
         _keyRepository = keyRepository;
@@ -89,6 +91,7 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         _engine = engine;
         _withholdingService = withholdingService;
         _unitOfWork = unitOfWork;
+        _documentHeaders = documentHeaders;
     }
 
     public async Task EnsureDefaultDestinationsAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -499,7 +502,8 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
                     pricingCategoryId,
                     payment.StudentId,
                     BalanceIncludesCurrentPayment: true,
-                    PreserveFixedConfigurationIds: preserveFixedForLine),
+                    PreserveFixedConfigurationIds: preserveFixedForLine,
+                    CurrentPaymentId: payment.Id),
                 cancellationToken);
 
             await _withholdingService.RecordApplicationsAsync(
@@ -1214,12 +1218,13 @@ public sealed class RevenueAllocationService : IRevenueAllocationService
         var search = request with { Page = 1, PageSize = 2_000 };
         var result = await SearchAllocationsAsync(schoolId, search, cancellationToken);
 
+        var header = _documentHeaders is null ? null : await _documentHeaders.LoadAsync(schoolId, SchoolManagement.Domain.Enums.DocumentBrandingType.RepartitionRecettes, cancellationToken);
         var document = Document.Create(container =>
         {
             container.Page(page =>
             {
                 page.Margin(30);
-                page.Header().Text("Répartition des recettes").SemiBold().FontSize(16);
+                page.Header().Column(col => { if (header?.Image is not null) header.Compose(col.Item()); col.Item().Text("Répartition des recettes").SemiBold().FontSize(16); });
                 page.Content().Table(table =>
                 {
                     table.ColumnsDefinition(columns =>

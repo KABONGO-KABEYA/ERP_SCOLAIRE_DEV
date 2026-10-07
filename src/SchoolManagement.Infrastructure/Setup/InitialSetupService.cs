@@ -170,6 +170,19 @@ public sealed class InitialSetupService : IInitialSetupService
 
                 await SeedFinanceBasicsAsync(school.Id, request, cancellationToken);
 
+                var installedAt = DateTime.UtcNow;
+                _db.SchoolSubscriptions.Add(new SchoolSubscription
+                {
+                    SchoolId = school.Id,
+                    InstallationDate = installedAt,
+                    DurationMonths = SchoolSubscription.InitialDurationMonths,
+                    ExpirationDate = SchoolSubscription.ComputeExpiration(
+                        installedAt,
+                        SchoolSubscription.InitialDurationMonths),
+                    IsActive = true,
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+
                 await tx.CommitAsync(cancellationToken);
             });
 

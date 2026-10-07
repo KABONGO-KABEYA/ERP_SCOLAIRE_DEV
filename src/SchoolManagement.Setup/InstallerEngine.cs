@@ -675,7 +675,21 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
 
         try
         {
-            sc.Start();
+            TryIncreaseServicesPipeTimeout();
+
+            try
+            {
+                sc.Start();
+            }
+            catch (Exception startEx) when (IsScmStartTimeout(startEx))
+            {
+                // Windows SCM attend ~30s que le processus se signale comme service.
+                // Anciennes builds faisaient le schéma SQL avant StartAsync → 1053.
+                // On continue : attente Running / health (API peut encore finir de démarrer).
+                _log("[SERVICE] Timeout SCM 1053 — poursuite de l'attente Running/health…");
+                _log($"[SERVICE] Détail : {startEx.Message}");
+            }
+
             var timeout = ApiStartupWait.ResolveTimeout();
             var deadline = DateTime.UtcNow + timeout;
             ServiceControllerStatus? lastLogged = null;
@@ -700,17 +714,119 @@ IF IS_ROLEMEMBER(N'db_owner', N'NT AUTHORITY\SYSTEM') = 0
                     _log($"[SERVICE] Toujours en démarrage ({sc.Status}) — initialisation API possible lente.");
                 }
 
+                // Si le processus écoute déjà, une nouvelle demande Start peut encore aboutir.
+                if (sc.Status == ServiceControllerStatus.Stopped && IsLocalApiHealthy())
+                {
+                    _log("[SERVICE] Health API déjà OK alors que SCM = Stopped — nouvelle tentative Start…");
+                    try
+                    {
+                        sc.Start();
+                    }
+                    catch (Exception retryEx) when (IsScmStartTimeout(retryEx) || IsAlreadyStarted(retryEx))
+                    {
+                        _log($"[SERVICE] Nouvelle tentative Start : {retryEx.Message}");
+                    }
+                }
+
                 Thread.Sleep(2000);
             }
 
             sc.Refresh();
-            if (sc.Status != ServiceControllerStatus.Running)
-                throw new System.TimeoutException(
-                    $"Le service {ServiceName} n'est pas Running après {ApiStartupWait.Format(timeout)} (état : {sc.Status}).");
+            if (sc.Status == ServiceControllerStatus.Running)
+            {
+                _log("[SERVICE] Service RUNNING.");
+                return;
+            }
+
+            if (IsLocalApiHealthy())
+            {
+                _log("[SERVICE] Avertissement : health API OK mais SCM non Running — installation poursuivie.");
+                return;
+            }
+
+            throw new System.TimeoutException(
+                $"Le service {ServiceName} n'est pas Running après {ApiStartupWait.Format(timeout)} (état : {sc.Status}).");
         }
         catch (Exception ex)
         {
             throw new InvalidOperationException(BuildServiceStartFailureMessage(ex, apiDir), ex);
+        }
+    }
+
+    private static bool IsScmStartTimeout(Exception ex)
+    {
+        for (Exception? cur = ex; cur != null; cur = cur.InnerException)
+        {
+            if (cur is System.ComponentModel.Win32Exception win32 && win32.NativeErrorCode == 1053)
+                return true;
+            if (cur.Message.Contains("n’a pas répondu assez vite", StringComparison.OrdinalIgnoreCase) ||
+                cur.Message.Contains("did not respond", StringComparison.OrdinalIgnoreCase) ||
+                cur.Message.Contains("1053", StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsAlreadyStarted(Exception ex)
+    {
+        for (Exception? cur = ex; cur != null; cur = cur.InnerException)
+        {
+            if (cur.Message.Contains("already been started", StringComparison.OrdinalIgnoreCase) ||
+                cur.Message.Contains("déjà démarré", StringComparison.OrdinalIgnoreCase) ||
+                cur.Message.Contains("deja demarre", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsLocalApiHealthy()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+            foreach (var url in new[]
+                     {
+                         "http://127.0.0.1:5096/api/v1/health",
+                         "http://127.0.0.1:5096/api/health"
+                     })
+            {
+                using var response = http.GetAsync(url).GetAwaiter().GetResult();
+                if (response.IsSuccessStatusCode)
+                    return true;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return false;
+    }
+
+    private void TryIncreaseServicesPipeTimeout()
+    {
+        // Par défaut Windows = 30s. Une valeur plus haute aide les redémarrages suivants
+        // (souvent après reboot pour prise en compte complète).
+        const int desiredMs = 300_000;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                @"SYSTEM\CurrentControlSet\Control", writable: true);
+            if (key is null)
+                return;
+
+            var current = key.GetValue("ServicesPipeTimeout") as int? ?? 0;
+            if (current >= desiredMs)
+                return;
+
+            key.SetValue("ServicesPipeTimeout", desiredMs, Microsoft.Win32.RegistryValueKind.DWord);
+            _log($"[SERVICE] ServicesPipeTimeout défini à {desiredMs} ms (était {current}).");
+        }
+        catch (Exception ex)
+        {
+            _log($"[SERVICE] Impossible d'ajuster ServicesPipeTimeout : {ex.Message}");
         }
     }
 

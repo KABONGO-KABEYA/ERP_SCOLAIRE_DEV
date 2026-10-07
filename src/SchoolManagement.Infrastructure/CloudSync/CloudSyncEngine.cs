@@ -1,4 +1,4 @@
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
@@ -38,7 +38,8 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
     private readonly DatabaseConnectionFactory _connectionFactory;
     private readonly ILogger<CloudSyncEngine> _logger;
     private readonly string _stateFilePath;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    // Le moteur est scoped : le verrou doit couvrir les appels HTTP et la boucle hébergée.
+    private static readonly SemaphoreSlim _gate = new(1, 1);
 
     public CloudSyncEngine(
         IServiceScopeFactory scopeFactory,
@@ -96,6 +97,12 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
             var localSchoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken);
 
+            await using var remote = open.Remote!;
+            remote.SuppressCloudSyncEnqueue = true;
+            await CloudSyncDestinationSchema.EnsureEmptyCloudSchemaAsync(remote, cancellationToken);
+            await EnsureRemoteCurriculumSchemaAsync(remote, cancellationToken);
+            await PrepareDestinationAsync(local, remote, cancellationToken);
+
             await RecoverStaleInProgressAsync(local, cancellationToken);
 
             var query = local.SyncOutboxUnits
@@ -121,10 +128,6 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 .ThenBy(u => u.CreatedAt)
                 .Take(Math.Clamp(maxUnits, 1, 500))
                 .ToListAsync(cancellationToken);
-
-            await using var remote = open.Remote!;
-            remote.SuppressCloudSyncEnqueue = true;
-            await EnsureRemoteCurriculumSchemaAsync(remote, cancellationToken);
 
             if (units.Count == 0)
             {
@@ -273,7 +276,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                     .GetMethod(nameof(CollectCatchUpChangesAsync), BindingFlags.NonPublic | BindingFlags.Static)!
                     .MakeGenericMethod(clrType);
 
-                var task = (Task<List<CloudSyncChange>>)method.Invoke(null, [local, tableName, since, localSchoolId, cancellationToken])!;
+                var task = (Task<List<CloudSyncChange>>)method.Invoke(null, [local, tableName, since, localSchoolId, cancellationToken, false])!;
                 var batch = await task;
                 changes.AddRange(batch);
             }
@@ -431,45 +434,128 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             recent);
     }
 
-    /// <summary>Bootstrap unique : copie complète si outbox vide et aucun watermark (migration v1 → v2).</summary>
+    /// <summary>Reprise complète par destination, via la file persistante.</summary>
     public async Task<bool> TryBootstrapFullSyncIfNeededAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await _gate.WaitAsync(0, cancellationToken)) return false;
+        try
+        {
+            var open = await TryOpenRemoteAsync(cancellationToken);
+            if (open.Skipped) return false;
+            await using var remote = open.Remote!;
+            await CloudSyncDestinationSchema.EnsureEmptyCloudSchemaAsync(remote, cancellationToken);
+            await EnsureRemoteCurriculumSchemaAsync(remote, cancellationToken);
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+            return await PrepareDestinationAsync(local, remote, cancellationToken);
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal static async Task<bool> PrepareDestinationAsync(
+        SchoolDbContext local, SchoolDbContext remote, CancellationToken cancellationToken = default)
+    {
+        var attempt = 0;
+        return await local.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            // Après rollback, relire également le marqueur et reconstruire la file.
+            // Un commit réussi dont la réponse a été perdue est reconnu par le marqueur.
+            if (attempt++ > 0) local.ChangeTracker.Clear();
+            return await PrepareDestinationCoreAsync(local, remote, cancellationToken);
+        });
+    }
+
+    private static async Task<bool> PrepareDestinationCoreAsync(
+        SchoolDbContext local, SchoolDbContext remote, CancellationToken cancellationToken)
+    {
+        var schoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken)
+            ?? throw new InvalidOperationException("Reprise cloud : établissement local introuvable.");
+        var remoteKey = CloudSyncNaturalKey.RemoteKey(remote);
+        var destination = await local.Set<SyncDestination>().SingleOrDefaultAsync(
+            d => d.SchoolId == schoolId, cancellationToken);
+        if (destination?.RemoteKey == remoteKey) return false;
+
+        // Les enfants sans SchoolId appartiennent à l'installation locale.
+        if (await local.Set<School>().IgnoreQueryFilters().CountAsync(cancellationToken) != 1)
+            throw new InvalidOperationException(
+                "Reprise vers une nouvelle base cloud suspendue : la base locale doit contenir une seule école.");
+
+        var preparedAt = DateTime.UtcNow;
+        var changes = new List<CloudSyncChange>();
+        foreach (var (tableName, clrType) in CloudSyncCatalog.SyncOrder)
+        {
+            // Toute erreur de lecture bloque la préparation : ne jamais valider une copie incomplète.
+            var method = typeof(CloudSyncEngine).GetMethod(nameof(CollectCatchUpChangesAsync),
+                BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(clrType);
+            var task = (Task<List<CloudSyncChange>>)method.Invoke(null,
+                [local, tableName, DateTime.MinValue, schoolId, cancellationToken, true])!;
+            changes.AddRange(await task);
+        }
+
+        await using var transaction = local.Database.IsRelational()
+            ? await local.Database.BeginTransactionAsync(cancellationToken) : null;
+        await new CloudSyncOutboxWriter().EnqueueAsync(local, changes, cancellationToken);
+        if (destination is null)
+        {
+            destination = new SyncDestination { SchoolId = schoolId };
+            local.Add(destination);
+        }
+        destination.RemoteKey = remoteKey;
+        destination.PreparedAt = preparedAt;
+        var watermarks = await local.SyncWatermarks.Where(w => !w.IsDeleted && w.SchoolId == schoolId)
+            .ToListAsync(cancellationToken);
+        foreach (var watermark in watermarks) watermark.LastSyncedAt = preparedAt;
+        local.SuppressCloudSyncEnqueue = true;
+        await local.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<int> RequeueTariffFailuresAsync(CancellationToken cancellationToken = default)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var local = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-        await ConfigureLocalSyncContextAsync(local, cancellationToken);
-        var hasWatermark = await local.SyncWatermarks.AnyAsync(w => !w.IsDeleted, cancellationToken);
-        var hasOutbox = await local.SyncOutboxUnits.AnyAsync(u => !u.IsDeleted, cancellationToken);
-        if (hasWatermark || hasOutbox)
+        var schoolId = await ConfigureLocalSyncContextAsync(local, cancellationToken);
+        if (schoolId is not Guid sid || sid == Guid.Empty)
         {
-            return false;
+            return 0;
         }
 
-        var legacy = scope.ServiceProvider.GetRequiredService<ICloudDatabaseSyncService>();
-        var result = await legacy.TrySyncAsync(cancellationToken);
-        if (!result.Success || result.Skipped)
+        var count = await RequeueTariffFailuresForSchoolAsync(local, sid, cancellationToken);
+        if (count > 0)
         {
-            return false;
+            _logger.LogInformation("Reprise après correction des tarifs : {Count} unité(s) remises en attente pour {SchoolId}.", count, sid);
         }
+        return count;
+    }
 
-        var schoolId = await LocalSchoolResolver.TryResolvePrimarySchoolIdAsync(local, cancellationToken)
-            ?? throw new InvalidOperationException("Bootstrap sync : établissement local introuvable.");
-
+    internal static async Task<int> RequeueTariffFailuresForSchoolAsync(
+        SchoolDbContext local, Guid schoolId, CancellationToken cancellationToken)
+    {
         local.SuppressCloudSyncEnqueue = true;
-        var now = DateTime.UtcNow;
-        foreach (var (tableName, _) in CloudSyncCatalog.SyncOrder)
+        var units = await local.SyncOutboxUnits.IgnoreQueryFilters().Include(u => u.Items)
+            .Where(u => !u.IsDeleted && u.SchoolId == schoolId
+                && (u.Status == SyncOutboxStatus.Failed || u.Status == SyncOutboxStatus.DeadLetter)
+                && u.LastError != null
+                && u.LastError.Contains("IX_ClassFeeAmounts_Year_Class_Category_FeeType_Installment"))
+            .ToListAsync(cancellationToken);
+        foreach (var unit in units)
         {
-            local.SyncWatermarks.Add(new SyncWatermark
+            unit.Status = SyncOutboxStatus.Pending;
+            unit.AttemptCount = 0;
+            unit.LastError = null;
+            unit.CompletedAt = null;
+            foreach (var item in unit.Items.Where(i => !i.IsDeleted))
             {
-                SchoolId = schoolId,
-                TableName = tableName,
-                LastSyncedAt = now,
-                CreatedAt = now
-            });
+                item.Status = SyncOutboxStatus.Pending;
+                item.LastError = null;
+            }
         }
-
-        await local.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Bootstrap sync cloud terminé — watermarks initialisés.");
-        return true;
+        if (units.Count > 0)
+        {
+            await local.SaveChangesAsync(cancellationToken);
+        }
+        return units.Count;
     }
 
     public async Task<int> RequeueFailedUnitsAsync(CancellationToken cancellationToken = default)
@@ -782,7 +868,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         await UpsertAllAsync<WithholdingConfiguration>(local, ctx, cancellationToken);
     }
 
-    private static async Task UpsertAllAsync<TEntity>(
+    internal static async Task UpsertAllAsync<TEntity>(
         SchoolDbContext local,
         SchoolDbContext remote,
         CancellationToken cancellationToken)
@@ -811,7 +897,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             var batch = rows.Skip(offset).Take(batchSize);
             foreach (var row in batch)
             {
-                await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, row, cancellationToken);
+                await CloudSyncNaturalKey.PrepareForCloudAsync(local, remote, row, cancellationToken);
                 var existsById = existing.Contains(row.Id);
                 if (!existsById
                     && await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, row, cancellationToken))
@@ -928,7 +1014,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
 
             if (control?.VerifyCloudAfterCommit == true)
             {
-                await VerifyUnitOnCloudAsync(remote, items, cancellationToken);
+                await VerifyUnitOnCloudAsync(local, remote, items, cancellationToken);
             }
 
             unit.Status = SyncOutboxStatus.Completed;
@@ -1076,6 +1162,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             .AnyAsync(e => e.Id == entityId, cancellationToken);
 
     private static async Task VerifyUnitOnCloudAsync(
+        SchoolDbContext local,
         SchoolDbContext remote,
         List<SyncOutboxItem> items,
         CancellationToken cancellationToken)
@@ -1096,13 +1183,45 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
                 throw new InvalidOperationException($"Table sync inconnue pour vérif cloud : {item.TableName}");
             }
 
-            var count = await CountEntityOnCloudAsync(verify, clrType, item.EntityId, cancellationToken);
+            var count = await CountAppliedItemOnCloudAsync(local, verify, item, cancellationToken);
             if (count != 1)
             {
                 throw new InvalidOperationException(
                     $"Confirmation cloud échouée {item.TableName}/{item.EntityId}: COUNT={count} (attendu 1).");
             }
         }
+    }
+
+    internal static async Task<int> CountAppliedItemOnCloudAsync(
+        SchoolDbContext local, SchoolDbContext remote, SyncOutboxItem item,
+        CancellationToken cancellationToken)
+    {
+        if (item.TableName is "ClassFeeAmounts")
+        {
+            var tariff = await local.Set<ClassFeeAmount>().IgnoreQueryFilters().AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == item.EntityId, cancellationToken);
+            if (tariff is not null)
+            {
+                await CloudSyncNaturalKey.PrepareForCloudAsync(local, remote, tariff, cancellationToken);
+                return await CountEntityOnCloudAsync(remote, typeof(ClassFeeAmount), tariff.Id, cancellationToken);
+            }
+        }
+        else if (item.TableName is "StudentFeeBalances")
+        {
+            var balance = await local.Set<StudentFeeBalance>().IgnoreQueryFilters().AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == item.EntityId, cancellationToken);
+            if (balance is not null)
+            {
+                await CloudSyncNaturalKey.PrepareForCloudAsync(local, remote, balance, cancellationToken);
+                return await CountEntityOnCloudAsync(remote, typeof(StudentFeeBalance), balance.Id, cancellationToken);
+            }
+        }
+
+        if (!CloudSyncCatalog.TryGetClrType(item.TableName, out var clrType))
+        {
+            throw new InvalidOperationException($"Table sync inconnue : {item.TableName}");
+        }
+        return await CountEntityOnCloudAsync(remote, clrType, item.EntityId, cancellationToken);
     }
 
     private static async Task<int> CountEntityOnCloudAsync(
@@ -1260,7 +1379,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         await task;
     }
 
-    private static async Task ApplyTypedItemAsync<TEntity>(
+    internal static async Task ApplyTypedItemAsync<TEntity>(
         SchoolDbContext local,
         SchoolDbContext remote,
         SyncOutboxItem item,
@@ -1272,9 +1391,15 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == item.EntityId, cancellationToken);
 
+        if (localEntity is not null)
+        {
+            await CloudSyncNaturalKey.PrepareForCloudAsync(local, remote, localEntity, cancellationToken);
+        }
+        var cloudEntityId = localEntity?.Id ?? item.EntityId;
+
         // Ne jamais réutiliser une instance déjà trackée (fixup de navigations).
         foreach (var tracked in remote.ChangeTracker.Entries<TEntity>()
-                     .Where(e => e.Entity.Id == item.EntityId)
+                     .Where(e => e.Entity.Id == cloudEntityId)
                      .ToList())
         {
             tracked.State = EntityState.Detached;
@@ -1283,7 +1408,7 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         var remoteExists = await remote.Set<TEntity>()
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .AnyAsync(e => e.Id == item.EntityId, cancellationToken);
+            .AnyAsync(e => e.Id == cloudEntityId, cancellationToken);
 
         if (item.Operation == SyncOperationType.Delete)
         {
@@ -1312,7 +1437,6 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         // Ne pas rappeler EnsureParent ici : EnsureParent ouvre un nouveau DbContext /
         // connexion qui se bloque sur les verrous des items précédents de la même TX
         // (ex. Payments upserté → PaymentLines.EnsureParent(Payment) timeout 120s).
-        await CloudSyncNaturalKey.RemapForeignKeysAsync(local, remote, localEntity, cancellationToken);
         if (!remoteExists
             && await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(remote, localEntity, cancellationToken))
         {
@@ -1531,7 +1655,13 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             // School déjà géré ci-dessus.
         }
 
-        await CloudSyncNaturalKey.RemapForeignKeysAsync(local, parentCtx, localParent, cancellationToken);
+        await CloudSyncNaturalKey.PrepareForCloudAsync(local, parentCtx, localParent, cancellationToken);
+        if (localParent.Id != parentId.Value
+            && await parentCtx.Set<TParent>().IgnoreQueryFilters().AsNoTracking()
+                .AnyAsync(e => e.Id == localParent.Id, cancellationToken))
+        {
+            return;
+        }
         if (await CloudSyncNaturalKey.ExistsByNaturalKeyAsync(parentCtx, localParent, cancellationToken))
         {
             return;
@@ -1852,14 +1982,15 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
         string tableName,
         DateTime since,
         Guid localSchoolId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool fullScan = false)
         where TEntity : AuditableEntity
     {
         var query = local.Set<TEntity>()
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(e =>
-                e.CreatedAt > since
+                fullScan || e.CreatedAt > since
                 || (e.UpdatedAt != null && e.UpdatedAt > since)
                 || (e.DeletedAt != null && e.DeletedAt > since));
 
@@ -1869,10 +2000,10 @@ public sealed class CloudSyncEngine : ICloudSyncEngine
             query = query.Where(e => EF.Property<Guid>(e, "SchoolId") == localSchoolId);
         }
 
-        var rows = await query
-            .OrderBy(e => e.UpdatedAt ?? e.CreatedAt)
-            .Take(500)
-            .ToListAsync(cancellationToken);
+        if (typeof(TEntity) == typeof(School))
+            query = query.Where(e => e.Id == localSchoolId);
+        var ordered = query.OrderBy(e => e.UpdatedAt ?? e.CreatedAt);
+        var rows = await (fullScan ? ordered : ordered.Take(500)).ToListAsync(cancellationToken);
 
         var result = new List<CloudSyncChange>(rows.Count);
         foreach (var row in rows)

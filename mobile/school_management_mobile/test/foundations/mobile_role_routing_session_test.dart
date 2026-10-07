@@ -85,6 +85,16 @@ void main() {
       );
     });
 
+    test('CONTROLEUR → /controller/home', () {
+      expect(
+        MobileRoleRouting.homeRoute(
+          roles: const ['CONTROLEUR'],
+          permissions: const ['payments.read', 'student-cards.read'],
+        ),
+        MobileRoleRouting.controllerHome,
+      );
+    });
+
     test('DAF refuse promoteur dashboard et encaissements', () {
       const space = MobileSpace.daf;
       expect(
@@ -188,6 +198,30 @@ void main() {
   });
 
   group('MobileRoleRouting — guards cross-role', () {
+    test('CONTROLEUR accède uniquement à son espace métier', () {
+      expect(
+        MobileRoleRouting.canAccessLocation(
+          space: MobileSpace.controller,
+          location: '/controller/home',
+        ),
+        isTrue,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(
+          space: MobileSpace.controller,
+          location: '/admin/dashboard',
+        ),
+        isFalse,
+      );
+      expect(
+        MobileRoleRouting.canAccessLocation(
+          space: MobileSpace.parent,
+          location: '/controller/home',
+        ),
+        isFalse,
+      );
+    });
+
     test('PARENT refuse teacher/secretary/promoteur', () {
       const space = MobileSpace.parent;
       expect(

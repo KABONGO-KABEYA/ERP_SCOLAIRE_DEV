@@ -27,27 +27,7 @@ public sealed class EnrollmentFormPrintService : IEnrollmentFormPrintService
         var form = await _wizardApi.GetEnrollmentFormAsync(enrollmentId, cancellationToken);
         var document = EnrollmentFormDocumentBuilder.Build(form, _brandingPathResolver, _dossierPathResolver);
 
-        var printDialog = new PrintDialog();
-        printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
-        printDialog.PrintTicket.PageOrientation = PageOrientation.Portrait;
-
-        try
-        {
-            var defaultQueue = LocalPrintServer.GetDefaultPrintQueue();
-            if (defaultQueue is not null)
-            {
-                printDialog.PrintQueue = defaultQueue;
-            }
-        }
-        catch
-        {
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-        }
-
-        printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Fiche d'inscription");
+        SchoolManagement.Desktop.Printing.DocumentPreview.Show(document, "Fiche d'inscription");
     }
 }
 

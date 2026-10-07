@@ -284,15 +284,8 @@ public partial class PaymentSituationReportViewModel : ViewModelBase
         {
             IsBusy = true;
             var bytes = await _reportApi.ExportPaymentSituationReportPdfAsync(BuildRequest());
-            var temp = Path.Combine(Path.GetTempPath(), $"situation-paiements-{Guid.NewGuid():N}.pdf");
-            await File.WriteAllBytesAsync(temp, bytes);
-            var psi = new System.Diagnostics.ProcessStartInfo(temp)
-            {
-                UseShellExecute = true,
-                Verb = "print"
-            };
-            System.Diagnostics.Process.Start(psi);
-            StatusMessage = "Document envoyé à l'impression.";
+            SchoolManagement.Desktop.Printing.DocumentPreview.ShowPdf(bytes, "Situation des paiements");
+            StatusMessage = "Aperçu PDF fermé.";
         }
         catch (Exception ex)
         {

@@ -8,6 +8,9 @@ public sealed class LocalServerDiscoveryOptions
 {
     public const string SectionName = "LocalServerDiscovery";
 
+    /// <summary>Serveur explicite : aucune découverte ni bascule vers un autre serveur.</summary>
+    public string? FixedBaseUrl { get; set; }
+
     /// <summary>URL distante de secours (Cloud).</summary>
     public string RemoteBaseUrl { get; set; } = DiscoveryConstants.DefaultRemoteBaseUrl;
 
@@ -70,6 +73,19 @@ public sealed class LocalServerDiscoveryService : ILocalServerDiscovery, IDispos
             _runningCts?.Dispose();
             _runningCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var ct = _runningCts.Token;
+
+            if (!string.IsNullOrWhiteSpace(_options.FixedBaseUrl))
+            {
+                var fixedUrl = HealthProbe.NormalizeBaseUrl(_options.FixedBaseUrl);
+                var health = await _healthProbe.ProbeAsync(fixedUrl, DiscoveryConstants.LastKnownTimeout, ct)
+                    .ConfigureAwait(false);
+                return Publish(new DiscoveryResult(
+                    health is null ? DiscoveryMode.Offline : DiscoveryMode.Local,
+                    DiscoverySource.Unknown,
+                    fixedUrl,
+                    health,
+                    health is null ? $"Serveur configuré indisponible : {fixedUrl}" : $"Serveur configuré : {fixedUrl}"));
+            }
 
             if (!force && _current.IsLocal)
             {

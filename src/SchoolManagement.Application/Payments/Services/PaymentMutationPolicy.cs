@@ -8,7 +8,7 @@ using SchoolManagement.Shared.Constants;
 
 /// <summary>
 /// Politique de modification / annulation des versements déjà encaissés :
-/// permissions granulaires, ordre rétrograde (dernier versement d'abord),
+/// permissions granulaires, dernière journée encaissée,
 /// et interdiction de toucher une tranche si des tranches suivantes sont déjà payées.
 /// </summary>
 public static class PaymentMutationPolicy
@@ -45,8 +45,8 @@ public static class PaymentMutationPolicy
     }
 
     /// <summary>
-    /// Le paiement ciblé doit être le dernier versement complet du même type de frais :
-    /// date de paiement la plus récente, puis ordre d'enregistrement.
+    /// Le paiement ciblé doit appartenir à la dernière journée encaissée du même type de frais.
+    /// Les versements d'une même journée restent tous modifiables.
     /// </summary>
     public static void EnsureIsLatestCompletedPayment(
         Payment target,
@@ -61,13 +61,22 @@ public static class PaymentMutationPolicy
                 studentYearPayments.Where(p => p.Status == PaymentStatus.Complet))
             .FirstOrDefault();
 
-        if (latest is null || latest.Id != target.Id)
+        if (latest is not null && latest.PaymentDate.Date > target.PaymentDate.Date)
         {
             throw new DomainException(
-                "Impossible : un encaissement plus récent existe déjà pour ce type de frais " +
+                "Impossible : un encaissement à une journée postérieure existe déjà pour ce type de frais " +
                 "(y compris pour un autre élève). " +
                 "Modifiez ou annulez d'abord le versement à la date la plus récente.");
         }
+    }
+
+    public static bool IsLatestPaymentDay(DateTime paymentDate, DateTime? latestPaymentDate) =>
+        latestPaymentDate is null || paymentDate.Date >= latestPaymentDate.Value.Date;
+
+    public static void EnsureCreationDateAllowed(DateTime paymentDate, DateTime? latestPaymentDate)
+    {
+        if (!IsLatestPaymentDay(paymentDate, latestPaymentDate))
+            throw new DomainException($"Impossible d’enregistrer ce paiement au {paymentDate:dd/MM/yyyy} : un encaissement du même type de frais existe au {latestPaymentDate:dd/MM/yyyy}. La date minimale autorisée est le {latestPaymentDate:dd/MM/yyyy} (même année scolaire, tous élèves confondus).");
     }
 
     /// <summary>Priorité rétrograde : date de paiement DESC, puis enregistrement DESC.</summary>

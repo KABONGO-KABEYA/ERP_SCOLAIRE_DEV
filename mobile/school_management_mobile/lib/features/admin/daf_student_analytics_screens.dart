@@ -15,7 +15,12 @@ import 'daf_student_repository.dart';
 
 /// Drill-down hiérarchique : régime → classe → élève (Dashboard DAF / Promoteur).
 class EnrolledStudentsAnalyticsScreen extends ConsumerStatefulWidget {
-  const EnrolledStudentsAnalyticsScreen({super.key});
+  const EnrolledStudentsAnalyticsScreen({
+    super.key,
+    this.studentsRoute = '/admin/students',
+  });
+
+  final String studentsRoute;
 
   @override
   ConsumerState<EnrolledStudentsAnalyticsScreen> createState() => _EnrolledStudentsAnalyticsScreenState();
@@ -228,7 +233,7 @@ class _EnrolledStudentsAnalyticsScreenState extends ConsumerState<EnrolledStuden
   }
 
   void _openStudent(String studentId) {
-    context.push('/admin/students/$studentId/consultation');
+    context.push('${widget.studentsRoute}/$studentId/consultation');
   }
 
   Widget _buildSearchResultTile(StudentSummary student) {

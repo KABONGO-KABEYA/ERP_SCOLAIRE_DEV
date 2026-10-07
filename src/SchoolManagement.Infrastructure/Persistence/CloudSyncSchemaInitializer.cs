@@ -34,6 +34,29 @@ public sealed class CloudSyncSchemaInitializer
     private static readonly string[] Scripts =
     [
         """
+        IF OBJECT_ID(N'dbo.SyncDestination', N'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.SyncDestination (
+                SchoolId uniqueidentifier NOT NULL PRIMARY KEY,
+                RemoteKey varchar(64) NOT NULL,
+                PreparedAt datetime2 NOT NULL
+            );
+        END
+        """,
+        """
+        IF OBJECT_ID(N'dbo.SyncEntityIdentity', N'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.SyncEntityIdentity (
+                RemoteKey varchar(64) NOT NULL,
+                SchoolId uniqueidentifier NOT NULL,
+                TableName varchar(64) NOT NULL,
+                LocalId uniqueidentifier NOT NULL,
+                CloudId uniqueidentifier NOT NULL,
+                CONSTRAINT PK_SyncEntityIdentity PRIMARY KEY (RemoteKey, SchoolId, TableName, LocalId)
+            );
+        END
+        """,
+        """
         IF OBJECT_ID(N'SyncOutboxUnit', N'U') IS NULL
         BEGIN
             CREATE TABLE [SyncOutboxUnit] (

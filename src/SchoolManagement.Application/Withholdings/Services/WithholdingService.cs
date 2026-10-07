@@ -1,3 +1,4 @@
+﻿using SchoolManagement.Application.DocumentBranding;
 namespace SchoolManagement.Application.Withholdings.Services;
 
 using ClosedXML.Excel;
@@ -31,6 +32,10 @@ public sealed class WithholdingService : IWithholdingService
     private readonly IRepository<FeePricingCategory> _categoryRepository;
     private readonly IWithholdingEngine _engine;
     private readonly IUnitOfWork _unitOfWork;
+    // Les INSERT en attente ne sont pas visibles aux lectures SQL AsNoTracking.
+    private readonly Dictionary<(Guid School, Guid Student, Guid Year, Guid Configuration), Guid>
+        _pendingFixedApplications = new();
+    private readonly ConfiguredDocumentHeaderService? _documentHeaders;
 
     public WithholdingService(
         IRepository<WithholdingType> typeRepository,
@@ -48,7 +53,7 @@ public sealed class WithholdingService : IWithholdingService
         IRepository<FeeInstallment> installmentRepository,
         IRepository<FeePricingCategory> categoryRepository,
         IWithholdingEngine engine,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork, ConfiguredDocumentHeaderService? documentHeaders = null)
     {
         _typeRepository = typeRepository;
         _configRepository = configRepository;
@@ -66,6 +71,7 @@ public sealed class WithholdingService : IWithholdingService
         _categoryRepository = categoryRepository;
         _engine = engine;
         _unitOfWork = unitOfWork;
+        _documentHeaders = documentHeaders;
     }
 
     public async Task EnsureDefaultTypesAsync(Guid schoolId, CancellationToken cancellationToken = default)
@@ -320,6 +326,9 @@ public sealed class WithholdingService : IWithholdingService
                      l.WithheldAmount > 0
                      && l.CalculationMode == WithholdingCalculationMode.MontantFixe))
         {
+            var key = (schoolId, studentId, academicYearId, line.ConfigurationId);
+            if (_pendingFixedApplications.ContainsKey(key))
+                throw new DomainException("Cette retenue fixe est déjà enregistrée dans cet encaissement. Actualisez le paiement.");
             await _applicationRepository.AddAsync(new WithholdingApplication
             {
                 SchoolId = schoolId,
@@ -330,6 +339,7 @@ public sealed class WithholdingService : IWithholdingService
                 PaymentLineId = paymentLineId,
                 Amount = line.WithheldAmount
             }, cancellationToken);
+            _pendingFixedApplications.Add(key, paymentId);
         }
     }
 
@@ -367,6 +377,9 @@ public sealed class WithholdingService : IWithholdingService
         Guid paymentId,
         CancellationToken cancellationToken = default)
     {
+        foreach (var key in _pendingFixedApplications.Where(x => x.Value == paymentId && x.Key.School == schoolId)
+                     .Select(x => x.Key).ToList())
+            _pendingFixedApplications.Remove(key);
         var applications = await _applicationRepository.FindAsync(
             a => a.SchoolId == schoolId && a.PaymentId == paymentId,
             cancellationToken);
@@ -424,12 +437,13 @@ public sealed class WithholdingService : IWithholdingService
     {
         var search = request with { Page = 1, PageSize = 2000 };
         var data = await SearchConfigurationsAsync(schoolId, search, cancellationToken);
+        var header = _documentHeaders is null ? null : await _documentHeaders.LoadAsync(schoolId, SchoolManagement.Domain.Enums.DocumentBrandingType.ConfigurationRetenues, cancellationToken);
         var document = Document.Create(container =>
         {
             container.Page(page =>
             {
                 page.Margin(30);
-                page.Header().Text("Configuration des retenues").SemiBold().FontSize(16);
+                page.Header().Column(col => { if (header?.Image is not null) header.Compose(col.Item()); col.Item().Text("Configuration des retenues").SemiBold().FontSize(16); });
                 page.Content().Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
@@ -545,14 +559,21 @@ public sealed class WithholdingService : IWithholdingService
 
         if (fixedConfigs.Count > 0)
         {
+            var preserveFixed = context.PreserveFixedConfigurationIds ?? new HashSet<Guid>();
+            var appliedConfigIds = await GetAppliedConfigurationIdsAsync(
+                schoolId, studentId, context.AcademicYearId, cancellationToken);
+            var pendingFixed = fixedConfigs
+                .Where(c => preserveFixed.Contains(c.Id) || !appliedConfigIds.Contains(c.Id)).ToList();
+            var legacyApplied = await GetLegacyAppliedConfigurationIdsAsync(
+                schoolId, studentId, context.AcademicYearId,
+                pendingFixed.Where(c => !preserveFixed.Contains(c.Id)).ToList(), cancellationToken);
+            fixedConfigs = pendingFixed.Where(c => preserveFixed.Contains(c.Id) || !legacyApplied.Contains(c.Id)).ToList();
             var fixedInstallmentConfigs = fixedConfigs
                 .Where(c => c.FeeInstallmentId.HasValue)
                 .ToList();
             var fixedGeneralConfigs = fixedConfigs
                 .Where(c => !c.FeeInstallmentId.HasValue)
                 .ToList();
-
-            var preserveFixed = context.PreserveFixedConfigurationIds ?? new HashSet<Guid>();
 
             // Règle demandée : un montant fixe s'applique à la première fois où la rubrique
             // (tranche) est payée par l'élève. En modification de paiement, on conserve
@@ -575,28 +596,7 @@ public sealed class WithholdingService : IWithholdingService
             // Cas "général" (sans tranche) : on retombe sur la déduplication par configuration déjà appliquée.
             if (fixedGeneralConfigs.Count > 0)
             {
-                var appliedConfigIds = await GetAppliedConfigurationIdsAsync(
-                    schoolId,
-                    studentId,
-                    context.AcademicYearId,
-                    cancellationToken);
-
-                var pendingFixed = fixedGeneralConfigs
-                    .Where(c => preserveFixed.Contains(c.Id) || !appliedConfigIds.Contains(c.Id))
-                    .ToList();
-
-                var legacyCandidates = pendingFixed
-                    .Where(c => !preserveFixed.Contains(c.Id))
-                    .ToList();
-                var legacyApplied = await GetLegacyAppliedConfigurationIdsAsync(
-                    schoolId,
-                    studentId,
-                    context.AcademicYearId,
-                    legacyCandidates,
-                    cancellationToken);
-
-                result.AddRange(pendingFixed.Where(c =>
-                    preserveFixed.Contains(c.Id) || !legacyApplied.Contains(c.Id)));
+                result.AddRange(fixedGeneralConfigs);
             }
         }
 
@@ -659,37 +659,20 @@ public sealed class WithholdingService : IWithholdingService
             return false;
         }
 
-        var classFeeAmountId = await ResolveClassFeeAmountIdAsync(
-            schoolId,
-            studentId,
-            context.AcademicYearId,
-            config.FeeTypeId,
-            config.FeeInstallmentId.Value,
+        // Lire les versements réellement enregistrés, pas un solde dont la mise à jour
+        // est encore dans le tracker EF et n'est pas visible à une requête AsNoTracking.
+        var paymentIds = (await _paymentRepository.FindAsync(
+            p => p.SchoolId == schoolId && p.StudentId == studentId
+                 && p.AcademicYearId == context.AcademicYearId
+                 && p.Status == PaymentStatus.Complet
+                 && (!context.CurrentPaymentId.HasValue || p.Id != context.CurrentPaymentId.Value),
+            cancellationToken)).Select(p => p.Id).ToList();
+        if (paymentIds.Count == 0) return true;
+        var previousLines = await _paymentLineRepository.FindAsync(
+            l => paymentIds.Contains(l.PaymentId) && l.FeeTypeId == config.FeeTypeId
+                 && l.FeeInstallmentId == config.FeeInstallmentId && l.Amount > 0,
             cancellationToken);
-
-        if (!classFeeAmountId.HasValue)
-        {
-            // Pas de solde connu : on considère que c'est la "première fois".
-            return true;
-        }
-
-        var balance = (await _balanceRepository.FindAsync(
-            b => b.StudentId == studentId && b.ClassFeeAmountId == classFeeAmountId.Value,
-            cancellationToken)).FirstOrDefault();
-
-        if (balance is null)
-        {
-            return true;
-        }
-
-        // En encaissement (réel), AmountPaid a déjà été incrémenté avant calcul.
-        var amountPaidBefore = balance.AmountPaid;
-        if (context.BalanceIncludesCurrentPayment)
-        {
-            amountPaidBefore -= grossAmount;
-        }
-
-        return amountPaidBefore <= 0m;
+        return previousLines.Count == 0;
     }
 
     /// <summary>
@@ -784,7 +767,11 @@ public sealed class WithholdingService : IWithholdingService
                  && a.StudentId == studentId
                  && a.AcademicYearId == academicYearId,
             cancellationToken);
-        return applications.Select(a => a.WithholdingConfigurationId).ToHashSet();
+        var applied = applications.Select(a => a.WithholdingConfigurationId).ToHashSet();
+        applied.UnionWith(_pendingFixedApplications.Keys
+            .Where(k => k.School == schoolId && k.Student == studentId && k.Year == academicYearId)
+            .Select(k => k.Configuration));
+        return applied;
     }
 
     /// <summary>

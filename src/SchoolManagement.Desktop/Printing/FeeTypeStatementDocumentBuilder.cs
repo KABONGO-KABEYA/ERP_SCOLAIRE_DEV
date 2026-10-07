@@ -10,13 +10,14 @@ using SchoolManagement.Desktop.Services;
 
 namespace SchoolManagement.Desktop.Printing;
 
-/// <summary>Relevé A5 (compatible A4) — pleine largeur imprimable.</summary>
+/// <summary>Relevé A4 portrait — pleine largeur imprimable.</summary>
 public static class FeeTypeStatementDocumentBuilder
 {
-    // A5 portrait @ 96 DPI (défaut) : 148 × 210 mm ≈ 559 × 794 DIPs
-    private const double DefaultPageWidth = 559;
-    private const double DefaultPageHeight = 794;
-    private const double PageMargin = 10;
+    // A4 portrait @ 96 DPI : 210 × 297 mm ≈ 793,7 × 1122,5 DIPs.
+    private const double DefaultPageWidth = 793.7;
+    private const double DefaultPageHeight = 1122.52;
+    private const double PageMargin = 24;
+    private const double FontScale = 1.35;
 
     private static readonly Brush Navy = BrushFrom("#0B3D91");
     private static readonly Brush PrimaryBlue = BrushFrom("#1E5EFF");
@@ -48,9 +49,9 @@ public static class FeeTypeStatementDocumentBuilder
             PageHeight = height,
             PagePadding = new Thickness(PageMargin),
             FontFamily = UiFont,
-            FontSize = 7.5,
+            FontSize = Fs(7.5),
             ColumnWidth = double.PositiveInfinity,
-            LineHeight = 10,
+            LineHeight = Fs(10),
             TextAlignment = TextAlignment.Left
         };
 
@@ -98,7 +99,7 @@ public static class FeeTypeStatementDocumentBuilder
         {
             Text = s.SchoolName.ToUpperInvariant(),
             FontWeight = FontWeights.Bold,
-            FontSize = 8.5,
+            FontSize = Fs(8.5),
             Foreground = Navy,
             TextWrapping = TextWrapping.Wrap
         });
@@ -130,13 +131,13 @@ public static class FeeTypeStatementDocumentBuilder
         titleBlock.Inlines.Add(new Run($"{BuildDocumentTitle(s.FeeTypeName)} ")
         {
             FontWeight = FontWeights.Bold,
-            FontSize = 9.5,
+            FontSize = Fs(9.5),
             Foreground = Navy
         });
         titleBlock.Inlines.Add(new Run($"n°{s.StatementNumber}")
         {
             FontWeight = FontWeights.Bold,
-            FontSize = 9.5,
+            FontSize = Fs(9.5),
             Foreground = PrimaryBlue
         });
         left.Children.Add(titleBlock);
@@ -176,6 +177,25 @@ public static class FeeTypeStatementDocumentBuilder
     private static string OrDash(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "—" : value;
 
+    private static string DisplayReceiptNumber(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "—";
+        }
+
+        var receiptNumber = value.Trim();
+        if (!receiptNumber.StartsWith("REC-", StringComparison.OrdinalIgnoreCase))
+        {
+            return receiptNumber;
+        }
+
+        var suffixSeparator = receiptNumber.IndexOf('-', "REC-".Length);
+        return suffixSeparator >= 0 && suffixSeparator < receiptNumber.Length - 1
+            ? receiptNumber[(suffixSeparator + 1)..]
+            : receiptNumber;
+    }
+
     private static Block BuildTwoTables(FeeTypeStatementDto s, double contentWidth)
     {
         var currency = s.Currency.ToString();
@@ -191,7 +211,7 @@ public static class FeeTypeStatementDocumentBuilder
             l.InstallmentName,
             l.PaymentDate.ToLocalTime().ToString("dd/MM/yyyy", Fr),
             l.AmountPaid.ToString("N2", Fr),
-            l.ReceiptNumber
+            DisplayReceiptNumber(l.ReceiptNumber)
         }).ToList();
 
         var situationRows = s.InstallmentSituations.Select(l => new[]
@@ -274,7 +294,7 @@ public static class FeeTypeStatementDocumentBuilder
             {
                 Text = title,
                 FontWeight = FontWeights.Bold,
-                FontSize = 7,
+                FontSize = Fs(7),
                 Foreground = Brushes.White
             }
         });
@@ -297,7 +317,7 @@ public static class FeeTypeStatementDocumentBuilder
                     Text = headers[c],
                     Foreground = Brushes.White,
                     FontWeight = FontWeights.Bold,
-                    FontSize = 6.5,
+                    FontSize = Fs(6.5),
                     TextWrapping = TextWrapping.Wrap
                 }
             };
@@ -334,7 +354,7 @@ public static class FeeTypeStatementDocumentBuilder
                     Child = new TextBlock
                     {
                         Text = values[c],
-                        FontSize = 7.2,
+                        FontSize = Fs(7.2),
                         Foreground = fg,
                         FontWeight = bold ? FontWeights.Bold : FontWeights.Normal,
                         TextWrapping = TextWrapping.NoWrap
@@ -378,7 +398,7 @@ public static class FeeTypeStatementDocumentBuilder
         {
             Text = "Récapitulatif :",
             FontWeight = FontWeights.Bold,
-            FontSize = 8.5,
+            FontSize = Fs(8.5),
             Foreground = Navy,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0)
@@ -407,8 +427,8 @@ public static class FeeTypeStatementDocumentBuilder
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        tb.Inlines.Add(new Run(label + " ") { FontSize = 7, Foreground = TextMuted });
-        tb.Inlines.Add(new Run(amount) { FontSize = 11, FontWeight = FontWeights.Bold, Foreground = accent });
+        tb.Inlines.Add(new Run(label + " ") { FontSize = Fs(7), Foreground = TextMuted });
+        tb.Inlines.Add(new Run(amount) { FontSize = Fs(11), FontWeight = FontWeights.Bold, Foreground = accent });
         return tb;
     }
 
@@ -447,7 +467,7 @@ public static class FeeTypeStatementDocumentBuilder
             panel.Children.Add(new TextBlock
             {
                 Text = $"Caissier : {OrDash(cashierName)}",
-                FontSize = 7.5,
+                FontSize = Fs(7.5),
                 FontWeight = FontWeights.SemiBold,
                 Foreground = TextDark,
                 HorizontalAlignment = HorizontalAlignment.Left,
@@ -459,7 +479,7 @@ public static class FeeTypeStatementDocumentBuilder
             panel.Children.Add(new TextBlock
             {
                 Text = dateTimeText ?? string.Empty,
-                FontSize = 7.5,
+                FontSize = Fs(7.5),
                 Foreground = TextMuted,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(8, 0, 8, 8)
@@ -476,7 +496,7 @@ public static class FeeTypeStatementDocumentBuilder
         panel.Children.Add(new TextBlock
         {
             Text = label,
-            FontSize = 7,
+            FontSize = Fs(7),
             Foreground = TextMuted,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 4, 0, 0)
@@ -508,11 +528,13 @@ public static class FeeTypeStatementDocumentBuilder
         return new StackPanel { Children = { row } };
     }
 
+    private static double Fs(double size) => size * FontScale;
+
     private static TextBlock Txt(string text, double size, Brush fg, bool bold = false, bool italic = false) =>
         new()
         {
             Text = text,
-            FontSize = size,
+            FontSize = Fs(size),
             Foreground = fg,
             FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
             FontStyle = italic ? FontStyles.Italic : FontStyles.Normal,

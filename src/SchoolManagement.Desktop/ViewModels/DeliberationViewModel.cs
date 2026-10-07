@@ -829,25 +829,7 @@ public partial class DeliberationViewModel : ViewModelBase
     [RelayCommand]
     private void ExportPdf()
     {
-        if (Rows.Count == 0)
-        {
-            StatusMessage = "Aucune donnée à exporter.";
-            return;
-        }
-
-        var dialog = new SaveFileDialog
-        {
-            Filter = "HTML (*.html)|*.html",
-            FileName = $"Deliberation_{ClassDisplayName}_{PeriodLabel}.html".Replace(' ', '_')
-        };
-        ErpFileDialog.PrepareSave(dialog);
-        if (ErpFileDialog.ShowSave(dialog) != true)
-        {
-            return;
-        }
-
-        File.WriteAllText(dialog.FileName, BuildHtmlDocument(), Encoding.UTF8);
-        StatusMessage = "Export PDF (HTML) terminé.";
+        Print();
     }
 
     [RelayCommand]
@@ -862,16 +844,8 @@ public partial class DeliberationViewModel : ViewModelBase
         try
         {
             var document = BuildPrintDocument();
-            var printDialog = new PrintDialog();
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            printDialog.PrintDocument(
-                ((IDocumentPaginatorSource)document).DocumentPaginator,
-                "Délibération");
-            StatusMessage = "Impression envoyée.";
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, "Délibération", SchoolManagement.Domain.Enums.DocumentBrandingType.Deliberation);
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {

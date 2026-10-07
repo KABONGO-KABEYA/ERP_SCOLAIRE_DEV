@@ -70,6 +70,22 @@ public enum DocumentBrandingType
     Palmares = 9,
     FicheInscription = 10,
     RapportFinancier = 11,
+    SituationPaiements = 12,
+    RecettesRealisees = 13,
+    RepartitionRecettes = 14,
+    ConfigurationRetenues = 15,
+    ListeEleves = 16,
+    ResultatsClasse = 17,
+    ResultatIndividuel = 18,
+    ValidationResultats = 19,
+    Deliberation = 20,
+    NotesCours = 21,
+    FichePedagogique = 22,
+    ListePersonnel = 23,
+    FichePersonnel = 24,
+    ListeDepenses = 25,
+    QrEtablissement = 26,
+    AvisParents = 27,
     Autre = 99
 }
 

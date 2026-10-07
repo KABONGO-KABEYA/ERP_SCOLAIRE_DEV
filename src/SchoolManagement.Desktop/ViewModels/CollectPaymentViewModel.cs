@@ -379,6 +379,9 @@ public partial class CollectPaymentViewModel : ObservableObject
         RecalculateCanSubmit();
         try
         {
+            var gate = await _paymentApi.GetMutationGateAsync(_situation.AcademicYearId, _situation.FeeTypeId.Value);
+            SchoolManagement.Application.Payments.Services.PaymentMutationPolicy.EnsureCreationDateAllowed(
+                PaymentDate?.Date ?? DateTime.Today, gate.LatestPaymentDate);
             var created = await _paymentApi.CreateAsync(new CreatePaymentRequest(
                 _situation.StudentId,
                 _situation.AcademicYearId,

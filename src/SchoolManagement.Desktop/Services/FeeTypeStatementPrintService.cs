@@ -84,11 +84,7 @@ public sealed class FeeTypeStatementPrintService : IFeeTypeStatementPrintService
 
         await dispatcher.InvokeAsync(() =>
         {
-            var preview = new FeeTypeStatementPreviewWindow(document, statement, PrintDocument, ExportDocumentPdf)
-            {
-                Owner = System.Windows.Application.Current?.MainWindow
-            };
-            preview.ShowDialog();
+            DocumentPreview.Show(document, "Relevé de paiement");
         });
     }
 
@@ -132,24 +128,8 @@ public sealed class FeeTypeStatementPrintService : IFeeTypeStatementPrintService
 
     private void PrintDocument(FeeTypeStatementDto statement)
     {
-        var printDialog = new PrintDialog();
-        printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA5);
-        printDialog.PrintTicket.PageOrientation = PageOrientation.Portrait;
-
-        if (printDialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        var document = FeeTypeStatementDocumentBuilder.Build(
-            statement,
-            _brandingPathResolver,
-            printDialog.PrintableAreaWidth,
-            printDialog.PrintableAreaHeight);
-
-        printDialog.PrintDocument(
-            ((IDocumentPaginatorSource)document).DocumentPaginator,
-            $"Relevé {statement.FeeTypeName} — {statement.StatementNumber}");
+        var document = FeeTypeStatementDocumentBuilder.Build(statement, _brandingPathResolver);
+        DocumentPreview.Show(document, $"Relevé {statement.FeeTypeName} — {statement.StatementNumber}");
     }
 
     private void ExportDocumentPdf(FeeTypeStatementDto statement) =>

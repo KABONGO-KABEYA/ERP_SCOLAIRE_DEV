@@ -295,32 +295,7 @@ public partial class ClassResultsViewModel : ViewModelBase
     [RelayCommand]
     private void ExportPdf()
     {
-        if (FilteredRows.Count == 0)
-        {
-            StatusMessage = "Aucune donnée à exporter.";
-            return;
-        }
-
-        var dialog = new SaveFileDialog
-        {
-            Filter = "HTML pour PDF (*.html)|*.html",
-            FileName = $"Resultats_{ClassDisplayName}_{PeriodLabel}.html".Replace(' ', '_')
-        };
-        ErpFileDialog.PrepareSave(dialog);
-        if (ErpFileDialog.ShowSave(dialog) != true)
-        {
-            return;
-        }
-
-        try
-        {
-            File.WriteAllText(dialog.FileName, BuildHtmlDocument(), Encoding.UTF8);
-            StatusMessage = "Fichier HTML exporté — ouvrez-le et imprimez en PDF.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
+        Print();
     }
 
     [RelayCommand]
@@ -335,14 +310,8 @@ public partial class ClassResultsViewModel : ViewModelBase
         try
         {
             var document = BuildPrintDocument();
-            var printDialog = new PrintDialog();
-            if (printDialog.ShowDialog() != true)
-            {
-                return;
-            }
-
-            printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, "Résultats par classe");
-            StatusMessage = "Impression envoyée.";
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, "Résultats par classe", SchoolManagement.Domain.Enums.DocumentBrandingType.ResultatsClasse);
+            StatusMessage = "Aperçu fermé.";
         }
         catch (Exception ex)
         {

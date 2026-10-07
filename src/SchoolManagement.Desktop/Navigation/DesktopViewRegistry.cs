@@ -42,6 +42,7 @@ public sealed class DesktopViewRegistry : IDesktopViewRegistry
             ["PedagogicalPeriods.Main"] = new DirectDesktopViewTarget(typeof(PedagogicalPeriodsViewModel)),
             ["Grades.Main"] = new DirectDesktopViewTarget(typeof(GradesViewModel)),
             ["Documents.Main"] = new DirectDesktopViewTarget(typeof(DocumentsViewModel)),
+            ["Documents.ParentNotices"] = new DirectDesktopViewTarget(typeof(ParentNoticesViewModel)),
             ["Statistics.Main"] = new DirectDesktopViewTarget(typeof(StatisticsViewModel)),
 
             ["Settings.Etablissement"] = Settings("etablissement"),

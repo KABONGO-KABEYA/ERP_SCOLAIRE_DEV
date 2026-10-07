@@ -99,7 +99,7 @@ public static class EnrollmentFormDocumentBuilder
             // ~3.78 px/mm à 96 DPI ; étirement pleine largeur (pas centré)
             var heightPx = Math.Clamp(heightMm * 3.78, 30, 220);
             var widthPx = Math.Max(40, ContentWidth - 8 - leftMm * 3.78 - rightMm * 3.78);
-            var image = CreateImage(headerPath, widthPx, heightPx, Stretch.Fill);
+            var image = CreateImage(headerPath, widthPx, heightPx, form.Branding.PrintMode == SchoolManagement.Domain.Enums.HeaderPrintMode.LogoOnly ? Stretch.Uniform : Stretch.Fill);
             if (image is not null)
             {
                 wrapper.Blocks.Add(new Paragraph(new InlineUIContainer(image))

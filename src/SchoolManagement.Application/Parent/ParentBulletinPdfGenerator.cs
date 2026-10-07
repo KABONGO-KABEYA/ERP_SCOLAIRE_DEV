@@ -18,7 +18,7 @@ public static class ParentBulletinPdfGenerator
         int classSize,
         string mention,
         string decision,
-        string? appreciation)
+        string? appreciation, SchoolManagement.Application.DocumentBranding.ConfiguredDocumentHeader? header = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -32,6 +32,7 @@ public static class ParentBulletinPdfGenerator
 
                 page.Header().Column(col =>
                 {
+                    if (header?.Image is not null) header.Compose(col.Item());
                     col.Item().Text(schoolName).Bold().FontSize(16).AlignCenter();
                     col.Item().PaddingTop(4).Text("BULLETIN SCOLAIRE").SemiBold().FontSize(14).AlignCenter();
                     col.Item().PaddingTop(2).Text(periodName).AlignCenter().FontColor(Colors.Grey.Darken2);

@@ -19,6 +19,8 @@ using SchoolManagement.Application.DocumentBranding.Interfaces;
 using SchoolManagement.Application.DocumentBranding.Services;
 using SchoolManagement.Application.Documents.Interfaces;
 using SchoolManagement.Application.Documents.Services;
+using SchoolManagement.Application.ParentNotices.Interfaces;
+using SchoolManagement.Application.ParentNotices.Services;
 using SchoolManagement.Application.Grades.Interfaces;
 using SchoolManagement.Application.Grades.Services;
 using SchoolManagement.Application.Personnel.Interfaces;
@@ -61,6 +63,8 @@ using SchoolManagement.Application.CourseConfiguration.Interfaces;
 using SchoolManagement.Application.PedagogicalPeriods.Interfaces;
 using SchoolManagement.Application.PedagogicalPeriods.Services;
 using SchoolManagement.Application.CourseConfiguration.Services;
+using SchoolManagement.Application.ControllerControl.Interfaces;
+using SchoolManagement.Application.ControllerControl.Services;
 using System.Reflection;
 
 public static class ApplicationServiceRegistration
@@ -72,6 +76,7 @@ public static class ApplicationServiceRegistration
         TypeAdapterConfig.GlobalSettings.Scan(Assembly.GetExecutingAssembly());
 
         services.AddScoped<ISchoolService, SchoolService>();
+        services.AddScoped<ISchoolSubscriptionService, SchoolSubscriptionService>();
         services.AddScoped<IPedagogicalStructureService, PedagogicalStructureService>();
         services.AddScoped<IStudentService, StudentService>();
         services.AddScoped<IEnrollmentWizardService, EnrollmentWizardService>();
@@ -89,6 +94,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<ICurrencyService, CurrencyService>();
         services.AddScoped<IStudentCardService, StudentCardService>();
         services.AddScoped<IFinanceOperationService, FinanceOperationService>();
+        services.AddScoped<IControllerControlService, ControllerControlService>();
         services.AddScoped<ISchoolFeeService, SchoolFeeService>();
         services.AddScoped<ICourseConfigurationService, CourseConfigurationService>();
         services.AddScoped<IStudentFeeBalanceProvisioner, StudentFeeBalanceProvisioner>();
@@ -107,8 +113,10 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IAcademicService, AcademicService>();
         services.AddScoped<ITeacherService, TeacherService>();
         services.AddScoped<IDocumentService, DocumentService>();
+        services.AddScoped<IParentNoticeService, ParentNoticeService>();
         services.AddScoped<IDocumentBrandingService, DocumentBrandingService>();
         services.AddScoped<IDocumentPrintBrandingResolver, DocumentPrintBrandingResolver>();
+        services.AddScoped<SchoolManagement.Application.DocumentBranding.ConfiguredDocumentHeaderService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IPromoterDashboardService, PromoterDashboardService>();
         services.AddScoped<IAdminService, AdminService>();

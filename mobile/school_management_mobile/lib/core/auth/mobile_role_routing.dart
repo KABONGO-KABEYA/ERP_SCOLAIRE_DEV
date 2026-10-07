@@ -5,6 +5,7 @@ enum MobileSpace {
   promoteur,
   secretary,
   daf,
+  controller,
   unsupported,
 }
 
@@ -23,6 +24,7 @@ abstract final class MobileRoleRouting {
   static const promoteurHome = '/promoteur/dashboard';
   static const secretaryHome = '/secretary/home';
   static const dafHome = '/admin/dashboard';
+  static const controllerHome = '/controller/home';
   static const unsupportedRoute = '/unsupported-role';
 
   static List<String> normalizeRoles(Iterable<String> roles) => roles
@@ -85,6 +87,7 @@ abstract final class MobileRoleRouting {
     }
     if (hasExactRole(roleCodes, 'PROMOTEUR')) return MobileSpace.promoteur;
     if (hasExactRole(roleCodes, 'DAF')) return MobileSpace.daf;
+    if (hasExactRole(roleCodes, 'CONTROLEUR')) return MobileSpace.controller;
     if (hasExactRole(roleCodes, 'PARENT')) return MobileSpace.parent;
 
     if (hasSecretaryMobileAccess(roles: roleCodes, permissions: permissions)) {
@@ -100,6 +103,7 @@ abstract final class MobileRoleRouting {
         MobileSpace.promoteur => promoteurHome,
         MobileSpace.secretary => secretaryHome,
         MobileSpace.daf => dafHome,
+        MobileSpace.controller => controllerHome,
         MobileSpace.unsupported => unsupportedRoute,
       };
 
@@ -136,6 +140,9 @@ abstract final class MobileRoleRouting {
     }
     if (path.startsWith('/secretary')) {
       return space == MobileSpace.secretary;
+    }
+    if (path.startsWith('/controller')) {
+      return space == MobileSpace.controller;
     }
     return true;
   }

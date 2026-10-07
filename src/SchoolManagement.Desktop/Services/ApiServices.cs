@@ -361,6 +361,12 @@ public sealed class SchoolApiService : ApiServiceBase, ISchoolApiService
         }
     }
 
+    public Task<SchoolManagement.Application.Schools.DTOs.SchoolSubscriptionDto> GetCurrentSubscriptionAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.Schools.DTOs.SchoolSubscriptionDto>(
+            "api/v1/schools/current/subscription",
+            cancellationToken);
+
     public Task<SchoolManagement.Application.Schools.DTOs.SchoolDto> UpdateSchoolAsync(
         SchoolManagement.Application.Schools.DTOs.UpdateSchoolRequest request,
         CancellationToken cancellationToken = default) =>
@@ -1897,6 +1903,44 @@ public sealed class DocumentApiService : ApiServiceBase, IDocumentApiService
     }
 }
 
+public sealed class ParentNoticeApiService : ApiServiceBase, IParentNoticeApiService
+{
+    public ParentNoticeApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
+
+    public Task<IReadOnlyList<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>> ListAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAsync<IReadOnlyList<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>>(
+            "api/v1/parent-notices", cancellationToken);
+
+    public Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> GetAsync(
+        Guid id, CancellationToken cancellationToken = default) =>
+        GetAsync<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>(
+            $"api/v1/parent-notices/{id}", cancellationToken);
+
+    public Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> CreateAsync(
+        SchoolManagement.Application.ParentNotices.DTOs.SaveParentNoticeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>(
+            "api/v1/parent-notices", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> UpdateAsync(
+        Guid id,
+        SchoolManagement.Application.ParentNotices.DTOs.SaveParentNoticeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PutAsync<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>(
+            $"api/v1/parent-notices/{id}", request, cancellationToken);
+
+    public Task<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto> MarkGeneratedAsync(
+        Guid id,
+        SchoolManagement.Application.ParentNotices.DTOs.GenerateParentNoticeRequest request,
+        CancellationToken cancellationToken = default) =>
+        PostAsync<SchoolManagement.Application.ParentNotices.DTOs.ParentNoticeDto>(
+            $"api/v1/parent-notices/{id}/generate", request, cancellationToken);
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        base.DeleteAsync($"api/v1/parent-notices/{id}", cancellationToken);
+}
+
 public sealed class PromoterDashboardApiService : ApiServiceBase, IPromoterDashboardApiService
 {
     public PromoterDashboardApiService(IHttpClientFactory httpClientFactory) : base(httpClientFactory) { }
@@ -1993,6 +2037,15 @@ public sealed class PromoterDashboardApiService : ApiServiceBase, IPromoterDashb
         CancellationToken cancellationToken = default) =>
         GetAsync<SchoolManagement.Application.Dashboard.DTOs.EnrolledStudentsBySectionDto>(
             "api/v1/dashboard/enrolled-students", cancellationToken);
+
+    public Task<SchoolManagement.Application.Dashboard.DTOs.FeeReceivablesBreakdownDto> GetReceivablesBreakdownAsync(
+        Guid? feeTypeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = "api/v1/dashboard/receivables-breakdown";
+        if (feeTypeId.HasValue) url += $"?feeTypeId={feeTypeId}";
+        return GetAsync<SchoolManagement.Application.Dashboard.DTOs.FeeReceivablesBreakdownDto>(url, cancellationToken);
+    }
 }
 
 public sealed class ReportApiService : ApiServiceBase, IReportApiService

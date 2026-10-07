@@ -1,18 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../../core/widgets/erp_qr_scanner.dart';
-import '../../../core/school_binding/establishment_token_parser.dart';
-import '../../../core/school_binding/school_already_registered_exception.dart';
-import '../../../core/school_binding/school_binding_activation_gate.dart';
-import '../../../core/school_binding/school_establishment_service.dart';
-import '../../../core/theme/erp_theme.dart';
+import '../../core/widgets/erp_qr_scanner.dart';
+import '../../core/school_binding/establishment_token_parser.dart';
+import '../../core/school_binding/school_already_registered_exception.dart';
+import '../../core/school_binding/school_binding_activation_gate.dart';
+import '../../core/school_binding/school_establishment_service.dart';
+import '../../core/theme/erp_theme.dart';
+import '../../core/connection/connection_mode_notifier.dart';
 
 /// Gate obligatoire : Rejoindre un établissement (QR établissement).
 /// Distinct de [ParentActivationScreen] (invitation parent).
-class EstablishmentGateScreen extends StatefulWidget {
+class EstablishmentGateScreen extends ConsumerStatefulWidget {
   const EstablishmentGateScreen({
     super.key,
     this.initialToken,
@@ -26,11 +28,11 @@ class EstablishmentGateScreen extends StatefulWidget {
   final bool setAsActive;
 
   @override
-  State<EstablishmentGateScreen> createState() =>
+  ConsumerState<EstablishmentGateScreen> createState() =>
       _EstablishmentGateScreenState();
 }
 
-class _EstablishmentGateScreenState extends State<EstablishmentGateScreen> {
+class _EstablishmentGateScreenState extends ConsumerState<EstablishmentGateScreen> {
   final _tokenController = TextEditingController();
   final _service = SchoolEstablishmentService();
   bool _loading = false;
@@ -77,6 +79,7 @@ class _EstablishmentGateScreenState extends State<EstablishmentGateScreen> {
         setAsActive: widget.setAsActive,
       );
       if (!mounted) return;
+      ref.invalidate(connectionModeProvider);
       setState(() {
         _successSchool = binding.schoolName;
         _loading = false;

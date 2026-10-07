@@ -1,5 +1,6 @@
 using SchoolManagement.Domain.Entities.Academic;
 using SchoolManagement.Domain.Entities.Finance;
+using SchoolManagement.Domain.Entities.Documents;
 using SchoolManagement.Domain.Entities.Geography;
 using SchoolManagement.Domain.Entities.Grades;
 using SchoolManagement.Domain.Entities.Security;
@@ -76,6 +77,7 @@ internal static class CloudSyncCatalog
         ("Guardians", typeof(Guardian)),
         ("StudentGuardians", typeof(StudentGuardian)),
         ("StudentDocuments", typeof(StudentDocument)),
+        ("ParentNotices", typeof(ParentNotice)),
         ("Enrollments", typeof(Enrollment)),
         ("EnrollmentPricingCategoryHistory", typeof(EnrollmentPricingCategoryHistory)),
         ("StudentStatusHistory", typeof(StudentStatusHistory)),

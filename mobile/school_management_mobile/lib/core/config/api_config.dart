@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Configuration des URL API (sans slash final).
 ///
 /// Bascule automatique (sans USB) :
@@ -100,7 +102,7 @@ abstract final class ApiConfig {
   static bool _acceptLocalUrl(String url) {
     if (!isLoopbackUrl(url)) return true;
     // 127.0.0.1 sur Android = le device. Ignoré hors tunnel USB explicite.
-    return allowUsbLoopback;
+    return kIsWeb || allowUsbLoopback;
   }
 
   static bool get hasCloudUrl => effectiveCloudBaseUrl != null;
@@ -108,7 +110,7 @@ abstract final class ApiConfig {
   static String? get effectiveCloudBaseUrl {
     final cloud = cloudBaseUrl.trim();
     if (!isValidBaseUrl(cloud)) return null;
-    if (isLoopbackUrl(cloud) && !allowUsbLoopback) {
+    if (isLoopbackUrl(cloud) && !kIsWeb && !allowUsbLoopback) {
       // Ne jamais traiter 127.0.0.1 comme serveur distant sur un téléphone.
       return normalize(_fallbackCloud);
     }

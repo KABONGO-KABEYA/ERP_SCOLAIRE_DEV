@@ -36,7 +36,17 @@ public static class DesktopUpdateServiceRegistration
         }
 
         settings.CheckIntervalHours = configuration.GetValue("Updates:CheckIntervalHours", settings.CheckIntervalHours);
-        settingsStore.Save(settings);
+        // Une installation lancée avec un autre niveau de privilèges peut laisser
+        // le fichier de préférences inaccessible. Les mises à jour restent
+        // désactivables dans ce cas, mais ne doivent pas empêcher l'ERP de démarrer.
+        try
+        {
+            settingsStore.Save(settings);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // La configuration chargée en mémoire reste utilisable pour la session.
+        }
 
         services.AddSingleton(settingsStore);
         services.AddSingleton(historyStore);

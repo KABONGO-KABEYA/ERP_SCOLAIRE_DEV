@@ -42,6 +42,7 @@ public sealed class CloudSyncHostedService : BackgroundService
 
         var lastFullDrain = DateTime.UtcNow.AddMinutes(-60);
         var tick = 0;
+        var tariffFailuresRecovered = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -71,6 +72,13 @@ public sealed class CloudSyncHostedService : BackgroundService
 
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var engine = scope.ServiceProvider.GetRequiredService<ICloudSyncEngine>();
+
+                // Une fois par démarrage : ne pas réinitialiser en boucle les tentatives.
+                if (!tariffFailuresRecovered)
+                {
+                    await engine.RequeueTariffFailuresAsync(stoppingToken);
+                    tariffFailuresRecovered = true;
+                }
 
                 // Drain critique quasi immédiat
                 var critical = await engine.DrainAsync(

@@ -641,13 +641,7 @@ public partial class EncaissementActionWindow : Window
 
     private PaymentListItem? GetLatestCompletedPayment()
     {
-        // Verrou global : seul le dernier encaissement du type de frais (tous élèves) est mutable.
-        if (_mutationGate?.LatestPaymentId is Guid gateId)
-        {
-            return _allPayments.FirstOrDefault(p =>
-                p.Dto.Id == gateId && p.Status == PaymentStatus.Complet);
-        }
-
+        // Présélection locale ; le droit de mutation dépend de la journée globale.
         return _allPayments
             .Where(p => p.Status == PaymentStatus.Complet)
             .OrderByDescending(p => p.PaymentDate)
@@ -658,19 +652,14 @@ public partial class EncaissementActionWindow : Window
 
     private bool IsLatestCompletedPayment(PaymentDto payment)
     {
-        if (_mutationGate?.LatestPaymentId is Guid gateId)
-        {
-            return payment.Id == gateId;
-        }
-
-        var latest = GetLatestCompletedPayment();
-        return latest is not null && latest.Dto.Id == payment.Id;
+        var latestDate = _mutationGate?.LatestPaymentDate ?? GetLatestCompletedPayment()?.PaymentDate;
+        return payment.Status == PaymentStatus.Complet
+            && SchoolManagement.Application.Payments.Services.PaymentMutationPolicy.IsLatestPaymentDay(payment.PaymentDate, latestDate);
     }
 
     private bool IsSchoolWideMutablePayment(Guid paymentId) =>
         _canMutatePaidPayments
-        && _mutationGate?.LatestPaymentId is Guid gateId
-        && gateId == paymentId;
+        && _allPayments.Any(p => p.Dto.Id == paymentId && IsLatestCompletedPayment(p.Dto));
 
     private string RetrogradeBlockedMessage(bool forCancel)
     {
@@ -684,9 +673,9 @@ public partial class EncaissementActionWindow : Window
                 ? string.Empty
                 : $" ({_mutationGate.LatestReceiptNumber})";
             return
-                $"Impossible de {action} : un encaissement plus récent existe déjà pour ce type de frais " +
+                $"Impossible de {action} : un encaissement à une journée postérieure existe déjà pour ce type de frais " +
                 $"le {gateDate:dd/MM/yyyy} — {who}{receipt}. " +
-                "Traitez d'abord ce versement (ordre rétrograde, tous élèves confondus).";
+                "Traitez d'abord les paiements de cette journée (tous élèves confondus).";
         }
 
         return forCancel

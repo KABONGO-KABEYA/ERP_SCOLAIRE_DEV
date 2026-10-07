@@ -117,16 +117,8 @@ public partial class GradesViewModel
         }
 
         var doc = BuildCourseNotesDocument();
-        var printDialog = new PrintDialog();
-        printDialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
-        printDialog.PrintTicket.PageOrientation = PageOrientation.Landscape;
-        if (printDialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        printDialog.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, "Récapitulatif des notes");
-        StatusMessage = "Impression envoyée.";
+        SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(doc, "Récapitulatif des notes", SchoolManagement.Domain.Enums.DocumentBrandingType.NotesCours);
+        StatusMessage = "Aperçu fermé.";
     }
 
     private async Task ReloadCourseNotesGridAsync()

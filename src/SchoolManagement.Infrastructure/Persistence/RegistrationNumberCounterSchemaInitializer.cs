@@ -23,6 +23,17 @@ public sealed class RegistrationNumberCounterSchemaInitializer
 
         await using var command = connection.CreateCommand();
         command.CommandText = """
+            SELECT COUNT_BIG(*) FROM dbo.Students s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.Schools school WHERE school.Id=s.SchoolId);
+            """;
+        var orphanedStudents = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
+        if (orphanedStudents > 0)
+        {
+            _logger.LogWarning(
+                "Compteurs de matricules : {Count} élève(s) avec une école introuvable exclus de l'initialisation. Aucune donnée élève n'a été modifiée.",
+                orphanedStudents);
+        }
+        command.CommandText = """
             IF OBJECT_ID(N'dbo.RegistrationNumberCounters', N'U') IS NULL
             BEGIN
                 CREATE TABLE dbo.RegistrationNumberCounters
@@ -78,6 +89,7 @@ public sealed class RegistrationNumberCounterSchemaInitializer
                     TRY_CAST(SUBSTRING(s.RegistrationNumber, 5, 4) AS int) AS Yr,
                     TRY_CAST(SUBSTRING(s.RegistrationNumber, 10, LEN(s.RegistrationNumber) - 9) AS int) AS Seq
                 FROM dbo.Students s
+                INNER JOIN dbo.Schools school ON school.Id = s.SchoolId
                 WHERE s.RegistrationNumber LIKE 'ELV-[0-9][0-9][0-9][0-9]-%'
             ) parsed
             WHERE parsed.Yr IS NOT NULL

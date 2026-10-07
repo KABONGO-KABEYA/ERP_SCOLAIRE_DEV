@@ -1166,5 +1166,7 @@ class PromoteurStudentsDetailScreen extends StatelessWidget {
   const PromoteurStudentsDetailScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const EnrolledStudentsAnalyticsScreen();
+  Widget build(BuildContext context) => const EnrolledStudentsAnalyticsScreen(
+        studentsRoute: '/promoteur/students',
+      );
 }

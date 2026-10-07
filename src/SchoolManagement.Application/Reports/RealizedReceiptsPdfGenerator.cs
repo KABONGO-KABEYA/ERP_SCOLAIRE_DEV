@@ -169,6 +169,7 @@ public static class RealizedReceiptsPdfGenerator
         DocumentPrintBrandingDto branding,
         Func<string?, byte[]?> loadImage)
     {
+        if (branding.PrintMode is null) return;
         container.Column(col =>
         {
             if (DocumentPrintHeaderComposer.TryComposeFullWidthImage(col.Item(), branding, loadImage))

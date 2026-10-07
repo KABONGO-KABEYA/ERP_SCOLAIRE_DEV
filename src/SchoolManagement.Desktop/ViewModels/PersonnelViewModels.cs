@@ -245,16 +245,10 @@ public partial class PersonnelListViewModel : ViewModelBase
     private void EditPersonnel(PersonnelListItemDto? item) => ViewPersonnel(item);
 
     [RelayCommand]
-    private void PrintPersonnel(PersonnelListItemDto? item) =>
-        StatusMessage = item is null
-            ? null
-            : $"Impression de {item.FullName} — disponible prochainement.";
+    private void PrintPersonnel(PersonnelListItemDto? item) { if (item is not null) ShowPersonnelPreview(new[] { item }, "Fiche du personnel"); }
 
     [RelayCommand]
-    private void ExportPersonnelPdf(PersonnelListItemDto? item) =>
-        StatusMessage = item is null
-            ? null
-            : $"Export PDF de {item.FullName} — disponible prochainement.";
+    private void ExportPersonnelPdf(PersonnelListItemDto? item) => PrintPersonnel(item);
 
     [RelayCommand]
     private void ExportPersonnelExcel(PersonnelListItemDto? item) =>
@@ -294,12 +288,24 @@ public partial class PersonnelListViewModel : ViewModelBase
         StatusMessage = "Export Excel — disponible prochainement.";
 
     [RelayCommand]
-    private void ExportPdf() =>
-        StatusMessage = "Export PDF — disponible prochainement.";
+    private void ExportPdf() => PrintList();
 
     [RelayCommand]
-    private void PrintList() =>
-        StatusMessage = "Impression — disponible prochainement.";
+    private void PrintList() => ShowPersonnelPreview(ItemsView.Cast<PersonnelListItemDto>(), "Liste du personnel");
+
+    private void ShowPersonnelPreview(IEnumerable<PersonnelListItemDto> people, string title)
+    {
+        try
+        {
+            var rows = people.Select(p => new[] { p.EmployeeNumber, p.FullName, p.CategoryLabel,
+                p.FunctionName ?? "", p.DepartmentName ?? "", p.Phone ?? "", p.ContractLabel, p.StatusLabel }).ToList();
+            if (rows.Count == 0) { StatusMessage = "Aucun personnel à imprimer."; return; }
+            var doc = SchoolManagement.Desktop.Printing.DocumentPreview.Table(title,
+                new[] { "Matricule", "Nom complet", "Catégorie", "Fonction", "Département", "Téléphone", "Contrat", "Statut" }, rows);
+            SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(doc, title, title == "Fiche du personnel" ? SchoolManagement.Domain.Enums.DocumentBrandingType.FichePersonnel : SchoolManagement.Domain.Enums.DocumentBrandingType.ListePersonnel);
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
+    }
 
     private void ConfigureItemsView()
     {

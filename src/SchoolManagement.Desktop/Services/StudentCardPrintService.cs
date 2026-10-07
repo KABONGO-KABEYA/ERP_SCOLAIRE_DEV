@@ -105,26 +105,7 @@ public sealed class StudentCardPrintService : IStudentCardPrintService
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
             var document = CardPrintDocumentFactory.Build(pairs, layout, a4Rows);
-            var dialog = new PrintDialog();
-
-            if (layout == CardPrintLayoutKind.A4Sheet)
-            {
-                try
-                {
-                    dialog.PrintTicket.PageMediaSize = new PageMediaSize(PageMediaSizeName.ISOA4);
-                    dialog.PrintTicket.PageOrientation = PageOrientation.Portrait;
-                }
-                catch
-                {
-                    // Certaines imprimantes ignorent le ticket — le FixedDocument reste en A4.
-                }
-            }
-
-            if (dialog.ShowDialog() != true)
-                return;
-
-            dialog.PrintDocument(document.DocumentPaginator, $"Cartes élèves ({pairs.Count})");
-            printed = true;
+            printed = SchoolManagement.Desktop.Printing.ConfiguredDocumentPreview.Show(document, $"Cartes élèves ({pairs.Count})", SchoolManagement.Domain.Enums.DocumentBrandingType.CarteScolaire);
         });
 
         if (!printed)

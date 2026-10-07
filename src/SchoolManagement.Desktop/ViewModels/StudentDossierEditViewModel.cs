@@ -151,6 +151,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     [ObservableProperty] private string _fatherProfession = string.Empty;
     [ObservableProperty] private bool _fatherSameAddressAsStudent = true;
     [ObservableProperty] private Guid? _fatherExistingGuardianId;
+    [ObservableProperty] private bool _fatherForceCreateNew;
+    [ObservableProperty] private string? _fatherLinkStatus;
 
     [ObservableProperty] private string _motherLastName = string.Empty;
     [ObservableProperty] private string _motherFirstName = string.Empty;
@@ -159,6 +161,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     [ObservableProperty] private string _motherProfession = string.Empty;
     [ObservableProperty] private bool _motherSameAddressAsStudent = true;
     [ObservableProperty] private Guid? _motherExistingGuardianId;
+    [ObservableProperty] private bool _motherForceCreateNew;
+    [ObservableProperty] private string? _motherLinkStatus;
 
     [ObservableProperty] private string _contact1LastName = string.Empty;
     [ObservableProperty] private string _contact1FirstName = string.Empty;
@@ -168,6 +172,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     [ObservableProperty] private bool _contact1SameAddressAsStudent = true;
     [ObservableProperty] private Domain.Enums.Gender? _contact1Gender;
     [ObservableProperty] private Guid? _contact1ExistingGuardianId;
+    [ObservableProperty] private bool _contact1ForceCreateNew;
+    [ObservableProperty] private string? _contact1LinkStatus;
 
     [ObservableProperty] private string _contact2LastName = string.Empty;
     [ObservableProperty] private string _contact2FirstName = string.Empty;
@@ -177,6 +183,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     [ObservableProperty] private bool _contact2SameAddressAsStudent = true;
     [ObservableProperty] private Domain.Enums.Gender? _contact2Gender;
     [ObservableProperty] private Guid? _contact2ExistingGuardianId;
+    [ObservableProperty] private bool _contact2ForceCreateNew;
+    [ObservableProperty] private string? _contact2LinkStatus;
 
     [ObservableProperty] private string _secondaryLastName = string.Empty;
     [ObservableProperty] private string _secondaryFirstName = string.Empty;
@@ -599,6 +607,10 @@ public partial class StudentDossierEditViewModel : ViewModelBase
         {
             case GuardianRole.Father:
                 FatherExistingGuardianId = guardian.Id;
+                FatherForceCreateNew = false;
+                FatherLinkStatus = guardian.HasLinkedStudents
+                    ? $"Responsable existant lié ({guardian.LinkedStudentsLabel})"
+                    : "Responsable existant lié.";
                 FatherLastName = guardian.LastName;
                 FatherFirstName = guardian.FirstName;
                 FatherPhone = guardian.Phone ?? string.Empty;
@@ -609,6 +621,10 @@ public partial class StudentDossierEditViewModel : ViewModelBase
                 break;
             case GuardianRole.Mother:
                 MotherExistingGuardianId = guardian.Id;
+                MotherForceCreateNew = false;
+                MotherLinkStatus = guardian.HasLinkedStudents
+                    ? $"Responsable existant lié ({guardian.LinkedStudentsLabel})"
+                    : "Responsable existant lié.";
                 MotherLastName = guardian.LastName;
                 MotherFirstName = guardian.FirstName;
                 MotherPhone = guardian.Phone ?? string.Empty;
@@ -619,6 +635,10 @@ public partial class StudentDossierEditViewModel : ViewModelBase
                 break;
             case GuardianRole.Contact1:
                 Contact1ExistingGuardianId = guardian.Id;
+                Contact1ForceCreateNew = false;
+                Contact1LinkStatus = guardian.HasLinkedStudents
+                    ? $"Responsable existant lié ({guardian.LinkedStudentsLabel})"
+                    : "Responsable existant lié.";
                 Contact1LastName = guardian.LastName;
                 Contact1FirstName = guardian.FirstName;
                 Contact1Phone = guardian.Phone ?? string.Empty;
@@ -629,6 +649,10 @@ public partial class StudentDossierEditViewModel : ViewModelBase
                 break;
             case GuardianRole.Contact2:
                 Contact2ExistingGuardianId = guardian.Id;
+                Contact2ForceCreateNew = false;
+                Contact2LinkStatus = guardian.HasLinkedStudents
+                    ? $"Responsable existant lié ({guardian.LinkedStudentsLabel})"
+                    : "Responsable existant lié.";
                 Contact2LastName = guardian.LastName;
                 Contact2FirstName = guardian.FirstName;
                 Contact2Phone = guardian.Phone ?? string.Empty;
@@ -640,7 +664,49 @@ public partial class StudentDossierEditViewModel : ViewModelBase
         }
 
         ValidationMessage = null;
-        StatusMessage = $"Responsable « {guardian.FullName} » appliqué.";
+        StatusMessage = $"Responsable « {guardian.FullName} » appliqué. Vous pouvez aussi créer un nouveau responsable.";
+    }
+
+    [RelayCommand]
+    private void CreateNewFather() => MarkGuardianAsNew(GuardianRole.Father);
+
+    [RelayCommand]
+    private void CreateNewMother() => MarkGuardianAsNew(GuardianRole.Mother);
+
+    [RelayCommand]
+    private void CreateNewContact1() => MarkGuardianAsNew(GuardianRole.Contact1);
+
+    [RelayCommand]
+    private void CreateNewContact2() => MarkGuardianAsNew(GuardianRole.Contact2);
+
+    private void MarkGuardianAsNew(GuardianRole role)
+    {
+        switch (role)
+        {
+            case GuardianRole.Father:
+                FatherExistingGuardianId = null;
+                FatherForceCreateNew = true;
+                FatherLinkStatus = "Nouveau responsable — création directe.";
+                break;
+            case GuardianRole.Mother:
+                MotherExistingGuardianId = null;
+                MotherForceCreateNew = true;
+                MotherLinkStatus = "Nouveau responsable — création directe.";
+                break;
+            case GuardianRole.Contact1:
+                Contact1ExistingGuardianId = null;
+                Contact1ForceCreateNew = true;
+                Contact1LinkStatus = "Nouveau responsable — création directe.";
+                break;
+            case GuardianRole.Contact2:
+                Contact2ExistingGuardianId = null;
+                Contact2ForceCreateNew = true;
+                Contact2LinkStatus = "Nouveau responsable — création directe.";
+                break;
+        }
+
+        ValidationMessage = null;
+        StatusMessage = "Saisissez les informations du nouveau responsable, puis enregistrez.";
     }
 
     private AddressInputDto? ResolveGuardianAddress(bool usesStudentAddress, AddressEditorViewModel editor) =>
@@ -693,14 +759,43 @@ public partial class StudentDossierEditViewModel : ViewModelBase
                 continue;
             }
 
-            if (guardian.CanPickup || MatchesRelationship(guardian.Relationship, "Autorisé récupération", "Récupération"))
+            if (MatchesRelationship(guardian.Relationship, "Autorisé récupération", "Récupération")
+                && !guardian.IsPrimary)
             {
                 PickupName = $"{guardian.FirstName} {guardian.LastName}".Trim();
                 PickupPhone = guardian.Phone ?? string.Empty;
                 PickupRelationship = guardian.Relationship;
+                continue;
+            }
+
+            if (IsFatherSlotEmpty
+                && (guardian.IsPrimary || MatchesRelationship(guardian.Relationship, "Responsable")))
+            {
+                ApplyGuardianToFather(guardian);
+                continue;
+            }
+
+            if (IsContact1SlotEmpty)
+            {
+                await ApplyGuardianToContact1Async(guardian);
+                continue;
+            }
+
+            if (IsContact2SlotEmpty)
+            {
+                await ApplyGuardianToContact2Async(guardian);
             }
         }
     }
+
+    private bool IsFatherSlotEmpty =>
+        string.IsNullOrWhiteSpace(FatherLastName) && string.IsNullOrWhiteSpace(FatherFirstName);
+
+    private bool IsContact1SlotEmpty =>
+        string.IsNullOrWhiteSpace(Contact1LastName) && string.IsNullOrWhiteSpace(Contact1FirstName);
+
+    private bool IsContact2SlotEmpty =>
+        string.IsNullOrWhiteSpace(Contact2LastName) && string.IsNullOrWhiteSpace(Contact2FirstName);
 
     private void ApplyGuardianToFather(GuardianInputDto guardian)
     {
@@ -837,21 +932,29 @@ public partial class StudentDossierEditViewModel : ViewModelBase
     {
         FatherLastName = FatherFirstName = FatherPhone = FatherEmail = string.Empty;
         FatherExistingGuardianId = null;
+        FatherForceCreateNew = false;
+        FatherLinkStatus = null;
         FatherProfession = string.Empty;
         FatherSameAddressAsStudent = true;
         FatherAddressEditor.Reset();
         MotherLastName = MotherFirstName = MotherPhone = MotherEmail = string.Empty;
         MotherExistingGuardianId = null;
+        MotherForceCreateNew = false;
+        MotherLinkStatus = null;
         MotherProfession = string.Empty;
         MotherSameAddressAsStudent = true;
         MotherAddressEditor.Reset();
         Contact1LastName = Contact1FirstName = Contact1Phone = Contact1Email = Contact1Relationship = string.Empty;
         Contact1ExistingGuardianId = null;
+        Contact1ForceCreateNew = false;
+        Contact1LinkStatus = null;
         Contact1SameAddressAsStudent = true;
         Contact1Gender = null;
         Contact1AddressEditor.Reset();
         Contact2LastName = Contact2FirstName = Contact2Phone = Contact2Email = Contact2Relationship = string.Empty;
         Contact2ExistingGuardianId = null;
+        Contact2ForceCreateNew = false;
+        Contact2LinkStatus = null;
         Contact2SameAddressAsStudent = true;
         Contact2Gender = null;
         Contact2AddressEditor.Reset();
@@ -1087,7 +1190,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             false,
             FatherGenderValue,
             FatherSameAddressAsStudent,
-            FatherExistingGuardianId);
+            FatherExistingGuardianId,
+            FatherForceCreateNew);
         AddGuardianIfFilled(
             guardians,
             MotherFirstName,
@@ -1102,7 +1206,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             false,
             MotherGenderValue,
             MotherSameAddressAsStudent,
-            MotherExistingGuardianId);
+            MotherExistingGuardianId,
+            MotherForceCreateNew);
         AddGuardianIfFilled(
             guardians,
             Contact1FirstName,
@@ -1117,7 +1222,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             false,
             Contact1Gender,
             Contact1SameAddressAsStudent,
-            Contact1ExistingGuardianId);
+            Contact1ExistingGuardianId,
+            Contact1ForceCreateNew);
         AddGuardianIfFilled(
             guardians,
             Contact2FirstName,
@@ -1132,7 +1238,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             true,
             Contact2Gender,
             Contact2SameAddressAsStudent,
-            Contact2ExistingGuardianId);
+            Contact2ExistingGuardianId,
+            Contact2ForceCreateNew);
 
         if (!string.IsNullOrWhiteSpace(SecondaryLastName) || !string.IsNullOrWhiteSpace(SecondaryFirstName))
         {
@@ -1183,7 +1290,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
         bool canPickup,
         Gender? gender = null,
         bool usesStudentAddress = false,
-        Guid? existingGuardianId = null)
+        Guid? existingGuardianId = null,
+        bool forceCreateNew = false)
     {
         if (string.IsNullOrWhiteSpace(lastName) && string.IsNullOrWhiteSpace(firstName))
         {
@@ -1203,7 +1311,8 @@ public partial class StudentDossierEditViewModel : ViewModelBase
             canPickup,
             gender,
             usesStudentAddress,
-            existingGuardianId));
+            existingGuardianId,
+            forceCreateNew));
     }
 
     private string GetDossierFirstName() =>

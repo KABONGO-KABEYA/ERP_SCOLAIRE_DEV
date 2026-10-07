@@ -38,6 +38,7 @@ public sealed class ParentService : IParentService
     private readonly IRepository<Announcement> _announcementRepository;
     private readonly IStudentDossierStorageService _dossierStorage;
     private readonly IFeeTypeStatementService _statementService;
+    private readonly SchoolManagement.Application.DocumentBranding.ConfiguredDocumentHeaderService? _documentHeaders;
 
     public ParentService(
         IRepository<StudentGuardian> studentGuardianRepository,
@@ -61,7 +62,7 @@ public sealed class ParentService : IParentService
         IRepository<StudentAttendance> attendanceRepository,
         IRepository<Announcement> announcementRepository,
         IStudentDossierStorageService dossierStorage,
-        IFeeTypeStatementService statementService)
+        IFeeTypeStatementService statementService, SchoolManagement.Application.DocumentBranding.ConfiguredDocumentHeaderService? documentHeaders = null)
     {
         _studentGuardianRepository = studentGuardianRepository;
         _studentRepository = studentRepository;
@@ -85,6 +86,7 @@ public sealed class ParentService : IParentService
         _announcementRepository = announcementRepository;
         _dossierStorage = dossierStorage;
         _statementService = statementService;
+        _documentHeaders = documentHeaders;
     }
 
     public async Task<IReadOnlyList<ParentChildDto>> GetMyChildrenAsync(
@@ -550,6 +552,7 @@ public sealed class ParentService : IParentService
         var school = (await _schoolRepository.FindAsync(s => s.Id == student.SchoolId, cancellationToken)).FirstOrDefault();
         var classRoom = (await _classRoomRepository.FindAsync(c => c.Id == result.ClassRoomId, cancellationToken)).FirstOrDefault();
 
+        var header = _documentHeaders is null ? null : await _documentHeaders.LoadAsync(schoolId, DocumentBrandingType.BulletinScolaire, cancellationToken);
         return ParentBulletinPdfGenerator.Generate(
             schoolName: school?.Name ?? "Établissement",
             studentName: StudentDisplayName.Format(student),
@@ -562,7 +565,7 @@ public sealed class ParentService : IParentService
             classSize: result.ClassSize,
             mention: ResolveMention(result.Percentage, result.Appreciation),
             decision: ResolveDecisionLabel(result.CouncilDecision),
-            appreciation: result.Appreciation);
+            appreciation: result.Appreciation, header: header);
     }
 
     private static string ResolveMention(decimal percentage, string? appreciation)
