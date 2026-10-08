@@ -1114,13 +1114,13 @@
                             <TextBlock Margin="0,4,0,12" Foreground="#6B7280" Text="{Binding ReceivablesAcademicYear, StringFormat=Année scolaire : {0}}" />
                             <UniformGrid Columns="3" Margin="0,0,0,14">
                                 <Border Margin="0,0,8,0" Padding="12" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8">
-                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Attendu" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesExpected, StringFormat=N2}" /></StackPanel>
+                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Attendu annuel" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesExpected, StringFormat=N2}" /></StackPanel>
                                 </Border>
                                 <Border Margin="0,0,8,0" Padding="12" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8">
-                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Perçu" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesPaid, StringFormat=N2}" /></StackPanel>
+                                    <StackPanel><TextBlock Foreground="#6B7280" Text="Perçu annuel" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding ReceivablesPaid, StringFormat=N2}" /></StackPanel>
                                 </Border>
                                 <Border Padding="12" Background="#FFF7ED" BorderBrush="#FED7AA" BorderThickness="1" CornerRadius="8">
-                                    <StackPanel><TextBlock Foreground="#9A3412" Text="Reste" /><TextBlock FontSize="18" FontWeight="Bold" Foreground="#C2410C" Text="{Binding ReceivablesRemaining, StringFormat=N2}" /></StackPanel>
+                                    <StackPanel><TextBlock Foreground="#9A3412" Text="Reste annuel à percevoir" /><TextBlock FontSize="18" FontWeight="Bold" Foreground="#C2410C" Text="{Binding ReceivablesRemaining, StringFormat=N2}" /></StackPanel>
                                 </Border>
                             </UniformGrid>
                             <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Par tranche" />
@@ -1133,13 +1133,19 @@
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Par compte de répartition" />
+                            <TextBlock Margin="0,4,0,4" TextWrapping="Wrap" Foreground="#6B7280" Text="Attendu : frais net et retenues réparties. % effectif du brut annuel. Dépenses et engagements : total annuel du compte, tous frais confondus, dans la devise du rapport. Disponible = recettes annuelles du compte (tous frais) − dépenses payées." />
                             <DataGrid Margin="0,6,0,14" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" ItemsSource="{Binding ReceivablesByDestination}" Style="{StaticResource ErpDataGrid}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Compte" Binding="{Binding DestinationName}" Width="*" />
-                                    <DataGridTextColumn Header="%" Binding="{Binding Percentage, StringFormat=N1}" Width="80" />
+                                    <DataGridTextColumn Header="Compte" Binding="{Binding DestinationName}" Width="200" />
+                                    <DataGridTextColumn Header="Origine" Binding="{Binding AllocationSources}" Width="220" />
+                                    <DataGridTextColumn Header="% effectif" Binding="{Binding Percentage, StringFormat=N1}" Width="80" />
                                     <DataGridTextColumn Header="Attendu" Binding="{Binding AmountExpected, StringFormat=N2}" Width="130" />
                                     <DataGridTextColumn Header="Encaissé" Binding="{Binding AmountCollected, StringFormat=N2}" Width="130" />
-                                    <DataGridTextColumn Header="Reste" Binding="{Binding Remaining, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Reste à percevoir" Binding="{Binding Remaining, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Dépenses payées" Binding="{Binding AmountSpent, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Engagé non payé" Binding="{Binding AmountCommitted, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Disponible du compte" Binding="{Binding Available, StringFormat=N2}" Width="130" />
+                                    <DataGridTextColumn Header="Après engagements" Binding="{Binding AvailableAfterCommitments, StringFormat=N2}" Width="140" />
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#1E3A8A" Text="Élèves débiteurs — échéances dépassées" />

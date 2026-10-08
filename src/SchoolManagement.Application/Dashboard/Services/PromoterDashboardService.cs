@@ -44,6 +44,10 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
     private readonly IRepository<Section> _sectionRepository;
     private readonly IRepository<PedagogicalClass> _pedagogicalClassRepository;
     private readonly IRevenueAllocationService _revenueAllocationService;
+    private readonly IRepository<WithholdingConfiguration> _withholdingConfigurationRepository;
+    private readonly IRepository<ExpensePaymentAllocation> _expenseAllocationRepository;
+    private readonly IRepository<ExpenseRequest> _expenseRequestRepository;
+    private readonly IRepository<CurrencyDefinition> _currencyRepository;
 
     public PromoterDashboardService(
         IRepository<School> schoolRepository,
@@ -67,7 +71,11 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         IRepository<SchoolLogo> schoolLogoRepository,
         IRepository<Section> sectionRepository,
         IRepository<PedagogicalClass> pedagogicalClassRepository,
-        IRevenueAllocationService revenueAllocationService)
+        IRevenueAllocationService revenueAllocationService,
+        IRepository<WithholdingConfiguration> withholdingConfigurationRepository,
+        IRepository<ExpensePaymentAllocation> expenseAllocationRepository,
+        IRepository<ExpenseRequest> expenseRequestRepository,
+        IRepository<CurrencyDefinition> currencyRepository)
     {
         _schoolRepository = schoolRepository;
         _academicYearRepository = academicYearRepository;
@@ -91,6 +99,10 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
         _sectionRepository = sectionRepository;
         _pedagogicalClassRepository = pedagogicalClassRepository;
         _revenueAllocationService = revenueAllocationService;
+        _withholdingConfigurationRepository = withholdingConfigurationRepository;
+        _expenseAllocationRepository = expenseAllocationRepository;
+        _expenseRequestRepository = expenseRequestRepository;
+        _currencyRepository = currencyRepository;
     }
 
     public async Task<PromoterDashboardOverviewDto> GetOverviewAsync(
@@ -882,13 +894,17 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                     b => studentIds.Contains(b.StudentId) && allTariffIds.Contains(b.ClassFeeAmountId),
                     cancellationToken))
                 .ToList();
-        var paidByTariffStudent = balances
-            .GroupBy(b => (b.StudentId, b.ClassFeeAmountId))
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountPaid));
         var dueByTariffStudent = balances
             .GroupBy(b => (b.StudentId, b.ClassFeeAmountId))
             .ToDictionary(g => g.Key, g => g.Sum(x => x.AmountDue));
 
+        var annualPaymentIds = (await LoadValidatedPaymentsAsync(schoolId, cancellationToken))
+            .Where(p => p.AcademicYearId == currentYear.Id).Select(p => p.Id).ToList();
+        var annualPaymentLines = await _paymentLineRepository.FindAsync(l => annualPaymentIds.Contains(l.PaymentId)
+            && l.FeeTypeId == selectedFee.Id, cancellationToken);
+        var annualPaidByInstallment = annualPaymentLines.GroupBy(l => l.FeeInstallmentId ?? Guid.Empty)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Amount));
+        var annualObligations = new List<AnnualFeeObligation>();
         var tariffsByInstallment = yearTariffs.GroupBy(t => t.FeeInstallmentId).ToList();
         var byInstallment = new List<FeeInstallmentReceivableDto>();
         foreach (var group in tariffsByInstallment)
@@ -900,7 +916,7 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 t => t);
 
             decimal expected = 0;
-            decimal paid = 0;
+            decimal paid = annualPaidByInstallment.GetValueOrDefault(installmentId);
             foreach (var enrollment in enrollments)
             {
                 if (!classRooms.TryGetValue(enrollment.ClassRoomId, out var room)
@@ -914,18 +930,12 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                     continue;
                 }
 
-                if (tariff.Amount > 0)
-                {
-                    expected += tariff.Amount;
-                }
-                else
-                {
-                    dueByTariffStudent.TryGetValue((enrollment.StudentId, tariff.Id), out var dueAmount);
-                    expected += dueAmount;
-                }
-
-                paidByTariffStudent.TryGetValue((enrollment.StudentId, tariff.Id), out var paidAmount);
-                paid += paidAmount;
+                var obligationAmount = tariff.Amount > 0
+                    ? tariff.Amount
+                    : dueByTariffStudent.GetValueOrDefault((enrollment.StudentId, tariff.Id));
+                expected += obligationAmount;
+                annualObligations.Add(new AnnualFeeObligation(enrollment.StudentId,
+                    installmentId, enrollment.FeePricingCategoryId, obligationAmount));
             }
 
             // Si le tarif est 0 mais des soldes existent hors matching (rare), ignore.
@@ -938,43 +948,27 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 Math.Max(0m, expected - paid)));
         }
 
+        foreach (var (installmentId, paid) in annualPaidByInstallment.Where(x => !byInstallment.Any(t => t.FeeInstallmentId == x.Key)))
+            byInstallment.Add(new FeeInstallmentReceivableDto(installmentId,
+                installments.GetValueOrDefault(installmentId)?.Name ?? "Paiements hors tranches tarifées", 999, 0m, paid, 0m));
+
         byInstallment = byInstallment
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.InstallmentName)
             .ToList();
 
         var totalExpected = byInstallment.Sum(x => x.AmountExpected);
-        var totalPaid = byInstallment.Sum(x => x.AmountPaid);
+        // Include validated annual receipts even if a student changed class/category.
+        var totalPaid = annualPaymentLines.Sum(l => l.Amount);
         var totalRemaining = Math.Max(0m, totalExpected - totalPaid);
-
-        // Si aucune tranche tarifaire, retomber sur la logique élève (attendu agrégé).
-        var receivableRows = await BuildFeeReceivableRowsAsync(
-            schoolId,
-            selectedFee.Id,
-            currentYear.Id,
-            enrollments,
-            students,
-            cancellationToken);
-        if (byInstallment.Count == 0 && receivableRows.Count > 0)
-        {
-            totalExpected = receivableRows.Sum(r => r.AmountDue);
-            totalPaid = receivableRows.Sum(r => r.AmountPaid);
-            totalRemaining = receivableRows.Sum(r => r.Remaining);
-        }
-        else if (byInstallment.Count > 0)
-        {
-            // Aligner le total sur la somme des tranches (référence) ; les débiteurs restent calculés élève.
-            totalExpected = byInstallment.Sum(x => x.AmountExpected);
-            totalPaid = byInstallment.Sum(x => x.AmountPaid);
-            totalRemaining = Math.Max(0m, totalExpected - totalPaid);
-        }
 
         var byDestination = await BuildDestinationReceivablesAsync(
             schoolId,
             selectedFee.Id,
             currentYear.Id,
-            totalExpected,
+            annualObligations,
             totalPaid,
+            selectedFee.Currency,
             cancellationToken);
 
         // Débiteurs = uniquement les tranches échues non soldées (montant = somme des retards).
@@ -998,147 +992,132 @@ public sealed class PromoterDashboardService : IPromoterDashboardService
                 r.Remaining))
             .ToList();
 
-        var overdueExpected = overdueRows.Sum(r => r.AmountDue);
-        var overduePaid = overdueRows.Sum(r => r.AmountPaid);
-        var overdueRemaining = overdueRows.Sum(r => r.Remaining);
-
         return new FeeReceivablesBreakdownDto(
             selectedFee.Id,
             selectedFee.Name,
             currentYear.Id,
             currentYear.Label,
             selectedFee.Currency.ToString(),
-            // Totaux de synthèse = créances échues (alignés sur la liste débiteurs).
-            overdueRows.Count > 0 ? overdueExpected : totalExpected,
-            overdueRows.Count > 0 ? overduePaid : totalPaid,
-            overdueRows.Count > 0 ? overdueRemaining : totalRemaining,
+            totalExpected,
+            totalPaid,
+            totalRemaining,
             byInstallment,
             byDestination,
             debtors);
     }
 
     private async Task<IReadOnlyList<FeeDestinationReceivableDto>> BuildDestinationReceivablesAsync(
-        Guid schoolId,
-        Guid feeTypeId,
-        Guid academicYearId,
-        decimal totalExpected,
-        decimal totalPaid,
+        Guid schoolId, Guid feeTypeId, Guid academicYearId,
+        IReadOnlyList<AnnualFeeObligation> obligations, decimal annualPaid, Currency currency,
         CancellationToken cancellationToken)
     {
         var destinations = (await _destinationRepository.FindAsync(d => d.SchoolId == schoolId, cancellationToken))
             .ToDictionary(d => d.Id);
-
-        var openKey = (await _allocationKeyRepository.FindAsync(
-                k => k.SchoolId == schoolId
-                     && k.AcademicYearId == academicYearId
-                     && k.FeeTypeId == feeTypeId
-                     && k.EndDate == null,
-                cancellationToken))
-            .OrderByDescending(k => k.StartDate)
-            .ThenByDescending(k => k.CreatedAt)
-            .FirstOrDefault();
-
-        var shares = new List<(Guid DestinationId, decimal Percentage)>();
-        if (openKey is not null)
+        var principal = destinations.Values.FirstOrDefault(d => d.IsActive && d.Code == "PRN")
+            ?? destinations.Values.FirstOrDefault(d => d.IsActive);
+        var keys = (await _allocationKeyRepository.FindAsync(k => k.SchoolId == schoolId
+            && k.AcademicYearId == academicYearId && k.EndDate == null, cancellationToken))
+            .OrderByDescending(k => k.StartDate).ThenByDescending(k => k.CreatedAt).ToList();
+        var keyIds = keys.Select(k => k.Id).ToList();
+        var details = await _allocationKeyDetailRepository.FindAsync(d => keyIds.Contains(d.AllocationKeyId), cancellationToken);
+        var configs = await _withholdingConfigurationRepository.FindAsync(c => c.SchoolId == schoolId
+            && c.AcademicYearId == academicYearId && c.FeeTypeId == feeTypeId && c.IsActive, cancellationToken);
+        var types = (await _withholdingTypeRepository.FindAsync(t => t.SchoolId == schoolId, cancellationToken))
+            .ToDictionary(t => t.Id);
+        var projected = AnnualReceivableAllocation.Project(obligations,
+            configs.Where(c => types.TryGetValue(c.WithholdingTypeId, out var type) && type.IsActive).ToList());
+        var expected = new Dictionary<Guid, decimal>();
+        var sources = new Dictionary<Guid, HashSet<string>>();
+        void Allocate(decimal amount, Guid? withholdingTypeId, string source)
         {
-            var details = (await _allocationKeyDetailRepository.FindAsync(
-                    d => d.AllocationKeyId == openKey.Id,
-                    cancellationToken))
-                .OrderBy(d => d.SortOrder)
-                .ToList();
-            shares.AddRange(details.Select(d => (d.DestinationId, d.Value)));
-        }
-
-        if (shares.Count == 0)
-        {
-            var principal = destinations.Values.FirstOrDefault(d =>
-                string.Equals(d.Code, "PRN", StringComparison.OrdinalIgnoreCase) && d.IsActive)
-                ?? destinations.Values.FirstOrDefault(d => d.IsActive);
-            if (principal is null)
-            {
-                return [];
-            }
-
-            shares.Add((principal.Id, 100m));
-        }
-
-        // Attendu par compte via pourcentages (dernier compte = reste pour éviter l'écart d'arrondi).
-        var expectedByDest = new Dictionary<Guid, decimal>();
-        decimal allocatedExpected = 0;
-        for (var i = 0; i < shares.Count; i++)
-        {
-            var (destId, pct) = shares[i];
-            decimal amount;
-            if (i == shares.Count - 1)
-            {
-                amount = Math.Round(totalExpected - allocatedExpected, 2, MidpointRounding.AwayFromZero);
-            }
-            else
-            {
-                amount = Math.Round(totalExpected * pct / 100m, 2, MidpointRounding.AwayFromZero);
-                allocatedExpected += amount;
-            }
-
-            expectedByDest[destId] = amount;
-        }
-
-        // Encaissé réel déjà réparti (hors retenues) sur ce frais / année.
-        var payments = await LoadValidatedPaymentsAsync(schoolId, cancellationToken);
-        var yearPaymentIds = payments
-            .Where(p => p.AcademicYearId == academicYearId)
-            .Select(p => p.Id)
-            .ToHashSet();
-        var collectedByDest = (await _allocationEntryRepository.FindAsync(
-                e => e.SchoolId == schoolId
-                     && e.FeeTypeId == feeTypeId
-                     && e.WithholdingTypeId == null
-                     && e.AcademicYearId == academicYearId,
-                cancellationToken))
-            .Where(e => yearPaymentIds.Contains(e.PaymentId))
-            .GroupBy(e => e.DestinationId)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
-
-        // Si aucun encaissement écrit, projeter le payé global via les mêmes %.
-        var hasCollectedEntries = collectedByDest.Count > 0 && collectedByDest.Values.Sum() > 0;
-        if (!hasCollectedEntries && totalPaid > 0)
-        {
-            decimal allocatedPaid = 0;
+            var key = keys.FirstOrDefault(k => withholdingTypeId.HasValue
+                ? k.WithholdingTypeId == withholdingTypeId
+                : k.FeeTypeId == feeTypeId && k.WithholdingTypeId == null);
+            var shares = details.Where(d => d.AllocationKeyId == key?.Id)
+                .OrderBy(d => d.SortOrder).Select(d => (d.DestinationId, d.Value)).ToList();
+            if (shares.Count == 0 && principal is not null) shares.Add((principal.Id, 100m));
+            if (shares.Count == 0 && amount > 0)
+                throw new InvalidOperationException("Aucun compte actif pour répartir les créances.");
+            decimal allocated = 0;
             for (var i = 0; i < shares.Count; i++)
             {
-                var (destId, pct) = shares[i];
-                decimal amount;
-                if (i == shares.Count - 1)
-                {
-                    amount = Math.Round(totalPaid - allocatedPaid, 2, MidpointRounding.AwayFromZero);
-                }
-                else
-                {
-                    amount = Math.Round(totalPaid * pct / 100m, 2, MidpointRounding.AwayFromZero);
-                    allocatedPaid += amount;
-                }
-
-                collectedByDest[destId] = amount;
+                var (id, percentage) = shares[i];
+                var part = Math.Round(i == shares.Count - 1 ? amount - allocated : amount * percentage / 100m,
+                    2, MidpointRounding.AwayFromZero);
+                allocated += part;
+                expected[id] = expected.GetValueOrDefault(id) + part;
+                if (!sources.ContainsKey(id)) sources[id] = [];
+                sources[id].Add(source);
             }
         }
+        Allocate(projected.NetAmount, null, "Frais net");
+        foreach (var (typeId, amount) in projected.Withholdings)
+            Allocate(amount, typeId, "Retenue : " + types[typeId].Name);
 
-        return shares
-            .Select(s =>
-            {
-                destinations.TryGetValue(s.DestinationId, out var dest);
-                var expected = expectedByDest.GetValueOrDefault(s.DestinationId);
-                var collected = collectedByDest.GetValueOrDefault(s.DestinationId);
-                return new FeeDestinationReceivableDto(
-                    s.DestinationId,
-                    dest?.Code ?? "—",
-                    dest?.Name ?? "Compte",
-                    s.Percentage,
-                    expected,
-                    collected,
-                    Math.Max(0m, expected - collected));
-            })
-            .OrderByDescending(x => x.AmountExpected)
-            .ThenBy(x => x.DestinationName)
-            .ToList();
+        // Preserve historical destinations and include both net fee and withholding entries.
+        var paymentIds = (await LoadValidatedPaymentsAsync(schoolId, cancellationToken))
+            .Where(p => p.AcademicYearId == academicYearId).Select(p => p.Id).ToHashSet();
+        var accountEntries = (await _allocationEntryRepository.FindAsync(e => e.SchoolId == schoolId
+            && e.AcademicYearId == academicYearId, cancellationToken))
+            .Where(e => paymentIds.Contains(e.PaymentId)).ToList();
+        var entries = accountEntries.Where(e => e.FeeTypeId == feeTypeId).ToList();
+        foreach (var entry in entries)
+        {
+            if (!sources.ContainsKey(entry.DestinationId)) sources[entry.DestinationId] = [];
+            sources[entry.DestinationId].Add(entry.WithholdingTypeId is Guid typeId
+                ? "Retenue : " + types.GetValueOrDefault(typeId)?.Name : "Frais net");
+        }
+        var collected = entries.GroupBy(e => e.DestinationId).ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
+        var expenses = (await _expensePaymentRepository.FindAsync(e => e.SchoolId == schoolId
+            && e.AcademicYearId == academicYearId, cancellationToken)).ToList();
+        var expenseIds = expenses.Select(e => e.Id).ToList();
+        var expenseLines = await _expenseAllocationRepository.FindAsync(e => e.SchoolId == schoolId
+            && expenseIds.Contains(e.ExpensePaymentId), cancellationToken);
+        var currencyIds = (await _currencyRepository.FindAsync(c => c.Code == currency.ToString(), cancellationToken))
+            .Select(c => c.Id).ToHashSet();
+        var sameCurrencyFeeIds = (await _feeTypeRepository.FindAsync(f => f.SchoolId == schoolId
+            && f.Currency == currency, cancellationToken)).Select(f => f.Id).ToHashSet();
+        var accountCollected = accountEntries.Where(e => e.CurrencyId is Guid id
+                ? currencyIds.Contains(id) : e.FeeTypeId is Guid feeId && sameCurrencyFeeIds.Contains(feeId))
+            .GroupBy(e => e.DestinationId).ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
+        decimal PaidExpense(ExpensePayment expense)
+        {
+            var lines = expenseLines.Where(l => l.ExpensePaymentId == expense.Id).ToList();
+            return lines.Count > 0 ? lines.Where(l => currencyIds.Contains(l.CurrencyId)).Sum(l => l.Amount)
+                : expense.PrimaryCurrencyId is Guid id ? (currencyIds.Contains(id) ? expense.Amount : 0m)
+                : expense.Currency == currency ? expense.Amount : 0m;
+        }
+        var spent = expenses.GroupBy(e => e.DestinationId).ToDictionary(g => g.Key, g => g.Sum(PaidExpense));
+        var requests = await _expenseRequestRepository.FindAsync(r => r.SchoolId == schoolId
+            && r.AcademicYearId == academicYearId && r.Currency == currency
+            && (r.Status == ExpenseRequestStatus.Approuvee || r.Status == ExpenseRequestStatus.Payee), cancellationToken);
+        decimal SettledCommitment(ExpensePayment expense)
+        {
+            if (expense.PrimaryCurrencyId is Guid primaryId
+                ? currencyIds.Contains(primaryId) : expense.Currency == currency)
+                return expense.Amount;
+            // A request and its payment can use different currencies. Use only the
+            // frozen funding rate; never subtract USD amounts from a CDF request.
+            var funding = expenseLines.FirstOrDefault(l => l.ExpensePaymentId == expense.Id
+                && currencyIds.Contains(l.CurrencyId) && l.AppliedExchangeRate > 0);
+            return funding is null ? 0m : Math.Round(expense.Amount / funding.AppliedExchangeRate,
+                2, MidpointRounding.AwayFromZero);
+        }
+        var committed = requests.GroupBy(r => r.DestinationId).ToDictionary(g => g.Key, g => g.Sum(r =>
+            Math.Max(0m, r.RequestedAmount - expenses.Where(e => e.ExpenseRequestId == r.Id).Sum(SettledCommitment))));
+        var totalExpected = obligations.Sum(o => o.Amount);
+        var result = expected.Keys.Union(collected.Keys).Select(id => new FeeDestinationReceivableDto(
+            id, destinations.GetValueOrDefault(id)?.Code ?? "—", destinations.GetValueOrDefault(id)?.Name ?? "Compte",
+            totalExpected > 0 ? 100m * expected.GetValueOrDefault(id) / totalExpected : 0m,
+            expected.GetValueOrDefault(id), collected.GetValueOrDefault(id),
+            Math.Max(0m, expected.GetValueOrDefault(id) - collected.GetValueOrDefault(id)),
+            string.Join(" ; ", sources.GetValueOrDefault(id) ?? []), spent.GetValueOrDefault(id), committed.GetValueOrDefault(id), accountCollected.GetValueOrDefault(id)))
+            .OrderByDescending(r => r.AmountExpected).ThenBy(r => r.DestinationName).ToList();
+        var unallocated = annualPaid - collected.Values.Sum();
+        if (unallocated > 0m)
+            result.Add(new FeeDestinationReceivableDto(Guid.Empty, "NON_VENTILE", "À répartir",
+                0m, 0m, unallocated, 0m, "Paiements validés sans ventilation complète", AccountCollected: 0m));
+        return result;
     }
 
     public async Task<IReadOnlyList<DashboardFundMovementDto>> GetFundMovementsAsync(

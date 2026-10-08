@@ -221,7 +221,15 @@ public sealed record FeeDestinationReceivableDto(
     decimal Percentage,
     decimal AmountExpected,
     decimal AmountCollected,
-    decimal Remaining);
+    decimal Remaining,
+    string AllocationSources = "",
+    decimal AmountSpent = 0m,
+    decimal AmountCommitted = 0m,
+    decimal? AccountCollected = null)
+{
+    public decimal Available => (AccountCollected ?? AmountCollected) - AmountSpent;
+    public decimal AvailableAfterCommitments => Available - AmountCommitted;
+}
 
 public sealed record DashboardFundMovementDto(
     Guid Id,

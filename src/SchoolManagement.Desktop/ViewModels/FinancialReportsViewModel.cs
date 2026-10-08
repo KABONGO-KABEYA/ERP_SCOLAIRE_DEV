@@ -768,19 +768,20 @@ public partial class FinancialReportsViewModel : ViewModelBase
             sheet.Column(2).Width = 16;
             sheet.Column(3).Width = 16;
             sheet.Column(4).Width = 16;
-            sheet.Column(5).Width = 16;
-            sheet.Range("A1:E1").Merge().Value = school?.Name ?? "Établissement scolaire";
-            sheet.Range("A2:E2").Merge().Value = ReceivablesTitle.ToUpperInvariant();
-            sheet.Range("A3:E3").Merge().Value = $"Année scolaire : {ReceivablesAcademicYear}   •   Devise : {ReceivablesCurrency}";
-            sheet.Range("A1:E1").Style.Font.Bold = true;
-            sheet.Range("A1:E1").Style.Font.FontSize = 16;
-            sheet.Range("A1:E1").Style.Font.FontColor = XLColor.White;
-            sheet.Range("A1:E1").Style.Fill.BackgroundColor = XLColor.FromHtml("#17365D");
-            sheet.Range("A2:E2").Style.Font.Bold = true;
-            sheet.Range("A2:E2").Style.Font.FontSize = 13;
-            sheet.Range("A2:E2").Style.Font.FontColor = XLColor.FromHtml("#17365D");
-            sheet.Range("A1:E3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            sheet.Range("A1:E3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            sheet.Columns(5, 10).Width = 19;
+            sheet.Column(2).Width = 35;
+            sheet.Range("A1:J1").Merge().Value = school?.Name ?? "Établissement scolaire";
+            sheet.Range("A2:J2").Merge().Value = ReceivablesTitle.ToUpperInvariant();
+            sheet.Range("A3:J3").Merge().Value = $"Année scolaire : {ReceivablesAcademicYear}   •   Devise : {ReceivablesCurrency}";
+            sheet.Range("A1:J1").Style.Font.Bold = true;
+            sheet.Range("A1:J1").Style.Font.FontSize = 16;
+            sheet.Range("A1:J1").Style.Font.FontColor = XLColor.White;
+            sheet.Range("A1:J1").Style.Fill.BackgroundColor = XLColor.FromHtml("#17365D");
+            sheet.Range("A2:J2").Style.Font.Bold = true;
+            sheet.Range("A2:J2").Style.Font.FontSize = 13;
+            sheet.Range("A2:J2").Style.Font.FontColor = XLColor.FromHtml("#17365D");
+            sheet.Range("A1:J3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            sheet.Range("A1:J3").Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             sheet.Row(1).Height = 28;
             sheet.Row(2).Height = 23;
             sheet.Row(3).Height = 20;
@@ -789,9 +790,9 @@ public partial class FinancialReportsViewModel : ViewModelBase
             sheet.Range("A5:E5").Style.Font.Bold = true;
             sheet.Range("A5:E5").Style.Font.FontColor = XLColor.White;
             sheet.Range("A5:E5").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
-            sheet.Cell(6, 1).Value = "Attendu"; sheet.Cell(6, 2).Value = ReceivablesExpected;
-            sheet.Cell(6, 3).Value = "Perçu"; sheet.Cell(6, 4).Value = ReceivablesPaid;
-            sheet.Cell(6, 5).Value = "Reste"; sheet.Cell(7, 5).Value = ReceivablesRemaining;
+            sheet.Cell(6, 1).Value = "Attendu annuel"; sheet.Cell(6, 2).Value = ReceivablesExpected;
+            sheet.Cell(6, 3).Value = "Perçu annuel"; sheet.Cell(6, 4).Value = ReceivablesPaid;
+            sheet.Cell(6, 5).Value = "Reste annuel"; sheet.Cell(7, 5).Value = ReceivablesRemaining;
             sheet.Range("A6:E7").Style.Fill.BackgroundColor = XLColor.FromHtml("#EAF2F8");
             sheet.Range("A6:E7").Style.Font.Bold = true;
             sheet.Range("B6:B7,D6:D7,E6:E7").Style.NumberFormat.Format = "#,##0.00";
@@ -816,25 +817,31 @@ public partial class FinancialReportsViewModel : ViewModelBase
             StyleReceivableBody(sheet, row - ReceivablesByInstallment.Count, row - 1, 4);
 
             row++;
-            sheet.Range($"A{row}:E{row}").Merge().Value = "PAR COMPTE DE RÉPARTITION";
-            sheet.Range($"A{row}:E{row}").Style.Font.Bold = true;
-            sheet.Range($"A{row}:E{row}").Style.Font.FontColor = XLColor.White;
-            sheet.Range($"A{row}:E{row}").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
+            sheet.Range($"A{row}:J{row}").Merge().Value = "PAR COMPTE DE RÉPARTITION — frais net et retenues";
+            sheet.Range($"A{row}:J{row}").Style.Font.Bold = true;
+            sheet.Range($"A{row}:J{row}").Style.Font.FontColor = XLColor.White;
+            sheet.Range($"A{row}:J{row}").Style.Fill.BackgroundColor = XLColor.FromHtml("#2F75B5");
             row++;
-            WriteReceivableHeader(sheet, row, "Compte", "%", "Attendu", "Encaissé", "Reste");
-            StyleReceivableHeader(sheet, row, 5);
+            WriteReceivableHeader(sheet, row, "Compte", "Origine", "% effectif", "Attendu", "Encaissé", "Reste à percevoir", "Dépenses payées", "Engagé non payé", "Disponible du compte", "Après engagements");
+            StyleReceivableHeader(sheet, row, 10);
             row++;
             foreach (var item in ReceivablesByDestination)
             {
                 sheet.Cell(row, 1).Value = item.DestinationName;
-                sheet.Cell(row, 2).Value = item.Percentage;
-                sheet.Cell(row, 3).Value = item.AmountExpected;
-                sheet.Cell(row, 4).Value = item.AmountCollected;
-                sheet.Cell(row, 5).Value = item.Remaining;
+                sheet.Cell(row, 2).Value = item.AllocationSources;
+                sheet.Cell(row, 3).Value = item.Percentage;
+                sheet.Cell(row, 4).Value = item.AmountExpected;
+                sheet.Cell(row, 5).Value = item.AmountCollected;
+                sheet.Cell(row, 6).Value = item.Remaining;
+                sheet.Cell(row, 7).Value = item.AmountSpent;
+                sheet.Cell(row, 8).Value = item.AmountCommitted;
+                sheet.Cell(row, 9).Value = item.Available;
+                sheet.Cell(row, 10).Value = item.AvailableAfterCommitments;
                 row++;
             }
-            StyleReceivableBody(sheet, row - ReceivablesByDestination.Count, row - 1, 5);
+            StyleReceivableBody(sheet, row - ReceivablesByDestination.Count, row - 1, 10);
 
+            sheet.Range($"A{row + 1}:J{row + 1}").Merge().Value = "Dépenses, engagements et disponible annuels du compte, tous frais confondus, dans la devise du rapport. % effectif du brut annuel.";
             sheet.RangeUsed()!.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             sheet.RangeUsed()!.Style.Border.OutsideBorderColor = XLColor.FromHtml("#B8C7D9");
             sheet.RangeUsed()!.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
@@ -882,7 +889,7 @@ public partial class FinancialReportsViewModel : ViewModelBase
         var schoolName = school?.Name ?? "Établissement scolaire";
         return Document.Create(container => container.Page(page =>
         {
-            page.Size(PageSizes.A4);
+            page.Size(PageSizes.A4.Landscape());
             page.Margin(36);
             page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(9).FontColor("#24364B"));
             page.Header().Column(header =>
@@ -899,8 +906,8 @@ public partial class FinancialReportsViewModel : ViewModelBase
                 column.Item().Text($"Année scolaire : {ReceivablesAcademicYear}   •   Devise : {ReceivablesCurrency}").FontSize(10).FontColor("#5B6573");
                 column.Item().Row(row =>
                 {
-                    SummaryCard(row, "ATTENDU", ReceivablesExpected, "#D9EAF7");
-                    SummaryCard(row, "PERÇU", ReceivablesPaid, "#E2F0D9");
+                    SummaryCard(row, "ATTENDU ANNUEL", ReceivablesExpected, "#D9EAF7");
+                    SummaryCard(row, "PERÇU ANNUEL", ReceivablesPaid, "#E2F0D9");
                     SummaryCard(row, "RESTE À PERCEVOIR", ReceivablesRemaining, "#FCE4D6");
                 });
                 column.Item().Text("Par tranche").FontSize(13).Bold().FontColor("#17365D");
@@ -910,12 +917,19 @@ public partial class FinancialReportsViewModel : ViewModelBase
                     table.Header(header => { PdfHeaderCell(header.Cell(), "Tranche"); PdfHeaderCell(header.Cell(), "Attendu"); PdfHeaderCell(header.Cell(), "Perçu"); PdfHeaderCell(header.Cell(), "Reste"); });
                     foreach (var item in ReceivablesByInstallment) { PdfBodyCell(table.Cell(), item.InstallmentName); PdfBodyCell(table.Cell(), $"{item.AmountExpected:N2}", true); PdfBodyCell(table.Cell(), $"{item.AmountPaid:N2}", true); PdfBodyCell(table.Cell(), $"{item.Remaining:N2}", true, "#FFF2CC"); }
                 });
-                column.Item().Text("Par compte de répartition").FontSize(13).Bold().FontColor("#17365D");
-                column.Item().Table(table =>
+                column.Item().Text("Par compte de répartition — frais net et retenues").FontSize(13).Bold().FontColor("#17365D");
+                column.Item().Text("Dépenses, engagements et disponible annuels du compte, tous frais confondus, dans la devise du rapport. % effectif du brut annuel.").FontSize(8);
+                column.Item().DefaultTextStyle(x => x.FontSize(7)).Table(table =>
                 {
-                    table.ColumnsDefinition(columns => { columns.RelativeColumn(2); columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn(); });
-                    table.Header(header => { PdfHeaderCell(header.Cell(), "Compte"); PdfHeaderCell(header.Cell(), "%"); PdfHeaderCell(header.Cell(), "Attendu"); PdfHeaderCell(header.Cell(), "Encaissé"); PdfHeaderCell(header.Cell(), "Reste"); });
-                    foreach (var item in ReceivablesByDestination) { PdfBodyCell(table.Cell(), item.DestinationName); PdfBodyCell(table.Cell(), $"{item.Percentage:N1}", true); PdfBodyCell(table.Cell(), $"{item.AmountExpected:N2}", true); PdfBodyCell(table.Cell(), $"{item.AmountCollected:N2}", true); PdfBodyCell(table.Cell(), $"{item.Remaining:N2}", true, "#FFF2CC"); }
+                    table.ColumnsDefinition(columns => { columns.RelativeColumn(2); columns.RelativeColumn(2); for (var i = 0; i < 8; i++) columns.RelativeColumn(); });
+                    table.Header(header => { foreach (var label in new[] { "Compte", "Origine", "% effectif", "Attendu", "Encaissé", "Reste à percevoir", "Dépenses payées", "Engagé non payé", "Disponible du compte", "Après engagements" }) PdfHeaderCell(header.Cell(), label); });
+                    foreach (var item in ReceivablesByDestination)
+                    {
+                        PdfBodyCell(table.Cell(), item.DestinationName);
+                        PdfBodyCell(table.Cell(), item.AllocationSources);
+                        foreach (var value in new[] { item.Percentage, item.AmountExpected, item.AmountCollected, item.Remaining, item.AmountSpent, item.AmountCommitted, item.Available, item.AvailableAfterCommitments })
+                            PdfBodyCell(table.Cell(), $"{value:N2}", true);
+                    }
                 });
             });
             page.Footer().AlignCenter().Text(text => { text.Span("Document généré par ERP Administration Scolaire RDC  •  "); text.CurrentPageNumber(); text.Span(" / "); text.TotalPages(); });
