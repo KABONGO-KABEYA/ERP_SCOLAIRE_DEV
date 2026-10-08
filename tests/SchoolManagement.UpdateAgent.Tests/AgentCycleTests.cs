@@ -157,15 +157,20 @@ public sealed class AgentCycleTests
         var db = new FakeDb { Schema = 1 };
         var opt = CycleFactory.Options(ws);
         opt.AutoDeploy = false;
+        // This test checks resume semantics, not scheduler speed on a busy CI runner.
+        opt.HealthBudgetSeconds = 30;
+        var health = new FakeHealth();
         var result = await CycleFactory.Create(
                 ws,
                 opt,
                 bootstrap,
                 acquire,
-                deploy: DeployHarness.Create(ws, db, new FakeApiService(), new FakeHealth(), new FakeDisk(), opt))
+                deploy: DeployHarness.Create(ws, db, new FakeApiService(), health, new FakeDisk(), opt))
             .RunAsync(CancellationToken.None);
 
-        result.LastResult.Should().Be(AgentResults.Completed);
+        result.LastResult.Should().Be(AgentResults.Completed, "resume should succeed: {0}", result.LastError);
+        health.Calls.Should().Be(3);
+        db.RestoreCalls.Should().Be(0);
         bootstrap.TokenCalls.Should().Be(0);
         acquire.Calls.Should().Be(0);
         db.BackupCalls.Should().Be(0);
