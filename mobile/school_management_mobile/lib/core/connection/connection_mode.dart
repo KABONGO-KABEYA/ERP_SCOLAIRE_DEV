@@ -14,7 +14,8 @@ enum ConnectionMode {
 }
 
 extension ConnectionModeX on ConnectionMode {
-  bool get isOnline => this == ConnectionMode.local || this == ConnectionMode.cloud;
+  bool get isOnline =>
+      this == ConnectionMode.local || this == ConnectionMode.cloud;
 
   bool get allowsWrites => this == ConnectionMode.local;
 
@@ -31,9 +32,10 @@ extension ConnectionModeX on ConnectionMode {
 
   String get subtitle => switch (this) {
         ConnectionMode.detecting => 'Recherche du serveur…',
-        ConnectionMode.local => 'Même Wi‑Fi que le serveur — lecture + écriture.',
+        ConnectionMode.local =>
+          'Serveur local de l’établissement — lecture + écriture.',
         ConnectionMode.cloud =>
-          'Autre réseau — serveur distant (lecture seule, notes autorisées).',
+          'Serveur distant de l’établissement (lecture seule, notes autorisées).',
         ConnectionMode.offline =>
           'Pas de connexion — données en cache uniquement.',
       };
@@ -43,6 +45,7 @@ class ConnectionSnapshot {
   const ConnectionSnapshot({
     required this.mode,
     this.baseUrl,
+    this.schoolId,
     this.message,
     this.hasInternet,
     this.requiresReauthentication = false,
@@ -50,6 +53,7 @@ class ConnectionSnapshot {
 
   final ConnectionMode mode;
   final String? baseUrl;
+  final String? schoolId;
   final String? message;
   final bool? hasInternet;
 
@@ -70,6 +74,7 @@ class ConnectionSnapshot {
   ConnectionSnapshot copyWith({
     ConnectionMode? mode,
     String? baseUrl,
+    String? schoolId,
     String? message,
     bool? hasInternet,
     bool? requiresReauthentication,
@@ -77,6 +82,7 @@ class ConnectionSnapshot {
       ConnectionSnapshot(
         mode: mode ?? this.mode,
         baseUrl: baseUrl ?? this.baseUrl,
+        schoolId: schoolId ?? this.schoolId,
         message: message ?? this.message,
         hasInternet: hasInternet ?? this.hasInternet,
         requiresReauthentication:

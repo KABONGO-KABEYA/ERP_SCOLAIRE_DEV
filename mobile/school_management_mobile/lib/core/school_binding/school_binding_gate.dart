@@ -32,11 +32,8 @@ abstract final class SchoolBindingGate {
   static bool get allowsLegacyParentLoginWithoutBinding =>
       BindingMigrationPolicy.effectiveAllowJwtBindingMigration;
 
-  /// Discovery filtrée par `SchoolBinding` — active si `STRICT_SCHOOL_DISCOVERY` et binding présent.
+  /// Discovery filtrée par `SchoolBinding` — obligatoire dès qu’un établissement est actif.
   static Future<bool> shouldFilterDiscoveryByBinding() async {
-    if (!BindingMigrationPolicy.isStrictSchoolDiscoveryEnabled) {
-      return false;
-    }
     return bindingRepository.hasBinding();
   }
 

@@ -42,17 +42,17 @@ class _ConnectionModeBannerState extends ConsumerState<ConnectionModeBanner> {
       ConnectionMode.local => (
           ErpColors.success,
           Icons.wifi,
-          'Mode local — synchronisé',
+          'Connexion locale',
         ),
       ConnectionMode.cloud => (
           ErpColors.primary,
           Icons.cloud_outlined,
-          'Mode distant',
+          'Connexion distante',
         ),
       ConnectionMode.offline => (
           ErpColors.danger,
           Icons.cloud_off_outlined,
-          'Mode cache — hors ligne',
+          'Hors ligne — données en cache',
         ),
     };
 

@@ -1,3 +1,5 @@
+import '../connection/connection_context.dart';
+import '../cache/cache_partition_policy.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -9,17 +11,44 @@ import 'dio_factory.dart';
 class ApiClient {
   ApiClient({
     required String baseUrl,
+    String? schoolId,
+    bool connectionReady = true,
+    Dio? dio,
     FutureOr<void> Function()? onSessionExpired,
-  }) : _onSessionExpired = onSessionExpired {
-    _dio = createApiDio(baseUrl);
+  })  : _onSessionExpired = onSessionExpired,
+        _schoolId = schoolId,
+        _connectionReady = connectionReady {
+    _dio = dio ?? createApiDio(baseUrl);
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
+        final requestEpoch = ConnectionContext.generation;
+        final active = await CachePartitionPolicy.activeSchoolId();
+        if (requestEpoch != ConnectionContext.generation ||
+            !_connectionReady ||
+            (_schoolId != null && active != _schoolId)) {
+          return handler.reject(DioException(
+            requestOptions: options,
+            type: DioExceptionType.cancel,
+            message:
+                'Connexion à l’établissement en cours. Réessayez après la détection.',
+          ));
+        }
+        options.extra['schoolConnectionGeneration'] = requestEpoch;
+
         final token = await AuthStorage.accessToken;
         if (token != null && token.isNotEmpty) {
           if (!await AuthStorage.sessionMatchesActiveSchool) {
-            await AuthStorage.clear();
-            await _onSessionExpired?.call();
+            if (requestEpoch == ConnectionContext.generation) {
+              if (active != null) {
+                await AuthStorage.clearSessionForSchool(active);
+              } else {
+                await AuthStorage.clear();
+              }
+              if (requestEpoch == ConnectionContext.generation) {
+                await _onSessionExpired?.call();
+              }
+            }
             return handler.reject(
               DioException(
                 requestOptions: options,
@@ -31,18 +60,44 @@ class ApiClient {
           }
           options.headers['Authorization'] = 'Bearer $token';
         }
+        if (requestEpoch != ConnectionContext.generation) {
+          return handler.reject(DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              message: 'Établissement actif modifié.'));
+        }
         handler.next(options);
       },
+      onResponse: (response, handler) {
+        if (response.requestOptions.extra['schoolConnectionGeneration'] !=
+            ConnectionContext.generation) {
+          return handler.reject(DioException(
+              requestOptions: response.requestOptions,
+              type: DioExceptionType.cancel,
+              message: 'Établissement actif modifié.'));
+        }
+        handler.next(response);
+      },
       onError: (error, handler) async {
+        if (error.requestOptions.extra['schoolConnectionGeneration'] !=
+            ConnectionContext.generation) {
+          return handler.next(error);
+        }
+
         final status = error.response?.statusCode;
         final path = error.requestOptions.path;
-        final alreadyRetried = error.requestOptions.extra['authRetried'] == true;
+        final alreadyRetried =
+            error.requestOptions.extra['authRetried'] == true;
 
         if (status != 401 || alreadyRetried || _isAuthEndpoint(path)) {
           return handler.next(error);
         }
 
         final refreshed = await _tryRefreshToken();
+        if (error.requestOptions.extra['schoolConnectionGeneration'] !=
+            ConnectionContext.generation) {
+          return handler.next(error);
+        }
         if (!refreshed) {
           await AuthStorage.clear();
           await _onSessionExpired?.call();
@@ -69,6 +124,8 @@ class ApiClient {
   }
 
   final FutureOr<void> Function()? _onSessionExpired;
+  final String? _schoolId;
+  final bool _connectionReady;
   late final Dio _dio;
   Future<bool>? _refreshInFlight;
 
@@ -88,6 +145,8 @@ class ApiClient {
   }
 
   Future<bool> _doRefresh() async {
+    final epoch = ConnectionContext.generation;
+    final activeSchoolId = await CachePartitionPolicy.activeSchoolId();
     final refresh = await AuthStorage.refreshToken;
     if (refresh == null || refresh.isEmpty) return false;
 
@@ -117,7 +176,12 @@ class ApiClient {
       }
 
       final schoolId = user['schoolId']?.toString() ?? '';
-      if (schoolId.isEmpty) return false;
+      if (schoolId.isEmpty ||
+          epoch != ConnectionContext.generation ||
+          (activeSchoolId != null &&
+              schoolId.toLowerCase() != activeSchoolId.toLowerCase())) {
+        return false;
+      }
 
       await AuthStorage.saveSession(
         accessToken: accessToken,
@@ -135,8 +199,9 @@ class ApiClient {
             const [],
         schoolId: schoolId,
       );
+      if (epoch != ConnectionContext.generation) return false;
       if (!await AuthStorage.sessionMatchesActiveSchool) {
-        await AuthStorage.clear();
+        await AuthStorage.clearSessionForSchool(schoolId);
         return false;
       }
       return true;
@@ -152,7 +217,8 @@ class ApiClient {
     final response = await _dio.get<Map<String, dynamic>>(path);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (data) => data);
@@ -176,7 +242,8 @@ class ApiClient {
     final response = await _dio.get<Map<String, dynamic>>(path);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (data) => data);
@@ -197,7 +264,8 @@ class ApiClient {
     final response = await _dio.post<Map<String, dynamic>>(path, data: data);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (d) => d);
@@ -217,7 +285,8 @@ class ApiClient {
     final response = await _dio.post<Map<String, dynamic>>(path, data: data);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (d) => d);
@@ -239,7 +308,8 @@ class ApiClient {
     final response = await _dio.put<Map<String, dynamic>>(path, data: data);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (d) => d);
@@ -265,7 +335,8 @@ class ApiClient {
     );
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (d) => d);
@@ -283,7 +354,8 @@ class ApiClient {
     final response = await _dio.delete<Map<String, dynamic>>(path);
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (d) => d);

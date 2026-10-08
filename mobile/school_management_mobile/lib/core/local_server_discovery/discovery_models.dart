@@ -96,6 +96,7 @@ class DiscoveryResult {
     required this.mode,
     required this.source,
     this.baseUrl,
+    this.schoolId,
     this.health,
     required this.message,
     this.serverInstanceIdChanged = false,
@@ -106,6 +107,7 @@ class DiscoveryResult {
   final DiscoveryMode mode;
   final DiscoverySource source;
   final String? baseUrl;
+  final String? schoolId;
   final HealthInfo? health;
   final String message;
 

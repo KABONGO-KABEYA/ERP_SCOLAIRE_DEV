@@ -3,9 +3,9 @@ import 'package:school_management_mobile/core/config/binding_migration_config.da
 
 void main() {
   group('Étape 2 — BindingMigrationPolicy', () {
-    test('strictSchoolDiscovery defaults to false', () {
-      expect(BindingMigrationConfig.strictSchoolDiscovery, isFalse);
-      expect(BindingMigrationPolicy.isStrictSchoolDiscoveryEnabled, isFalse);
+    test('strictSchoolDiscovery defaults to true', () {
+      expect(BindingMigrationConfig.strictSchoolDiscovery, isTrue);
+      expect(BindingMigrationPolicy.isStrictSchoolDiscoveryEnabled, isTrue);
     });
 
     test('migration end computed from days when end utc empty', () {

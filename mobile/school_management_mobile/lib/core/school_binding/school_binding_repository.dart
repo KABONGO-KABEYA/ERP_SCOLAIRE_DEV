@@ -1,3 +1,4 @@
+import '../connection/connection_context.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../auth/auth_storage.dart';
@@ -48,7 +49,8 @@ class SchoolBindingRepository {
   Future<List<SchoolBinding>> loadAll() async {
     final registry = await _store.loadRegistry();
     final list = registry.values.toList()
-      ..sort((a, b) => a.schoolName.toLowerCase().compareTo(b.schoolName.toLowerCase()));
+      ..sort((a, b) =>
+          a.schoolName.toLowerCase().compareTo(b.schoolName.toLowerCase()));
     return list;
   }
 
@@ -92,6 +94,7 @@ class SchoolBindingRepository {
 
     if (activeId == null || activeId.isEmpty) {
       await _store.writeActiveSchoolId(id);
+      ConnectionContext.invalidate();
       await ParentPushLifecycle.onActiveSchoolSwitched(
         previousSchoolId: null,
         newSchoolId: id,
@@ -106,6 +109,15 @@ class SchoolBindingRepository {
     }
 
     await setActive(id);
+  }
+
+  /// Update identity without activating an old school from a delayed probe.
+  Future<void> updateRegisteredBinding(SchoolBinding binding) async {
+    final registry = await _store.loadRegistry();
+    final id = CachePartitionPolicy.normalizeSchoolId(binding.schoolId);
+    if (!registry.containsKey(id)) return;
+    registry[id] = binding;
+    await _store.writeRegistry(registry);
   }
 
   /// Ajoute un établissement via QR. Refuse les doublons.
@@ -131,8 +143,7 @@ class SchoolBindingRepository {
     await _store.writeRegistry(registry);
 
     final activeId = await _store.readActiveSchoolId();
-    final shouldActivate =
-        setAsActive || activeId == null || activeId.isEmpty;
+    final shouldActivate = setAsActive || activeId == null || activeId.isEmpty;
     if (shouldActivate) {
       await setActive(id);
     }
@@ -157,6 +168,7 @@ class SchoolBindingRepository {
     // La session runtime (Riverpod) est invalidée côté UI ; les tokens
     // partitionnés restent pour reprise au retour sur l'école.
     await _store.writeActiveSchoolId(id);
+    ConnectionContext.invalidate();
     await ParentPushLifecycle.onActiveSchoolSwitched(
       previousSchoolId: previousId,
       newSchoolId: id,
@@ -189,6 +201,7 @@ class SchoolBindingRepository {
 
     if (registry.isEmpty) {
       await _store.writeActiveSchoolId(null);
+      ConnectionContext.invalidate();
       await ParentPushLifecycle.onActiveSchoolSwitched(
         previousSchoolId: previousActive,
         newSchoolId: null,
@@ -202,6 +215,7 @@ class SchoolBindingRepository {
 
     final nextId = registry.keys.first;
     await _store.writeActiveSchoolId(nextId);
+    ConnectionContext.invalidate();
     await ParentPushLifecycle.onActiveSchoolSwitched(
       previousSchoolId: previousActive,
       newSchoolId: nextId,
@@ -221,6 +235,7 @@ class SchoolBindingRepository {
     await AuthStorage.clearSession();
     await ParentPushLifecycle.resetTransport();
     await _store.clearAll();
+    ConnectionContext.invalidate();
   }
 
   static Future<void> _safeEnsurePartition() async {

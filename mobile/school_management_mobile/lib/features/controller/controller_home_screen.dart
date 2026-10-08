@@ -33,6 +33,10 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
   bool _checking = false;
   bool _searching = false;
   bool _scanLocked = false;
+  bool _configurationExpanded = true;
+  bool _controlExpanded = true;
+  int _controlTab = 0;
+  final _scrollController = ScrollController();
   String? _error;
   final _searchController = TextEditingController();
 
@@ -44,12 +48,15 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadSetup({String? yearId}) async {
     setState(() {
+      _configurationExpanded = true;
+      _controlExpanded = true;
       _loading = true;
       _error = null;
       _result = null;
@@ -114,7 +121,9 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
       };
 
   void _onDetect(BarcodeCapture capture) {
-    if (_scanLocked || _checking || !_selectionReady) return;
+    if (_scanLocked || _checking || !_selectionReady || !_controlExpanded) {
+      return;
+    }
     final value = capture.barcodes
         .map((b) => b.rawValue?.trim())
         .whereType<String>()
@@ -139,7 +148,7 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
             mode: s['mode']! as int,
             feeInstallmentId: s['feeInstallmentId'] as String?,
           );
-      if (mounted) setState(() => _result = result);
+      if (mounted) _showResult(result);
     } catch (e) {
       if (mounted) setState(() => _error = resolveDashboardErrorMessage(e));
     } finally {
@@ -190,13 +199,43 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
             mode: s['mode']! as int,
             feeInstallmentId: s['feeInstallmentId'] as String?,
           );
-      if (mounted) setState(() => _result = result);
+      if (mounted) _showResult(result);
     } catch (e) {
       if (mounted) setState(() => _error = resolveDashboardErrorMessage(e));
     } finally {
       if (mounted) setState(() => _checking = false);
     }
   }
+
+  void _showResult(ControllerCheckResult result) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _result = result;
+      _configurationExpanded = false;
+      _controlExpanded = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.animateTo(0,
+            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  Widget _panelHeader(
+          String title, IconData icon, bool expanded, VoidCallback? onToggle) =>
+      Row(
+        children: [
+          Icon(icon, color: ErpColors.primary),
+          const SizedBox(width: 10),
+          Expanded(child: Text(title, style: ErpTextStyles.title)),
+          IconButton(
+            tooltip: expanded ? 'Replier' : 'Déplier',
+            onPressed: onToggle,
+            icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+          ),
+        ],
+      );
 
   Future<void> _logout() async {
     final connection = ref.read(connectionModeProvider);
@@ -223,6 +262,7 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
           : RefreshIndicator(
               onRefresh: () => _loadSetup(yearId: _yearId),
               child: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(ErpSpacing.page),
                 children: [
                   _configurationCard(),
@@ -255,92 +295,99 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.tune_rounded, color: ErpColors.primary),
-              SizedBox(width: 10),
-              Expanded(
-                  child: Text('Paramètres du contrôle',
-                      style: ErpTextStyles.title)),
-            ],
+          _panelHeader(
+            'Paramètres du contrôle',
+            Icons.tune_rounded,
+            _configurationExpanded,
+            _selectionReady
+                ? () => setState(
+                    () => _configurationExpanded = !_configurationExpanded)
+                : null,
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            key: ValueKey('year-$_yearId'),
-            initialValue: _yearId,
-            decoration: const InputDecoration(labelText: 'Année scolaire'),
-            items: (setup?.academicYears ?? const [])
-                .map((y) => DropdownMenuItem(
-                      value: y.id,
-                      child: Text(
-                          '${y.label}${y.isCurrent ? '  • En cours' : ''}'),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null && value != _yearId) {
-                unawaited(_loadSetup(yearId: value));
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            key: ValueKey('fee-$_yearId-$_feeTypeId'),
-            initialValue: _feeTypeId,
-            decoration: const InputDecoration(labelText: 'Type de frais'),
-            items: (setup?.feeTypes ?? const [])
-                .map((f) => DropdownMenuItem(
-                      value: f.id,
-                      child: Text('${f.name} (${f.currency})'),
-                    ))
-                .toList(),
-            onChanged: _selectFeeType,
-          ),
-          if ((setup?.feeTypes ?? const []).isEmpty && _yearId != null) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Aucun type de frais n’est configuré pour cette année.',
-              style: TextStyle(color: ErpColors.warning),
+          if (!_configurationExpanded)
+            Text(
+              '${_result?.feeTypeName ?? (_setup?.feeTypes.where((f) => f.id == _feeTypeId).map((f) => f.name).firstOrNull ?? '')} • ${_mode == 1 ? 'Total annuel' : 'Par tranche'}',
+              style: ErpTextStyles.label,
             ),
-          ],
-          const SizedBox(height: 16),
-          const Text('Mode de contrôle', style: ErpTextStyles.label),
-          const SizedBox(height: 8),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(
-                  value: 1,
-                  icon: Icon(Icons.summarize_outlined),
-                  label: Text('Total annuel')),
-              ButtonSegment(
-                  value: 2,
-                  icon: Icon(Icons.payments_outlined),
-                  label: Text('Par tranche')),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (values) => setState(() {
-              _mode = values.first;
-              _result = null;
-              if (_mode == 1) _installmentId = null;
-            }),
-          ),
-          if (_mode == 2) ...[
+          if (_configurationExpanded) ...[
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              key: ValueKey('year-$_yearId'),
+              initialValue: _yearId,
+              decoration: const InputDecoration(labelText: 'Année scolaire'),
+              items: (setup?.academicYears ?? const [])
+                  .map((y) => DropdownMenuItem(
+                        value: y.id,
+                        child: Text(
+                            '${y.label}${y.isCurrent ? '  • En cours' : ''}'),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null && value != _yearId) {
+                  unawaited(_loadSetup(yearId: value));
+                }
+              },
+            ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              key: ValueKey('installment-$_feeTypeId-$_installmentId'),
-              initialValue: _installmentId,
-              decoration:
-                  const InputDecoration(labelText: 'Tranche de paiement'),
-              items: _installments
-                  .map(
-                      (i) => DropdownMenuItem(value: i.id, child: Text(i.name)))
+              key: ValueKey('fee-$_yearId-$_feeTypeId'),
+              initialValue: _feeTypeId,
+              decoration: const InputDecoration(labelText: 'Type de frais'),
+              items: (setup?.feeTypes ?? const [])
+                  .map((f) => DropdownMenuItem(
+                        value: f.id,
+                        child: Text('${f.name} (${f.currency})'),
+                      ))
                   .toList(),
-              onChanged: _feeTypeId == null
-                  ? null
-                  : (value) => setState(() {
-                        _installmentId = value;
-                        _result = null;
-                      }),
+              onChanged: _selectFeeType,
             ),
+            if ((setup?.feeTypes ?? const []).isEmpty && _yearId != null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Aucun type de frais n’est configuré pour cette année.',
+                style: TextStyle(color: ErpColors.warning),
+              ),
+            ],
+            const SizedBox(height: 16),
+            const Text('Mode de contrôle', style: ErpTextStyles.label),
+            const SizedBox(height: 8),
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(
+                    value: 1,
+                    icon: Icon(Icons.summarize_outlined),
+                    label: Text('Total annuel')),
+                ButtonSegment(
+                    value: 2,
+                    icon: Icon(Icons.payments_outlined),
+                    label: Text('Par tranche')),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (values) => setState(() {
+                _mode = values.first;
+                _result = null;
+                if (_mode == 1) _installmentId = null;
+              }),
+            ),
+            if (_mode == 2) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('installment-$_feeTypeId-$_installmentId'),
+                initialValue: _installmentId,
+                decoration:
+                    const InputDecoration(labelText: 'Tranche de paiement'),
+                items: _installments
+                    .map((i) =>
+                        DropdownMenuItem(value: i.id, child: Text(i.name)))
+                    .toList(),
+                onChanged: _feeTypeId == null
+                    ? null
+                    : (value) => setState(() {
+                          _installmentId = value;
+                          _result = null;
+                        }),
+              ),
+            ],
           ],
         ],
       ),
@@ -349,86 +396,100 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
 
   Widget _controlArea() => DefaultTabController(
         length: 2,
+        initialIndex: _controlTab,
         child: ErpCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const TabBar(
-                tabs: [
-                  Tab(
-                      icon: Icon(Icons.qr_code_scanner_rounded),
-                      text: 'Scanner'),
-                  Tab(icon: Icon(Icons.search_rounded), text: 'Rechercher'),
-                ],
+              _panelHeader(
+                'Scanner ou rechercher',
+                Icons.person_search_outlined,
+                _controlExpanded,
+                () {
+                  FocusScope.of(context).unfocus();
+                  setState(() => _controlExpanded = !_controlExpanded);
+                },
               ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 390,
-                child: TabBarView(
-                  children: [
-                    Column(
-                      children: [
-                        const Text(
-                          'Placez le QR de la carte de l’élève dans le cadre.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        ErpQrScanner(onDetect: _onDetect, height: 285),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => _search(),
-                          decoration: InputDecoration(
-                            labelText: 'Matricule ou nom de l’élève',
-                            suffixIcon: IconButton(
-                              onPressed: _searching ? null : _search,
-                              icon: _searching
-                                  ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.search),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: _students.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                      'Saisissez au moins deux caractères.'),
-                                )
-                              : ListView.separated(
-                                  itemCount: _students.length,
-                                  separatorBuilder: (_, __) =>
-                                      const Divider(height: 1),
-                                  itemBuilder: (_, index) {
-                                    final student = _students[index];
-                                    return ListTile(
-                                      leading: const CircleAvatar(
-                                          child: Icon(Icons.person_outline)),
-                                      title: Text(student.fullName),
-                                      subtitle: Text(
-                                          '${student.registrationNumber} • ${student.className}'),
-                                      trailing: const Icon(Icons.chevron_right),
-                                      onTap: _checking
-                                          ? null
-                                          : () =>
-                                              _checkStudent(student.studentId),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
+              if (_controlExpanded) ...[
+                TabBar(
+                  onTap: (index) => _controlTab = index,
+                  tabs: const [
+                    Tab(
+                        icon: Icon(Icons.qr_code_scanner_rounded),
+                        text: 'Scanner'),
+                    Tab(icon: Icon(Icons.search_rounded), text: 'Rechercher'),
                   ],
                 ),
-              ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 390,
+                  child: TabBarView(
+                    children: [
+                      Column(
+                        children: [
+                          const Text(
+                            'Placez le QR de la carte de l’élève dans le cadre.',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          ErpQrScanner(onDetect: _onDetect, height: 285),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          TextField(
+                            controller: _searchController,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => _search(),
+                            decoration: InputDecoration(
+                              labelText: 'Matricule ou nom de l’élève',
+                              suffixIcon: IconButton(
+                                onPressed: _searching ? null : _search,
+                                icon: _searching
+                                    ? const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.search),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: _students.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                        'Saisissez au moins deux caractères.'),
+                                  )
+                                : ListView.separated(
+                                    itemCount: _students.length,
+                                    separatorBuilder: (_, __) =>
+                                        const Divider(height: 1),
+                                    itemBuilder: (_, index) {
+                                      final student = _students[index];
+                                      return ListTile(
+                                        leading: const CircleAvatar(
+                                            child: Icon(Icons.person_outline)),
+                                        title: Text(student.fullName),
+                                        subtitle: Text(
+                                            '${student.registrationNumber} • ${student.className}'),
+                                        trailing:
+                                            const Icon(Icons.chevron_right),
+                                        onTap: _checking
+                                            ? null
+                                            : () => _checkStudent(
+                                                student.studentId),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -503,6 +564,7 @@ class _ControllerHomeScreenState extends ConsumerState<ControllerHomeScreen> {
               _result = null;
               _students = const [];
               _searchController.clear();
+              _controlExpanded = true;
             }),
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Contrôler un autre élève'),

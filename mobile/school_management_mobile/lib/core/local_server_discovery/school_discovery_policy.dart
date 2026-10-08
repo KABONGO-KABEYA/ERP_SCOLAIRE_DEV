@@ -10,8 +10,7 @@ abstract final class SchoolDiscoveryPolicy {
     if (bindingSchoolId.isEmpty) return false;
     final fromHealth = healthSchoolId?.trim();
     if (fromHealth == null || fromHealth.isEmpty) return false;
-    return normalizeSchoolId(fromHealth) ==
-        normalizeSchoolId(bindingSchoolId);
+    return normalizeSchoolId(fromHealth) == normalizeSchoolId(bindingSchoolId);
   }
 
   /// Cloud de référence : [SchoolBinding.cloudBaseUrl] en mode filtré.
@@ -22,12 +21,25 @@ abstract final class SchoolDiscoveryPolicy {
   }
 
   /// Candidat local ou distant accepté si `identity.schoolId` == binding (mode filtré).
-  static bool acceptsHealthForBinding(HealthInfo health, SchoolBinding binding) {
+  static bool acceptsHealthForBinding(
+      HealthInfo health, SchoolBinding binding) {
     final identity = health.identity;
     if (identity == null) {
       return false;
     }
     return schoolIdsMatch(identity.schoolId, binding.schoolId);
+  }
+
+  /// A shared cloud advertises the first school in its database. Its tenant
+  /// is selected by the registered binding and JWT, not this default identity.
+  /// Only the cloud URL issued by the establishment QR may be used.
+  static bool acceptsRemoteHealthForBinding(
+      HealthInfo health, SchoolBinding binding, String baseUrl) {
+    final registered = cloudBaseUrlForBinding(binding);
+    if (registered == null || binding.schoolId.trim().isEmpty) return false;
+    if (ApiConfig.normalize(baseUrl) != registered) return false;
+    if (health.server.trim().toLowerCase() == 'cloud') return true;
+    return acceptsHealthForBinding(health, binding);
   }
 
   static String? normalizeInstanceId(String? raw) {
@@ -58,12 +70,6 @@ abstract final class SchoolDiscoveryPolicy {
 }
 
 final class ServerInstanceChange {
-  const ServerInstanceChange._({
-    required this.detected,
-    this.previousInstanceId,
-    this.observedInstanceId,
-  });
-
   const ServerInstanceChange.none()
       : detected = false,
         previousInstanceId = null,

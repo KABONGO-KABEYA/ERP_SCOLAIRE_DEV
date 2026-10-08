@@ -1,5 +1,3 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../cache/cache_partition_policy.dart';
 import '../storage/erp_secure_storage.dart';
 import 'mobile_role_routing.dart';
@@ -49,28 +47,37 @@ class AuthStorage {
     required List<String> permissions,
     required String schoolId,
   }) async {
+    final active = await CachePartitionPolicy.activeSchoolId();
+    if (active != null &&
+        CachePartitionPolicy.normalizeSchoolId(active) !=
+            CachePartitionPolicy.normalizeSchoolId(schoolId)) {
+      throw StateError('Établissement actif modifié pendant la connexion.');
+    }
+    String sessionKey(String base) => active == null
+        ? base
+        : '${CachePartitionPolicy.prefsPrefixForSchool(schoolId)}$base';
     await _storage.write(
-      key: await _resolveKey(_accessTokenKey),
+      key: sessionKey(_accessTokenKey),
       value: accessToken,
     );
     await _storage.write(
-      key: await _resolveKey(_refreshTokenKey),
+      key: sessionKey(_refreshTokenKey),
       value: refreshToken,
     );
     await _storage.write(
-      key: await _resolveKey(_userNameKey),
+      key: sessionKey(_userNameKey),
       value: userName,
     );
     await _storage.write(
-      key: await _resolveKey(_rolesKey),
+      key: sessionKey(_rolesKey),
       value: roles.join(','),
     );
     await _storage.write(
-      key: await _resolveKey(_permissionsKey),
+      key: sessionKey(_permissionsKey),
       value: permissions.join(','),
     );
     await _storage.write(
-      key: await _resolveKey(_schoolIdKey),
+      key: sessionKey(_schoolIdKey),
       value: CachePartitionPolicy.normalizeSchoolId(schoolId),
     );
   }
@@ -148,8 +155,7 @@ class AuthStorage {
   static Future<bool> get sessionMatchesActiveSchool async {
     final active = await CachePartitionPolicy.activeSchoolId();
     final sessionId = await sessionSchoolId;
-    final jwtId =
-        SessionSchoolCoherence.peekSchoolIdFromJwt(await accessToken);
+    final jwtId = SessionSchoolCoherence.peekSchoolIdFromJwt(await accessToken);
     return SessionSchoolCoherence.matches(
       activeSchoolId: active,
       sessionSchoolId: sessionId,
@@ -159,13 +165,11 @@ class AuthStorage {
 
   /// Efface la session courante (clés scopées ou legacy) — ne touche pas `device_id` / bindings.
   static Future<void> clearSession() async {
-    if (await CachePartitionPolicy.isPartitioningEnabled) {
-      for (final base in _sessionKeys) {
-        await _storage.delete(key: await _resolveKey(base));
-      }
+    final active = await CachePartitionPolicy.activeSchoolId();
+    if (active != null) {
+      await clearSessionForSchool(active);
       return;
     }
-
     for (final base in _sessionKeys) {
       await _storage.delete(key: base);
     }

@@ -1,3 +1,4 @@
+import '../connection/connection_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -25,10 +26,15 @@ final authRepositoryProvider = Provider((ref) => AuthRepository());
 final apiClientProvider = Provider<ApiClient>((ref) {
   final snap = ref.watch(connectionModeProvider);
   final raw = snap.baseUrl ?? ApiConfig.effectiveLocalBaseUrl;
-  final url = ApiConfig.isValidBaseUrl(raw) ? ApiConfig.normalize(raw) : ApiConfig.effectiveLocalBaseUrl;
+  final url = ApiConfig.isValidBaseUrl(raw)
+      ? ApiConfig.normalize(raw)
+      : ApiConfig.effectiveLocalBaseUrl;
   return ApiClient(
     baseUrl: url,
-    onSessionExpired: () => ref.read(authStateProvider.notifier).setLoggedIn(false),
+    schoolId: snap.schoolId,
+    connectionReady: snap.mode.isOnline && snap.schoolId != null,
+    onSessionExpired: () =>
+        ref.read(authStateProvider.notifier).setLoggedIn(false),
   );
 });
 
@@ -38,8 +44,8 @@ final teacherRepositoryProvider =
     Provider((ref) => TeacherRepository(ref.watch(apiClientProvider)));
 final directionRepositoryProvider =
     Provider((ref) => DirectionRepository(ref.watch(apiClientProvider)));
-final promoteurDashboardRepositoryProvider =
-    Provider((ref) => PromoteurDashboardRepository(ref.watch(apiClientProvider)));
+final promoteurDashboardRepositoryProvider = Provider(
+    (ref) => PromoteurDashboardRepository(ref.watch(apiClientProvider)));
 final enrollmentRepositoryProvider =
     Provider((ref) => EnrollmentRepository(ref.watch(apiClientProvider)));
 final geographyRepositoryProvider =
@@ -55,8 +61,8 @@ final adminPersonnelRepositoryProvider =
 final controllerRepositoryProvider =
     Provider((ref) => ControllerRepository(ref.watch(apiClientProvider)));
 
-final authStateProvider =
-    StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) => AuthNotifier());
+final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>(
+    (ref) => AuthNotifier());
 
 class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   AuthNotifier() : super(const AsyncValue.loading()) {

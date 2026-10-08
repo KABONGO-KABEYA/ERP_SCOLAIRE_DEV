@@ -73,7 +73,7 @@ abstract final class MobileRoleRouting {
     return code.startsWith('SECRET');
   }
 
-    /// Priorité : ENSEIGNANT → PROMOTEUR → PARENT → secrétaire → unsupported.
+  /// Priorité : ENSEIGNANT → PROMOTEUR → PARENT → secrétaire → unsupported.
   static MobileSpace resolve({
     required Iterable<String> roles,
     required Iterable<String> permissions,
@@ -136,7 +136,13 @@ abstract final class MobileRoleRouting {
       return space == MobileSpace.promoteur;
     }
     if (path.startsWith('/admin')) {
-      return space == MobileSpace.daf;
+      return space == MobileSpace.daf ||
+          (space == MobileSpace.promoteur &&
+              const {
+                '/admin/personnel',
+                '/admin/financial-reports',
+                '/admin/payment-situations',
+              }.contains(path));
     }
     if (path.startsWith('/secretary')) {
       return space == MobileSpace.secretary;
@@ -150,7 +156,8 @@ abstract final class MobileRoleRouting {
   /// Consultation élève partagée (legacy) — préférer /admin/students/:id/consultation.
   static bool _isDafSharedPromoteurRoute(String path) {
     final normalized = path.split('?').first;
-    return RegExp(r'^/promoteur/students/[^/]+/consultation$').hasMatch(normalized);
+    return RegExp(r'^/promoteur/students/[^/]+/consultation$')
+        .hasMatch(normalized);
   }
 
   static String? guardRedirect({

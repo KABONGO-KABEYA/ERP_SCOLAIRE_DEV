@@ -98,19 +98,23 @@ void main() {
     test('DAF refuse promoteur dashboard et encaissements', () {
       const space = MobileSpace.daf;
       expect(
-        MobileRoleRouting.canAccessLocation(space: space, location: '/admin/dashboard'),
+        MobileRoleRouting.canAccessLocation(
+            space: space, location: '/admin/dashboard'),
         isTrue,
       );
       expect(
-        MobileRoleRouting.canAccessLocation(space: space, location: '/admin/financial-reports'),
+        MobileRoleRouting.canAccessLocation(
+            space: space, location: '/admin/financial-reports'),
         isTrue,
       );
       expect(
-        MobileRoleRouting.canAccessLocation(space: space, location: '/promoteur/dashboard'),
+        MobileRoleRouting.canAccessLocation(
+            space: space, location: '/promoteur/dashboard'),
         isFalse,
       );
       expect(
-        MobileRoleRouting.canAccessLocation(space: space, location: '/promoteur/payments'),
+        MobileRoleRouting.canAccessLocation(
+            space: space, location: '/promoteur/payments'),
         isFalse,
       );
       expect(
@@ -198,6 +202,46 @@ void main() {
   });
 
   group('MobileRoleRouting — guards cross-role', () {
+    test('PROMOTEUR accede aux trois modules partages avec le DAF', () {
+      for (final route in [
+        '/admin/personnel',
+        '/admin/financial-reports',
+        '/admin/payment-situations?yearId=2026',
+      ]) {
+        expect(
+            MobileRoleRouting.guardRedirect(
+                space: MobileSpace.promoteur, location: route),
+            isNull);
+        for (final space in [
+          MobileSpace.parent,
+          MobileSpace.teacher,
+          MobileSpace.secretary,
+          MobileSpace.controller,
+          MobileSpace.unsupported
+        ]) {
+          expect(
+              MobileRoleRouting.canAccessLocation(
+                  space: space, location: route),
+              isFalse);
+        }
+      }
+    });
+
+    test('PROMOTEUR refuse les autres modules administratifs', () {
+      for (final route in [
+        '/admin/dashboard',
+        '/admin/pricing-categories',
+        '/admin/expenses',
+        '/admin/personnel/creation',
+        '/admin/students'
+      ]) {
+        expect(
+            MobileRoleRouting.guardRedirect(
+                space: MobileSpace.promoteur, location: route),
+            MobileRoleRouting.promoteurHome);
+      }
+    });
+
     test('CONTROLEUR accède uniquement à son espace métier', () {
       expect(
         MobileRoleRouting.canAccessLocation(

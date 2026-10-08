@@ -48,7 +48,8 @@ void main() {
       );
 
       expect(binding, isNotNull);
-      expect(binding!.activationTokenId, JwtBindingMigrationConstants.activationTokenId);
+      expect(binding!.activationTokenId,
+          JwtBindingMigrationConstants.activationTokenId);
       expect(binding.extensions?['migratedFromJwt'], isTrue);
     });
 
@@ -90,7 +91,12 @@ void main() {
   });
 
   group('BindingMigrationPolicy', () {
-    test('binding migration config defaults', () {
+    test('binding migration remains available during its configured window',
+        () {
+      final previousEpoch = BindingMigrationConfig.migrationEpochUtc;
+      BindingMigrationConfig.migrationEpochUtc = DateTime.now().toUtc();
+      addTearDown(
+          () => BindingMigrationConfig.migrationEpochUtc = previousEpoch);
       expect(BindingMigrationConfig.allowJwtBindingMigration, isTrue);
       expect(BindingMigrationPolicy.effectiveAllowJwtBindingMigration, isTrue);
       expect(BindingMigrationPolicy.isPostMigrationPhase, isFalse);

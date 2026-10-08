@@ -1,3 +1,4 @@
+import '../../core/connection/connection_context.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/api/dio_factory.dart';
@@ -16,6 +17,7 @@ class AuthRepository {
     String password, {
     String? baseUrl,
   }) async {
+    final epoch = ConnectionContext.generation;
     final url = ApiConfig.normalize(
       baseUrl ?? ApiConfig.effectiveLocalBaseUrl,
     );
@@ -30,12 +32,14 @@ class AuthRepository {
         if (activeSchoolId != null && activeSchoolId.isNotEmpty)
           'schoolId': activeSchoolId,
       },
-      options: Options(validateStatus: (status) => status != null && status < 500),
+      options:
+          Options(validateStatus: (status) => status != null && status < 500),
     );
 
     final body = response.data;
     if (body == null) {
-      throw DioException(requestOptions: response.requestOptions, message: 'Réponse vide');
+      throw DioException(
+          requestOptions: response.requestOptions, message: 'Réponse vide');
     }
 
     final api = ApiResponse.fromJson(body, (data) => data);
@@ -47,8 +51,12 @@ class AuthRepository {
       );
     }
 
-    final session = AuthSession.fromJson(Map<String, dynamic>.from(api.data as Map));
+    final session =
+        AuthSession.fromJson(Map<String, dynamic>.from(api.data as Map));
 
+    if (epoch != ConnectionContext.generation) {
+      throw StateError('Établissement actif modifié pendant la connexion.');
+    }
     if (!SessionSchoolCoherence.matchesLoginUser(
       activeSchoolId: activeSchoolId,
       userSchoolId: session.user.schoolId,
@@ -70,10 +78,15 @@ class AuthRepository {
       permissions: session.user.permissions,
       schoolId: session.user.schoolId,
     );
+    if (epoch != ConnectionContext.generation) {
+      throw StateError('Établissement actif modifié pendant la connexion.');
+    }
     return session;
   }
 
   Future<void> logout({String? baseUrl}) async {
+    final epoch = ConnectionContext.generation;
+    final schoolId = await CachePartitionPolicy.activeSchoolId();
     final refresh = await AuthStorage.refreshToken;
     if (refresh != null) {
       try {
@@ -90,6 +103,10 @@ class AuthRepository {
           }),
         );
       } catch (_) {}
+    }
+    if (epoch != ConnectionContext.generation) {
+      if (schoolId != null) await AuthStorage.clearSessionForSchool(schoolId);
+      return;
     }
     await ParentPushForegroundService.stop();
     await ParentPushForegroundService.clearCredentials();

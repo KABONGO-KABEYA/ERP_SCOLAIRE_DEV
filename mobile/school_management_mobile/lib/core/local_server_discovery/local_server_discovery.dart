@@ -9,6 +9,9 @@ import '../config/api_config.dart';
 import '../school_binding/school_binding.dart';
 import '../school_binding/school_binding_gate.dart';
 import '../cache/school_scoped_preferences.dart';
+import '../school_binding/school_binding_repository.dart';
+import '../connection/connection_context.dart';
+import 'endpoint_stability_policy.dart';
 import '../school_binding/server_instance_binding_sync.dart';
 import '../school_binding/server_instance_recovery_service.dart';
 import 'discovery_constants.dart';
@@ -27,28 +30,53 @@ final class _BindingDiscoveryContext {
 
 /// Porte d'entrée unique Mobile pour découvrir le serveur API.
 ///
-/// Convention : Mode Local = serveur école joignable **sur le même sous-réseau
-/// privé (/24)** que le téléphone. Joignable hors Wi‑Fi école ≠ Local.
+/// Local = endpoint privé joignable dont l’identité correspond à l’école active.
+/// La découverte scanne le LAN ; une adresse mémorisée peut traverser un LAN routé.
 class LocalServerDiscovery {
-  LocalServerDiscovery._();
-  static final LocalServerDiscovery instance = LocalServerDiscovery._();
+  LocalServerDiscovery({
+    SchoolBindingRepository? bindingRepository,
+    Future<HealthInfo?> Function(String, Duration)? healthProbe,
+    Future<List<String>> Function()? prefixProvider,
+    Future<List<String>> Function()? candidateProvider,
+    Future<String?> Function(String schoolId)? lastKnownLoader,
+    Future<void> Function(String schoolId, String baseUrl)? lastKnownSaver,
+    EndpointStabilityPolicy? stability,
+  })  : _repository = bindingRepository,
+        _healthProbe = healthProbe,
+        _prefixProvider = prefixProvider,
+        _candidateProvider = candidateProvider,
+        _lastKnownLoader = lastKnownLoader,
+        _lastKnownSaver = lastKnownSaver,
+        _stability = stability ?? EndpointStabilityPolicy();
 
+  static final LocalServerDiscovery instance = LocalServerDiscovery();
+  final SchoolBindingRepository? _repository;
+  SchoolBindingRepository get _bindings =>
+      _repository ?? SchoolBindingGate.bindingRepository;
+  final Future<HealthInfo?> Function(String, Duration)? _healthProbe;
+  final Future<List<String>> Function()? _prefixProvider;
+  final Future<List<String>> Function()? _candidateProvider;
+  final Future<String?> Function(String)? _lastKnownLoader;
+  final Future<void> Function(String, String)? _lastKnownSaver;
+  final EndpointStabilityPolicy _stability;
   DiscoveryResult _current = DiscoveryResult.detecting;
   Future<DiscoveryResult>? _inFlight;
   int _generation = 0;
-
-  /// lastKnown ayant échoué pendant cette session (évite re-probes / boucles).
-  final Set<String> _sessionIgnoredLastKnown = <String>{};
-
   DiscoveryResult get current => _current;
-
   final _controller = StreamController<DiscoveryResult>.broadcast();
   Stream<DiscoveryResult> get changes => _controller.stream;
+
+  void reset() {
+    ++_generation;
+    _inFlight = null;
+    _publish(DiscoveryResult.detecting);
+  }
 
   Future<DiscoveryResult> discover({bool force = false}) {
     if (!force && _inFlight != null) return _inFlight!;
     final gen = ++_generation;
-    final future = _runBounded(gen);
+    final contextGeneration = ConnectionContext.generation;
+    final future = _runBounded(gen, contextGeneration);
     _inFlight = future;
     unawaited(future.whenComplete(() {
       if (identical(_inFlight, future)) _inFlight = null;
@@ -57,267 +85,176 @@ class LocalServerDiscovery {
   }
 
   Future<DiscoveryResult> rediscover() => discover(force: true);
+  // Always searches locally before cloud. An established local endpoint is
+  // checked first, so this remains inexpensive while the local server is healthy.
+  Future<DiscoveryResult> recheck() => discover();
 
-  /// Recheck léger : confirme le Local actuel (même /24) ou bascule Distant/offline.
-  /// Si le Local n'est plus éligible → découverte complète.
-  Future<DiscoveryResult> recheck() async {
-    if (kIsWeb) return rediscover();
-    if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
-      debugPrint('[Discovery] Registre vide → pas de discovery (QR établissement requis)');
-      return _publish(
-        DiscoveryResult.offline(
-          'Rejoignez un établissement avec le QR code de l\'école.',
-        ),
-      );
-    }
+  bool _isCurrent(int gen, int contextGeneration) =>
+      gen == _generation && contextGeneration == ConnectionContext.generation;
 
-    final ctx = await _loadBindingContext();
-    final prefixes = await _localPrefixes();
-    final candidates = <String>{};
-    final current = _current.baseUrl;
-    if (current != null && ApiConfig.isValidBaseUrl(current)) {
-      candidates.add(ApiConfig.normalize(current));
-    }
-    final last = await _loadLast();
-    if (last != null && !_sessionIgnoredLastKnown.contains(last)) {
-      candidates.add(last);
-    }
-
-    for (final base in candidates) {
-      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base, ctx)) continue;
-      debugPrint('[Discovery] Recheck léger $base');
-      final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
-      final local = _acceptLocal(
-        base: base,
-        health: health,
-        source: DiscoverySource.lastKnown,
-        devicePrefixes: prefixes,
-        messagePrefix: 'Serveur local',
-        ctx: ctx,
-      );
-      if (local != null) return _publish(await _finalizeAccepted(local, ctx));
-      _ignoreLastKnownForSession(base);
-      debugPrint(
-        '[Discovery] Recheck refuse Local base=$base '
-        'sameSubnet=${_isSameSubnet(base, prefixes)} '
-        'health.server=${health?.server}',
-      );
-    }
-
-    // Ancienne IP locale hors sous-réseau courant → ne plus la privilégier.
-    if (last != null && !_isSameSubnet(last, prefixes)) {
-      debugPrint('[Discovery] lastKnown hors sous-réseau → clear ($last)');
-      await _clearLast();
-    }
-
-    final remote = await _tryRemote(ctx);
-    if (remote != null) return _publish(await _finalizeAccepted(remote, ctx));
-
-    debugPrint('[Discovery] Recheck échoué → découverte complète');
-    return rediscover();
+  Future<bool> _isActive(
+      _BindingDiscoveryContext ctx, int gen, int epoch) async {
+    if (!_isCurrent(gen, epoch)) return false;
+    final active = await _bindings.load();
+    return _isCurrent(gen, epoch) &&
+        active != null &&
+        ctx.binding != null &&
+        SchoolDiscoveryPolicy.schoolIdsMatch(
+            active.schoolId, ctx.binding!.schoolId);
   }
 
-  Future<DiscoveryResult> _runBounded(int gen) async {
+  Future<DiscoveryResult> _runBounded(int gen, int epoch) async {
     try {
-      return await _run(gen).timeout(DiscoveryConstants.discoveryOverallTimeout);
+      return await _run(gen, epoch)
+          .timeout(DiscoveryConstants.discoveryOverallTimeout);
     } on TimeoutException {
-      debugPrint(
-        '[Discovery] Budget global '
-        '${DiscoveryConstants.discoveryOverallTimeout.inSeconds}s dépassé '
-        '→ tentative cloud',
-      );
-      // Invalide le _run encore en cours pour qu'il n'écrase pas l'état UI.
-      if (gen == _generation) {
-        ++_generation;
-      }
-      final cloudGen = _generation;
-      try {
-        final ctx = await _loadBindingContext();
-        final remote = await _tryRemote(ctx);
-        if (cloudGen != _generation) return _current;
-        if (remote != null) {
-          return _publish(await _finalizeAccepted(remote, ctx));
-        }
-      } catch (e) {
-        debugPrint('[Discovery] Fallback cloud après timeout: $e');
-      }
-      if (cloudGen != _generation) return _current;
+      if (!_isCurrent(gen, epoch)) return _current;
+      // Invalidate unfinished mDNS/scan work before the final cloud check.
+      final nextGen = ++_generation;
+      final binding = await _bindings.load();
+      if (binding == null || !_isCurrent(nextGen, epoch)) return _current;
+      final ctx =
+          _BindingDiscoveryContext(filterByBinding: true, binding: binding);
+      final remote = await _tryRemote(ctx);
+      if (!await _isActive(ctx, nextGen, epoch)) return _current;
+      return _publish(remote ??
+          DiscoveryResult.offline(
+              'Aucun serveur de l’établissement actif n’est accessible.'));
+    } catch (error) {
+      if (!_isCurrent(gen, epoch)) return _current;
+      debugPrint('[Discovery] Recherche interrompue: ${error.runtimeType}');
       return _publish(DiscoveryResult.offline(
-        'Délai de découverte dépassé — aucun serveur accessible.',
-      ));
+          'Impossible de vérifier le serveur de l’établissement. Réessayez.'));
     }
   }
 
-  Future<DiscoveryResult> _run(int gen) async {
-    _publish(DiscoveryResult.detecting);
-    if (await SchoolBindingGate.shouldRequireEstablishmentQr()) {
-      debugPrint('[Discovery] Registre vide → pas de discovery (QR établissement requis)');
-      return _publish(
-        DiscoveryResult.offline(
-          'Rejoignez un établissement avec le QR code de l\'école.',
-        ),
-      );
+  Future<DiscoveryResult> _run(int gen, int epoch) async {
+    final binding = await _bindings.load();
+    if (!_isCurrent(gen, epoch)) return _current;
+    if (binding == null || binding.schoolId.trim().isEmpty) {
+      return _publish(DiscoveryResult.offline(
+          'Sélectionnez un établissement avec son QR code.'));
     }
+    final ctx =
+        _BindingDiscoveryContext(filterByBinding: true, binding: binding);
+    if (_current.schoolId != null &&
+        !SchoolDiscoveryPolicy.schoolIdsMatch(
+            _current.schoolId, binding.schoolId)) {
+      _publish(DiscoveryResult.detecting);
+    }
+    final prefixes = await (_prefixProvider?.call() ?? _localPrefixes());
+    final last = await _loadLast(binding.schoolId);
+    final tried = <String>{};
+    final established = _current.isLocal &&
+        SchoolDiscoveryPolicy.schoolIdsMatch(
+            _current.schoolId, binding.schoolId);
+    final known = <String>{
+      if (established && _current.baseUrl != null) _current.baseUrl!,
+      if (last != null) last,
+      ...ApiConfig.localBaseUrlCandidates,
+    };
 
-    final ctx = await _loadBindingContext();
-    final prefixes = await _localPrefixes();
-    final lanAvailable = prefixes.isNotEmpty;
-    // A browser cannot enumerate the host network. Explicit loopback targets
-    // refer to this PC, unlike Android where they refer to the phone.
-    if (kIsWeb) {
-      final binding = await SchoolBindingGate.bindingRepository.load();
-      if (binding != null) {
-        for (final base in ApiConfig.localBaseUrlCandidates) {
-          if (!ApiConfig.isLoopbackUrl(base)) continue;
-          final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
-          if (gen != _generation) return _current;
-          if (health == null ||
-              health.server.trim().toLowerCase() == 'cloud' ||
-              !SchoolDiscoveryPolicy.acceptsHealthForBinding(health, binding)) {
-            continue;
+    Future<DiscoveryResult?> check(String raw, {bool retry = false}) async {
+      if (!await _isActive(ctx, gen, epoch)) return null;
+      final base = ApiConfig.normalize(raw);
+      if (!ApiConfig.isValidBaseUrl(base) ||
+          !tried.add(base) ||
+          _isVirtualBaseUrl(base) ||
+          _isCloudBaseUrl(base, ctx)) {
+        return null;
+      }
+      final host = _hostOf(base);
+      if (host == null ||
+          (!DiscoveryConstants.isPrivateIpv4(host) &&
+              !(kIsWeb && DiscoveryConstants.isLoopbackHost(host)))) {
+        return null;
+      }
+      final health = await _stability.checkLocal<HealthInfo>(
+        established: retry,
+        isCurrent: () => _isCurrent(gen, epoch),
+        probe: (timeout) async {
+          final response = await _probe(base, timeout);
+          if (response == null ||
+              response.server.trim().toLowerCase() == 'cloud' ||
+              !SchoolDiscoveryPolicy.acceptsHealthForBinding(
+                  response, binding)) {
+            return null;
           }
-          return _publish(await _finalizeAccepted(
-            DiscoveryResult(
-              mode: DiscoveryMode.local,
-              source: DiscoverySource.lastKnown,
-              baseUrl: ApiConfig.normalize(base),
-              health: health,
-              message: 'Serveur local — ${health.school}',
-            ),
-            _BindingDiscoveryContext(filterByBinding: true, binding: binding),
-          ));
-        }
-      }
-    }
-    debugPrint(
-      '[Discovery] Préfixes device: ${prefixes.isEmpty ? '(aucun)' : prefixes.join(', ')} '
-      'lanAvailable=$lanAvailable',
-    );
-
-    // 1) Dernière IP connue — uniquement si encore sur le même /24.
-    debugPrint('[Discovery] Dernière IP connue');
-    final last = await _loadLast();
-    if (last != null &&
-        !_isVirtualBaseUrl(last) &&
-        !_isCloudBaseUrl(last, ctx) &&
-        !_sessionIgnoredLastKnown.contains(last)) {
-      if (!lanAvailable || !_isSameSubnet(last, prefixes)) {
-        debugPrint('[Discovery] lastKnown hors sous-réseau / sans LAN → ignoré ($last)');
-        _ignoreLastKnownForSession(last);
-        if (!lanAvailable || !_isSameSubnet(last, prefixes)) {
-          await _clearLast();
-        }
-      } else {
-        debugPrint('[Discovery] Vérification Health $last');
-        final health = await _probe(last, DiscoveryConstants.lastKnownTimeout);
-        if (gen != _generation) return _current;
-        final local = _acceptLocal(
-          base: last,
-          health: health,
-          source: DiscoverySource.lastKnown,
-          devicePrefixes: prefixes,
-          messagePrefix: 'Serveur local (dernière IP)',
-          ctx: ctx,
-        );
-        if (local != null) {
-          _sessionIgnoredLastKnown.remove(last);
-          return _publish(await _finalizeAccepted(local, ctx));
-        }
-        _ignoreLastKnownForSession(last);
-        await _clearLast();
-      }
-    }
-
-    // 1b) Candidats LAN compilés (`LOCAL_API_CANDIDATES` / `LOCAL_API_BASE_URL`)
-    //     — jamais 127.0.0.1 (filtré dans ApiConfig).
-    if (lanAvailable) {
-      final configured = await _tryConfiguredLocals(prefixes, ctx);
-      if (gen != _generation) return _current;
-      if (configured != null) {
-        await _saveLast(configured.baseUrl!);
-        debugPrint('[Discovery] Passage en serveur local (config)');
-        return _publish(await _finalizeAccepted(configured, ctx));
-      }
-    }
-
-    // 2) mDNS (mêmes sous-réseaux uniquement) — skip si pas de LAN.
-    if (lanAvailable) {
-      debugPrint('[Discovery] Recherche mDNS...');
-      final mdns = await _tryMdns(prefixes, ctx);
-      if (gen != _generation) return _current;
-      if (mdns != null) {
-        await _saveLast(mdns.baseUrl!);
-        debugPrint('[Discovery] Passage en serveur local (mDNS)');
-        return _publish(await _finalizeAccepted(mdns, ctx));
-      }
-    } else {
-      debugPrint('[Discovery] mDNS ignoré (réseau local indisponible)');
-    }
-
-    // 3) Scan sous-réseau — uniquement si LAN présent ; budget temps + plafond adresses.
-    //    lastKnown / config sont placés en tête des candidats (pas d'IP magique).
-    if (lanAvailable) {
-      debugPrint('[Discovery] Scan réseau (budget limité)');
-      final scanned = await _scanSubnet(prefixes, ctx, hintBaseUrls: [
-        if (last != null) last,
-        ...ApiConfig.localBaseUrlCandidates,
-      ]);
-      if (gen != _generation) return _current;
-      if (scanned != null) {
-        await _saveLast(scanned.baseUrl!);
-        debugPrint('[Discovery] Passage en serveur local (scan)');
-        return _publish(await _finalizeAccepted(scanned, ctx));
-      }
-    } else {
-      debugPrint(
-        '[Discovery] Scan subnet ignoré (pas de préfixe privé / LAN indisponible)',
+          return response;
+        },
       );
+      if (health == null) return null;
+      return DiscoveryResult(
+          mode: DiscoveryMode.local,
+          source: DiscoverySource.lastKnown,
+          baseUrl: base,
+          schoolId: binding.schoolId,
+          health: health,
+          message: 'Serveur local — ${binding.schoolName}');
     }
 
-    // 4) Cloud → Mode Distant
-    if (gen != _generation) return _current;
+    Future<DiscoveryResult?> finishLocal(DiscoveryResult? result) async {
+      if (result == null || !await _isActive(ctx, gen, epoch)) return null;
+      // Cloud -> local requires a second successful response from this endpoint.
+      if (_current.isRemote) {
+        final confirmation = await _stability.confirmReturn<HealthInfo>(
+          first: result.health!,
+          isCurrent: () => _isCurrent(gen, epoch),
+          probe: () async {
+            final h = await _probe(
+                result.baseUrl!, DiscoveryConstants.lastKnownTimeout);
+            return h != null &&
+                    h.server.trim().toLowerCase() != 'cloud' &&
+                    SchoolDiscoveryPolicy.acceptsHealthForBinding(h, binding) &&
+                    SchoolDiscoveryPolicy.normalizeInstanceId(
+                            h.identity?.serverInstanceId) ==
+                        SchoolDiscoveryPolicy.normalizeInstanceId(
+                            result.health?.identity?.serverInstanceId)
+                ? h
+                : null;
+          },
+        );
+        if (confirmation == null) return null;
+      }
+      if (!await _isActive(ctx, gen, epoch)) return null;
+      await _saveLast(result.baseUrl!, binding.schoolId);
+      if (!await _isActive(ctx, gen, epoch)) return null;
+      final accepted = await _finalizeAccepted(result, ctx);
+      if (!await _isActive(ctx, gen, epoch)) return null;
+      return _publish(accepted);
+    }
+
+    for (final base in known) {
+      final result = await finishLocal(
+          await check(base, retry: established && base == _current.baseUrl));
+      if (result != null) return result;
+      if (!await _isActive(ctx, gen, epoch)) return _current;
+    }
+    if (_candidateProvider != null) {
+      for (final base in await _candidateProvider()) {
+        final result = await finishLocal(await check(base));
+        if (result != null) return result;
+      }
+    } else if (prefixes.isNotEmpty) {
+      final mdns = await finishLocal(await _tryMdns(prefixes, ctx));
+      if (mdns != null) return mdns;
+      if (!await _isActive(ctx, gen, epoch)) return _current;
+      final scan = await finishLocal(
+          await _scanSubnet(prefixes, ctx, hintBaseUrls: [...known]));
+      if (scan != null) return scan;
+    }
+    if (!await _isActive(ctx, gen, epoch)) return _current;
     final remote = await _tryRemote(ctx);
-    if (remote != null) {
-      debugPrint('[Discovery] Passage en serveur distant');
-      return _publish(await _finalizeAccepted(remote, ctx));
-    }
-
-    return _publish(DiscoveryResult.offline(
-      'Aucun serveur local ni distant accessible.',
-    ));
+    if (!await _isActive(ctx, gen, epoch)) return _current;
+    return _publish(remote ??
+        DiscoveryResult.offline(
+            'Aucun serveur de ${binding.schoolName} n’est accessible.'));
   }
 
   DiscoveryResult _publish(DiscoveryResult result) {
     _current = result;
     if (!_controller.isClosed) _controller.add(result);
     return result;
-  }
-
-  void _ignoreLastKnownForSession(String baseUrl) {
-    _sessionIgnoredLastKnown.add(ApiConfig.normalize(baseUrl));
-  }
-
-  Future<DiscoveryResult?> _tryConfiguredLocals(
-    List<String> localPrefixes,
-    _BindingDiscoveryContext ctx,
-  ) async {
-    for (final raw in ApiConfig.localBaseUrlCandidates) {
-      final base = ApiConfig.normalize(raw);
-      if (_isVirtualBaseUrl(base) || _isCloudBaseUrl(base, ctx)) continue;
-      if (!_isSameSubnet(base, localPrefixes)) continue;
-      debugPrint('[Discovery] Candidat config $base');
-      final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
-      final local = _acceptLocal(
-        base: base,
-        health: health,
-        source: DiscoverySource.lastKnown,
-        devicePrefixes: localPrefixes,
-        messagePrefix: 'Serveur local (config)',
-        ctx: ctx,
-      );
-      if (local != null) return local;
-    }
-    return null;
   }
 
   Future<DiscoveryResult?> _tryRemote(_BindingDiscoveryContext ctx) async {
@@ -348,9 +285,10 @@ class LocalServerDiscovery {
         await _probe(remote, DiscoveryConstants.lastKnownTimeout);
     if (remoteHealth == null) return null;
     if (ctx.filterByBinding && ctx.binding != null) {
-      if (!SchoolDiscoveryPolicy.acceptsHealthForBinding(
+      if (!SchoolDiscoveryPolicy.acceptsRemoteHealthForBinding(
         remoteHealth,
         ctx.binding!,
+        remote,
       )) {
         debugPrint(
           '[Discovery] Refuse distant (schoolId) attendu=${ctx.binding!.schoolId} '
@@ -363,6 +301,7 @@ class LocalServerDiscovery {
       mode: DiscoveryMode.remote,
       source: DiscoverySource.remote,
       baseUrl: ApiConfig.normalize(remote),
+      schoolId: ctx.binding?.schoolId,
       health: HealthInfo(
         status: 'ok',
         server: 'cloud',
@@ -374,7 +313,8 @@ class LocalServerDiscovery {
         identity: remoteHealth.identity,
         serverSignature: remoteHealth.serverSignature,
       ),
-      message: 'Serveur distant — ${remoteHealth.school}',
+      message:
+          'Serveur distant — ${ctx.binding?.schoolName ?? remoteHealth.school}',
     );
   }
 
@@ -397,11 +337,8 @@ class LocalServerDiscovery {
       debugPrint('[Discovery] Refuse Local (health.server=cloud) $base');
       return null;
     }
-    if (!_isSameSubnet(base, devicePrefixes)) {
-      debugPrint(
-        '[Discovery] Refuse Local (hors sous-réseau) $base '
-        'devicePrefixes=${devicePrefixes.join(',')}',
-      );
+    final hostAddress = _hostOf(base);
+    if (hostAddress == null || !DiscoveryConstants.isPrivateIpv4(hostAddress)) {
       return null;
     }
     if (ctx.filterByBinding && ctx.binding != null) {
@@ -427,6 +364,7 @@ class LocalServerDiscovery {
       mode: DiscoveryMode.local,
       source: source,
       baseUrl: ApiConfig.normalize(base),
+      schoolId: ctx.binding?.schoolId,
       health: health,
       message: '$messagePrefix — ${health.school}',
     );
@@ -483,13 +421,10 @@ class LocalServerDiscovery {
       Future<void> tryBase(String base) async {
         try {
           if (!seen.add(base) || completer.isCompleted) return;
-          if (!_isSameSubnet(base, localPrefixes)) {
-            debugPrint('[Discovery] mDNS hors sous-réseau ignoré $base');
-            return;
-          }
           debugPrint('[Discovery] Service trouvé');
           debugPrint('[Discovery] Vérification Health $base');
-          final health = await _probe(base, DiscoveryConstants.lastKnownTimeout);
+          final health =
+              await _probe(base, DiscoveryConstants.lastKnownTimeout);
           final local = _acceptLocal(
             base: base,
             health: health,
@@ -510,15 +445,15 @@ class LocalServerDiscovery {
         try {
           await for (final srv in client!
               .lookup<SrvResourceRecord>(
-                ResourceRecordQuery.service(ptr.domainName),
-              )
+            ResourceRecordQuery.service(ptr.domainName),
+          )
               .handleError((Object e) {
             debugPrint('[Discovery] mDNS SRV stream: $e');
           })) {
             await for (final ip in client
                 .lookup<IPAddressResourceRecord>(
-                  ResourceRecordQuery.addressIPv4(srv.target),
-                )
+              ResourceRecordQuery.addressIPv4(srv.target),
+            )
                 .handleError((Object e) {
               debugPrint('[Discovery] mDNS A stream: $e');
             })) {
@@ -540,19 +475,19 @@ class LocalServerDiscovery {
 
       sub = client
           .lookup<PtrResourceRecord>(
-            ResourceRecordQuery.serverPointer(
-              DiscoveryConstants.serviceTypeLocal,
-            ),
-          )
+        ResourceRecordQuery.serverPointer(
+          DiscoveryConstants.serviceTypeLocal,
+        ),
+      )
           .listen(
-            (ptr) {
-              unawaited(handlePtr(ptr));
-            },
-            onError: (Object e) {
-              debugPrint('[Discovery] mDNS PTR stream: $e');
-            },
-            cancelOnError: false,
-          );
+        (ptr) {
+          unawaited(handlePtr(ptr));
+        },
+        onError: (Object e) {
+          debugPrint('[Discovery] mDNS PTR stream: $e');
+        },
+        cancelOnError: false,
+      );
 
       unawaited(() async {
         try {
@@ -562,8 +497,7 @@ class LocalServerDiscovery {
           ).timeout(DiscoveryConstants.mdnsTimeout);
           for (final addr in list) {
             if (DiscoveryConstants.isLikelyVirtualHost(addr.address)) continue;
-            final base =
-                'http://${addr.address}:${DiscoveryConstants.apiPort}';
+            final base = 'http://${addr.address}:${DiscoveryConstants.apiPort}';
             await tryBase(base);
           }
         } catch (e) {
@@ -712,7 +646,21 @@ class LocalServerDiscovery {
 
     // 2) Dernier octet de lastKnown + hosts fréquents, sans IP magique fixe.
     final priorityHosts = <int>{
-      1, 2, 10, 20, 30, 50, 100, 101, 110, 120, 137, 150, 200, 250, 254,
+      1,
+      2,
+      10,
+      20,
+      30,
+      50,
+      100,
+      101,
+      110,
+      120,
+      137,
+      150,
+      200,
+      250,
+      254,
     };
     for (final hint in hintBaseUrls) {
       final host = _hostOf(hint);
@@ -768,15 +716,6 @@ class LocalServerDiscovery {
     return prefixes.toList();
   }
 
-  bool _isSameSubnet(String baseUrl, List<String> devicePrefixes) {
-    if (devicePrefixes.isEmpty) return false;
-    final host = _hostOf(baseUrl);
-    if (host == null) return false;
-    final prefix = DiscoveryConstants.ipv4Prefix(host);
-    if (prefix == null) return false;
-    return devicePrefixes.contains(prefix);
-  }
-
   bool _isCloudBaseUrl(String baseUrl, _BindingDiscoveryContext ctx) {
     if (ctx.filterByBinding && ctx.binding != null) {
       final bindingCloud =
@@ -819,11 +758,13 @@ class LocalServerDiscovery {
   bool _isVirtualBaseUrl(String baseUrl) {
     final host = _hostOf(baseUrl);
     if (host == null) return false;
-    return DiscoveryConstants.isLikelyVirtualHost(host);
+    return DiscoveryConstants.isLoopbackHost(host) &&
+        !(kIsWeb || ApiConfig.allowUsbLoopback);
   }
 
   Future<HealthInfo?> _probe(String baseUrl, Duration timeout) async {
     if (!ApiConfig.isValidBaseUrl(baseUrl)) return null;
+    if (_healthProbe != null) return _healthProbe(baseUrl, timeout);
     final host = _hostOf(baseUrl);
     if (host != null &&
         DiscoveryConstants.isLoopbackHost(host) &&
@@ -854,9 +795,11 @@ class LocalServerDiscovery {
     }
   }
 
-  Future<String?> _loadLast() async {
+  Future<String?> _loadLast(String schoolId) async {
+    if (_lastKnownLoader != null) return _lastKnownLoader(schoolId);
     final v = await SchoolScopedPreferences.getString(
       DiscoveryConstants.lastKnownPrefsKey,
+      schoolId: schoolId,
     );
     if (v == null || !ApiConfig.isValidBaseUrl(v)) return null;
     final normalized = ApiConfig.normalize(v);
@@ -866,49 +809,30 @@ class LocalServerDiscovery {
         '[Discovery] lastKnown loopback ignoré ($normalized) — '
         '127.0.0.1 = téléphone sur Android',
       );
-      await _clearLast();
       return null;
     }
     return normalized;
   }
 
-  Future<void> _saveLast(String baseUrl) async {
+  Future<void> _saveLast(String baseUrl, String schoolId) async {
+    if (_lastKnownSaver != null) return _lastKnownSaver(schoolId, baseUrl);
     final host = _hostOf(baseUrl);
     if (host != null && DiscoveryConstants.isLikelyVirtualHost(host)) return;
     await SchoolScopedPreferences.setString(
       DiscoveryConstants.lastKnownPrefsKey,
       ApiConfig.normalize(baseUrl),
+      schoolId: schoolId,
     );
-  }
-
-  Future<void> _clearLast() async {
-    await SchoolScopedPreferences.remove(DiscoveryConstants.lastKnownPrefsKey);
-  }
-
-  Future<_BindingDiscoveryContext> _loadBindingContext() async {
-    final filter = await SchoolBindingGate.shouldFilterDiscoveryByBinding();
-    if (!filter) {
-      return const _BindingDiscoveryContext(filterByBinding: false);
-    }
-    final binding = await SchoolBindingGate.bindingRepository.load();
-    if (binding == null || binding.schoolId.isEmpty) {
-      debugPrint(
-        '[Discovery] STRICT_SCHOOL_DISCOVERY sans binding valide → legacy',
-      );
-      return const _BindingDiscoveryContext(filterByBinding: false);
-    }
-    debugPrint(
-      '[Discovery] Mode filtré schoolId=${binding.schoolId} '
-      'cloud=${binding.cloudBaseUrl}',
-    );
-    return _BindingDiscoveryContext(filterByBinding: true, binding: binding);
   }
 
   Future<DiscoveryResult> _finalizeAccepted(
     DiscoveryResult result,
     _BindingDiscoveryContext ctx,
   ) async {
-    if (!ctx.filterByBinding || ctx.binding == null || result.health == null) {
+    if (result.isRemote ||
+        !ctx.filterByBinding ||
+        ctx.binding == null ||
+        result.health == null) {
       return result;
     }
 
@@ -928,6 +852,7 @@ class LocalServerDiscovery {
         mode: result.mode,
         source: result.source,
         baseUrl: result.baseUrl,
+        schoolId: ctx.binding?.schoolId,
         health: result.health,
         message: recovery.message ?? result.message,
         serverInstanceIdChanged: recovery.requiresReauthentication,
@@ -939,7 +864,7 @@ class LocalServerDiscovery {
     await ServerInstanceBindingSync.syncFromHealth(
       binding: ctx.binding!,
       health: result.health!,
-      repository: SchoolBindingGate.bindingRepository,
+      repository: _bindings,
     );
 
     return result;

@@ -30,7 +30,8 @@ class ConnectionProbe {
       return ConnectionSnapshot(
         mode: ConnectionMode.offline,
         hasInternet: false,
-        message: 'Erreur de détection : $e — Mode Cache si des données existent.',
+        message:
+            'Erreur de détection : $e — Mode Cache si des données existent.',
       );
     }
   }
@@ -41,6 +42,7 @@ class ConnectionProbe {
         return ConnectionSnapshot(
           mode: ConnectionMode.local,
           baseUrl: result.baseUrl,
+          schoolId: result.schoolId,
           message: result.message,
           hasInternet: true,
           requiresReauthentication: result.serverInstanceIdChanged,
@@ -49,6 +51,7 @@ class ConnectionProbe {
         return ConnectionSnapshot(
           mode: ConnectionMode.cloud,
           baseUrl: result.baseUrl,
+          schoolId: result.schoolId,
           message: result.message,
           hasInternet: true,
           requiresReauthentication: result.serverInstanceIdChanged,

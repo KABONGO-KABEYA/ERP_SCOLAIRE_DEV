@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import '../../core/api/api_error_message.dart';
 import '../../core/auth/auth_storage.dart';
+import '../../core/auth/permission_policy.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/erp_theme.dart';
 import '../../router/app_router.dart';
@@ -15,15 +16,19 @@ class PromoteurDashboardScreen extends ConsumerStatefulWidget {
   const PromoteurDashboardScreen({super.key});
 
   @override
-  ConsumerState<PromoteurDashboardScreen> createState() => _PromoteurDashboardScreenState();
+  ConsumerState<PromoteurDashboardScreen> createState() =>
+      _PromoteurDashboardScreenState();
 }
 
-class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScreen> {
+class _PromoteurDashboardScreenState
+    extends ConsumerState<PromoteurDashboardScreen> {
   PromoterDashboardOverview? _data;
   bool _loading = true;
   String? _error;
   String? _userName;
   bool _localeReady = false;
+  List<String> _permissions = [];
+  int? _personnelCount;
   String? _selectedFeeTypeId;
 
   @override
@@ -33,6 +38,9 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
   }
 
   Future<void> _bootstrap() async {
+    final permissions = await AuthStorage.permissions;
+    if (!mounted) return;
+    setState(() => _permissions = permissions);
     await initializeDateFormatting('fr_FR');
     if (!mounted) return;
     setState(() => _localeReady = true);
@@ -48,6 +56,9 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
       _error = null;
     });
     try {
+      final permissions = await AuthStorage.permissions;
+      if (!mounted) return;
+      setState(() => _permissions = permissions);
       final repo = ref.read(promoteurDashboardRepositoryProvider);
       if (force) repo.invalidateCache();
       final data = await repo.getOverview(
@@ -59,6 +70,13 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
         _data = data;
         _selectedFeeTypeId ??= data.selectedFeeTypeId;
       });
+      try {
+        final stats =
+            await ref.read(directionRepositoryProvider).getDashboard();
+        if (mounted) setState(() => _personnelCount = stats.totalTeachers);
+      } catch (_) {
+        // Keep the dashboard available if the secondary indicator is unavailable.
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = resolveDashboardErrorMessage(e));
@@ -93,7 +111,8 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
   }
 
   void _openExpenses(String scope, {String? category}) {
-    final q = category == null ? '' : '&category=${Uri.encodeComponent(category)}';
+    final q =
+        category == null ? '' : '&category=${Uri.encodeComponent(category)}';
     context.push('/promoteur/expenses?scope=$scope$q');
   }
 
@@ -136,7 +155,8 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                 color: ErpColors.primary,
                 onRefresh: () => _load(force: true),
                 child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics()),
                   slivers: [
                     SliverToBoxAdapter(
                       child: _Header(
@@ -157,7 +177,9 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                               color: ErpColors.danger.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(_error!, style: const TextStyle(color: ErpColors.danger, fontSize: 12)),
+                            child: Text(_error!,
+                                style: const TextStyle(
+                                    color: ErpColors.danger, fontSize: 12)),
                           ),
                         ),
                       ),
@@ -169,33 +191,51 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               PilotCard(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.payments_outlined, size: 18, color: ErpColors.primary),
+                                    const Icon(Icons.payments_outlined,
+                                        size: 18, color: ErpColors.primary),
                                     const SizedBox(width: 8),
                                     const Text(
                                       'Frais suivi',
-                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: ErpColors.navy),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                          color: ErpColors.navy),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
                                           isExpanded: true,
-                                          value: data.availableFeeTypes.any((f) => f.id == (_selectedFeeTypeId ?? data.selectedFeeTypeId))
-                                              ? (_selectedFeeTypeId ?? data.selectedFeeTypeId)
-                                              : (data.availableFeeTypes.isEmpty ? null : data.availableFeeTypes.first.id),
-                                          hint: Text(data.selectedFeeTypeName, overflow: TextOverflow.ellipsis),
+                                          value: data.availableFeeTypes.any((f) =>
+                                                  f.id ==
+                                                  (_selectedFeeTypeId ??
+                                                      data.selectedFeeTypeId))
+                                              ? (_selectedFeeTypeId ??
+                                                  data.selectedFeeTypeId)
+                                              : (data.availableFeeTypes.isEmpty
+                                                  ? null
+                                                  : data.availableFeeTypes.first
+                                                      .id),
+                                          hint: Text(data.selectedFeeTypeName,
+                                              overflow: TextOverflow.ellipsis),
                                           items: data.availableFeeTypes
                                               .map(
                                                 (f) => DropdownMenuItem(
                                                   value: f.id,
-                                                  child: Text('${f.name} (${f.currency})', overflow: TextOverflow.ellipsis),
+                                                  child: Text(
+                                                      '${f.name} (${f.currency})',
+                                                      overflow: TextOverflow
+                                                          .ellipsis),
                                                 ),
                                               )
                                               .toList(),
-                                          onChanged: _loading ? null : _onFeeTypeChanged,
+                                          onChanged: _loading
+                                              ? null
+                                              : _onFeeTypeChanged,
                                         ),
                                       ),
                                     ),
@@ -203,7 +243,8 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const PilotSectionTitle('Indicateurs principaux', subtitle: 'Touchez une carte pour le détail'),
+                              const PilotSectionTitle('Indicateurs principaux',
+                                  subtitle: 'Touchez une carte pour le détail'),
                               Row(
                                 children: [
                                   Expanded(
@@ -212,8 +253,10 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                       label: data.kpis.todayRevenue.label,
                                       amount: data.kpis.todayRevenue.amount,
                                       currency: currency,
-                                      changePercent: data.kpis.todayRevenue.changePercent,
-                                      comparisonLabel: data.kpis.todayRevenue.comparisonLabel,
+                                      changePercent:
+                                          data.kpis.todayRevenue.changePercent,
+                                      comparisonLabel: data
+                                          .kpis.todayRevenue.comparisonLabel,
                                       accent: ErpColors.primary,
                                       onTap: () => _openPayments('Today'),
                                     ),
@@ -225,8 +268,10 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                       label: data.kpis.monthRevenue.label,
                                       amount: data.kpis.monthRevenue.amount,
                                       currency: currency,
-                                      changePercent: data.kpis.monthRevenue.changePercent,
-                                      comparisonLabel: data.kpis.monthRevenue.comparisonLabel,
+                                      changePercent:
+                                          data.kpis.monthRevenue.changePercent,
+                                      comparisonLabel: data
+                                          .kpis.monthRevenue.comparisonLabel,
                                       accent: const Color(0xFF06B6D4),
                                       onTap: () => _openRevenueDetail('Month'),
                                     ),
@@ -242,8 +287,10 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                       label: data.kpis.yearRevenue.label,
                                       amount: data.kpis.yearRevenue.amount,
                                       currency: currency,
-                                      changePercent: data.kpis.yearRevenue.changePercent,
-                                      comparisonLabel: data.kpis.yearRevenue.comparisonLabel,
+                                      changePercent:
+                                          data.kpis.yearRevenue.changePercent,
+                                      comparisonLabel:
+                                          data.kpis.yearRevenue.comparisonLabel,
                                       accent: ErpColors.success,
                                       onTap: () => _openRevenueDetail('Year'),
                                     ),
@@ -256,6 +303,39 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 10),
+                              PilotCard(
+                                onTap: () {
+                                  if (PermissionPolicy.canViewPersonnel(
+                                      _permissions)) {
+                                    context.push('/admin/personnel');
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Reconnectez-vous pour actualiser vos droits d’accès au personnel.')),
+                                    );
+                                  }
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.badge_outlined,
+                                        color: ErpColors.success),
+                                    const SizedBox(height: 10),
+                                    const Text('Personnel',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: ErpColors.textSecondary,
+                                            fontWeight: FontWeight.w600)),
+                                    Text(_personnelCount?.toString() ?? '—',
+                                        style: const TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w700,
+                                            color: ErpColors.navy)),
+                                  ],
+                                ),
                               ),
                               const PilotSectionTitle('Évolution des recettes'),
                               RevenueLineChartCard(
@@ -275,11 +355,13 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                                 expenses: data.expenses,
                                 currency: currency,
                                 onOpenScope: _openExpenses,
-                                onCategoryTap: (c) => _openExpenses('Year', category: c.name),
+                                onCategoryTap: (c) =>
+                                    _openExpenses('Year', category: c.name),
                               ),
                               const PilotSectionTitle(
                                 'Répartition des recettes',
-                                subtitle: 'Comptes liés au frais suivi — J-1, J et dépenses',
+                                subtitle:
+                                    'Comptes liés au frais suivi — J-1, J et dépenses',
                               ),
                               FundAllocationList(
                                 funds: data.fundAllocations,
@@ -289,18 +371,25 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                               if (data.withholdings.isNotEmpty) ...[
                                 const PilotSectionTitle(
                                   'Retenues',
-                                  subtitle: 'Retenues appliquées sur le frais suivi',
+                                  subtitle:
+                                      'Retenues appliquées sur le frais suivi',
                                 ),
-                                WithholdingsList(items: data.withholdings, currency: currency),
+                                WithholdingsList(
+                                    items: data.withholdings,
+                                    currency: currency),
                               ],
                               const PilotSectionTitle(
                                 'Situation financière',
-                                subtitle: 'Recettes du frais suivi − dépenses de l’année scolaire',
+                                subtitle:
+                                    'Recettes du frais suivi − dépenses de l’année scolaire',
                               ),
-                              SituationHeroCard(situation: data.situation, currency: currency),
+                              SituationHeroCard(
+                                  situation: data.situation,
+                                  currency: currency),
                               const PilotSectionTitle(
                                 'Créances',
-                                subtitle: 'À percevoir / Débiteurs = échéances dépassées · En ordre / Recouvrement = année',
+                                subtitle:
+                                    'À percevoir / Débiteurs = échéances dépassées · En ordre / Recouvrement = année',
                               ),
                               ReceivablesGrid(
                                 receivables: data.receivables,
@@ -318,6 +407,34 @@ class _PromoteurDashboardScreenState extends ConsumerState<PromoteurDashboardScr
                         ),
                       ),
                     ],
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const PilotSectionTitle('Module financier',
+                                subtitle: 'Consultation et pilotage'),
+                            if (PermissionPolicy.canViewFinancialReports(
+                                _permissions)) ...[
+                              _ModuleTile(
+                                icon: Icons.analytics_outlined,
+                                title: 'Rapports financiers',
+                                subtitle: 'Recettes, répartitions et retenues',
+                                route: '/admin/financial-reports',
+                              ),
+                              _ModuleTile(
+                                icon: Icons.account_balance_wallet_outlined,
+                                title: 'Situation des paiements',
+                                subtitle:
+                                    'État des soldes par section et classe',
+                                route: '/admin/payment-situations',
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -361,7 +478,9 @@ class _HeaderState extends State<_Header> {
     final logoUrl = widget.schoolLogoUrl;
     final fullLogoUrl = (logoUrl == null || logoUrl.isEmpty)
         ? null
-        : (logoUrl.startsWith('http') ? logoUrl : '${widget.apiBaseUrl.replaceAll(RegExp(r'/$'), '')}$logoUrl');
+        : (logoUrl.startsWith('http')
+            ? logoUrl
+            : '${widget.apiBaseUrl.replaceAll(RegExp(r'/$'), '')}$logoUrl');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -376,10 +495,12 @@ class _HeaderState extends State<_Header> {
               child: fullLogoUrl == null || _token == null
                   ? Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [ErpColors.navy, ErpColors.primary]),
+                        gradient: const LinearGradient(
+                            colors: [ErpColors.navy, ErpColors.primary]),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+                      child: const Icon(Icons.school_rounded,
+                          color: Colors.white, size: 24),
                     )
                   : Image.network(
                       fullLogoUrl,
@@ -387,10 +508,12 @@ class _HeaderState extends State<_Header> {
                       headers: {'Authorization': 'Bearer $_token'},
                       errorBuilder: (_, __, ___) => Container(
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [ErpColors.navy, ErpColors.primary]),
+                          gradient: const LinearGradient(
+                              colors: [ErpColors.navy, ErpColors.primary]),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+                        child: const Icon(Icons.school_rounded,
+                            color: Colors.white, size: 24),
                       ),
                     ),
             ),
@@ -402,17 +525,22 @@ class _HeaderState extends State<_Header> {
               children: [
                 const Text(
                   'Centre de pilotage',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: ErpColors.navy),
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: ErpColors.navy),
                 ),
                 Text(
                   widget.schoolName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: ErpColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: ErpColors.textSecondary),
                 ),
                 Text(
                   'Bonjour, ${widget.userName}',
-                  style: const TextStyle(fontSize: 11, color: ErpColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 11, color: ErpColors.textSecondary),
                 ),
               ],
             ),
@@ -429,4 +557,41 @@ class _HeaderState extends State<_Header> {
       ),
     );
   }
+}
+
+class _ModuleTile extends StatelessWidget {
+  const _ModuleTile(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.route});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Icon(icon, color: ErpColors.primary),
+            title: Text(title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: ErpColors.navy)),
+            subtitle: Text(subtitle,
+                style: const TextStyle(
+                    color: ErpColors.textSecondary, fontSize: 12)),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: ErpColors.textSecondary),
+            onTap: () => context.push(route),
+          ),
+        ),
+      );
 }

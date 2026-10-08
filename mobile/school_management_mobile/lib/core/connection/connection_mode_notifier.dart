@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../local_server_discovery/discovery_constants.dart';
 import 'connection_mode.dart';
+import 'connection_context.dart';
+import '../local_server_discovery/local_server_discovery.dart';
 import 'connection_probe.dart';
 
 final connectionProbeProvider = Provider((ref) => ConnectionProbe());
@@ -18,6 +20,14 @@ final connectionModeProvider =
 /// Détection automatique : même Wi‑Fi → Local → Distant → Mode Cache.
 class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   ConnectionModeNotifier(this._probe) : super(ConnectionSnapshot.detecting) {
+    _schoolChanges = ConnectionContext.changes.listen((_) {
+      ++_generation;
+      _inFlight = null;
+      LocalServerDiscovery.instance.reset();
+      if (!mounted) return;
+      state = ConnectionSnapshot.detecting;
+      unawaited(refresh(silent: false, full: true));
+    });
     // Ne bloque pas le premier frame. `detecting` initial uniquement au bootstrap.
     unawaited(refresh(silent: false));
     _timer = Timer.periodic(
@@ -45,6 +55,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   Timer? _timer;
   Timer? _debounce;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  StreamSubscription<int>? _schoolChanges;
   int _generation = 0;
   Future<void>? _inFlight;
 
@@ -64,10 +75,12 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
       return _inFlight!;
     }
     final probeFull = full ?? !silent;
-    _inFlight = _refreshBody(silent: silent, full: probeFull).whenComplete(() {
-      _inFlight = null;
-    });
-    return _inFlight!;
+    final future = _refreshBody(silent: silent, full: probeFull);
+    _inFlight = future;
+    unawaited(future.whenComplete(() {
+      if (identical(_inFlight, future)) _inFlight = null;
+    }));
+    return future;
   }
 
   Future<void> _refreshBody({required bool silent, required bool full}) async {
@@ -82,17 +95,20 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
     }
 
     try {
+      await ConnectionActivity.instance.waitForIdle();
+      if (!mounted || gen != _generation) return;
       final next = await _probe
           .probe(full: full)
           .timeout(DiscoveryConstants.discoveryUiTimeout);
-      if (gen != _generation) return;
+      await ConnectionActivity.instance.waitForIdle();
+      if (!mounted || gen != _generation) return;
       if (_sameSnapshot(state, next)) return;
       state = next;
       debugPrint(
         '[Discovery] Mode UI=${next.mode.name} baseUrl=${next.baseUrl}',
       );
     } on TimeoutException {
-      if (gen != _generation) return;
+      if (!mounted || gen != _generation) return;
       // Ne pas écraser un mode online déjà usable par un timeout de rediscovery.
       if (_hasSettledMode && state.mode.isOnline) {
         debugPrint(
@@ -108,7 +124,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
       );
       debugPrint('[Discovery] refresh() UI timeout → offline');
     } catch (e) {
-      if (gen != _generation) return;
+      if (!mounted || gen != _generation) return;
       if (_hasSettledMode && state.mode.isOnline) {
         debugPrint(
           '[Discovery] refresh() erreur — conservation mode=${state.mode.name}: $e',
@@ -118,7 +134,8 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
       state = ConnectionSnapshot(
         mode: ConnectionMode.offline,
         hasInternet: false,
-        message: 'Erreur de détection : $e — Mode Cache si des données existent.',
+        message:
+            'Erreur de détection : $e — Mode Cache si des données existent.',
       );
     }
   }
@@ -126,6 +143,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
   static bool _sameSnapshot(ConnectionSnapshot a, ConnectionSnapshot b) =>
       a.mode == b.mode &&
       a.baseUrl == b.baseUrl &&
+      a.schoolId == b.schoolId &&
       a.hasInternet == b.hasInternet &&
       a.requiresReauthentication == b.requiresReauthentication;
 
@@ -134,6 +152,7 @@ class ConnectionModeNotifier extends StateNotifier<ConnectionSnapshot> {
     _timer?.cancel();
     _debounce?.cancel();
     _connectivitySub?.cancel();
+    _schoolChanges?.cancel();
     super.dispose();
   }
 }

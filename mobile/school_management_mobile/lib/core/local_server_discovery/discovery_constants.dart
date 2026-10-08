@@ -6,26 +6,27 @@ abstract final class DiscoveryConstants {
   static const int apiPort = 5096;
   static const String healthPath = '/api/health';
   static const String defaultRemoteBaseUrl = 'http://169.58.93.203:1804';
-  static const String lastKnownPrefsKey = 'local_server_discovery.last_base_url';
+  static const String lastKnownPrefsKey =
+      'local_server_discovery.last_base_url';
 
   /// Budget global d'une découverte complète (lastKnown → mDNS → scan → remote).
   /// Au-delà : abandon local et tentative cloud / offline.
-  static const Duration discoveryOverallTimeout = Duration(seconds: 8);
+  static const Duration discoveryOverallTimeout = Duration(seconds: 30);
 
   /// Timeout exposé à l'UI (`ConnectionModeNotifier`) — légèrement > overall.
-  static const Duration discoveryUiTimeout = Duration(seconds: 10);
+  static const Duration discoveryUiTimeout = Duration(seconds: 36);
 
   static const Duration mdnsTimeout = Duration(seconds: 3);
   static const Duration mdnsStartTimeout = Duration(seconds: 1);
-  static const Duration lastKnownTimeout = Duration(seconds: 1);
+  static const Duration lastKnownTimeout = Duration(seconds: 2);
 
   /// Durée max du scan subnet (indépendamment du nombre d'adresses).
-  static const Duration scanOverallTimeout = Duration(seconds: 3);
+  static const Duration scanOverallTimeout = Duration(seconds: 6);
   static const Duration scanProbeTimeout = Duration(milliseconds: 400);
-  static const int scanMaxParallelism = 12;
+  static const int scanMaxParallelism = 24;
 
   /// Plafond dur : jamais 254×N préfixes (évite ~1016 probes au démarrage).
-  static const int scanMaxAddresses = 48;
+  static const int scanMaxAddresses = 254;
 
   /// Nombre max de préfixes /24 scannés (Wi‑Fi école typiquement 1).
   static const int scanMaxPrefixes = 1;

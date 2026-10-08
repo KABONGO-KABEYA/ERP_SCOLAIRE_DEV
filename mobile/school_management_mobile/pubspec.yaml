@@ -1,7 +1,7 @@
 name: school_management_mobile
 description: Application mobile ERP Administration Scolaire RDC (Parents, Enseignants, Direction, Promoteur, Secrétariat).
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.4+5
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

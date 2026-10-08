@@ -23,12 +23,12 @@ abstract final class ServerInstanceBindingSync {
 
     if (!change.detected && storedEmpty) {
       final updated = copyWithInstance(binding, observed);
-      await repository.save(updated);
+      await repository.updateRegisteredBinding(updated);
       return (updated, const ServerInstanceChange.none());
     }
 
     final updated = copyWithInstance(binding, observed);
-    await repository.save(updated);
+    await repository.updateRegisteredBinding(updated);
     return (updated, change);
   }
 

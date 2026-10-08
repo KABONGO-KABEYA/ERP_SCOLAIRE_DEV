@@ -7,11 +7,11 @@ abstract final class BindingMigrationConfig {
     defaultValue: true,
   );
 
-  /// Discovery filtrée par binding — étape 4 ; défaut false (legacy).
+  /// Discovery filtrée par binding — étape 4 ; défaut true (isolation des établissements).
   /// Activer en build : `--dart-define=STRICT_SCHOOL_DISCOVERY=true`.
   static const bool strictSchoolDiscovery = bool.fromEnvironment(
     'STRICT_SCHOOL_DISCOVERY',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// Date ISO8601 UTC de fin de migration (prioritaire sur [jwtBindingMigrationDays]).

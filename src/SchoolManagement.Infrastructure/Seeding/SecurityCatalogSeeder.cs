@@ -986,6 +986,9 @@ public sealed class SecurityCatalogSeeder
 
             await AssignRolePermissionsAsync(schoolId, "PROMOTEUR",
             [
+                Permissions.PersonnelRead,
+                Permissions.RevenueAllocationRead,
+                Permissions.WithholdingsRead,
                 Permissions.SchoolsRead,
                 Permissions.StudentsRead,
                 Permissions.GradesRead, Permissions.GradesPublish, Permissions.GradesUnpublish,

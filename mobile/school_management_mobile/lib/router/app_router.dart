@@ -131,34 +131,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return MobileRoleRouting.homeRouteFor(space);
         }
 
-        if (space == MobileSpace.daf) {
+        if (space == MobileSpace.daf || space == MobileSpace.promoteur) {
           final perms = await AuthStorage.permissions;
           final path = state.matchedLocation.split('?').first;
-          if (path.startsWith('/promoteur/payments') ||
-              path.startsWith('/promoteur/debtors') ||
-              path == '/promoteur/dashboard' ||
-              path == '/promoteur/students') {
-            return MobileRoleRouting.dafHome;
+          if (space == MobileSpace.daf &&
+              (path.startsWith('/promoteur/payments') ||
+                  path.startsWith('/promoteur/debtors') ||
+                  path == '/promoteur/dashboard' ||
+                  path == '/promoteur/students')) {
+            return MobileRoleRouting.homeRouteFor(space);
           }
           if (path.startsWith('/admin/financial-reports') &&
               !PermissionPolicy.canViewFinancialReports(perms)) {
-            return MobileRoleRouting.dafHome;
+            return MobileRoleRouting.homeRouteFor(space);
           }
           if (path.startsWith('/admin/payment-situations') &&
               !PermissionPolicy.canViewFinancialReports(perms)) {
-            return MobileRoleRouting.dafHome;
+            return MobileRoleRouting.homeRouteFor(space);
           }
           if (path.startsWith('/admin/personnel') &&
               !PermissionPolicy.canViewPersonnel(perms)) {
-            return MobileRoleRouting.dafHome;
+            return MobileRoleRouting.homeRouteFor(space);
           }
           if (path.startsWith('/admin/pricing-categories') &&
               !PermissionPolicy.canAssignPricingCategories(perms)) {
-            return MobileRoleRouting.dafHome;
+            return MobileRoleRouting.homeRouteFor(space);
           }
           if (path.startsWith('/admin/expenses') &&
               !PermissionPolicy.canViewExpenses(perms)) {
-            return MobileRoleRouting.dafHome;
+            return MobileRoleRouting.homeRouteFor(space);
           }
         }
 
@@ -184,8 +185,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/establish',
         builder: (context, state) {
           final token = state.uri.queryParameters['token'];
-          final setActive =
-              state.uri.queryParameters['setActive'] != 'false';
+          final setActive = state.uri.queryParameters['setActive'] != 'false';
           return EstablishmentGateScreen(
             initialToken: token,
             setAsActive: setActive,
@@ -305,10 +305,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/parent/change-password',
         builder: (_, __) => const ParentChangePasswordScreen(),
       ),
-      GoRoute(path: '/direction/dashboard', builder: (_, __) => const DirectionDashboardScreen()),
-      GoRoute(path: '/promoteur/dashboard', builder: (_, __) => const PromoteurDashboardScreen()),
-      GoRoute(path: '/admin/dashboard', builder: (_, __) => const AdminDashboardScreen()),
-      GoRoute(path: '/admin/students', builder: (_, __) => const EnrolledStudentsAnalyticsScreen()),
+      GoRoute(
+          path: '/direction/dashboard',
+          builder: (_, __) => const DirectionDashboardScreen()),
+      GoRoute(
+          path: '/promoteur/dashboard',
+          builder: (_, __) => const PromoteurDashboardScreen()),
+      GoRoute(
+          path: '/admin/dashboard',
+          builder: (_, __) => const AdminDashboardScreen()),
+      GoRoute(
+          path: '/admin/students',
+          builder: (_, __) => const EnrolledStudentsAnalyticsScreen()),
       GoRoute(
         path: '/admin/students/:studentId/consultation',
         builder: (context, state) => DafStudentConsultationScreen(
@@ -342,7 +350,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/admin/presence',
         builder: (_, __) => const AdminModulePlaceholderScreen(
           title: 'Présence des élèves',
-          message: 'Le module de présence des élèves sera disponible prochainement. La navigation est déjà préparée.',
+          message:
+              'Le module de présence des élèves sera disponible prochainement. La navigation est déjà préparée.',
         ),
       ),
       GoRoute(
@@ -398,24 +407,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           name: state.uri.queryParameters['name'] ?? 'Compte',
         ),
       ),
-      GoRoute(path: '/promoteur/students', builder: (_, __) => const PromoteurStudentsDetailScreen()),
+      GoRoute(
+          path: '/promoteur/students',
+          builder: (_, __) => const PromoteurStudentsDetailScreen()),
       GoRoute(
         path: '/promoteur/students/:studentId/consultation',
         builder: (context, state) => DafStudentConsultationScreen(
           studentId: state.pathParameters['studentId']!,
         ),
       ),
-      GoRoute(path: '/secretary/home', builder: (_, __) => const SecretaryHomeScreen()),
+      GoRoute(
+          path: '/secretary/home',
+          builder: (_, __) => const SecretaryHomeScreen()),
       GoRoute(
         path: MobileRoleRouting.controllerHome,
         builder: (_, __) => const ControllerHomeScreen(),
       ),
-      GoRoute(path: '/secretary/account', builder: (_, __) => const SecretaryAccountScreen()),
+      GoRoute(
+          path: '/secretary/account',
+          builder: (_, __) => const SecretaryAccountScreen()),
       GoRoute(
         path: '/secretary/account/change-password',
         builder: (_, __) => const SecretaryChangePasswordScreen(),
       ),
-      GoRoute(path: '/secretary/account/about', builder: (_, __) => const SecretaryAboutScreen()),
+      GoRoute(
+          path: '/secretary/account/about',
+          builder: (_, __) => const SecretaryAboutScreen()),
       GoRoute(
         path: '/secretary/students',
         builder: (_, __) => const SecretaryStudentSearchScreen(),
@@ -432,7 +449,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           isReinscription: state.uri.queryParameters['mode'] == 're',
         ),
       ),
-      GoRoute(path: '/teacher/assignments', builder: (_, __) => const TeacherAssignmentsScreen()),
+      GoRoute(
+          path: '/teacher/assignments',
+          builder: (_, __) => const TeacherAssignmentsScreen()),
       GoRoute(
         path: '/teacher/classes/:classRoomId/courses',
         builder: (context, state) => TeacherClassCoursesScreen(
@@ -449,7 +468,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           academicYearId: state.uri.queryParameters['yearId'] ?? '',
           courseName: state.uri.queryParameters['courseName'] ?? 'Cours',
           className: state.uri.queryParameters['className'] ?? 'Classe',
-          maxScore: int.tryParse(state.uri.queryParameters['maxScore'] ?? '20') ?? 20,
+          maxScore:
+              int.tryParse(state.uri.queryParameters['maxScore'] ?? '20') ?? 20,
         ),
       ),
       GoRoute(
@@ -457,7 +477,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => TeacherGradeEntryScreen(
           evaluationId: state.pathParameters['evaluationId']!,
           title: state.uri.queryParameters['title'] ?? 'Notes',
-          maxScore: int.tryParse(state.uri.queryParameters['max'] ?? '20') ?? 20,
+          maxScore:
+              int.tryParse(state.uri.queryParameters['max'] ?? '20') ?? 20,
           classRoomId: state.uri.queryParameters['classRoomId'] ?? '',
           isOpen: state.uri.queryParameters['open'] != 'false',
         ),

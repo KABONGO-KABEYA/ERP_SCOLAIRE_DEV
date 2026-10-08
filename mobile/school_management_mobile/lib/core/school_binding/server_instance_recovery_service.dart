@@ -8,7 +8,6 @@ import '../../features/parent/notifications/parent_push_lifecycle.dart';
 import '../../features/parent/offline/parent_offline_cache.dart';
 import 'school_binding.dart';
 import 'school_binding_gate.dart';
-import 'school_binding_repository.dart';
 import 'server_instance_binding_sync.dart';
 
 /// Récupération §4.10 : purge offline, déconnexion, binding instance à jour.
@@ -65,7 +64,7 @@ abstract final class ServerInstanceRecoveryService {
         binding,
         observed,
       );
-      await SchoolBindingGate.bindingRepository.save(updated);
+      await SchoolBindingGate.bindingRepository.updateRegisteredBinding(updated);
     }
 
     await ParentOfflineCache.ensureActivePartition();

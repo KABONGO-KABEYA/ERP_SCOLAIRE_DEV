@@ -28,8 +28,8 @@ void main() {
       SchoolBindingGate.bindingRepository = SchoolBindingRepository();
     });
 
-    test('shouldFilterDiscoveryByBinding false when STRICT off', () async {
-      expect(BindingMigrationConfig.strictSchoolDiscovery, isFalse);
+    test('active school always requires identity filtering', () async {
+      expect(BindingMigrationConfig.strictSchoolDiscovery, isTrue);
       SchoolBindingGate.bindingRepository = _MemoryBindingRepository(
         SchoolBinding(
           schoolId: '33333333-3333-3333-3333-333333333333',
@@ -43,7 +43,7 @@ void main() {
           protocolVersion: 2,
         ),
       );
-      expect(await SchoolBindingGate.shouldFilterDiscoveryByBinding(), isFalse);
+      expect(await SchoolBindingGate.shouldFilterDiscoveryByBinding(), isTrue);
     });
 
     test('shouldRequireEstablishmentQr when registry empty', () async {
